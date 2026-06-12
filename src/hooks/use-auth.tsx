@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import type { AuthError, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
 interface AuthContextValue {
   session: Session | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
 }
 
@@ -31,11 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error: error ? error.message : null }
+    return { error }
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    // scope: 'local' clears the session without a server round-trip, so
+    // sign-out still works on flaky connections
+    await supabase.auth.signOut({ scope: 'local' })
   }
 
   return (

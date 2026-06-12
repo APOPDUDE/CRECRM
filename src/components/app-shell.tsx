@@ -61,9 +61,9 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function SidebarBrand() {
+function SidebarBrand({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <Link to="/" className="flex items-center gap-2 px-4 py-4">
+    <Link to="/" onClick={onNavigate} className="flex items-center gap-2 px-4 py-4">
       <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
         <Building2 className="size-4" />
       </div>
@@ -115,7 +115,7 @@ export function AppShell() {
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation</SheetTitle>
               </SheetHeader>
-              <SidebarBrand />
+              <SidebarBrand onNavigate={() => setMobileNavOpen(false)} />
               <Separator />
               <div className="py-3">
                 <NavLinks onNavigate={() => setMobileNavOpen(false)} />

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
+import { isAuthApiError } from '@supabase/supabase-js'
 import { Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,7 +27,11 @@ export function LoginPage() {
     const { error: signInError } = await signIn(email, password)
     setSubmitting(false)
     if (signInError) {
-      setError('Invalid email or password')
+      setError(
+        isAuthApiError(signInError) && signInError.status === 400
+          ? 'Invalid email or password'
+          : 'Sign-in failed — check your connection and try again',
+      )
     }
   }
 
