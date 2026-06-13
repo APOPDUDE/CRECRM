@@ -10,6 +10,7 @@ import { ExecutedMatchDialog } from '@/components/executed-match-dialog'
 import type { ExecutedResult } from '@/components/executed-match-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { MatchCard } from '@/components/match-card'
+import { FileSection } from '@/components/files/file-section'
 import { ListErrorState } from '@/components/list-error-state'
 import { MatchSlideOver } from '@/components/match-slide-over'
 import { NotesLog } from '@/components/notes-log'
@@ -257,6 +258,11 @@ export function PropertyBoardPage() {
               </p>
             </SidebarSection>
           )}
+
+          <Separator />
+          <SidebarSection title="Files">
+            <FileSection entityType="listing" entityId={listing.id} defaultCategory="listing_agreement" />
+          </SidebarSection>
 
           <Separator />
           <SidebarSection title="Notes">

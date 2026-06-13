@@ -11,6 +11,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ExecutedChecklist } from '@/components/files/executed-checklist'
+import { FileSection } from '@/components/files/file-section'
 import { NotesLog } from '@/components/notes-log'
 import { SourceBadge } from '@/components/source-badge'
 import { contactNameOf } from '@/hooks/use-contacts'
@@ -155,9 +157,12 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
               </TabsContent>
 
               <TabsContent value="files" className="min-h-0 flex-1 overflow-y-auto p-4">
-                <p className="text-sm text-muted-foreground">
-                  File uploads and the executed-document checklist arrive in Phase 6.
-                </p>
+                <div className="space-y-3">
+                  {match.stage === 'executed' && (
+                    <ExecutedChecklist matchId={match.id} dealType={match.listing?.deal_type ?? null} />
+                  )}
+                  <FileSection entityType="match" entityId={match.id} />
+                </div>
               </TabsContent>
 
               <TabsContent value="notes" className="min-h-0 flex-1 overflow-y-auto p-4">

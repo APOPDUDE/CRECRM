@@ -12,6 +12,7 @@ import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { ListErrorState } from '@/components/list-error-state'
 import { MatchCard } from '@/components/match-card'
 import { MatchSlideOver } from '@/components/match-slide-over'
+import { FileSection } from '@/components/files/file-section'
 import { NotesLog } from '@/components/notes-log'
 import { SourceBadge } from '@/components/source-badge'
 import { TenantRequirements } from '@/components/tenant-requirements'
@@ -233,6 +234,11 @@ export function TenantBoardPage() {
               </div>
             </SidebarSection>
           )}
+
+          <Separator />
+          <SidebarSection title="Files">
+            <FileSection entityType="tenant_rep" entityId={tenantRep.id} defaultCategory="rep_agreement" />
+          </SidebarSection>
 
           <Separator />
           <SidebarSection title="Notes">
