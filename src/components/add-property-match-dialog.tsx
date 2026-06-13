@@ -66,11 +66,13 @@ export function AddPropertyMatchDialog({
     // If this property is one of my active listings, link it so the match
     // becomes dual-sided and the card shows the "My listing" badge.
     let listingId: string | null = null
+    // link to the most recent active listing on this property (deterministic if several)
     const { data: listings } = await supabase
       .from('listings')
       .select('id')
       .eq('property_id', propertyId)
       .eq('status', 'active')
+      .order('created_at', { ascending: false })
       .limit(1)
     if (listings && listings.length > 0) listingId = listings[0].id
 

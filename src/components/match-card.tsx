@@ -55,7 +55,11 @@ export function MatchCard({ match, facing, onOpen }: MatchCardProps) {
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <SourceBadge source={match.source} brokerName={brokerName} />
-        {days && <span className="text-xs text-muted-foreground">{days} ago</span>}
+        {days && (
+          <span className="text-xs text-muted-foreground">
+            {days === 'today' ? 'today' : `${days} ago`}
+          </span>
+        )}
       </div>
     </div>
   )

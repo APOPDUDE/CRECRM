@@ -10,6 +10,7 @@ import { ExecutedMatchDialog } from '@/components/executed-match-dialog'
 import type { ExecutedResult } from '@/components/executed-match-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { MatchCard } from '@/components/match-card'
+import { ListErrorState } from '@/components/list-error-state'
 import { MatchSlideOver } from '@/components/match-slide-over'
 import { NotesLog } from '@/components/notes-log'
 import { TourDateDialog } from '@/components/tour-date-dialog'
@@ -43,7 +44,8 @@ export function PropertyBoardPage() {
   const { listingId } = useParams()
   const navigate = useNavigate()
   const { data: listing, isLoading, isError } = useListingDetail(listingId)
-  const { data: matches = [] } = useListingMatches(listingId)
+  const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
+    useListingMatches(listingId)
   const updateStage = useUpdateMatchStage(listingMatchesKey(listingId ?? ''))
   const updateListing = useUpdateListing()
   const updateTenantRep = useUpdateTenantRep()
@@ -125,33 +127,38 @@ export function PropertyBoardPage() {
     )
   }
 
-  const confirmExecuted = (result: ExecutedResult) => {
+  // Await every write so the success toast only fires once the linked records are
+  // actually synced; a partial failure surfaces an error instead of a false success.
+  const confirmExecuted = async (result: ExecutedResult) => {
     if (!executedMove) return
     const match = executedMove.match
-    updateStage.mutate(
-      { id: match.id, stage: 'executed', patch: { execution_date: result.executionDate } },
-      {
-        onSuccess: () => {
-          if (result.markListingClosed) {
-            updateListing.mutate({
-              id: listing.id,
-              stage: 'closed',
-              ...(result.actualFee != null ? { actual_fee: result.actualFee } : {}),
-            })
-          }
-          if (result.moveTenantExecuted && match.tenant_rep_id) {
-            updateTenantRep.mutate({
-              id: match.tenant_rep_id,
-              stage: 'executed',
-              ...(result.actualFee != null ? { actual_fee: result.actualFee } : {}),
-            })
-          }
-          toast.success('Deal executed')
-          setExecutedMove(null)
-        },
-        onError: () => toast.error('Could not mark executed'),
-      },
-    )
+    const fee = result.actualFee
+    try {
+      await updateStage.mutateAsync({
+        id: match.id,
+        stage: 'executed',
+        patch: { execution_date: result.executionDate },
+      })
+      // record the fee on the listing (board context) and close it if asked
+      const listingPatch = {
+        ...(result.markListingClosed ? { stage: 'closed' as const } : {}),
+        ...(fee != null ? { actual_fee: fee } : {}),
+      }
+      if (Object.keys(listingPatch).length > 0) {
+        await updateListing.mutateAsync({ id: listing.id, ...listingPatch })
+      }
+      if (result.moveTenantExecuted && match.tenant_rep_id) {
+        await updateTenantRep.mutateAsync({
+          id: match.tenant_rep_id,
+          stage: 'executed',
+          ...(fee != null ? { actual_fee: fee } : {}),
+        })
+      }
+      toast.success('Deal executed')
+      setExecutedMove(null)
+    } catch {
+      toast.error('Could not fully sync the deal — some linked records may need a manual update')
+    }
   }
 
   return (
@@ -182,7 +189,9 @@ export function PropertyBoardPage() {
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1">
-          {matches.length === 0 ? (
+          {matchesError ? (
+            <ListErrorState message="Could not load prospects." onRetry={() => refetchMatches()} />
+          ) : matches.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
               <p className="text-sm text-muted-foreground">
                 No tenant inquiries yet — add a tenant to start moving prospects.
@@ -278,7 +287,7 @@ export function PropertyBoardPage() {
         onOpenChange={(open) => !open && setExecutedMove(null)}
         hasListing
         hasTenantRep={!!executedMove?.match.tenant_rep_id}
-        pending={updateStage.isPending}
+        pending={updateStage.isPending || updateListing.isPending || updateTenantRep.isPending}
         onConfirm={confirmExecuted}
       />
     </div>

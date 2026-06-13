@@ -9,6 +9,7 @@ import { AddPropertyMatchDialog } from '@/components/add-property-match-dialog'
 import { ExecutedMatchDialog } from '@/components/executed-match-dialog'
 import type { ExecutedResult } from '@/components/executed-match-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
+import { ListErrorState } from '@/components/list-error-state'
 import { MatchCard } from '@/components/match-card'
 import { MatchSlideOver } from '@/components/match-slide-over'
 import { NotesLog } from '@/components/notes-log'
@@ -49,7 +50,8 @@ export function TenantBoardPage() {
   const { tenantRepId } = useParams()
   const navigate = useNavigate()
   const { data: tenantRep, isLoading, isError } = useTenantRepDetail(tenantRepId)
-  const { data: matches = [] } = useTenantRepMatches(tenantRepId)
+  const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
+    useTenantRepMatches(tenantRepId)
   const updateStage = useUpdateMatchStage(tenantRepMatchesKey(tenantRepId ?? ''))
   const updateListing = useUpdateListing()
   const updateTenantRep = useUpdateTenantRep()
@@ -120,33 +122,37 @@ export function TenantBoardPage() {
     }
   }
 
-  const confirmExecuted = (result: ExecutedResult) => {
+  // Await every write so success only reports once linked records are synced.
+  const confirmExecuted = async (result: ExecutedResult) => {
     if (!executedMove) return
     const match = executedMove.match
-    updateStage.mutate(
-      { id: match.id, stage: 'executed', patch: { execution_date: result.executionDate } },
-      {
-        onSuccess: () => {
-          if (result.moveTenantExecuted) {
-            updateTenantRep.mutate({
-              id: tenantRep.id,
-              stage: 'executed',
-              ...(result.actualFee != null ? { actual_fee: result.actualFee } : {}),
-            })
-          }
-          if (result.markListingClosed && match.listing_id) {
-            updateListing.mutate({
-              id: match.listing_id,
-              stage: 'closed',
-              ...(result.actualFee != null ? { actual_fee: result.actualFee } : {}),
-            })
-          }
-          toast.success('Deal executed')
-          setExecutedMove(null)
-        },
-        onError: () => toast.error('Could not mark executed'),
-      },
-    )
+    const fee = result.actualFee
+    try {
+      await updateStage.mutateAsync({
+        id: match.id,
+        stage: 'executed',
+        patch: { execution_date: result.executionDate },
+      })
+      // record the fee on the tenant rep (board context) and bump it if asked
+      const tenantPatch = {
+        ...(result.moveTenantExecuted ? { stage: 'executed' as const } : {}),
+        ...(fee != null ? { actual_fee: fee } : {}),
+      }
+      if (Object.keys(tenantPatch).length > 0) {
+        await updateTenantRep.mutateAsync({ id: tenantRep.id, ...tenantPatch })
+      }
+      if (result.markListingClosed && match.listing_id) {
+        await updateListing.mutateAsync({
+          id: match.listing_id,
+          stage: 'closed',
+          ...(fee != null ? { actual_fee: fee } : {}),
+        })
+      }
+      toast.success('Deal executed')
+      setExecutedMove(null)
+    } catch {
+      toast.error('Could not fully sync the deal — some linked records may need a manual update')
+    }
   }
 
   return (
@@ -177,7 +183,9 @@ export function TenantBoardPage() {
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1">
-          {matches.length === 0 ? (
+          {matchesError ? (
+            <ListErrorState message="Could not load properties in play." onRetry={() => refetchMatches()} />
+          ) : matches.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
               <p className="text-sm text-muted-foreground">
                 No properties in play yet — add a property to start.
@@ -272,7 +280,7 @@ export function TenantBoardPage() {
         onOpenChange={(open) => !open && setExecutedMove(null)}
         hasTenantRep
         hasListing={!!executedMove?.match.listing_id}
-        pending={updateStage.isPending}
+        pending={updateStage.isPending || updateListing.isPending || updateTenantRep.isPending}
         onConfirm={confirmExecuted}
       />
     </div>

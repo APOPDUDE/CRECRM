@@ -68,7 +68,13 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
         {isLoading || !match ? (
-          <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+          <>
+            {/* Radix requires a title for every dialog/sheet, even while loading */}
+            <SheetHeader className="sr-only">
+              <SheetTitle>Match</SheetTitle>
+            </SheetHeader>
+            <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+          </>
         ) : (
           <>
             <SheetHeader className="border-b">
