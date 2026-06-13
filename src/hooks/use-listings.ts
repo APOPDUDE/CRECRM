@@ -31,6 +31,41 @@ export function useListings() {
   })
 }
 
+const LISTING_DETAIL_SELECT = `
+  *,
+  property:properties!listings_property_id_fkey(*),
+  landlord:companies!listings_landlord_company_id_fkey(id, name, phone),
+  landlord_contact:contacts!listings_landlord_contact_id_fkey(id, first_name, last_name, title, email, phone),
+  broker:contacts!listings_broker_contact_id_fkey(id, first_name, last_name)
+`
+
+export type ListingDetail = Tables<'listings'> & {
+  property: Tables<'properties'> | null
+  landlord: Pick<Tables<'companies'>, 'id' | 'name' | 'phone'> | null
+  landlord_contact: Pick<
+    Tables<'contacts'>,
+    'id' | 'first_name' | 'last_name' | 'title' | 'email' | 'phone'
+  > | null
+  broker: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
+}
+
+/** Single listing with full relations for the property-board sidebar. */
+export function useListingDetail(id: string | undefined) {
+  return useQuery({
+    queryKey: ['listing', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('listings')
+        .select(LISTING_DETAIL_SELECT)
+        .eq('id', id!)
+        .single()
+      if (error) throw error
+      return data as unknown as ListingDetail
+    },
+  })
+}
+
 export function useCreateListing() {
   const queryClient = useQueryClient()
   return useMutation({

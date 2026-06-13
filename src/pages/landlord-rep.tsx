@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Columns3, Plus, Table as TableIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,7 @@ type StatusFilter = 'active' | 'lost' | 'all'
 const stageLabels = Object.fromEntries(listingStages.map((s) => [s.value, s.label]))
 
 export function LandlordRepPage() {
+  const navigate = useNavigate()
   const { data: listings, isLoading, isError, refetch } = useListings()
   const updateStage = useUpdateListingStage()
   const markLost = useMarkListingLost()
@@ -182,7 +184,12 @@ export function LandlordRepPage() {
           getStage={(l) => l.stage}
           onMove={handleMove}
           renderCard={(l) => (
-            <ListingCard listing={l} onMarkLost={setLosing} onReopen={handleReopen} />
+            <ListingCard
+              listing={l}
+              onOpen={() => navigate(`/landlord-rep/${l.id}`)}
+              onMarkLost={setLosing}
+              onReopen={handleReopen}
+            />
           )}
         />
       ) : (

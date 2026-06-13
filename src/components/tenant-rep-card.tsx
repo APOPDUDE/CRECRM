@@ -16,6 +16,7 @@ import { isOverdue } from '@/lib/dates'
 
 interface TenantRepCardProps {
   tenantRep: TenantRepWithRelations
+  onOpen?: (tenantRep: TenantRepWithRelations) => void
   onMarkLost?: (tenantRep: TenantRepWithRelations) => void
   onReopen?: (tenantRep: TenantRepWithRelations) => void
 }
@@ -47,7 +48,7 @@ function tenantName(tenantRep: TenantRepWithRelations): string {
   return 'Untitled tenant'
 }
 
-export function TenantRepCard({ tenantRep, onMarkLost, onReopen }: TenantRepCardProps) {
+export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: TenantRepCardProps) {
   const inPlay = liveMatches(tenantRep.matches)
   const overdue = tenantRep.status === 'active' && isOverdue(tenantRep.next_action_date)
   const summary = sizeSummary(tenantRep)
@@ -56,7 +57,18 @@ export function TenantRepCard({ tenantRep, onMarkLost, onReopen }: TenantRepCard
     : null
 
   return (
-    <div className="cursor-grab rounded-lg border bg-card p-3 shadow-sm active:cursor-grabbing">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen?.(tenantRep)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen?.(tenantRep)
+        }
+      }}
+      className="cursor-grab rounded-lg border bg-card p-3 text-left shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
@@ -78,6 +90,7 @@ export function TenantRepCard({ tenantRep, onMarkLost, onReopen }: TenantRepCard
                 size="icon"
                 className="-mt-1 -mr-1 size-7 shrink-0"
                 onPointerDown={stopDrag}
+                onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="size-4" />
                 <span className="sr-only">Tenant actions</span>

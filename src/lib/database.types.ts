@@ -538,6 +538,13 @@ export type Database = {
         }
         Returns: Database["public"]["Tables"]["listings"]["Row"]
       }
+      promote_match_to_tenant_rep: {
+        Args: {
+          p_match_id: string
+          p_owner: string
+        }
+        Returns: Database["public"]["Tables"]["tenant_reps"]["Row"]
+      }
     }
     Enums: {
       company_type: "landlord" | "tenant" | "broker" | "other"

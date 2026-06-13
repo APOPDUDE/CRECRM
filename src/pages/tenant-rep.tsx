@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Columns3, Plus, Table as TableIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -48,6 +49,7 @@ function tenantName(t: TenantRepWithRelations): string {
 }
 
 export function TenantRepPage() {
+  const navigate = useNavigate()
   const { data: tenantReps, isLoading, isError, refetch } = useTenantReps()
   const updateStage = useUpdateTenantRepStage()
   const markLost = useMarkTenantRepLost()
@@ -180,7 +182,12 @@ export function TenantRepPage() {
           getStage={(t) => t.stage}
           onMove={handleMove}
           renderCard={(t) => (
-            <TenantRepCard tenantRep={t} onMarkLost={setLosing} onReopen={handleReopen} />
+            <TenantRepCard
+              tenantRep={t}
+              onOpen={() => navigate(`/tenant-rep/${t.id}`)}
+              onMarkLost={setLosing}
+              onReopen={handleReopen}
+            />
           )}
         />
       ) : (
