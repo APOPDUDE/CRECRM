@@ -4,6 +4,15 @@ import type { Enums, Tables } from '@/lib/database.types'
 
 export type Note = Tables<'notes'>
 type NoteEntity = Enums<'note_entity'>
+type NoteKind = Enums<'note_kind'>
+
+export const noteKindLabels: Record<NoteKind, string> = {
+  note: 'Note',
+  call: 'Call',
+  text: 'Text',
+  email: 'Email',
+  meeting: 'Meeting',
+}
 
 const notesKey = (entityType: NoteEntity, entityId: string) => ['notes', entityType, entityId]
 
@@ -31,14 +40,16 @@ export function useCreateNote() {
       entityType,
       entityId,
       body,
+      kind = 'note',
     }: {
       entityType: NoteEntity
       entityId: string
       body: string
+      kind?: NoteKind
     }) => {
       const { data, error } = await supabase
         .from('notes')
-        .insert({ entity_type: entityType, entity_id: entityId, body })
+        .insert({ entity_type: entityType, entity_id: entityId, body, kind })
         .select()
         .single()
       if (error) throw error

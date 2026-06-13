@@ -251,6 +251,7 @@ export type Database = {
           id: string
           inquiry_date: string
           lease_expiration: string | null
+          lease_renewal_date: string | null
           listing_id: string | null
           notes: string | null
           property_id: string
@@ -273,6 +274,7 @@ export type Database = {
           id?: string
           inquiry_date?: string
           lease_expiration?: string | null
+          lease_renewal_date?: string | null
           listing_id?: string | null
           notes?: string | null
           property_id: string
@@ -295,6 +297,7 @@ export type Database = {
           id?: string
           inquiry_date?: string
           lease_expiration?: string | null
+          lease_renewal_date?: string | null
           listing_id?: string | null
           notes?: string | null
           property_id?: string
@@ -355,26 +358,112 @@ export type Database = {
       notes: {
         Row: {
           body: string
+          contact_id: string | null
           created_at: string
           entity_id: string
           entity_type: Database["public"]["Enums"]["note_entity"]
           id: string
+          kind: Database["public"]["Enums"]["note_kind"]
         }
         Insert: {
           body: string
+          contact_id?: string | null
           created_at?: string
           entity_id: string
           entity_type: Database["public"]["Enums"]["note_entity"]
           id?: string
+          kind?: Database["public"]["Enums"]["note_kind"]
         }
         Update: {
           body?: string
+          contact_id?: string | null
           created_at?: string
           entity_id?: string
           entity_type?: Database["public"]["Enums"]["note_entity"]
           id?: string
+          kind?: Database["public"]["Enums"]["note_kind"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notes_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          auto_generated: boolean
+          completed_at: string | null
+          contact_id: string | null
+          created_at: string
+          details: string | null
+          due_date: string | null
+          entity_id: string | null
+          entity_type: Database["public"]["Enums"]["note_entity"] | null
+          id: string
+          kind: Database["public"]["Enums"]["task_kind"]
+          match_id: string | null
+          owner_id: string
+          source: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          auto_generated?: boolean
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          details?: string | null
+          due_date?: string | null
+          entity_id?: string | null
+          entity_type?: Database["public"]["Enums"]["note_entity"] | null
+          id?: string
+          kind?: Database["public"]["Enums"]["task_kind"]
+          match_id?: string | null
+          owner_id: string
+          source?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          auto_generated?: boolean
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          details?: string | null
+          due_date?: string | null
+          entity_id?: string | null
+          entity_type?: Database["public"]["Enums"]["note_entity"] | null
+          id?: string
+          kind?: Database["public"]["Enums"]["task_kind"]
+          match_id?: string | null
+          owner_id?: string
+          source?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       properties: {
         Row: {
@@ -612,6 +701,7 @@ export type Database = {
         | "executed"
         | "dead"
       note_entity: "listing" | "tenant_rep" | "match"
+      note_kind: "note" | "call" | "text" | "email" | "meeting"
       property_kind:
         | "industrial"
         | "office"
@@ -619,6 +709,8 @@ export type Database = {
         | "flex"
         | "land"
         | "other"
+      task_kind: "renewal" | "follow_up" | "general"
+      task_status: "open" | "done"
       tenant_rep_stage:
         | "lead"
         | "touring"
@@ -787,6 +879,7 @@ export const Constants = {
         "dead",
       ],
       note_entity: ["listing", "tenant_rep", "match"],
+      note_kind: ["note", "call", "text", "email", "meeting"],
       property_kind: [
         "industrial",
         "office",
@@ -795,6 +888,8 @@ export const Constants = {
         "land",
         "other",
       ],
+      task_kind: ["renewal", "follow_up", "general"],
+      task_status: ["open", "done"],
       tenant_rep_stage: [
         "lead",
         "touring",
