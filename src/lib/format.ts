@@ -1,0 +1,32 @@
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+})
+
+/** $18,500,000 */
+export function formatCurrency(value: number | null | undefined): string | null {
+  if (value == null) return null
+  return currencyFormatter.format(value)
+}
+
+/** $14.50 PSF */
+export function formatPsf(value: number | null | undefined): string | null {
+  if (value == null) return null
+  return `$${value.toFixed(2)} PSF`
+}
+
+/** 125,000 SF */
+export function formatSf(value: number | null | undefined): string | null {
+  if (value == null) return null
+  return `${value.toLocaleString('en-US')} SF`
+}
+
+/** Rate for a lease listing, price for a sale listing. */
+export function formatListingPrice(deal: {
+  deal_type: 'lease' | 'sale'
+  asking_rate_psf: number | null
+  asking_price: number | null
+}): string | null {
+  return deal.deal_type === 'sale' ? formatCurrency(deal.asking_price) : formatPsf(deal.asking_rate_psf)
+}
