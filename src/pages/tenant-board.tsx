@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -26,8 +26,10 @@ import {
 } from '@/hooks/use-matches'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail, useUpdateTenantRep } from '@/hooks/use-tenant-reps'
+import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-automation'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums } from '@/lib/database.types'
+import { automationEnabled } from '@/lib/n8n'
 import { mapTenantBoardColumn, matchStageLabels, tenantBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
@@ -51,11 +53,24 @@ export function TenantBoardPage() {
   const updateStage = useUpdateMatchStage(tenantRepMatchesKey(tenantRepId ?? ''))
   const updateListing = useUpdateListing()
   const updateTenantRep = useUpdateTenantRep()
+  const search = useSearchListingsForTenant()
+  const clearFlagged = useClearFlaggedNew()
 
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
+
+  // Viewing the board clears the "new match" flag (the red tag stays visible for
+  // this view; it's gone next time). Fire once per tenant rep.
+  const clearedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!tenantRepId || clearedFor.current === tenantRepId) return
+    if (matches.some((m) => m.flagged_new)) {
+      clearedFor.current = tenantRepId
+      clearFlagged.mutate(tenantRepId)
+    }
+  }, [tenantRepId, matches, clearFlagged])
 
   const title =
     tenantRep?.company?.name ??
@@ -151,6 +166,28 @@ export function TenantBoardPage() {
     }
   }
 
+  const handleFindListings = () => {
+    const toastId = toast.loading('Searching the market for matching listings…')
+    search.mutate(
+      { tenantRepId: tenantRep.id },
+      {
+        onSuccess: (res) => {
+          const found = res?.found ?? 0
+          toast.success(
+            found > 0
+              ? `Found ${found} listing${found === 1 ? '' : 's'} — see Inquiring`
+              : 'No new listings matched',
+            { id: toastId },
+          )
+        },
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : 'The market search failed', {
+            id: toastId,
+          }),
+      },
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -171,10 +208,18 @@ export function TenantBoardPage() {
             )}
           </div>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="size-4" />
-          Add property
-        </Button>
+        <div className="flex items-center gap-2">
+          {automationEnabled() && (
+            <Button variant="outline" onClick={handleFindListings} disabled={search.isPending}>
+              <Search className="size-4" />
+              {search.isPending ? 'Searching…' : 'Find listings'}
+            </Button>
+          )}
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="size-4" />
+            Add property
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">

@@ -102,3 +102,96 @@ extracts public broker contacts. One actor serves all three of our systems.
 3. **Supabase service-role key** added as an n8n credential so workflows can write back
    (service-role bypasses RLS — lives only in n8n, never the browser).
 4. Alert preference beyond the in-app red tag (email? — needs an email provider later).
+
+---
+
+# ✅ BUILT & VERIFIED (2026-06-13)
+
+All three workflows are live on `n8n.ayxco.com` (n8n **1.119.2**) and tested
+end-to-end against the live Supabase. The Apify actor `RnGNMcV3v8AThR3aA`
+(`kazkn/commercial-real-estate-brokerage-intel`) was validated for all three
+input modes first (startUrls / city+assetClasses / monitoringMode) before any
+n8n work.
+
+## Shared Postgres core — `import_scraped_listings(p_props, p_tenant_rep_id, p_flagged_new)`
+Migrations `20260613000009` (base) + `…0011` (asking lease comps). Each workflow
+maps Apify output → our column names (in a Code node) and calls this one RPC,
+which atomically:
+- upserts each property on the namespaced `source_listing_id` (e.g. `crexi:834014`,
+  `loopnet:40865556`) — idempotent via the partial unique index in `…0008`;
+- for every scraped **lease** listing (one with an asking `$/SF/yr`), upserts an
+  **asking lease comp** (`lease_comps.source='scrape'`, `asking_lease_rate_psf`),
+  deduped on the same `source_listing_id` (migration `…0010` / `…0011`). Sale
+  listings make no comp. Executed-deal fields stay null — they're manual-only,
+  enforced by the `lease_comps_executed_is_manual` CHECK;
+- if `p_tenant_rep_id` is set, creates a **deduped** match at stage `inquiring`
+  (skips if a match for that tenant+property already exists), with `flagged_new`.
+- returns `{ properties_upserted, matches_created, asking_comps_upserted, property_ids[], match_ids[] }`.
+
+PostgREST endpoint: `POST /rest/v1/rpc/import_scraped_listings`.
+
+## App wiring (automation-foundation branch)
+The CRM calls the webhooks from the browser via `src/lib/n8n.ts` +
+`src/hooks/use-automation.ts` (gated on `VITE_N8N_WEBHOOK_BASE`):
+- **Tenant board → Add property → "Paste a link"** → `cre-scrape-url` → property
+  lands as an `inquiring` match.
+- **Tenant board → "Find listings"** → `cre-search-tenant` → matches land in Inquiring.
+- `matches.flagged_new` shows a red **"New"** tag on cards; viewing the board clears it.
+- Webhook nodes set `options.allowedOrigins='*'` so the browser (Vercel + localhost) can call them.
+- **Vercel**: add `VITE_N8N_WEBHOOK_BASE=https://n8n.ayxco.com/webhook` env var for prod.
+
+## n8n credentials (encrypted in n8n, never in the browser/app)
+- **Supabase service role** — type `supabaseApi`, id `ZxJ5godenAx0UYK3`. Injects
+  `apikey` + `Authorization: Bearer` on HTTP Request nodes via
+  `authentication: predefinedCredentialType` / `nodeCredentialType: supabaseApi`.
+- **Apify Bearer** — type `httpHeaderAuth`, id `AEYAUiuyTtH4JCUX`
+  (`Authorization: Bearer apify_api_…`). Used on the Apify HTTP Request nodes so
+  the token isn't in the workflow JSON.
+
+## Node-version gotcha (important for future edits)
+The instance is n8n **1.119.2** — older than the n8n-MCP node DB. Activation fails
+("Cannot read properties of undefined (reading 'execute')") if you use the
+MCP-suggested *latest* typeVersions. Pin to instance-supported versions:
+`httpRequest 4.2`, `respondToWebhook 1.1`, `webhook 2.1`, `code 2`,
+`if 2`, `scheduleTrigger 1.2`. PostgREST GET with `Accept:
+application/vnd.pgrst.object+json` comes back as a **stringified** `{data:"…"}`
+in n8n — Code nodes must `JSON.parse` it (the workflows already do).
+
+## Workflow 1 — Scrape by URL (paste a link)
+- ID `O6zvbtDv7XpITcpE`. Webhook: `POST https://n8n.ayxco.com/webhook/cre-scrape-url`
+  body `{ "url": "<loopnet|crexi listing or search URL>", "tenant_rep_id": "<uuid?>" }`.
+- Flow: Webhook → Apify (`run-sync-get-dataset-items`, `startUrls`, details on) →
+  Code map → RPC → Respond. Single property URLs work (tested both LoopNet & Crexi).
+- Synchronous; ~15–70s. Returns `{ ok, scraped, result }`.
+
+## Workflow 2 — Requirement search (find listings for a tenant)
+- ID `ZhGuU8mu24K5bYCw`. Webhook: `POST https://n8n.ayxco.com/webhook/cre-search-tenant`
+  body `{ "tenant_rep_id": "<uuid>", city?, state?, assetClasses?, transactionTypes?,
+  priceMin?, priceMax?, sizeMin?, sizeMax?, maxResults? }`.
+- Flow: Webhook → fetch tenant_rep → **Build Apify input** (parses `target_area`
+  → city, default state FL; `property_type`→assetClasses; `warehouse_sf_min/max`→
+  buildingSize) → IF location resolved → Apify search → map → RPC → Respond.
+  No city resolvable ⇒ 422 `{ ok:false, error:'no_location' }` (pass city+state).
+- Verified: Medley/Doral tenant → "Medley, FL" → 8 properties + 8 matches.
+
+## Workflow 3 — Daily new-listing sweep (monitoring)
+- ID `BPqXq4dcETFGTlcg`. **Two triggers**: Schedule (daily 07:00 America/New_York)
+  **and** on-demand webhook `POST https://n8n.ayxco.com/webhook/cre-sweep-now`.
+- Flow: trigger → fetch **active** tenant_reps → **Resolve tenants** (parse area,
+  skip those with no city, one item per tenant) → Apify `monitoringMode` per
+  tenant → map (`flagged_new=true`) → RPC. monitoringMode emits everything on the
+  first run per criteria, then only unseen listings on later runs (the daily cron).
+- Cost note: one Apify run per active located tenant per day
+  (~$0.05 + $0.005/listing each). `maxResultsPerSource` capped at 5 in the sweep.
+
+## Known limitations / follow-ups
+- `tenant_reps` location is freeform `target_area`; the parser takes the first
+  token + defaults state FL. Adding a structured `city`/`state` (or `search_*`)
+  column would make #2/#3 fully reliable for tenants whose `target_area` isn't a
+  city name.
+- Scraped matches set `matches.source = null` (the `lead_source` enum has no
+  `crexi`/`scrape` value); platform provenance lives on the property
+  (`source='scrape'`, `source_url`, `listing_url`). Revisit if a scrape badge is wanted.
+- App-side wiring still TODO (separate chunk): regen `database.types.ts`, add the
+  `inquiring` column to the tenant board, the paste-link "Add property" mode, and
+  the red `flagged_new` card tag.

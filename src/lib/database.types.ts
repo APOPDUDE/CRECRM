@@ -97,6 +97,7 @@ export type Database = {
       files: {
         Row: {
           category: Database["public"]["Enums"]["file_category"]
+          contact_id: string | null
           entity_id: string
           entity_type: Database["public"]["Enums"]["note_entity"]
           file_name: string
@@ -108,6 +109,7 @@ export type Database = {
         }
         Insert: {
           category?: Database["public"]["Enums"]["file_category"]
+          contact_id?: string | null
           entity_id: string
           entity_type: Database["public"]["Enums"]["note_entity"]
           file_name: string
@@ -119,6 +121,7 @@ export type Database = {
         }
         Update: {
           category?: Database["public"]["Enums"]["file_category"]
+          contact_id?: string | null
           entity_id?: string
           entity_type?: Database["public"]["Enums"]["note_entity"]
           file_name?: string
@@ -128,7 +131,109 @@ export type Database = {
           storage_path?: string
           uploaded_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "files_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lease_comps: {
+        Row: {
+          asking_lease_rate_psf: number | null
+          commencement_date: string | null
+          created_at: string
+          escalations: string | null
+          executed_at: string | null
+          executed_lease_rate_psf: number | null
+          expiration_date: string | null
+          free_rent_months: number | null
+          id: string
+          lease_type: string | null
+          match_id: string | null
+          notes: string | null
+          owner_id: string | null
+          property_id: string
+          sf: number | null
+          source: string
+          source_listing_id: string | null
+          tenant_company_id: string | null
+          term_months: number | null
+          ti_psf: number | null
+          updated_at: string
+        }
+        Insert: {
+          asking_lease_rate_psf?: number | null
+          commencement_date?: string | null
+          created_at?: string
+          escalations?: string | null
+          executed_at?: string | null
+          executed_lease_rate_psf?: number | null
+          expiration_date?: string | null
+          free_rent_months?: number | null
+          id?: string
+          lease_type?: string | null
+          match_id?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          property_id: string
+          sf?: number | null
+          source?: string
+          source_listing_id?: string | null
+          tenant_company_id?: string | null
+          term_months?: number | null
+          ti_psf?: number | null
+          updated_at?: string
+        }
+        Update: {
+          asking_lease_rate_psf?: number | null
+          commencement_date?: string | null
+          created_at?: string
+          escalations?: string | null
+          executed_at?: string | null
+          executed_lease_rate_psf?: number | null
+          expiration_date?: string | null
+          free_rent_months?: number | null
+          id?: string
+          lease_type?: string | null
+          match_id?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          property_id?: string
+          sf?: number | null
+          source?: string
+          source_listing_id?: string | null
+          tenant_company_id?: string | null
+          term_months?: number | null
+          ti_psf?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_comps_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_comps_tenant_company_id_fkey"
+            columns: ["tenant_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       listings: {
         Row: {
@@ -248,6 +353,7 @@ export type Database = {
           created_at: string
           dd_expiration_date: string | null
           execution_date: string | null
+          flagged_new: boolean
           id: string
           inquiry_date: string
           lease_expiration: string | null
@@ -271,6 +377,7 @@ export type Database = {
           created_at?: string
           dd_expiration_date?: string | null
           execution_date?: string | null
+          flagged_new?: boolean
           id?: string
           inquiry_date?: string
           lease_expiration?: string | null
@@ -294,6 +401,7 @@ export type Database = {
           created_at?: string
           dd_expiration_date?: string | null
           execution_date?: string | null
+          flagged_new?: boolean
           id?: string
           inquiry_date?: string
           lease_expiration?: string | null
@@ -393,6 +501,93 @@ export type Database = {
           },
         ]
       }
+      properties: {
+        Row: {
+          address: string
+          asking_price: number | null
+          asking_rate_psf: number | null
+          broker_company: string | null
+          broker_email: string | null
+          broker_name: string | null
+          broker_phone: string | null
+          building_sf: number | null
+          cap_rate_pct: number | null
+          city: string | null
+          created_at: string
+          days_on_market: number | null
+          id: string
+          land_acres: number | null
+          listed_at: string | null
+          listing_url: string | null
+          photo_urls: string[] | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          scraped_at: string | null
+          source: string | null
+          source_listing_id: string | null
+          source_url: string | null
+          specs: string | null
+          state: string | null
+          updated_at: string
+          zip: string | null
+        }
+        Insert: {
+          address: string
+          asking_price?: number | null
+          asking_rate_psf?: number | null
+          broker_company?: string | null
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
+          building_sf?: number | null
+          cap_rate_pct?: number | null
+          city?: string | null
+          created_at?: string
+          days_on_market?: number | null
+          id?: string
+          land_acres?: number | null
+          listed_at?: string | null
+          listing_url?: string | null
+          photo_urls?: string[] | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          scraped_at?: string | null
+          source?: string | null
+          source_listing_id?: string | null
+          source_url?: string | null
+          specs?: string | null
+          state?: string | null
+          updated_at?: string
+          zip?: string | null
+        }
+        Update: {
+          address?: string
+          asking_price?: number | null
+          asking_rate_psf?: number | null
+          broker_company?: string | null
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
+          building_sf?: number | null
+          cap_rate_pct?: number | null
+          city?: string | null
+          created_at?: string
+          days_on_market?: number | null
+          id?: string
+          land_acres?: number | null
+          listed_at?: string | null
+          listing_url?: string | null
+          photo_urls?: string[] | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          scraped_at?: string | null
+          source?: string | null
+          source_listing_id?: string | null
+          source_url?: string | null
+          specs?: string | null
+          state?: string | null
+          updated_at?: string
+          zip?: string | null
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           auto_generated: boolean
@@ -465,77 +660,33 @@ export type Database = {
           },
         ]
       }
-      properties: {
-        Row: {
-          address: string
-          building_sf: number | null
-          city: string | null
-          created_at: string
-          id: string
-          land_acres: number | null
-          property_type: Database["public"]["Enums"]["property_kind"] | null
-          specs: string | null
-          state: string | null
-          updated_at: string
-          zip: string | null
-        }
-        Insert: {
-          address: string
-          building_sf?: number | null
-          city?: string | null
-          created_at?: string
-          id?: string
-          land_acres?: number | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          specs?: string | null
-          state?: string | null
-          updated_at?: string
-          zip?: string | null
-        }
-        Update: {
-          address?: string
-          building_sf?: number | null
-          city?: string | null
-          created_at?: string
-          id?: string
-          land_acres?: number | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          specs?: string | null
-          state?: string | null
-          updated_at?: string
-          zip?: string | null
-        }
-        Relationships: []
-      }
       tenant_reps: {
         Row: {
           actual_fee: number | null
           broker_contact_id: string | null
           budget: string | null
+          business_industry: string | null
+          business_website: string | null
+          clear_height: string | null
           commission_pct: number | null
           created_at: string
           estimated_fee: number | null
           id: string
+          loading_type: string | null
           lost_reason: string | null
+          move_in_context: string | null
+          move_in_date: string | null
           must_haves: string | null
           next_action_date: string | null
           next_action_description: string | null
-          owner_id: string
-          probability_pct: number | null
-          property_type: Database["public"]["Enums"]["property_kind"] | null
-          warehouse_sf_max: number | null
-          warehouse_sf_min: number | null
           office_sf_max: number | null
           office_sf_min: number | null
           outdoor_storage_max_ac: number | null
           outdoor_storage_min_ac: number | null
-          move_in_date: string | null
-          move_in_context: string | null
+          owner_id: string
           power_requirements: string | null
-          loading_type: string | null
-          clear_height: string | null
-          business_industry: string | null
-          business_website: string | null
+          probability_pct: number | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
           source: Database["public"]["Enums"]["lead_source"] | null
           stage: Database["public"]["Enums"]["tenant_rep_stage"]
           status: Database["public"]["Enums"]["engagement_status"]
@@ -543,35 +694,35 @@ export type Database = {
           tenant_company_id: string | null
           tenant_contact_id: string | null
           updated_at: string
+          warehouse_sf_max: number | null
+          warehouse_sf_min: number | null
         }
         Insert: {
           actual_fee?: number | null
           broker_contact_id?: string | null
           budget?: string | null
+          business_industry?: string | null
+          business_website?: string | null
+          clear_height?: string | null
           commission_pct?: number | null
           created_at?: string
           estimated_fee?: number | null
           id?: string
+          loading_type?: string | null
           lost_reason?: string | null
+          move_in_context?: string | null
+          move_in_date?: string | null
           must_haves?: string | null
           next_action_date?: string | null
           next_action_description?: string | null
-          owner_id: string
-          probability_pct?: number | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          warehouse_sf_max?: number | null
-          warehouse_sf_min?: number | null
           office_sf_max?: number | null
           office_sf_min?: number | null
           outdoor_storage_max_ac?: number | null
           outdoor_storage_min_ac?: number | null
-          move_in_date?: string | null
-          move_in_context?: string | null
+          owner_id: string
           power_requirements?: string | null
-          loading_type?: string | null
-          clear_height?: string | null
-          business_industry?: string | null
-          business_website?: string | null
+          probability_pct?: number | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           stage?: Database["public"]["Enums"]["tenant_rep_stage"]
           status?: Database["public"]["Enums"]["engagement_status"]
@@ -579,35 +730,35 @@ export type Database = {
           tenant_company_id?: string | null
           tenant_contact_id?: string | null
           updated_at?: string
+          warehouse_sf_max?: number | null
+          warehouse_sf_min?: number | null
         }
         Update: {
           actual_fee?: number | null
           broker_contact_id?: string | null
           budget?: string | null
+          business_industry?: string | null
+          business_website?: string | null
+          clear_height?: string | null
           commission_pct?: number | null
           created_at?: string
           estimated_fee?: number | null
           id?: string
+          loading_type?: string | null
           lost_reason?: string | null
+          move_in_context?: string | null
+          move_in_date?: string | null
           must_haves?: string | null
           next_action_date?: string | null
           next_action_description?: string | null
-          owner_id?: string
-          probability_pct?: number | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          warehouse_sf_max?: number | null
-          warehouse_sf_min?: number | null
           office_sf_max?: number | null
           office_sf_min?: number | null
           outdoor_storage_max_ac?: number | null
           outdoor_storage_min_ac?: number | null
-          move_in_date?: string | null
-          move_in_context?: string | null
+          owner_id?: string
           power_requirements?: string | null
-          loading_type?: string | null
-          clear_height?: string | null
-          business_industry?: string | null
-          business_website?: string | null
+          probability_pct?: number | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           stage?: Database["public"]["Enums"]["tenant_rep_stage"]
           status?: Database["public"]["Enums"]["engagement_status"]
@@ -615,6 +766,8 @@ export type Database = {
           tenant_company_id?: string | null
           tenant_contact_id?: string | null
           updated_at?: string
+          warehouse_sf_max?: number | null
+          warehouse_sf_min?: number | null
         }
         Relationships: [
           {
@@ -658,14 +811,91 @@ export type Database = {
           p_source?: Database["public"]["Enums"]["lead_source"]
           p_state?: string
         }
-        Returns: Database["public"]["Tables"]["listings"]["Row"]
+        Returns: {
+          actual_fee: number | null
+          asking_price: number | null
+          asking_rate_psf: number | null
+          broker_contact_id: string | null
+          co_broke_split_pct: number | null
+          commission_pct: number | null
+          created_at: string
+          deal_type: Database["public"]["Enums"]["deal_type"]
+          estimated_fee: number | null
+          id: string
+          landlord_company_id: string | null
+          landlord_contact_id: string | null
+          landlord_requirements: string | null
+          listing_expiration: string | null
+          lost_reason: string | null
+          next_action_date: string | null
+          next_action_description: string | null
+          owner_id: string
+          probability_pct: number | null
+          property_id: string
+          source: Database["public"]["Enums"]["lead_source"] | null
+          stage: Database["public"]["Enums"]["listing_stage"]
+          status: Database["public"]["Enums"]["engagement_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "listings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      import_scraped_listings: {
+        Args: {
+          p_flagged_new?: boolean
+          p_props: Json
+          p_tenant_rep_id?: string
+        }
+        Returns: Json
       }
       promote_match_to_tenant_rep: {
-        Args: {
-          p_match_id: string
-          p_owner: string
+        Args: { p_match_id: string; p_owner: string }
+        Returns: {
+          actual_fee: number | null
+          broker_contact_id: string | null
+          budget: string | null
+          business_industry: string | null
+          business_website: string | null
+          clear_height: string | null
+          commission_pct: number | null
+          created_at: string
+          estimated_fee: number | null
+          id: string
+          loading_type: string | null
+          lost_reason: string | null
+          move_in_context: string | null
+          move_in_date: string | null
+          must_haves: string | null
+          next_action_date: string | null
+          next_action_description: string | null
+          office_sf_max: number | null
+          office_sf_min: number | null
+          outdoor_storage_max_ac: number | null
+          outdoor_storage_min_ac: number | null
+          owner_id: string
+          power_requirements: string | null
+          probability_pct: number | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          source: Database["public"]["Enums"]["lead_source"] | null
+          stage: Database["public"]["Enums"]["tenant_rep_stage"]
+          status: Database["public"]["Enums"]["engagement_status"]
+          target_area: string | null
+          tenant_company_id: string | null
+          tenant_contact_id: string | null
+          updated_at: string
+          warehouse_sf_max: number | null
+          warehouse_sf_min: number | null
         }
-        Returns: Database["public"]["Tables"]["tenant_reps"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "tenant_reps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
@@ -694,6 +924,7 @@ export type Database = {
         | "broker"
       listing_stage: "proposal" | "listed" | "closed"
       match_stage:
+        | "inquiring"
         | "lead"
         | "toured"
         | "loi"
@@ -871,6 +1102,7 @@ export const Constants = {
       ],
       listing_stage: ["proposal", "listed", "closed"],
       match_stage: [
+        "inquiring",
         "lead",
         "toured",
         "loi",

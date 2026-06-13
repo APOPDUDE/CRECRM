@@ -47,11 +47,18 @@ export function MatchCard({ match, facing, onOpen }: MatchCardProps) {
           <div className="truncate text-sm font-medium">{title}</div>
           {subtitle && <div className="truncate text-xs text-muted-foreground">{subtitle}</div>}
         </div>
-        {facing === 'tenant' && match.listing_id && (
-          <Badge variant="secondary" className="shrink-0 font-normal">
-            My listing
-          </Badge>
-        )}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {match.flagged_new && (
+            <Badge variant="outline" className="border-red-200 bg-red-50 font-medium text-red-700">
+              New
+            </Badge>
+          )}
+          {facing === 'tenant' && match.listing_id && (
+            <Badge variant="secondary" className="font-normal">
+              My listing
+            </Badge>
+          )}
+        </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <SourceBadge source={match.source} brokerName={brokerName} />
