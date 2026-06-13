@@ -22,6 +22,14 @@ export function formatSf(value: number | null | undefined): string | null {
   return `${value.toLocaleString('en-US')} SF`
 }
 
+/** 1.4 MB, 312 KB, 980 B */
+export function formatBytes(bytes: number | null | undefined): string | null {
+  if (bytes == null) return null
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 /** Rate for a lease listing, price for a sale listing. */
 export function formatListingPrice(deal: {
   deal_type: 'lease' | 'sale'
