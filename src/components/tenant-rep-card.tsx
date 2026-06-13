@@ -32,7 +32,8 @@ export function sizeSummary(tenantRep: TenantRepWithRelations): string | null {
   if (size_min_sf != null) return `${formatSf(size_min_sf)}+`
   if (size_max_sf != null) return `up to ${formatSf(size_max_sf)}`
   if (tenantRep.property_type) return propertyKindLabels[tenantRep.property_type]
-  return tenantRep.target_area || null
+  // fall back to the free-text requirements (what the quick-add captures) or target area
+  return tenantRep.must_haves || tenantRep.target_area || null
 }
 
 function tenantName(tenantRep: TenantRepWithRelations): string {

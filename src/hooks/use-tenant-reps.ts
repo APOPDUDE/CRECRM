@@ -115,6 +115,17 @@ export function useUpdateTenantRepStage() {
       const { error } = await supabase.from('tenant_reps').update({ stage }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tenant_reps'] }),
+    onMutate: async ({ id, stage }) => {
+      await queryClient.cancelQueries({ queryKey: ['tenant_reps'] })
+      const previous = queryClient.getQueryData<TenantRepWithRelations[]>(['tenant_reps'])
+      queryClient.setQueryData<TenantRepWithRelations[]>(['tenant_reps'], (old) =>
+        old?.map((t) => (t.id === id ? { ...t, stage } : t)),
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(['tenant_reps'], context.previous)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tenant_reps'] }),
   })
 }

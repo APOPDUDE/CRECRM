@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CompanySelect } from '@/components/company-select'
+import { ContactSelect } from '@/components/contact-select'
 import { leadSourceLabels } from '@/components/source-badge'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase'
@@ -39,12 +40,14 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
   const [pending, setPending] = useState(false)
 
   const [companyId, setCompanyId] = useState<string | null>(null)
+  const [contactId, setContactId] = useState<string | null>(null)
   const [requirements, setRequirements] = useState('')
   const [source, setSource] = useState<string>(NONE)
 
   useEffect(() => {
     if (open) {
       setCompanyId(null)
+      setContactId(null)
       setRequirements('')
       setSource(NONE)
     }
@@ -61,6 +64,7 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
       const { error } = await supabase.from('tenant_reps').insert({
         owner_id: session.user.id,
         tenant_company_id: companyId,
+        tenant_contact_id: contactId,
         must_haves: requirements.trim() || null,
         source: source === NONE ? null : (source as Enums<'lead_source'>),
       })
@@ -90,6 +94,15 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
               onChange={setCompanyId}
               defaultType="tenant"
               placeholder="Select or create tenant"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Contact</Label>
+            <ContactSelect
+              value={contactId}
+              onChange={setContactId}
+              companyId={companyId}
+              placeholder="Select or create contact"
             />
           </div>
           <div className="space-y-2">
@@ -126,7 +139,7 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending || (!companyId && !contactId)}>
               {pending ? 'Adding…' : 'Add tenant'}
             </Button>
           </DialogFooter>

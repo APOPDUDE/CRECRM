@@ -77,28 +77,20 @@ export function AddListingDialog({
     }
     setPending(true)
     try {
-      const { data: property, error: propError } = await supabase
-        .from('properties')
-        .insert({
-          address: address.trim(),
-          city: city.trim() || null,
-          state: state.trim() || null,
-          property_type: propertyType === NONE ? null : (propertyType as Enums<'property_kind'>),
-        })
-        .select()
-        .single()
-      if (propError) throw propError
-
-      const { error: listingError } = await supabase.from('listings').insert({
-        owner_id: session.user.id,
-        property_id: property.id,
-        landlord_company_id: landlordId,
-        deal_type: dealType,
-        source: source === NONE ? null : (source as Enums<'lead_source'>),
-        asking_rate_psf: dealType === 'lease' && rate ? Number(rate) : null,
-        asking_price: dealType === 'sale' && price ? Number(price) : null,
+      // single transactional RPC so a failed listing insert can't orphan the property
+      const { error } = await supabase.rpc('create_property_and_listing', {
+        p_owner: session.user.id,
+        p_address: address.trim(),
+        p_deal_type: dealType,
+        p_city: city.trim() || undefined,
+        p_state: state.trim() || undefined,
+        p_property_type: propertyType === NONE ? undefined : (propertyType as Enums<'property_kind'>),
+        p_landlord_company_id: landlordId ?? undefined,
+        p_source: source === NONE ? undefined : (source as Enums<'lead_source'>),
+        p_asking_rate_psf: dealType === 'lease' && rate ? Number(rate) : undefined,
+        p_asking_price: dealType === 'sale' && price ? Number(price) : undefined,
       })
-      if (listingError) throw listingError
+      if (error) throw error
 
       queryClient.invalidateQueries({ queryKey: ['listings'] })
       queryClient.invalidateQueries({ queryKey: ['properties'] })

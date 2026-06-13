@@ -8,6 +8,14 @@ export type Contact = Tables<'contacts'> & {
 
 const CONTACT_SELECT = '*, company:companies(id, name)'
 
+/** Display name for a contact: "First Last", or "First" when no last name. */
+export function contactNameOf(contact: {
+  first_name: string
+  last_name: string | null
+}): string {
+  return [contact.first_name, contact.last_name].filter(Boolean).join(' ')
+}
+
 export function useContacts() {
   return useQuery({
     queryKey: ['contacts'],

@@ -108,7 +108,7 @@ export function useReopenListing() {
   })
 }
 
-/** Move a listing to a new stage. Returns enough to support an undo toast. */
+/** Move a listing to a new stage, optimistically (card moves instantly, rolls back on error). */
 export function useUpdateListingStage() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -116,6 +116,17 @@ export function useUpdateListingStage() {
       const { error } = await supabase.from('listings').update({ stage }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings'] }),
+    onMutate: async ({ id, stage }) => {
+      await queryClient.cancelQueries({ queryKey: ['listings'] })
+      const previous = queryClient.getQueryData<ListingWithRelations[]>(['listings'])
+      queryClient.setQueryData<ListingWithRelations[]>(['listings'], (old) =>
+        old?.map((l) => (l.id === id ? { ...l, stage } : l)),
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(['listings'], context.previous)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['listings'] }),
   })
 }

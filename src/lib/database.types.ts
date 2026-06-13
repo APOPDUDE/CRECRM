@@ -523,7 +523,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_property_and_listing: {
+        Args: {
+          p_address: string
+          p_asking_price?: number
+          p_asking_rate_psf?: number
+          p_city?: string
+          p_deal_type: Database["public"]["Enums"]["deal_type"]
+          p_landlord_company_id?: string
+          p_owner: string
+          p_property_type?: Database["public"]["Enums"]["property_kind"]
+          p_source?: Database["public"]["Enums"]["lead_source"]
+          p_state?: string
+        }
+        Returns: Database["public"]["Tables"]["listings"]["Row"]
+      }
     }
     Enums: {
       company_type: "landlord" | "tenant" | "broker" | "other"
