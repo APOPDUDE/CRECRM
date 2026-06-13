@@ -37,29 +37,45 @@ function DraggableCard({ id, children }: { id: string; children: ReactNode }) {
   )
 }
 
+/**
+ * A blue that deepens as the stage advances (light → deep), so pipeline
+ * progression reads left-to-right at a glance. Stays within the one-accent palette.
+ */
+function stageAccent(index: number, total: number): string {
+  const t = total > 1 ? index / (total - 1) : 1
+  const lightness = 0.8 - t * 0.34
+  const chroma = 0.05 + t * 0.14
+  return `oklch(${lightness.toFixed(3)} ${chroma.toFixed(3)} 262.5)`
+}
+
 function DroppableColumn<TStage extends string>({
   column,
   count,
+  accent,
   children,
 }: {
   column: StageDef<TStage>
   count: number
+  accent: string
   children: ReactNode
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.value })
   return (
-    <div className="flex w-72 shrink-0 flex-col">
-      <div className="mb-2 flex items-center gap-2 px-1">
+    <div
+      className={cn(
+        'flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border bg-muted/40 transition-colors',
+        isOver && 'border-primary/50 bg-primary/5',
+      )}
+    >
+      {/* progression accent — deepens toward the final stage */}
+      <div className="h-1" style={{ backgroundColor: accent }} />
+      <div className="flex items-center justify-between gap-2 border-b bg-background/60 px-3 py-2">
         <span className="text-sm font-medium">{column.label}</span>
-        <span className="rounded-full bg-muted px-2 text-xs text-muted-foreground">{count}</span>
+        <span className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground tabular-nums shadow-sm">
+          {count}
+        </span>
       </div>
-      <div
-        ref={setNodeRef}
-        className={cn(
-          'flex min-h-24 flex-1 flex-col gap-2 rounded-lg border border-transparent p-1 transition-colors',
-          isOver && 'border-primary/40 bg-primary/5',
-        )}
-      >
+      <div ref={setNodeRef} className="flex min-h-24 flex-1 flex-col gap-2 p-2">
         {children}
       </div>
     </div>
@@ -99,11 +115,16 @@ export function KanbanBoard<TItem, TStage extends string>({
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {columns.map((column) => {
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {columns.map((column, index) => {
           const columnItems = items.filter((i) => getStage(i) === column.value)
           return (
-            <DroppableColumn key={column.value} column={column} count={columnItems.length}>
+            <DroppableColumn
+              key={column.value}
+              column={column}
+              count={columnItems.length}
+              accent={stageAccent(index, columns.length)}
+            >
               {columnItems.map((item) => (
                 <DraggableCard key={getId(item)} id={getId(item)}>
                   {renderCard(item)}

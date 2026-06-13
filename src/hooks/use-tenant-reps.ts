@@ -31,6 +31,39 @@ export function useTenantReps() {
   })
 }
 
+const TENANT_REP_DETAIL_SELECT = `
+  *,
+  company:companies!tenant_reps_tenant_company_id_fkey(id, name, phone),
+  contact:contacts!tenant_reps_tenant_contact_id_fkey(id, first_name, last_name, title, email, phone),
+  broker:contacts!tenant_reps_broker_contact_id_fkey(id, first_name, last_name)
+`
+
+export type TenantRepDetail = Tables<'tenant_reps'> & {
+  company: Pick<Tables<'companies'>, 'id' | 'name' | 'phone'> | null
+  contact: Pick<
+    Tables<'contacts'>,
+    'id' | 'first_name' | 'last_name' | 'title' | 'email' | 'phone'
+  > | null
+  broker: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
+}
+
+/** Single tenant rep with full relations for the tenant-board sidebar. */
+export function useTenantRepDetail(id: string | undefined) {
+  return useQuery({
+    queryKey: ['tenant_rep', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenant_reps')
+        .select(TENANT_REP_DETAIL_SELECT)
+        .eq('id', id!)
+        .single()
+      if (error) throw error
+      return data as unknown as TenantRepDetail
+    },
+  })
+}
+
 export function useCreateTenantRep() {
   const queryClient = useQueryClient()
   return useMutation({

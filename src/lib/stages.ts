@@ -30,6 +30,44 @@ export const matchStageLabels: Record<Enums<'match_stage'>, string> = {
   dead: 'Dead',
 }
 
+/** Sale-listing column relabels for the property board (same underlying enum). */
+export const matchStageSaleLabels: Record<Enums<'match_stage'>, string> = {
+  lead: 'Lead',
+  toured: 'Toured',
+  loi: 'Offer',
+  lease_negotiation: 'PSA negotiation',
+  executed: 'PSA executed',
+  dead: 'Dead',
+}
+
+/** Property-board columns: all five live match stages, labeled per deal type. */
+export function propertyBoardStages(
+  dealType: 'lease' | 'sale',
+): StageDef<Enums<'match_stage'>>[] {
+  const labels = dealType === 'sale' ? matchStageSaleLabels : matchStageLabels
+  return (['lead', 'toured', 'loi', 'lease_negotiation', 'executed'] as const).map((value) => ({
+    value,
+    label: labels[value],
+  }))
+}
+
+/**
+ * Tenant-board columns: Touring → LOI → Lease negotiation → Executed. The first
+ * column ("Touring") covers both lead and toured matches; mapTenantBoardColumn
+ * collapses 'lead' into 'toured' so the single match_stage enum stays the source
+ * of truth across both boards.
+ */
+export const tenantBoardStages: StageDef<Enums<'match_stage'>>[] = [
+  { value: 'toured', label: 'Touring' },
+  { value: 'loi', label: 'LOI' },
+  { value: 'lease_negotiation', label: 'Lease negotiation' },
+  { value: 'executed', label: 'Executed' },
+]
+
+export function mapTenantBoardColumn(stage: Enums<'match_stage'>): Enums<'match_stage'> {
+  return stage === 'lead' ? 'toured' : stage
+}
+
 /** Rank used to pick the "hottest" (furthest-along) match on a listing. Dead is excluded. */
 const matchStageRank: Record<Enums<'match_stage'>, number> = {
   lead: 0,

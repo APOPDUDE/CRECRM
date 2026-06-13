@@ -113,34 +113,46 @@ begin
 
   -- Tenant reps ----------------------------------------------------------------
   insert into tenant_reps (owner_id, tenant_company_id, tenant_contact_id, stage, status, source,
-                           size_min_sf, size_max_sf, property_type, target_area, budget, must_haves,
+                           warehouse_sf_min, warehouse_sf_max, office_sf_min, office_sf_max,
+                           outdoor_storage_min_ac, outdoor_storage_max_ac, property_type, target_area, budget,
+                           move_in_date, move_in_context, power_requirements, loading_type, clear_height,
+                           business_industry, business_website, must_haves,
                            commission_pct, estimated_fee, probability_pct, next_action_description, next_action_date)
     values (v_owner, c_coastal, k_luis, 'touring', 'active', 'referral',
-            80000, 120000, 'industrial', 'Doral / Medley submarket', '$13–15 PSF NNN',
-            '32''+ clear, 20+ docks, trailer parking', 4.00, 68000, 55,
+            80000, 120000, 5000, 8000, 2.0, 4.0, 'industrial', 'Doral / Medley submarket', '$13-15 PSF NNN',
+            current_date + 90, 'Lease expiring at current Doral facility in Q4', '2,000A 480V 3-phase',
+            'Dock-high (1:5,000 SF)', '32''+', '3PL / Logistics', 'coastallogistics.com',
+            '20+ docks, trailer parking', 4.00, 68000, 55,
             'Confirm second tour at Doral', current_date - 2)
     returning id into t_coastal;
   insert into tenant_reps (owner_id, tenant_company_id, tenant_contact_id, stage, status, source,
-                           size_min_sf, size_max_sf, property_type, target_area, must_haves,
-                           commission_pct, estimated_fee, probability_pct, next_action_description, next_action_date)
+                           warehouse_sf_min, warehouse_sf_max, office_sf_min, office_sf_max, property_type, target_area,
+                           move_in_date, power_requirements, loading_type, clear_height, business_industry, business_website,
+                           must_haves, commission_pct, estimated_fee, probability_pct, next_action_description, next_action_date)
     values (v_owner, c_sunshine, k_karen, 'loi', 'active', 'cold_call',
-            40000, 60000, 'industrial', 'Hialeah / Medley', 'Heavy power, dock-high',
-            4.00, 32000, 70, 'Redline LOI back to landlord', current_date + 1)
+            40000, 60000, 3000, 5000, 'industrial', 'Hialeah / Medley',
+            current_date + 60, '1,200A 480V', 'Dock-high', '28''-32''', 'Food & beverage distribution', 'sunshinedist.com',
+            'Heavy power, dock-high', 4.00, 32000, 70, 'Redline LOI back to landlord', current_date + 1)
     returning id into t_sunshine;
   insert into tenant_reps (owner_id, tenant_company_id, tenant_contact_id, stage, status, source,
-                           size_min_sf, size_max_sf, property_type, target_area, probability_pct,
-                           next_action_description, next_action_date)
+                           warehouse_sf_min, warehouse_sf_max, outdoor_storage_min_ac, outdoor_storage_max_ac,
+                           property_type, target_area, loading_type, clear_height, business_industry, power_requirements,
+                           probability_pct, next_action_description, next_action_date)
     values (v_owner, c_apex, k_devin, 'lead', 'active', 'website',
-            100000, 200000, 'industrial', 'Medley / Doral', 25,
+            100000, 200000, 5.0, 10.0, 'industrial', 'Medley / Doral', 'Cross-dock', '36''',
+            'Freight / trucking', 'Heavy power preferred', 25,
             'Qualify requirement + timeline', current_date + 5)
     returning id into t_apex;
   insert into tenant_reps (owner_id, tenant_company_id, tenant_contact_id, stage, status, source,
-                           size_min_sf, size_max_sf, property_type, commission_pct, estimated_fee, actual_fee, probability_pct)
+                           warehouse_sf_min, warehouse_sf_max, office_sf_min, office_sf_max, property_type,
+                           clear_height, loading_type, business_industry, business_website,
+                           commission_pct, estimated_fee, actual_fee, probability_pct)
     values (v_owner, c_medsupply, k_priya, 'executed', 'active', 'referral',
-            20000, 40000, 'flex', 4.00, 26000, 25500, 100)
+            20000, 40000, 4000, 6000, 'flex', '24''', 'Dock-high + grade', 'Medical supply distribution', 'medsupplyco.com',
+            4.00, 26000, 25500, 100)
     returning id into t_medsupply;
   insert into tenant_reps (owner_id, tenant_company_id, tenant_contact_id, stage, status, source, lost_reason,
-                           size_min_sf, size_max_sf, property_type)
+                           warehouse_sf_min, warehouse_sf_max, property_type)
     values (v_owner, c_apex, k_devin, 'lead', 'lost', 'cold_call', 'Put requirement on hold for the year',
             30000, 50000, 'industrial')
     returning id into t_lost;

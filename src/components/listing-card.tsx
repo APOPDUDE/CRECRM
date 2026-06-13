@@ -15,6 +15,7 @@ import { isOverdue } from '@/lib/dates'
 
 interface ListingCardProps {
   listing: ListingWithRelations
+  onOpen?: (listing: ListingWithRelations) => void
   onMarkLost?: (listing: ListingWithRelations) => void
   onReopen?: (listing: ListingWithRelations) => void
 }
@@ -22,7 +23,7 @@ interface ListingCardProps {
 // stop dnd-kit's pointer sensor from treating menu interaction as a drag
 const stopDrag = (e: React.PointerEvent) => e.stopPropagation()
 
-export function ListingCard({ listing, onMarkLost, onReopen }: ListingCardProps) {
+export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCardProps) {
   const prospects = liveMatches(listing.matches)
   const hottest = hottestStage(listing.matches)
   const overdue = listing.status === 'active' && isOverdue(listing.next_action_date)
@@ -32,7 +33,18 @@ export function ListingCard({ listing, onMarkLost, onReopen }: ListingCardProps)
     : null
 
   return (
-    <div className="cursor-grab rounded-lg border bg-card p-3 shadow-sm active:cursor-grabbing">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen?.(listing)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen?.(listing)
+        }
+      }}
+      className="cursor-grab rounded-lg border bg-card p-3 text-left shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
@@ -58,6 +70,7 @@ export function ListingCard({ listing, onMarkLost, onReopen }: ListingCardProps)
                 size="icon"
                 className="-mt-1 -mr-1 size-7 shrink-0"
                 onPointerDown={stopDrag}
+                onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="size-4" />
                 <span className="sr-only">Listing actions</span>

@@ -16,6 +16,7 @@ import { isOverdue } from '@/lib/dates'
 
 interface TenantRepCardProps {
   tenantRep: TenantRepWithRelations
+  onOpen?: (tenantRep: TenantRepWithRelations) => void
   onMarkLost?: (tenantRep: TenantRepWithRelations) => void
   onReopen?: (tenantRep: TenantRepWithRelations) => void
 }
@@ -23,17 +24,28 @@ interface TenantRepCardProps {
 // stop dnd-kit's pointer sensor from treating menu interaction as a drag
 const stopDrag = (e: React.PointerEvent) => e.stopPropagation()
 
-/** Short size requirement summary, e.g. "80,000–120,000 SF", "80,000 SF+", "up to 120,000 SF". */
+/** A min–max range like "80,000–120,000 SF", "80,000 SF+", "up to 120,000 SF". */
+export function rangeSummary(
+  min: number | null,
+  max: number | null,
+  unit: (n: number) => string | null,
+): string | null {
+  if (min != null && max != null) return `${min.toLocaleString('en-US')}–${unit(max)}`
+  if (min != null) return `${unit(min)}+`
+  if (max != null) return `up to ${unit(max)}`
+  return null
+}
+
+/** Short card summary — warehouse SF first, then office, then a sensible fallback. */
 export function sizeSummary(tenantRep: TenantRepWithRelations): string | null {
-  const { size_min_sf, size_max_sf } = tenantRep
-  if (size_min_sf != null && size_max_sf != null) {
-    return `${size_min_sf.toLocaleString('en-US')}–${formatSf(size_max_sf)}`
-  }
-  if (size_min_sf != null) return `${formatSf(size_min_sf)}+`
-  if (size_max_sf != null) return `up to ${formatSf(size_max_sf)}`
-  if (tenantRep.property_type) return propertyKindLabels[tenantRep.property_type]
-  // fall back to the free-text requirements (what the quick-add captures) or target area
-  return tenantRep.must_haves || tenantRep.target_area || null
+  return (
+    rangeSummary(tenantRep.warehouse_sf_min, tenantRep.warehouse_sf_max, formatSf) ||
+    rangeSummary(tenantRep.office_sf_min, tenantRep.office_sf_max, formatSf) ||
+    (tenantRep.property_type ? propertyKindLabels[tenantRep.property_type] : null) ||
+    tenantRep.must_haves ||
+    tenantRep.target_area ||
+    null
+  )
 }
 
 function tenantName(tenantRep: TenantRepWithRelations): string {
@@ -47,7 +59,7 @@ function tenantName(tenantRep: TenantRepWithRelations): string {
   return 'Untitled tenant'
 }
 
-export function TenantRepCard({ tenantRep, onMarkLost, onReopen }: TenantRepCardProps) {
+export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: TenantRepCardProps) {
   const inPlay = liveMatches(tenantRep.matches)
   const overdue = tenantRep.status === 'active' && isOverdue(tenantRep.next_action_date)
   const summary = sizeSummary(tenantRep)
@@ -56,7 +68,18 @@ export function TenantRepCard({ tenantRep, onMarkLost, onReopen }: TenantRepCard
     : null
 
   return (
-    <div className="cursor-grab rounded-lg border bg-card p-3 shadow-sm active:cursor-grabbing">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen?.(tenantRep)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen?.(tenantRep)
+        }
+      }}
+      className="cursor-grab rounded-lg border bg-card p-3 text-left shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
@@ -78,6 +101,7 @@ export function TenantRepCard({ tenantRep, onMarkLost, onReopen }: TenantRepCard
                 size="icon"
                 className="-mt-1 -mr-1 size-7 shrink-0"
                 onPointerDown={stopDrag}
+                onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="size-4" />
                 <span className="sr-only">Tenant actions</span>

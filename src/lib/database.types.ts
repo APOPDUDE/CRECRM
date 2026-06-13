@@ -434,8 +434,19 @@ export type Database = {
           owner_id: string
           probability_pct: number | null
           property_type: Database["public"]["Enums"]["property_kind"] | null
-          size_max_sf: number | null
-          size_min_sf: number | null
+          warehouse_sf_max: number | null
+          warehouse_sf_min: number | null
+          office_sf_max: number | null
+          office_sf_min: number | null
+          outdoor_storage_max_ac: number | null
+          outdoor_storage_min_ac: number | null
+          move_in_date: string | null
+          move_in_context: string | null
+          power_requirements: string | null
+          loading_type: string | null
+          clear_height: string | null
+          business_industry: string | null
+          business_website: string | null
           source: Database["public"]["Enums"]["lead_source"] | null
           stage: Database["public"]["Enums"]["tenant_rep_stage"]
           status: Database["public"]["Enums"]["engagement_status"]
@@ -459,8 +470,19 @@ export type Database = {
           owner_id: string
           probability_pct?: number | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
-          size_max_sf?: number | null
-          size_min_sf?: number | null
+          warehouse_sf_max?: number | null
+          warehouse_sf_min?: number | null
+          office_sf_max?: number | null
+          office_sf_min?: number | null
+          outdoor_storage_max_ac?: number | null
+          outdoor_storage_min_ac?: number | null
+          move_in_date?: string | null
+          move_in_context?: string | null
+          power_requirements?: string | null
+          loading_type?: string | null
+          clear_height?: string | null
+          business_industry?: string | null
+          business_website?: string | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           stage?: Database["public"]["Enums"]["tenant_rep_stage"]
           status?: Database["public"]["Enums"]["engagement_status"]
@@ -484,8 +506,19 @@ export type Database = {
           owner_id?: string
           probability_pct?: number | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
-          size_max_sf?: number | null
-          size_min_sf?: number | null
+          warehouse_sf_max?: number | null
+          warehouse_sf_min?: number | null
+          office_sf_max?: number | null
+          office_sf_min?: number | null
+          outdoor_storage_max_ac?: number | null
+          outdoor_storage_min_ac?: number | null
+          move_in_date?: string | null
+          move_in_context?: string | null
+          power_requirements?: string | null
+          loading_type?: string | null
+          clear_height?: string | null
+          business_industry?: string | null
+          business_website?: string | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           stage?: Database["public"]["Enums"]["tenant_rep_stage"]
           status?: Database["public"]["Enums"]["engagement_status"]
@@ -537,6 +570,13 @@ export type Database = {
           p_state?: string
         }
         Returns: Database["public"]["Tables"]["listings"]["Row"]
+      }
+      promote_match_to_tenant_rep: {
+        Args: {
+          p_match_id: string
+          p_owner: string
+        }
+        Returns: Database["public"]["Tables"]["tenant_reps"]["Row"]
       }
     }
     Enums: {
