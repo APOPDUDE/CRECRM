@@ -47,7 +47,11 @@ export function useUpdateCompany() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['companies'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] })
+      // contacts embed the company name via a join, so refresh them too
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    },
   })
 }
 

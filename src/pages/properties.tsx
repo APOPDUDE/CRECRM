@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/table'
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { ListErrorState } from '@/components/list-error-state'
 import { useDeleteProperty, useProperties } from '@/hooks/use-properties'
 import type { Property } from '@/hooks/use-properties'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -41,7 +42,7 @@ function formatLocation(property: Property) {
 
 export function PropertiesPage() {
   const navigate = useNavigate()
-  const { data: properties, isLoading } = useProperties()
+  const { data: properties, isLoading, isError, refetch } = useProperties()
   const deleteProperty = useDeleteProperty()
 
   const [search, setSearch] = useState('')
@@ -144,6 +145,8 @@ export function PropertiesPage() {
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : isError ? (
+        <ListErrorState message="Could not load properties." onRetry={() => refetch()} />
       ) : (properties ?? []).length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
@@ -201,24 +204,23 @@ export function PropertiesPage() {
           {/* Mobile cards */}
           <div className="space-y-2 md:hidden">
             {filtered.map((property) => (
-              <Link
+              <div
                 key={property.id}
-                to={`/properties/${property.id}`}
-                className="flex items-center justify-between gap-2 rounded-lg border bg-card p-3"
+                className="flex items-center justify-between gap-2 rounded-lg border bg-card"
               >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{property.address}</div>
+                <Link to={`/properties/${property.id}`} className="flex min-w-0 flex-1 flex-col p-3">
+                  <span className="truncate text-sm font-medium">{property.address}</span>
                   {formatLocation(property) && (
-                    <div className="truncate text-xs text-muted-foreground">
+                    <span className="truncate text-xs text-muted-foreground">
                       {formatLocation(property)}
-                    </div>
+                    </span>
                   )}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
+                </Link>
+                <div className="flex shrink-0 items-center gap-1 pr-3">
                   <PropertyTypeBadge type={property.property_type} />
                   {rowMenu(property)}
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </>

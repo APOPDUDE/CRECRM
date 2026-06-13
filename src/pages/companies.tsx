@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/table'
 import { CompanyFormDialog, companyTypeLabels } from '@/components/company-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { ListErrorState } from '@/components/list-error-state'
 import { useCompanies, useDeleteCompany } from '@/hooks/use-companies'
 import type { Company } from '@/hooks/use-companies'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -43,7 +44,7 @@ export function CompanyTypeBadge({ type }: { type: Company['type'] }) {
 
 export function CompaniesPage() {
   const navigate = useNavigate()
-  const { data: companies, isLoading } = useCompanies()
+  const { data: companies, isLoading, isError, refetch } = useCompanies()
   const deleteCompany = useDeleteCompany()
 
   const [search, setSearch] = useState('')
@@ -139,6 +140,8 @@ export function CompaniesPage() {
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : isError ? (
+        <ListErrorState message="Could not load companies." onRetry={() => refetch()} />
       ) : (companies ?? []).length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
@@ -190,22 +193,21 @@ export function CompaniesPage() {
           {/* Mobile cards */}
           <div className="space-y-2 md:hidden">
             {filtered.map((company) => (
-              <Link
+              <div
                 key={company.id}
-                to={`/companies/${company.id}`}
-                className="flex items-center justify-between gap-2 rounded-lg border bg-card p-3"
+                className="flex items-center justify-between gap-2 rounded-lg border bg-card"
               >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{company.name}</div>
+                <Link to={`/companies/${company.id}`} className="flex min-w-0 flex-1 flex-col p-3">
+                  <span className="truncate text-sm font-medium">{company.name}</span>
                   {company.phone && (
-                    <div className="truncate text-xs text-muted-foreground">{company.phone}</div>
+                    <span className="truncate text-xs text-muted-foreground">{company.phone}</span>
                   )}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
+                </Link>
+                <div className="flex shrink-0 items-center gap-1 pr-3">
                   <CompanyTypeBadge type={company.type} />
                   {rowMenu(company)}
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </>

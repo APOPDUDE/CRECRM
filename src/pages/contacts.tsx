@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/table'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { ListErrorState } from '@/components/list-error-state'
 import { useContacts, useDeleteContact } from '@/hooks/use-contacts'
 import type { Contact } from '@/hooks/use-contacts'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -31,7 +32,7 @@ export function contactName(contact: Pick<Contact, 'first_name' | 'last_name'>) 
 
 export function ContactsPage() {
   const navigate = useNavigate()
-  const { data: contacts, isLoading } = useContacts()
+  const { data: contacts, isLoading, isError, refetch } = useContacts()
   const deleteContact = useDeleteContact()
 
   const [search, setSearch] = useState('')
@@ -127,6 +128,8 @@ export function ContactsPage() {
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : isError ? (
+        <ListErrorState message="Could not load contacts." onRetry={() => refetch()} />
       ) : (contacts ?? []).length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
@@ -178,21 +181,20 @@ export function ContactsPage() {
           {/* Mobile cards */}
           <div className="space-y-2 md:hidden">
             {filtered.map((contact) => (
-              <Link
+              <div
                 key={contact.id}
-                to={`/contacts/${contact.id}`}
-                className="flex items-center justify-between gap-2 rounded-lg border bg-card p-3"
+                className="flex items-center justify-between gap-2 rounded-lg border bg-card"
               >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{contactName(contact)}</div>
+                <Link to={`/contacts/${contact.id}`} className="flex min-w-0 flex-1 flex-col p-3">
+                  <span className="truncate text-sm font-medium">{contactName(contact)}</span>
                   {[contact.company?.name, contact.title].filter(Boolean).length > 0 && (
-                    <div className="truncate text-xs text-muted-foreground">
+                    <span className="truncate text-xs text-muted-foreground">
                       {[contact.company?.name, contact.title].filter(Boolean).join(' · ')}
-                    </div>
+                    </span>
                   )}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">{rowMenu(contact)}</div>
-              </Link>
+                </Link>
+                <div className="flex shrink-0 items-center gap-1 pr-3">{rowMenu(contact)}</div>
+              </div>
             ))}
           </div>
         </>
