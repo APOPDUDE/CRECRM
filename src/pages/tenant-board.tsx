@@ -222,7 +222,7 @@ export function TenantBoardPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-6">
         <div className="min-w-0 flex-1">
           {matchesError ? (
             <ListErrorState message="Could not load properties in play." onRetry={() => refetchMatches()} />
@@ -250,7 +250,7 @@ export function TenantBoardPage() {
           )}
         </div>
 
-        <aside className="w-full shrink-0 space-y-4 lg:w-72">
+        <aside className="w-full space-y-4">
           {contact && (
             <SidebarSection title="Tenant contact">
               <div className="rounded-lg border p-3 text-sm">
