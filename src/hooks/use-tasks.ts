@@ -95,18 +95,19 @@ export function useUpsertRenewalTask() {
   return useMutation({
     mutationFn: async (args: {
       owner: string
+      matchId: string
       entityType: Enums<'note_entity'>
       entityId: string
       contactId: string | null
       title: string
       dueDate: string
     }) => {
-      // replace any existing open auto renewal task for this deal so re-saving doesn't duplicate
+      // replace any existing open auto renewal task for THIS match (scoped to the
+      // match, not the parent deal, since one deal can have many matches/leases)
       await supabase
         .from('tasks')
         .delete()
-        .eq('entity_type', args.entityType)
-        .eq('entity_id', args.entityId)
+        .eq('match_id', args.matchId)
         .eq('source', 'lease_renewal')
         .eq('status', 'open')
       const { error } = await supabase.from('tasks').insert({
@@ -114,6 +115,7 @@ export function useUpsertRenewalTask() {
         title: args.title,
         kind: 'renewal',
         due_date: args.dueDate,
+        match_id: args.matchId,
         entity_type: args.entityType,
         entity_id: args.entityId,
         contact_id: args.contactId,

@@ -74,6 +74,7 @@ export function LeaseDetailsDialog({ open, onOpenChange, match }: LeaseDetailsDi
           const due = max([subDays(parseISO(renewal), RENEWAL_LEAD_DAYS), today])
           await upsertRenewal.mutateAsync({
             owner: session.user.id,
+            matchId: match.id,
             ...target,
             contactId: match.tenant_contact_id,
             title: `Reach out to ${tenantName} about renewal — ${match.property?.address ?? 'property'}`,

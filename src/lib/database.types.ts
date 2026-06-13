@@ -405,6 +405,7 @@ export type Database = {
           entity_type: Database["public"]["Enums"]["note_entity"] | null
           id: string
           kind: Database["public"]["Enums"]["task_kind"]
+          match_id: string | null
           owner_id: string
           source: string | null
           status: Database["public"]["Enums"]["task_status"]
@@ -422,6 +423,7 @@ export type Database = {
           entity_type?: Database["public"]["Enums"]["note_entity"] | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
+          match_id?: string | null
           owner_id: string
           source?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -439,6 +441,7 @@ export type Database = {
           entity_type?: Database["public"]["Enums"]["note_entity"] | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
+          match_id?: string | null
           owner_id?: string
           source?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -451,6 +454,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
             referencedColumns: ["id"]
           },
         ]
