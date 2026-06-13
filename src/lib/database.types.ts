@@ -152,7 +152,7 @@ export type Database = {
           expiration_date: string | null
           free_rent_months: number | null
           id: string
-          lease_type: string | null
+          lease_type: Database["public"]["Enums"]["lease_structure"] | null
           match_id: string | null
           notes: string | null
           owner_id: string | null
@@ -175,7 +175,7 @@ export type Database = {
           expiration_date?: string | null
           free_rent_months?: number | null
           id?: string
-          lease_type?: string | null
+          lease_type?: Database["public"]["Enums"]["lease_structure"] | null
           match_id?: string | null
           notes?: string | null
           owner_id?: string | null
@@ -198,7 +198,7 @@ export type Database = {
           expiration_date?: string | null
           free_rent_months?: number | null
           id?: string
-          lease_type?: string | null
+          lease_type?: Database["public"]["Enums"]["lease_structure"] | null
           match_id?: string | null
           notes?: string | null
           owner_id?: string | null
@@ -922,6 +922,7 @@ export type Database = {
         | "website"
         | "referral"
         | "broker"
+      lease_structure: "NNN" | "NN" | "MG"
       listing_stage: "proposal" | "listed" | "closed"
       match_stage:
         | "inquiring"
@@ -1100,6 +1101,7 @@ export const Constants = {
         "referral",
         "broker",
       ],
+      lease_structure: ["NNN", "NN", "MG"],
       listing_stage: ["proposal", "listed", "closed"],
       match_stage: [
         "inquiring",
