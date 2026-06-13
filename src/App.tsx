@@ -7,6 +7,8 @@ import { AuthProvider } from '@/hooks/use-auth'
 import { BreadcrumbProvider } from '@/hooks/use-breadcrumb'
 import { LoginPage } from '@/pages/login'
 import { PlaceholderPage } from '@/pages/placeholder'
+import { LandlordRepPage } from '@/pages/landlord-rep'
+import { TenantRepPage } from '@/pages/tenant-rep'
 import { CompaniesPage } from '@/pages/companies'
 import { CompanyDetailPage } from '@/pages/company-detail'
 import { ContactsPage } from '@/pages/contacts'
@@ -35,14 +37,8 @@ export default function App() {
                   path="/"
                   element={<PlaceholderPage title="Dashboard" description="Pipeline summaries land here in Phase 7." />}
                 />
-                <Route
-                  path="/landlord-rep"
-                  element={<PlaceholderPage title="Landlord Rep" description="The listings pipeline arrives in Phase 4." />}
-                />
-                <Route
-                  path="/tenant-rep"
-                  element={<PlaceholderPage title="Tenant Rep" description="The tenant pipeline arrives in Phase 4." />}
-                />
+                <Route path="/landlord-rep" element={<LandlordRepPage />} />
+                <Route path="/tenant-rep" element={<TenantRepPage />} />
                 <Route path="/contacts" element={<ContactsPage />} />
                 <Route path="/contacts/:id" element={<ContactDetailPage />} />
                 <Route path="/companies" element={<CompaniesPage />} />
