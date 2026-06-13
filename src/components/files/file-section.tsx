@@ -52,9 +52,16 @@ interface FileSectionProps {
   entityType: NoteEntity
   entityId: string
   defaultCategory?: FileCategory
+  /** Fires after a lease/PSA file uploads successfully (used to prompt for lease dates). */
+  onLeaseUploaded?: () => void
 }
 
-export function FileSection({ entityType, entityId, defaultCategory = 'other' }: FileSectionProps) {
+export function FileSection({
+  entityType,
+  entityId,
+  defaultCategory = 'other',
+  onLeaseUploaded,
+}: FileSectionProps) {
   const { data: files = [], isLoading } = useFiles(entityType, entityId)
   const upload = useUploadFiles(entityType, entityId)
   const rename = useRenameFile(entityType, entityId)
@@ -79,6 +86,10 @@ export function FileSection({ entityType, entityId, defaultCategory = 'other' }:
             toast.success(res.total === 1 ? 'Uploaded' : `Uploaded ${res.total} files`)
           } else {
             toast.error(`${res.failed.length} of ${res.total} file(s) failed to upload`)
+          }
+          // prompt for lease dates when a lease/PSA doc lands
+          if ((category === 'lease' || category === 'psa') && res.failed.length < res.total) {
+            onLeaseUploaded?.()
           }
         },
         onError: (e) => toast.error(friendlyDbError(e, 'Upload failed')),

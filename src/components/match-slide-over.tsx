@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowUpRight, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ExecutedChecklist } from '@/components/files/executed-checklist'
 import { FileSection } from '@/components/files/file-section'
+import { LeaseDetailsDialog } from '@/components/lease-details-dialog'
 import { NotesLog } from '@/components/notes-log'
 import { SourceBadge } from '@/components/source-badge'
 import { contactNameOf } from '@/hooks/use-contacts'
@@ -42,6 +44,7 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
   const { session } = useAuth()
   const { data: match, isLoading } = useMatch(matchId ?? undefined)
   const promote = usePromoteToTenantRep()
+  const [leaseOpen, setLeaseOpen] = useState(false)
 
   const tenantName =
     match?.tenant_company?.name ??
@@ -161,7 +164,11 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                   {match.stage === 'executed' && (
                     <ExecutedChecklist matchId={match.id} dealType={match.listing?.deal_type ?? null} />
                   )}
-                  <FileSection entityType="match" entityId={match.id} />
+                  <FileSection
+                    entityType="match"
+                    entityId={match.id}
+                    onLeaseUploaded={() => setLeaseOpen(true)}
+                  />
                 </div>
               </TabsContent>
 
@@ -169,6 +176,8 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                 <NotesLog entityType="match" entityId={match.id} />
               </TabsContent>
             </Tabs>
+
+            <LeaseDetailsDialog open={leaseOpen} onOpenChange={setLeaseOpen} match={match} />
           </>
         )}
       </SheetContent>

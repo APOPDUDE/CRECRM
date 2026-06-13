@@ -11,6 +11,7 @@ import { LandlordRepPage } from '@/pages/landlord-rep'
 import { PropertyBoardPage } from '@/pages/property-board'
 import { TenantRepPage } from '@/pages/tenant-rep'
 import { TenantBoardPage } from '@/pages/tenant-board'
+import { TasksPage } from '@/pages/tasks'
 import { CompaniesPage } from '@/pages/companies'
 import { CompanyDetailPage } from '@/pages/company-detail'
 import { ContactsPage } from '@/pages/contacts'
@@ -43,6 +44,7 @@ export default function App() {
                 <Route path="/landlord-rep/:listingId" element={<PropertyBoardPage />} />
                 <Route path="/tenant-rep" element={<TenantRepPage />} />
                 <Route path="/tenant-rep/:tenantRepId" element={<TenantBoardPage />} />
+                <Route path="/tasks" element={<TasksPage />} />
                 <Route path="/contacts" element={<ContactsPage />} />
                 <Route path="/contacts/:id" element={<ContactDetailPage />} />
                 <Route path="/companies" element={<CompaniesPage />} />
