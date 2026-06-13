@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -14,6 +14,8 @@ import { MatchCard } from '@/components/match-card'
 import { MatchSlideOver } from '@/components/match-slide-over'
 import { NotesLog } from '@/components/notes-log'
 import { SourceBadge } from '@/components/source-badge'
+import { TenantRequirements } from '@/components/tenant-requirements'
+import { TenantRepEditDialog } from '@/components/tenant-rep-edit-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useUpdateListing } from '@/hooks/use-listings'
 import {
@@ -25,7 +27,6 @@ import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail, useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums } from '@/lib/database.types'
-import { formatSf } from '@/lib/format'
 import { mapTenantBoardColumn, matchStageLabels, tenantBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
@@ -39,12 +40,6 @@ function SidebarSection({ title, children }: { title: string; children: React.Re
   )
 }
 
-function sizeSummary(min: number | null, max: number | null): string | null {
-  if (min != null && max != null) return `${min.toLocaleString('en-US')}–${formatSf(max)}`
-  if (min != null) return `${formatSf(min)}+`
-  if (max != null) return `Up to ${formatSf(max)}`
-  return null
-}
 
 export function TenantBoardPage() {
   const { tenantRepId } = useParams()
@@ -57,6 +52,7 @@ export function TenantBoardPage() {
   const updateTenantRep = useUpdateTenantRep()
 
   const [addOpen, setAddOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
 
@@ -93,7 +89,6 @@ export function TenantBoardPage() {
   }
 
   const contact = tenantRep.contact
-  const reqSize = sizeSummary(tenantRep.size_min_sf, tenantRep.size_max_sf)
   const brokerName = tenantRep.broker ? contactNameOf(tenantRep.broker) : null
 
   const plainMove = (match: MatchWithRelations, toStage: Enums<'match_stage'>) => {
@@ -223,36 +218,13 @@ export function TenantBoardPage() {
             </SidebarSection>
           )}
 
-          {(reqSize ||
-            tenantRep.must_haves ||
-            tenantRep.target_area ||
-            tenantRep.budget) && (
-            <SidebarSection title="Requirements">
-              <div className="space-y-1 rounded-lg border p-3 text-sm">
-                {reqSize && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Size</span>
-                    <span className="tabular-nums">{reqSize}</span>
-                  </div>
-                )}
-                {tenantRep.target_area && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Area</span>
-                    <span className="text-right">{tenantRep.target_area}</span>
-                  </div>
-                )}
-                {tenantRep.budget && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Budget</span>
-                    <span className="text-right">{tenantRep.budget}</span>
-                  </div>
-                )}
-                {tenantRep.must_haves && (
-                  <p className="pt-1 whitespace-pre-wrap">{tenantRep.must_haves}</p>
-                )}
-              </div>
-            </SidebarSection>
-          )}
+          <SidebarSection title="Requirements">
+            <TenantRequirements tenantRep={tenantRep} />
+            <Button variant="outline" size="sm" className="w-full" onClick={() => setEditOpen(true)}>
+              <Pencil className="size-4" />
+              Edit requirements
+            </Button>
+          </SidebarSection>
 
           {tenantRep.source && (
             <SidebarSection title="Source">
@@ -270,6 +242,7 @@ export function TenantBoardPage() {
       </div>
 
       <AddPropertyMatchDialog open={addOpen} onOpenChange={setAddOpen} tenantRep={tenantRep} />
+      <TenantRepEditDialog open={editOpen} onOpenChange={setEditOpen} tenantRep={tenantRep} />
       <MatchSlideOver
         matchId={openMatchId}
         open={!!openMatchId}

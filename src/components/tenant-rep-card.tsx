@@ -24,17 +24,28 @@ interface TenantRepCardProps {
 // stop dnd-kit's pointer sensor from treating menu interaction as a drag
 const stopDrag = (e: React.PointerEvent) => e.stopPropagation()
 
-/** Short size requirement summary, e.g. "80,000–120,000 SF", "80,000 SF+", "up to 120,000 SF". */
+/** A min–max range like "80,000–120,000 SF", "80,000 SF+", "up to 120,000 SF". */
+export function rangeSummary(
+  min: number | null,
+  max: number | null,
+  unit: (n: number) => string | null,
+): string | null {
+  if (min != null && max != null) return `${min.toLocaleString('en-US')}–${unit(max)}`
+  if (min != null) return `${unit(min)}+`
+  if (max != null) return `up to ${unit(max)}`
+  return null
+}
+
+/** Short card summary — warehouse SF first, then office, then a sensible fallback. */
 export function sizeSummary(tenantRep: TenantRepWithRelations): string | null {
-  const { size_min_sf, size_max_sf } = tenantRep
-  if (size_min_sf != null && size_max_sf != null) {
-    return `${size_min_sf.toLocaleString('en-US')}–${formatSf(size_max_sf)}`
-  }
-  if (size_min_sf != null) return `${formatSf(size_min_sf)}+`
-  if (size_max_sf != null) return `up to ${formatSf(size_max_sf)}`
-  if (tenantRep.property_type) return propertyKindLabels[tenantRep.property_type]
-  // fall back to the free-text requirements (what the quick-add captures) or target area
-  return tenantRep.must_haves || tenantRep.target_area || null
+  return (
+    rangeSummary(tenantRep.warehouse_sf_min, tenantRep.warehouse_sf_max, formatSf) ||
+    rangeSummary(tenantRep.office_sf_min, tenantRep.office_sf_max, formatSf) ||
+    (tenantRep.property_type ? propertyKindLabels[tenantRep.property_type] : null) ||
+    tenantRep.must_haves ||
+    tenantRep.target_area ||
+    null
+  )
 }
 
 function tenantName(tenantRep: TenantRepWithRelations): string {
