@@ -74,7 +74,13 @@ export function FileSection({ entityType, entityId, defaultCategory = 'other' }:
     upload.mutate(
       { files: Array.from(fileList), category },
       {
-        onSuccess: () => toast.success('Uploaded'),
+        onSuccess: (res) => {
+          if (res.failed.length === 0) {
+            toast.success(res.total === 1 ? 'Uploaded' : `Uploaded ${res.total} files`)
+          } else {
+            toast.error(`${res.failed.length} of ${res.total} file(s) failed to upload`)
+          }
+        },
         onError: (e) => toast.error(friendlyDbError(e, 'Upload failed')),
       },
     )
@@ -82,7 +88,8 @@ export function FileSection({ entityType, entityId, defaultCategory = 'other' }:
 
   const openPreview = async (file: FileRow) => {
     try {
-      setPreview({ url: await signedUrl(file.storage_path), file })
+      // longer-lived URL so the preview doesn't expire while open
+      setPreview({ url: await signedUrl(file.storage_path, undefined, 3600), file })
     } catch {
       toast.error('Could not open file')
     }
@@ -90,7 +97,15 @@ export function FileSection({ entityType, entityId, defaultCategory = 'other' }:
 
   const download = async (file: FileRow) => {
     try {
-      window.open(await signedUrl(file.storage_path, file.file_name), '_blank')
+      const url = await signedUrl(file.storage_path, file.file_name)
+      // an anchor click isn't blocked by popup blockers the way window.open(after await) is on iOS/Safari
+      const a = document.createElement('a')
+      a.href = url
+      a.rel = 'noopener'
+      a.download = file.file_name
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
     } catch {
       toast.error('Could not download file')
     }
@@ -100,9 +115,27 @@ export function FileSection({ entityType, entityId, defaultCategory = 'other' }:
     setZipping(true)
     try {
       const zip = new JSZip()
+      const usedNames = new Map<string, number>()
+      const failed: string[] = []
       for (const file of files) {
-        const res = await fetch(await signedUrl(file.storage_path))
-        zip.file(file.file_name, await res.blob())
+        try {
+          const res = await fetch(await signedUrl(file.storage_path))
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          // de-dupe entry names so same-named files don't overwrite each other in the zip
+          let name = file.file_name
+          const seen = usedNames.get(name)
+          if (seen != null) {
+            const dot = name.lastIndexOf('.')
+            const suffix = ` (${seen + 1})`
+            name = dot > 0 ? name.slice(0, dot) + suffix + name.slice(dot) : name + suffix
+            usedNames.set(file.file_name, seen + 1)
+          } else {
+            usedNames.set(file.file_name, 1)
+          }
+          zip.file(name, await res.blob())
+        } catch {
+          failed.push(file.file_name)
+        }
       }
       const blob = await zip.generateAsync({ type: 'blob' })
       const url = URL.createObjectURL(blob)
@@ -111,6 +144,7 @@ export function FileSection({ entityType, entityId, defaultCategory = 'other' }:
       a.download = `${entityType}-files.zip`
       a.click()
       URL.revokeObjectURL(url)
+      if (failed.length > 0) toast.error(`${failed.length} file(s) couldn't be added to the zip`)
     } catch {
       toast.error('Could not build zip')
     } finally {

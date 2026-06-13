@@ -39,31 +39,50 @@ export function useFiles(entityType: NoteEntity, entityId: string | undefined) {
   })
 }
 
+export interface UploadResult {
+  total: number
+  failed: string[]
+}
+
 export function useUploadFiles(entityType: NoteEntity, entityId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ files, category }: { files: File[]; category: FileCategory }) => {
+    mutationFn: async ({
+      files,
+      category,
+    }: {
+      files: File[]
+      category: FileCategory
+    }): Promise<UploadResult> => {
+      const failed: string[] = []
+      // each file commits independently; one failure doesn't abort the rest
       for (const file of files) {
-        const path = `${entityType}/${entityId}/${crypto.randomUUID()}-${file.name}`
-        const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file)
-        if (uploadError) throw uploadError
-        const { error: insertError } = await supabase.from('files').insert({
-          entity_type: entityType,
-          entity_id: entityId,
-          category,
-          file_name: file.name,
-          storage_path: path,
-          file_size: file.size,
-          mime_type: file.type || null,
-        })
-        if (insertError) {
-          // roll back the orphaned storage object if the row insert fails
-          await supabase.storage.from(BUCKET).remove([path])
-          throw insertError
+        try {
+          const path = `${entityType}/${entityId}/${crypto.randomUUID()}-${file.name}`
+          const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file)
+          if (uploadError) throw uploadError
+          const { error: insertError } = await supabase.from('files').insert({
+            entity_type: entityType,
+            entity_id: entityId,
+            category,
+            file_name: file.name,
+            storage_path: path,
+            file_size: file.size,
+            mime_type: file.type || null,
+          })
+          if (insertError) {
+            // roll back the orphaned storage object if the row insert fails
+            await supabase.storage.from(BUCKET).remove([path])
+            throw insertError
+          }
+        } catch {
+          failed.push(file.name)
         }
       }
+      return { total: files.length, failed }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: filesKey(entityType, entityId) }),
+    // always refresh so successfully-committed files surface, even on partial failure
+    onSettled: () => queryClient.invalidateQueries({ queryKey: filesKey(entityType, entityId) }),
   })
 }
 
@@ -90,11 +109,15 @@ export function useDeleteFile(entityType: NoteEntity, entityId: string) {
   })
 }
 
-/** Short-lived signed URL for a private file; pass downloadName to force a download. */
-export async function signedUrl(storagePath: string, downloadName?: string): Promise<string> {
+/** Signed URL for a private file; pass downloadName to force a download. */
+export async function signedUrl(
+  storagePath: string,
+  downloadName?: string,
+  expiresIn = 300,
+): Promise<string> {
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(storagePath, 120, downloadName ? { download: downloadName } : undefined)
+    .createSignedUrl(storagePath, expiresIn, downloadName ? { download: downloadName } : undefined)
   if (error || !data) throw error ?? new Error('Could not sign URL')
   return data.signedUrl
 }
