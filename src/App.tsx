@@ -4,8 +4,15 @@ import { Toaster } from '@/components/ui/sonner'
 import { AppShell } from '@/components/app-shell'
 import { ProtectedRoute } from '@/components/protected-route'
 import { AuthProvider } from '@/hooks/use-auth'
+import { BreadcrumbProvider } from '@/hooks/use-breadcrumb'
 import { LoginPage } from '@/pages/login'
 import { PlaceholderPage } from '@/pages/placeholder'
+import { CompaniesPage } from '@/pages/companies'
+import { CompanyDetailPage } from '@/pages/company-detail'
+import { ContactsPage } from '@/pages/contacts'
+import { ContactDetailPage } from '@/pages/contact-detail'
+import { PropertiesPage } from '@/pages/properties'
+import { PropertyDetailPage } from '@/pages/property-detail'
 
 const queryClient = new QueryClient()
 
@@ -17,7 +24,13 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route element={<ProtectedRoute />}>
-              <Route element={<AppShell />}>
+              <Route
+                element={
+                  <BreadcrumbProvider>
+                    <AppShell />
+                  </BreadcrumbProvider>
+                }
+              >
                 <Route
                   path="/"
                   element={<PlaceholderPage title="Dashboard" description="Pipeline summaries land here in Phase 7." />}
@@ -30,18 +43,12 @@ export default function App() {
                   path="/tenant-rep"
                   element={<PlaceholderPage title="Tenant Rep" description="The tenant pipeline arrives in Phase 4." />}
                 />
-                <Route
-                  path="/contacts"
-                  element={<PlaceholderPage title="Contacts" description="Contact management arrives in Phase 3." />}
-                />
-                <Route
-                  path="/companies"
-                  element={<PlaceholderPage title="Companies" description="Company management arrives in Phase 3." />}
-                />
-                <Route
-                  path="/properties"
-                  element={<PlaceholderPage title="Properties" description="Property management arrives in Phase 3." />}
-                />
+                <Route path="/contacts" element={<ContactsPage />} />
+                <Route path="/contacts/:id" element={<ContactDetailPage />} />
+                <Route path="/companies" element={<CompaniesPage />} />
+                <Route path="/companies/:id" element={<CompanyDetailPage />} />
+                <Route path="/properties" element={<PropertiesPage />} />
+                <Route path="/properties/:id" element={<PropertyDetailPage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

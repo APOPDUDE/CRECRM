@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useAuth } from '@/hooks/use-auth'
+import { useBreadcrumbValue } from '@/hooks/use-breadcrumb'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -26,13 +27,13 @@ const navItems = [
   { to: '/properties', label: 'Properties', icon: Building },
 ]
 
-const routeLabels: Record<string, string> = {
-  '/': 'Dashboard',
-  '/landlord-rep': 'Landlord Rep',
-  '/tenant-rep': 'Tenant Rep',
-  '/contacts': 'Contacts',
-  '/companies': 'Companies',
-  '/properties': 'Properties',
+const sectionLabels: Record<string, string> = {
+  '': 'Dashboard',
+  'landlord-rep': 'Landlord Rep',
+  'tenant-rep': 'Tenant Rep',
+  contacts: 'Contacts',
+  companies: 'Companies',
+  properties: 'Properties',
 }
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -76,8 +77,11 @@ export function AppShell() {
   const { signOut } = useAuth()
   const location = useLocation()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const crumb = useBreadcrumbValue()
 
-  const currentLabel = routeLabels[location.pathname] ?? 'CRE CRM'
+  const section = location.pathname.split('/')[1] ?? ''
+  const sectionLabel = sectionLabels[section] ?? 'CRE CRM'
+  const sectionPath = section ? `/${section}` : '/'
 
   return (
     <div className="flex min-h-svh">
@@ -133,7 +137,19 @@ export function AppShell() {
               </div>
             </SheetContent>
           </Sheet>
-          <div className="text-sm font-medium">{currentLabel}</div>
+          <div className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+            {crumb ? (
+              <>
+                <Link to={sectionPath} className="text-muted-foreground hover:text-foreground">
+                  {sectionLabel}
+                </Link>
+                <span className="text-muted-foreground">/</span>
+                <span className="truncate">{crumb}</span>
+              </>
+            ) : (
+              <span>{sectionLabel}</span>
+            )}
+          </div>
         </header>
 
         <main className="flex-1 p-4 md:p-6">
