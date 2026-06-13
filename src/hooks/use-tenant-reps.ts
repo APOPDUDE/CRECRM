@@ -60,6 +60,54 @@ export function useUpdateTenantRep() {
   })
 }
 
+/** Mark a tenant rep lost, optionally killing its open property matches too. */
+export function useMarkTenantRepLost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      lostReason,
+      markMatchesDead,
+    }: {
+      id: string
+      lostReason: string | null
+      markMatchesDead: boolean
+    }) => {
+      const { error } = await supabase
+        .from('tenant_reps')
+        .update({ status: 'lost', lost_reason: lostReason })
+        .eq('id', id)
+      if (error) throw error
+      if (markMatchesDead) {
+        const { error: matchError } = await supabase
+          .from('matches')
+          .update({ stage: 'dead' })
+          .eq('tenant_rep_id', id)
+          .neq('stage', 'dead')
+        if (matchError) throw matchError
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
+      queryClient.invalidateQueries({ queryKey: ['matches'] })
+    },
+  })
+}
+
+export function useReopenTenantRep() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('tenant_reps')
+        .update({ status: 'active', lost_reason: null })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tenant_reps'] }),
+  })
+}
+
 export function useUpdateTenantRepStage() {
   const queryClient = useQueryClient()
   return useMutation({
