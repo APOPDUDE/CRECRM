@@ -20,6 +20,8 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { propertyKindLabels } from '@/components/property-form-dialog'
+import { ContactSelect } from '@/components/contact-select'
+import { leadSourceLabels } from '@/components/source-badge'
 import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import type { Enums, Tables } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -41,10 +43,13 @@ interface TenantRepEditDialogProps {
 export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRepEditDialogProps) {
   const updateTenantRep = useUpdateTenantRep()
   const [f, setF] = useState<Record<string, string>>({})
+  const [brokerId, setBrokerId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
+    setBrokerId(tenantRep.broker_contact_id ?? null)
     setF({
+      source: tenantRep.source ?? NONE,
       business_industry: s(tenantRep.business_industry),
       business_website: s(tenantRep.business_website),
       move_in_date: s(tenantRep.move_in_date),
@@ -73,6 +78,8 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
     updateTenantRep.mutate(
       {
         id: tenantRep.id,
+        source: f.source === NONE ? null : (f.source as Enums<'lead_source'>),
+        broker_contact_id: f.source === 'broker' ? brokerId : null,
         business_industry: str(f.business_industry),
         business_website: str(f.business_website),
         move_in_date: f.move_in_date || null,
@@ -93,7 +100,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
       },
       {
         onSuccess: () => {
-          toast.success('Requirements updated')
+          toast.success('Saved')
           onOpenChange(false)
         },
         onError: (error) => toast.error(friendlyDbError(error, 'Could not save requirements')),
@@ -115,9 +122,31 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit requirements</DialogTitle>
+          <DialogTitle>Edit details</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tr-source">Source</Label>
+            <Select value={f.source ?? NONE} onValueChange={(v) => setF((p) => ({ ...p, source: v }))}>
+              <SelectTrigger id="tr-source" className="w-full">
+                <SelectValue placeholder="No source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>No source</SelectItem>
+                {Object.entries(leadSourceLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {f.source === 'broker' && (
+            <div className="space-y-2">
+              <Label>Referring broker</Label>
+              <ContactSelect value={brokerId} onChange={setBrokerId} placeholder="Select or create broker" />
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="tr-industry">Business industry</Label>
@@ -194,8 +223,11 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={updateTenantRep.isPending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={updateTenantRep.isPending}>
-              {updateTenantRep.isPending ? 'Saving…' : 'Save requirements'}
+            <Button
+              type="submit"
+              disabled={updateTenantRep.isPending || (f.source === 'broker' && !brokerId)}
+            >
+              {updateTenantRep.isPending ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
         </form>

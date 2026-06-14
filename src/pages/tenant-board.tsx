@@ -17,7 +17,8 @@ import { NotesLog } from '@/components/notes-log'
 import { SourceBadge } from '@/components/source-badge'
 import { TenantRequirements } from '@/components/tenant-requirements'
 import { TenantRepEditDialog } from '@/components/tenant-rep-edit-dialog'
-import { contactNameOf } from '@/hooks/use-contacts'
+import { ContactFormDialog } from '@/components/contact-form-dialog'
+import { contactNameOf, type Contact } from '@/hooks/use-contacts'
 import { useUpdateListing } from '@/hooks/use-listings'
 import {
   tenantRepMatchesKey,
@@ -58,6 +59,7 @@ export function TenantBoardPage() {
 
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [contactEditOpen, setContactEditOpen] = useState(false)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
 
@@ -253,32 +255,47 @@ export function TenantBoardPage() {
         <aside className="w-full space-y-4">
           {contact && (
             <SidebarSection title="Tenant contact">
-              <div className="rounded-lg border p-3 text-sm">
+              <button
+                type="button"
+                onClick={() => setContactEditOpen(true)}
+                className="group/edit relative w-full rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent"
+              >
+                <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
                 <div className="font-medium">{contactNameOf(contact)}</div>
                 {contact.title && (
                   <div className="text-xs text-muted-foreground">{contact.title}</div>
                 )}
                 {contact.email && <div className="mt-1 text-xs">{contact.email}</div>}
                 {contact.phone && <div className="text-xs">{contact.phone}</div>}
-              </div>
+              </button>
             </SidebarSection>
           )}
 
           <SidebarSection title="Requirements">
-            <TenantRequirements tenantRep={tenantRep} />
-            <Button variant="outline" size="sm" className="w-full" onClick={() => setEditOpen(true)}>
-              <Pencil className="size-4" />
-              Edit requirements
-            </Button>
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="group/edit relative w-full rounded-lg border p-3 text-left transition-colors hover:bg-accent"
+            >
+              <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
+              <TenantRequirements tenantRep={tenantRep} />
+            </button>
           </SidebarSection>
 
-          {tenantRep.source && (
-            <SidebarSection title="Source">
-              <div className="rounded-lg border p-3 text-sm">
+          <SidebarSection title="Source">
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="group/edit relative w-full rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent"
+            >
+              <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
+              {tenantRep.source ? (
                 <SourceBadge source={tenantRep.source} brokerName={brokerName} />
-              </div>
-            </SidebarSection>
-          )}
+              ) : (
+                <span className="text-xs text-muted-foreground">No source — click to set</span>
+              )}
+            </button>
+          </SidebarSection>
 
           <Separator />
           <SidebarSection title="Files">
@@ -294,6 +311,13 @@ export function TenantBoardPage() {
 
       <AddPropertyMatchDialog open={addOpen} onOpenChange={setAddOpen} tenantRep={tenantRep} />
       <TenantRepEditDialog open={editOpen} onOpenChange={setEditOpen} tenantRep={tenantRep} />
+      {contact && (
+        <ContactFormDialog
+          open={contactEditOpen}
+          onOpenChange={setContactEditOpen}
+          contact={contact as unknown as Contact}
+        />
+      )}
       <MatchSlideOver
         matchId={openMatchId}
         open={!!openMatchId}
