@@ -19,6 +19,8 @@ import { TenantRequirements } from '@/components/tenant-requirements'
 import { TenantRepEditDialog } from '@/components/tenant-rep-edit-dialog'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { PropertyPreview } from '@/components/property-preview'
+import { StageDateDialog } from '@/components/stage-date-dialog'
+import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf, type Contact } from '@/hooks/use-contacts'
 import { useUpdateListing } from '@/hooks/use-listings'
 import {
@@ -30,7 +32,7 @@ import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail, useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-automation'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
-import type { Enums } from '@/lib/database.types'
+import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { automationEnabled } from '@/lib/n8n'
 import { mapTenantBoardColumn, matchStageLabels, tenantBoardStages } from '@/lib/stages'
 
@@ -63,6 +65,9 @@ export function TenantBoardPage() {
   const [contactEditOpen, setContactEditOpen] = useState(false)
   const [previewPropertyId, setPreviewPropertyId] = useState<string | null>(null)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
+  const [dateMove, setDateMove] = useState<{ match: MatchWithRelations; stage: DatedStage } | null>(
+    null,
+  )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
 
   // Viewing the board clears the "new match" flag (the red tag stays visible for
@@ -130,11 +135,32 @@ export function TenantBoardPage() {
 
   const handleMove = (match: MatchWithRelations, toStageStr: string) => {
     const toStage = toStageStr as Enums<'match_stage'>
-    if (toStage === 'executed') {
+    if (toStage === 'toured' && !match.tour_date) {
+      setDateMove({ match, stage: 'toured' })
+    } else if (toStage === 'loi' && !match.loi_date) {
+      setDateMove({ match, stage: 'loi' })
+    } else if (toStage === 'lease_negotiation' && !match.lease_negotiation_date) {
+      setDateMove({ match, stage: 'lease_negotiation' })
+    } else if (toStage === 'executed') {
       setExecutedMove({ match, toStage })
     } else {
       plainMove(match, toStage)
     }
+  }
+
+  const confirmDate = (patch: Partial<TablesUpdate<'matches'>>) => {
+    if (!dateMove) return
+    const { match, stage } = dateMove
+    updateStage.mutate(
+      { id: match.id, stage, patch },
+      {
+        onSuccess: () => {
+          toast.success(`Moved to ${matchStageLabels[stage]}`)
+          setDateMove(null)
+        },
+        onError: () => toast.error('Could not move match'),
+      },
+    )
   }
 
   // Await every write so success only reports once linked records are synced.
@@ -142,11 +168,14 @@ export function TenantBoardPage() {
     if (!executedMove) return
     const match = executedMove.match
     const fee = result.actualFee
+    const econ = Object.fromEntries(
+      Object.entries(result.economics).filter(([, v]) => v != null),
+    )
     try {
       await updateStage.mutateAsync({
         id: match.id,
         stage: 'executed',
-        patch: { execution_date: result.executionDate },
+        patch: { execution_date: result.executionDate, ...econ },
       })
       // record the fee on the tenant rep (board context) and bump it if asked
       const tenantPatch = {
@@ -335,11 +364,19 @@ export function TenantBoardPage() {
         open={!!previewPropertyId}
         onOpenChange={(open) => !open && setPreviewPropertyId(null)}
       />
+      <StageDateDialog
+        stage={dateMove?.stage ?? null}
+        open={!!dateMove}
+        onOpenChange={(open) => !open && setDateMove(null)}
+        pending={updateStage.isPending}
+        onConfirm={confirmDate}
+      />
       <ExecutedMatchDialog
         open={!!executedMove}
         onOpenChange={(open) => !open && setExecutedMove(null)}
         hasTenantRep
         hasListing={!!executedMove?.match.listing_id}
+        dealType={executedMove?.match.listing?.deal_type ?? 'lease'}
         pending={updateStage.isPending || updateListing.isPending || updateTenantRep.isPending}
         onConfirm={confirmExecuted}
       />

@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { useDealMap, type DealStatus, type MapDeal } from '@/hooks/use-deals'
 import { useGeocodeMissing } from '@/hooks/use-properties'
+import { useDashboardMatches } from '@/hooks/use-dashboard'
+import { DashboardActivity, NewMatchesFeed } from '@/components/dashboard-activity'
 
 const STATUS: Record<DealStatus, { label: string; color: string; chip: string }> = {
   active: { label: 'Active', color: '#2563eb', chip: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -51,6 +53,7 @@ function FitBounds({ deals }: { deals: MapDeal[] }) {
 export function DashboardPage() {
   const { data: deals = [], isLoading } = useDealMap()
   useGeocodeMissing() // backfill coordinates for any properties that lack them
+  const { data: dashMatches = [] } = useDashboardMatches()
   const [shown, setShown] = useState<Set<DealStatus>>(new Set(ALL_STATUSES))
 
   const counts = useMemo(() => {
@@ -71,12 +74,15 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Deal map — every located listing and tenant match.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <h1 className="text-xl font-semibold">Dashboard</h1>
+
+      <DashboardActivity matches={dashMatches} />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-2 lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-medium text-muted-foreground">Deal map</h2>
+            <div className="flex flex-wrap items-center gap-2">
           {ALL_STATUSES.map((s) => (
             <button
               key={s}
@@ -92,11 +98,10 @@ export function DashboardPage() {
               <span className="tabular-nums">{counts[s]}</span>
             </button>
           ))}
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border">
-        <div className="relative h-[68vh] min-h-[420px] w-full">
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-lg border">
+            <div className="relative h-[60vh] min-h-[380px] w-full">
           {!isLoading && deals.length === 0 && (
             <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-card/80 text-center text-sm text-muted-foreground">
               No located deals yet — scrape or add properties with an address and they'll appear here.
@@ -157,7 +162,10 @@ export function DashboardPage() {
               </CircleMarker>
             ))}
           </MapContainer>
+            </div>
+          </div>
         </div>
+        <NewMatchesFeed matches={dashMatches} />
       </div>
     </div>
   )

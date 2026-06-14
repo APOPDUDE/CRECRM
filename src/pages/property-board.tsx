@@ -14,7 +14,8 @@ import { FileSection } from '@/components/files/file-section'
 import { ListErrorState } from '@/components/list-error-state'
 import { MatchSlideOver } from '@/components/match-slide-over'
 import { NotesLog } from '@/components/notes-log'
-import { TourDateDialog } from '@/components/tour-date-dialog'
+import { StageDateDialog } from '@/components/stage-date-dialog'
+import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useListingDetail, useUpdateListing } from '@/hooks/use-listings'
 import {
@@ -25,7 +26,7 @@ import {
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
-import type { Enums } from '@/lib/database.types'
+import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { formatDate } from '@/lib/dates'
 import { formatListingPrice } from '@/lib/format'
 import { matchStageLabels, propertyBoardStages } from '@/lib/stages'
@@ -53,7 +54,9 @@ export function PropertyBoardPage() {
 
   const [addOpen, setAddOpen] = useState(false)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
-  const [tourMove, setTourMove] = useState<PendingMove | null>(null)
+  const [dateMove, setDateMove] = useState<{ match: MatchWithRelations; stage: DatedStage } | null>(
+    null,
+  )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
 
   useSetBreadcrumb(listing?.property?.address)
@@ -106,7 +109,11 @@ export function PropertyBoardPage() {
   const handleMove = (match: MatchWithRelations, toStageStr: string) => {
     const toStage = toStageStr as Enums<'match_stage'>
     if (toStage === 'toured' && !match.tour_date) {
-      setTourMove({ match, toStage })
+      setDateMove({ match, stage: 'toured' })
+    } else if (toStage === 'loi' && !match.loi_date) {
+      setDateMove({ match, stage: 'loi' })
+    } else if (toStage === 'lease_negotiation' && !match.lease_negotiation_date) {
+      setDateMove({ match, stage: 'lease_negotiation' })
     } else if (toStage === 'executed') {
       setExecutedMove({ match, toStage })
     } else {
@@ -114,16 +121,17 @@ export function PropertyBoardPage() {
     }
   }
 
-  const confirmTour = (tourDate: string) => {
-    if (!tourMove) return
+  const confirmDate = (patch: Partial<TablesUpdate<'matches'>>) => {
+    if (!dateMove) return
+    const { match, stage } = dateMove
     updateStage.mutate(
-      { id: tourMove.match.id, stage: 'toured', patch: { tour_date: tourDate } },
+      { id: match.id, stage, patch },
       {
         onSuccess: () => {
-          toast.success('Tour logged')
-          setTourMove(null)
+          toast.success(`Moved to ${matchStageLabels[stage]}`)
+          setDateMove(null)
         },
-        onError: () => toast.error('Could not log tour'),
+        onError: () => toast.error('Could not move match'),
       },
     )
   }
@@ -134,11 +142,14 @@ export function PropertyBoardPage() {
     if (!executedMove) return
     const match = executedMove.match
     const fee = result.actualFee
+    const econ = Object.fromEntries(
+      Object.entries(result.economics).filter(([, v]) => v != null),
+    )
     try {
       await updateStage.mutateAsync({
         id: match.id,
         stage: 'executed',
-        patch: { execution_date: result.executionDate },
+        patch: { execution_date: result.executionDate, ...econ },
       })
       // record the fee on the listing (board context) and close it if asked
       const listingPatch = {
@@ -282,17 +293,19 @@ export function PropertyBoardPage() {
         open={!!openMatchId}
         onOpenChange={(open) => !open && setOpenMatchId(null)}
       />
-      <TourDateDialog
-        open={!!tourMove}
-        onOpenChange={(open) => !open && setTourMove(null)}
+      <StageDateDialog
+        stage={dateMove?.stage ?? null}
+        open={!!dateMove}
+        onOpenChange={(open) => !open && setDateMove(null)}
         pending={updateStage.isPending}
-        onConfirm={confirmTour}
+        onConfirm={confirmDate}
       />
       <ExecutedMatchDialog
         open={!!executedMove}
         onOpenChange={(open) => !open && setExecutedMove(null)}
         hasListing
         hasTenantRep={!!executedMove?.match.tenant_rep_id}
+        dealType={listing.deal_type}
         pending={updateStage.isPending || updateListing.isPending || updateTenantRep.isPending}
         onConfirm={confirmExecuted}
       />
