@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AddTenantMatchDialog } from '@/components/add-tenant-match-dialog'
 import { ExecutedMatchDialog } from '@/components/executed-match-dialog'
 import type { ExecutedResult } from '@/components/executed-match-dialog'
+import { ListingTermsDialog } from '@/components/listing-terms-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { MatchCard } from '@/components/match-card'
 import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
@@ -27,7 +28,7 @@ import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { formatDate } from '@/lib/dates'
-import { formatListingPrice } from '@/lib/format'
+import { formatListingPrice, formatPsf, formatSf } from '@/lib/format'
 import { matchStageLabels, propertyBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
@@ -48,6 +49,7 @@ export function PropertyBoardPage() {
     null,
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
+  const [termsOpen, setTermsOpen] = useState(false)
   const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
 
   useSetBreadcrumb(listing?.property?.address)
@@ -266,21 +268,49 @@ export function PropertyBoardPage() {
               </SidebarSection>
             )}
 
-            {(formatListingPrice(listing) ||
-              listing.commission_pct != null ||
-              listing.listing_expiration) && (
             <SidebarSection title="Terms">
+              {(formatListingPrice(listing) ||
+                listing.property?.building_sf != null ||
+                listing.opex_psf != null ||
+                listing.lease_structure ||
+                listing.commission_pct != null ||
+                listing.co_broke_split_pct != null ||
+                listing.listing_expiration) ? (
               <div className="space-y-1 rounded-lg border bg-card p-3 text-sm">
+                {listing.property?.building_sf != null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Building SF</span>
+                    <span className="tabular-nums">{formatSf(listing.property.building_sf)}</span>
+                  </div>
+                )}
                 {formatListingPrice(listing) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{listing.deal_type === 'sale' ? 'Price' : 'Rate'}</span>
                     <span className="tabular-nums">{formatListingPrice(listing)}</span>
                   </div>
                 )}
+                {listing.opex_psf != null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">OpEx</span>
+                    <span className="tabular-nums">{formatPsf(listing.opex_psf)}</span>
+                  </div>
+                )}
+                {listing.lease_structure && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Structure</span>
+                    <span>{listing.lease_structure}</span>
+                  </div>
+                )}
                 {listing.commission_pct != null && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Commission</span>
                     <span>{listing.commission_pct}%</span>
+                  </div>
+                )}
+                {listing.co_broke_split_pct != null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Co-broke split</span>
+                    <span>{listing.co_broke_split_pct}%</span>
                   </div>
                 )}
                 {listing.listing_expiration && (
@@ -290,8 +320,20 @@ export function PropertyBoardPage() {
                   </div>
                 )}
               </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No terms set yet.</p>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setTermsOpen(true)}
+              >
+                <Pencil className="size-4" />
+                Edit terms
+              </Button>
             </SidebarSection>
-            )}
 
           </BoardInfoPanel>
         </aside>
@@ -321,9 +363,15 @@ export function PropertyBoardPage() {
         hasListing
         hasTenantRep={!!executedMove?.match.tenant_rep_id}
         dealType={listing.deal_type}
+        commissionCalcContext={{
+          commissionPct: listing.commission_pct,
+          coBrokeSplitPct: listing.co_broke_split_pct,
+          buildingSf: listing.property?.building_sf ?? null,
+        }}
         pending={updateStage.isPending || updateListing.isPending || updateTenantRep.isPending}
         onConfirm={confirmExecuted}
       />
+      <ListingTermsDialog open={termsOpen} onOpenChange={setTermsOpen} listing={listing} />
     </div>
   )
 }

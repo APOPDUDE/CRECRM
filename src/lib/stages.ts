@@ -105,3 +105,45 @@ export function hottestStage(
 export function liveMatches<T extends { stage: Enums<'match_stage'> }>(matches: T[]): T[] {
   return matches.filter((m) => m.stage !== 'dead')
 }
+
+/**
+ * Repping overview (level-1) board. Both sides collapse to a synthetic 3-bucket
+ * pipeline — Lead / Searching / Closed — so the landlord and tenant overviews share
+ * one board. The detail/match boards keep their full 5-stage enums; these buckets
+ * are only for the overview and map back to the real enum on drop.
+ */
+export type ReppingBucket = 'lead' | 'searching' | 'closed'
+
+export const reppingOverviewStages: StageDef<ReppingBucket>[] = [
+  { value: 'lead', label: 'Lead' },
+  { value: 'searching', label: 'Searching' },
+  { value: 'closed', label: 'Closed' },
+]
+
+/** Listing stage → overview bucket. proposal → lead, listed → searching, closed → closed. */
+export function listingStageToBucket(stage: Enums<'listing_stage'>): ReppingBucket {
+  if (stage === 'proposal') return 'lead'
+  if (stage === 'closed') return 'closed'
+  return 'searching' // 'listed'
+}
+
+/** Overview bucket → listing stage to persist on drop. */
+export function bucketToListingStage(bucket: ReppingBucket): Enums<'listing_stage'> {
+  if (bucket === 'lead') return 'proposal'
+  if (bucket === 'closed') return 'closed'
+  return 'listed'
+}
+
+/** Tenant-rep stage → overview bucket. lead → lead, executed → closed, everything mid → searching. */
+export function tenantRepStageToBucket(stage: Enums<'tenant_rep_stage'>): ReppingBucket {
+  if (stage === 'lead') return 'lead'
+  if (stage === 'executed') return 'closed'
+  return 'searching' // touring | loi | lease_negotiation
+}
+
+/** Overview bucket → tenant-rep stage to persist on drop. searching → touring (first searching stage). */
+export function bucketToTenantRepStage(bucket: ReppingBucket): Enums<'tenant_rep_stage'> {
+  if (bucket === 'lead') return 'lead'
+  if (bucket === 'closed') return 'executed'
+  return 'touring'
+}

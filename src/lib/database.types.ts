@@ -253,10 +253,12 @@ export type Database = {
           landlord_company_id: string | null
           landlord_contact_id: string | null
           landlord_requirements: string | null
+          lease_structure: Database["public"]["Enums"]["lease_structure"] | null
           listing_expiration: string | null
           lost_reason: string | null
           next_action_date: string | null
           next_action_description: string | null
+          opex_psf: number | null
           owner_id: string
           probability_pct: number | null
           property_id: string
@@ -279,10 +281,12 @@ export type Database = {
           landlord_company_id?: string | null
           landlord_contact_id?: string | null
           landlord_requirements?: string | null
+          lease_structure?: Database["public"]["Enums"]["lease_structure"] | null
           listing_expiration?: string | null
           lost_reason?: string | null
           next_action_date?: string | null
           next_action_description?: string | null
+          opex_psf?: number | null
           owner_id: string
           probability_pct?: number | null
           property_id: string
@@ -305,10 +309,12 @@ export type Database = {
           landlord_company_id?: string | null
           landlord_contact_id?: string | null
           landlord_requirements?: string | null
+          lease_structure?: Database["public"]["Enums"]["lease_structure"] | null
           listing_expiration?: string | null
           lost_reason?: string | null
           next_action_date?: string | null
           next_action_description?: string | null
+          opex_psf?: number | null
           owner_id?: string
           probability_pct?: number | null
           property_id?: string
@@ -947,6 +953,7 @@ export type Database = {
         | "coi_insurance"
         | "guarantee"
         | "financials"
+        | "invoice"
         | "other"
       lead_source:
         | "loopnet"
@@ -1124,6 +1131,7 @@ export const Constants = {
         "coi_insurance",
         "guarantee",
         "financials",
+        "invoice",
         "other",
       ],
       lead_source: [

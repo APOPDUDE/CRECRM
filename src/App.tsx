@@ -8,9 +8,8 @@ import { AuthProvider } from '@/hooks/use-auth'
 import { BreadcrumbProvider } from '@/hooks/use-breadcrumb'
 import { LoginPage } from '@/pages/login'
 import { DashboardPage } from '@/pages/dashboard'
-import { LandlordRepPage } from '@/pages/landlord-rep'
+import { ReppingPage } from '@/pages/repping'
 import { PropertyBoardPage } from '@/pages/property-board'
-import { TenantRepPage } from '@/pages/tenant-rep'
 import { TenantBoardPage } from '@/pages/tenant-board'
 import { TasksPage } from '@/pages/tasks'
 import { CompaniesPage } from '@/pages/companies'
@@ -39,9 +38,10 @@ export default function App() {
                 }
               >
                 <Route path="/" element={<DashboardPage />} />
-                <Route path="/landlord-rep" element={<LandlordRepPage />} />
+                <Route path="/repping" element={<ReppingPage />} />
+                <Route path="/landlord-rep" element={<Navigate to="/repping" replace />} />
                 <Route path="/landlord-rep/:listingId" element={<PropertyBoardPage />} />
-                <Route path="/tenant-rep" element={<TenantRepPage />} />
+                <Route path="/tenant-rep" element={<Navigate to="/repping" replace />} />
                 <Route path="/tenant-rep/:tenantRepId" element={<TenantBoardPage />} />
                 <Route path="/tasks" element={<TasksPage />} />
                 <Route path="/contacts" element={<ContactsPage />} />

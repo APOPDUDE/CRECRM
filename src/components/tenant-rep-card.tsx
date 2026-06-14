@@ -107,7 +107,11 @@ export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: Tenan
                 <span className="sr-only">Tenant actions</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onPointerDown={stopDrag}>
+            <DropdownMenuContent
+              align="end"
+              onPointerDown={stopDrag}
+              onClick={(e) => e.stopPropagation()}
+            >
               {onMarkLost && tenantRep.status === 'active' && (
                 <DropdownMenuItem variant="destructive" onSelect={() => onMarkLost(tenantRep)}>
                   <XCircle className="size-4" />

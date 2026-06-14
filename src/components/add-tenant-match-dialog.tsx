@@ -40,16 +40,6 @@ interface AddTenantMatchDialogProps {
   propertyId: string
 }
 
-/** Strip empty strings; returns a patch of only the fields the user actually filled. */
-function filled<T extends Record<string, string>>(obj: T): Partial<Record<keyof T, string>> {
-  const out: Partial<Record<keyof T, string>> = {}
-  for (const k in obj) {
-    const v = obj[k].trim()
-    if (v) out[k] = v
-  }
-  return out
-}
-
 export function AddTenantMatchDialog({
   open,
   onOpenChange,
@@ -62,14 +52,8 @@ export function AddTenantMatchDialog({
 
   // company
   const [companyId, setCompanyId] = useState<string | null>(null)
-  const [companyPhone, setCompanyPhone] = useState('')
-  const [companyWebsite, setCompanyWebsite] = useState('')
-  const [companyIndustry, setCompanyIndustry] = useState('')
   // contact
   const [contactId, setContactId] = useState<string | null>(null)
-  const [contactEmail, setContactEmail] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
-  const [contactTitle, setContactTitle] = useState('')
   // match
   const [source, setSource] = useState<string>(NONE)
   const [brokerId, setBrokerId] = useState<string | null>(null)
@@ -83,13 +67,7 @@ export function AddTenantMatchDialog({
   useEffect(() => {
     if (!open) return
     setCompanyId(null)
-    setCompanyPhone('')
-    setCompanyWebsite('')
-    setCompanyIndustry('')
     setContactId(null)
-    setContactEmail('')
-    setContactPhone('')
-    setContactTitle('')
     setSource(NONE)
     setBrokerId(null)
     setInquiryDate(format(new Date(), 'yyyy-MM-dd'))
@@ -112,18 +90,6 @@ export function AddTenantMatchDialog({
     }
     setPending(true)
     try {
-      // enrich the picked/created company with any details the user typed
-      // (only fields they filled — never overwrite an existing company's type)
-      if (companyId) {
-        const patch = filled({ phone: companyPhone, website: companyWebsite, industry: companyIndustry })
-        if (Object.keys(patch).length) await supabase.from('companies').update(patch).eq('id', companyId)
-      }
-      // enrich the picked/created contact
-      if (contactId) {
-        const patch = filled({ email: contactEmail, phone: contactPhone, title: contactTitle })
-        if (Object.keys(patch).length) await supabase.from('contacts').update(patch).eq('id', contactId)
-      }
-
       // optionally promote to a tenant rep
       let tenantRepId: string | null = null
       if (makeRep !== 'no') {
@@ -187,22 +153,6 @@ export function AddTenantMatchDialog({
               placeholder="Select or create company"
             />
           </div>
-          {companyId && (
-            <div className="grid grid-cols-1 gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="at-company-phone" className="text-xs">Phone</Label>
-                <Input id="at-company-phone" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="at-company-website" className="text-xs">Website</Label>
-                <Input id="at-company-website" value={companyWebsite} onChange={(e) => setCompanyWebsite(e.target.value)} placeholder="example.com" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="at-company-industry" className="text-xs">Industry</Label>
-                <Input id="at-company-industry" value={companyIndustry} onChange={(e) => setCompanyIndustry(e.target.value)} />
-              </div>
-            </div>
-          )}
 
           {/* Contact */}
           <div className="space-y-2">
@@ -214,22 +164,6 @@ export function AddTenantMatchDialog({
               placeholder="Select or create contact"
             />
           </div>
-          {contactId && (
-            <div className="grid grid-cols-1 gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="at-contact-email" className="text-xs">Email</Label>
-                <Input id="at-contact-email" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="at-contact-phone" className="text-xs">Phone</Label>
-                <Input id="at-contact-phone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="at-contact-title" className="text-xs">Title</Label>
-                <Input id="at-contact-title" value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} />
-              </div>
-            </div>
-          )}
 
           {/* Match basics */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

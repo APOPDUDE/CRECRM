@@ -19,6 +19,7 @@ export const fileCategoryLabels: Record<FileCategory, string> = {
   coi_insurance: 'COI / Insurance',
   guarantee: 'Guarantee',
   financials: 'Financials',
+  invoice: 'Invoice',
   other: 'Other',
 }
 

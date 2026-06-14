@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { FileSection } from '@/components/files/file-section'
 import { NotesLog } from '@/components/notes-log'
+import { CreateTaskPopover } from '@/components/create-task-popover'
 import { cn } from '@/lib/utils'
 import type { Enums } from '@/lib/database.types'
 
@@ -123,6 +124,7 @@ export function BoardInfoPanel({
               <NotesLog entityType={entityType} entityId={entityId} />
             </PopoverContent>
           </Popover>
+          <CreateTaskPopover entityType={entityType} entityId={entityId} />
         </div>
 
         {children}

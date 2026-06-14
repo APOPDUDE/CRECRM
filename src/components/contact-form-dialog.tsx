@@ -22,9 +22,19 @@ interface ContactFormDialogProps {
   onOpenChange: (open: boolean) => void
   /** When set, the dialog edits this contact; otherwise it creates a new one. */
   contact?: Contact | null
+  /** Default company attached to a newly created contact. */
+  defaultCompanyId?: string | null
+  /** Called with the new contact id right before the dialog closes (create only). */
+  onCreated?: (id: string) => void
 }
 
-export function ContactFormDialog({ open, onOpenChange, contact }: ContactFormDialogProps) {
+export function ContactFormDialog({
+  open,
+  onOpenChange,
+  contact,
+  defaultCompanyId,
+  onCreated,
+}: ContactFormDialogProps) {
   const createContact = useCreateContact()
   const updateContact = useUpdateContact()
   const pending = createContact.isPending || updateContact.isPending
@@ -44,10 +54,10 @@ export function ContactFormDialog({ open, onOpenChange, contact }: ContactFormDi
       setTitle(contact?.title ?? '')
       setEmail(contact?.email ?? '')
       setPhone(contact?.phone ?? '')
-      setCompanyId(contact?.company_id ?? null)
+      setCompanyId(contact?.company_id ?? defaultCompanyId ?? null)
       setNotes(contact?.notes ?? '')
     }
-  }, [open, contact])
+  }, [open, contact, defaultCompanyId])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -76,8 +86,9 @@ export function ContactFormDialog({ open, onOpenChange, contact }: ContactFormDi
       )
     } else {
       createContact.mutate(values, {
-        onSuccess: () => {
+        onSuccess: (created) => {
           toast.success('Contact created')
+          onCreated?.(created.id)
           onOpenChange(false)
         },
         onError,

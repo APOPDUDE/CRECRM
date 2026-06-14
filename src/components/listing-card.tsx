@@ -72,7 +72,11 @@ export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCa
                 <span className="sr-only">Listing actions</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onPointerDown={stopDrag}>
+            <DropdownMenuContent
+              align="end"
+              onPointerDown={stopDrag}
+              onClick={(e) => e.stopPropagation()}
+            >
               {onMarkLost && listing.status === 'active' && (
                 <DropdownMenuItem variant="destructive" onSelect={() => onMarkLost(listing)}>
                   <XCircle className="size-4" />

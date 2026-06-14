@@ -36,15 +36,25 @@ interface CompanyFormDialogProps {
   onOpenChange: (open: boolean) => void
   /** When set, the dialog edits this company; otherwise it creates a new one. */
   company?: Company | null
+  /** Default company type when creating a new company. */
+  defaultType?: Enums<'company_type'>
+  /** Called with the new company id right before the dialog closes (create only). */
+  onCreated?: (id: string) => void
 }
 
-export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDialogProps) {
+export function CompanyFormDialog({
+  open,
+  onOpenChange,
+  company,
+  defaultType = 'other',
+  onCreated,
+}: CompanyFormDialogProps) {
   const createCompany = useCreateCompany()
   const updateCompany = useUpdateCompany()
   const pending = createCompany.isPending || updateCompany.isPending
 
   const [name, setName] = useState('')
-  const [type, setType] = useState<Enums<'company_type'>>('other')
+  const [type, setType] = useState<Enums<'company_type'>>(defaultType)
   const [phone, setPhone] = useState('')
   const [website, setWebsite] = useState('')
   const [industry, setIndustry] = useState('')
@@ -53,13 +63,13 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
   useEffect(() => {
     if (open) {
       setName(company?.name ?? '')
-      setType(company?.type ?? 'other')
+      setType(company?.type ?? defaultType)
       setPhone(company?.phone ?? '')
       setWebsite(company?.website ?? '')
       setIndustry(company?.industry ?? '')
       setNotes(company?.notes ?? '')
     }
-  }, [open, company])
+  }, [open, company, defaultType])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -87,8 +97,9 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
       )
     } else {
       createCompany.mutate(values, {
-        onSuccess: () => {
+        onSuccess: (created) => {
           toast.success('Company created')
+          onCreated?.(created.id)
           onOpenChange(false)
         },
         onError,

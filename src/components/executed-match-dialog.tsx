@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { Enums } from '@/lib/database.types'
+import { calculateCommission } from '@/lib/commission'
+import { formatCurrency } from '@/lib/format'
 
 /** Executed-deal economics captured on the match (asking-vs-executed comps live here). */
 export interface ExecutedEconomics {
@@ -47,6 +49,12 @@ interface ExecutedMatchDialogProps {
   hasListing: boolean
   hasTenantRep: boolean
   dealType?: Enums<'deal_type'>
+  /** Listing-derived inputs the dialog can't see, used to estimate the commission. */
+  commissionCalcContext?: {
+    commissionPct: number | null
+    coBrokeSplitPct: number | null
+    buildingSf: number | null
+  } | null
   pending?: boolean
   onConfirm: (result: ExecutedResult) => void
 }
@@ -59,11 +67,14 @@ export function ExecutedMatchDialog({
   hasListing,
   hasTenantRep,
   dealType = 'lease',
+  commissionCalcContext,
   pending,
   onConfirm,
 }: ExecutedMatchDialogProps) {
   const isSale = dealType === 'sale'
   const [fee, setFee] = useState('')
+  // once the user edits the fee, stop auto-filling it from the calculator
+  const [feeTouched, setFeeTouched] = useState(false)
   const [executionDate, setExecutionDate] = useState('')
   const [closeListing, setCloseListing] = useState(true)
   const [bumpTenant, setBumpTenant] = useState(true)
@@ -79,6 +90,7 @@ export function ExecutedMatchDialog({
   useEffect(() => {
     if (open) {
       setFee('')
+      setFeeTouched(false)
       setExecutionDate(format(new Date(), 'yyyy-MM-dd'))
       setCloseListing(true)
       setBumpTenant(true)
@@ -91,6 +103,25 @@ export function ExecutedMatchDialog({
       setFreeRent('')
     }
   }, [open])
+
+  // Estimate the brokerage fee from the listing terms + the economics being entered.
+  const calc = useMemo(() => {
+    if (!commissionCalcContext) return null
+    return calculateCommission({
+      dealType,
+      commissionPct: commissionCalcContext.commissionPct,
+      coBrokeSplitPct: commissionCalcContext.coBrokeSplitPct,
+      buildingSf: commissionCalcContext.buildingSf,
+      executedRatePsf: numOrNull(rate),
+      executedPrice: numOrNull(price),
+      termMonths: numOrNull(term),
+    })
+  }, [commissionCalcContext, dealType, rate, price, term])
+
+  // Suggest the computed fee until the user types their own.
+  useEffect(() => {
+    if (!feeTouched && calc?.netFee != null) setFee(String(Math.round(calc.netFee)))
+  }, [calc?.netFee, feeTouched])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -127,7 +158,10 @@ export function ExecutedMatchDialog({
                 type="number"
                 inputMode="numeric"
                 value={fee}
-                onChange={(e) => setFee(e.target.value)}
+                onChange={(e) => {
+                  setFee(e.target.value)
+                  setFeeTouched(true)
+                }}
                 placeholder="$"
               />
             </div>
@@ -233,6 +267,34 @@ export function ExecutedMatchDialog({
               </>
             )}
           </div>
+
+          {calc?.netFee != null && (
+            <div className="space-y-1 rounded-md bg-muted/50 p-2 text-xs">
+              <p className="font-medium text-muted-foreground">Commission</p>
+              {calc.dealValue != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {isSale ? 'Sale price' : 'Lease value'}
+                  </span>
+                  <span className="tabular-nums">{formatCurrency(calc.dealValue)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Gross fee</span>
+                <span className="tabular-nums">{formatCurrency(calc.grossFee)}</span>
+              </div>
+              {calc.coBrokeShare ? (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Co-broke split</span>
+                  <span className="tabular-nums">−{formatCurrency(calc.coBrokeShare)}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between font-medium">
+                <span>Estimated fee</span>
+                <span className="tabular-nums">{formatCurrency(calc.netFee)}</span>
+              </div>
+            </div>
+          )}
 
           {(hasListing || hasTenantRep) && (
             <div className="space-y-2">
