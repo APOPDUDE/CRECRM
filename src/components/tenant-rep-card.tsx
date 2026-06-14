@@ -126,6 +126,11 @@ export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: Tenan
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
+        {tenantRep.deal_type === 'sale' && (
+          <Badge variant="outline" className="border-violet-200 bg-violet-50 font-medium text-violet-700">
+            Buyer
+          </Badge>
+        )}
         <SourceBadge source={tenantRep.source} brokerName={brokerName} />
       </div>
 

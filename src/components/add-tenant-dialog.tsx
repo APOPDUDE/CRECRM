@@ -43,6 +43,7 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
   const [contactId, setContactId] = useState<string | null>(null)
   const [requirements, setRequirements] = useState('')
   const [source, setSource] = useState<string>(NONE)
+  const [dealType, setDealType] = useState<Enums<'deal_type'>>('lease')
 
   useEffect(() => {
     if (open) {
@@ -50,6 +51,7 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
       setContactId(null)
       setRequirements('')
       setSource(NONE)
+      setDealType('lease')
     }
   }, [open])
 
@@ -65,6 +67,7 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
         owner_id: session.user.id,
         tenant_company_id: companyId,
         tenant_contact_id: contactId,
+        deal_type: dealType,
         must_haves: requirements.trim() || null,
         source: source === NONE ? null : (source as Enums<'lead_source'>),
       })
@@ -104,6 +107,18 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
               companyId={companyId}
               placeholder="Select or create contact"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tenant-deal-type">Looking to</Label>
+            <Select value={dealType} onValueChange={(v) => setDealType(v as Enums<'deal_type'>)}>
+              <SelectTrigger id="tenant-deal-type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lease">Lease space</SelectItem>
+                <SelectItem value="sale">Buy space</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="tenant-requirements">Requirements</Label>

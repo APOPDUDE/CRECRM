@@ -705,6 +705,7 @@ export type Database = {
           business_website: string | null
           clear_height: string | null
           commission_pct: number | null
+          deal_type: Database["public"]["Enums"]["deal_type"]
           created_at: string
           estimated_fee: number | null
           id: string
@@ -740,6 +741,7 @@ export type Database = {
           business_industry?: string | null
           business_website?: string | null
           clear_height?: string | null
+          deal_type?: Database["public"]["Enums"]["deal_type"]
           commission_pct?: number | null
           created_at?: string
           estimated_fee?: number | null
@@ -776,6 +778,7 @@ export type Database = {
           business_industry?: string | null
           business_website?: string | null
           clear_height?: string | null
+          deal_type?: Database["public"]["Enums"]["deal_type"]
           commission_pct?: number | null
           created_at?: string
           estimated_fee?: number | null
@@ -898,6 +901,7 @@ export type Database = {
           business_website: string | null
           clear_height: string | null
           commission_pct: number | null
+          deal_type: Database["public"]["Enums"]["deal_type"]
           created_at: string
           estimated_fee: number | null
           id: string

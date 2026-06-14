@@ -59,13 +59,18 @@ export function propertyBoardStages(
  * and toured matches. mapTenantBoardColumn collapses 'lead' into 'toured' so the
  * single match_stage enum stays the source of truth across both boards.
  */
-export const tenantBoardStages: StageDef<Enums<'match_stage'>>[] = [
-  { value: 'inquiring', label: 'Inquiring' },
-  { value: 'toured', label: 'Touring' },
-  { value: 'loi', label: 'LOI' },
-  { value: 'lease_negotiation', label: 'Lease negotiation' },
-  { value: 'executed', label: 'Executed' },
-]
+export function tenantBoardStages(
+  dealType: 'lease' | 'sale' = 'lease',
+): StageDef<Enums<'match_stage'>>[] {
+  const labels = dealType === 'sale' ? matchStageSaleLabels : matchStageLabels
+  return [
+    { value: 'inquiring', label: 'Inquiring' },
+    { value: 'toured', label: 'Touring' },
+    { value: 'loi', label: labels.loi },
+    { value: 'lease_negotiation', label: labels.lease_negotiation },
+    { value: 'executed', label: labels.executed },
+  ]
+}
 
 export function mapTenantBoardColumn(stage: Enums<'match_stage'>): Enums<'match_stage'> {
   return stage === 'lead' ? 'toured' : stage

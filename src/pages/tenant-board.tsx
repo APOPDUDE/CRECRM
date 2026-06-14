@@ -271,7 +271,7 @@ export function TenantBoardPage() {
             </div>
           ) : (
             <KanbanBoard
-              columns={tenantBoardStages}
+              columns={tenantBoardStages(tenantRep.deal_type)}
               items={matches}
               getId={(m) => m.id}
               getStage={(m) => mapTenantBoardColumn(m.stage)}
@@ -376,7 +376,7 @@ export function TenantBoardPage() {
         onOpenChange={(open) => !open && setExecutedMove(null)}
         hasTenantRep
         hasListing={!!executedMove?.match.listing_id}
-        dealType={executedMove?.match.listing?.deal_type ?? 'lease'}
+        dealType={tenantRep.deal_type}
         pending={updateStage.isPending || updateListing.isPending || updateTenantRep.isPending}
         onConfirm={confirmExecuted}
       />

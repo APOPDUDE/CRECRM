@@ -49,6 +49,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
     if (!open) return
     setBrokerId(tenantRep.broker_contact_id ?? null)
     setF({
+      deal_type: tenantRep.deal_type ?? 'lease',
       source: tenantRep.source ?? NONE,
       business_industry: s(tenantRep.business_industry),
       business_website: s(tenantRep.business_website),
@@ -78,6 +79,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
     updateTenantRep.mutate(
       {
         id: tenantRep.id,
+        deal_type: (f.deal_type as Enums<'deal_type'>) || 'lease',
         source: f.source === NONE ? null : (f.source as Enums<'lead_source'>),
         broker_contact_id: f.source === 'broker' ? brokerId : null,
         business_industry: str(f.business_industry),
@@ -125,6 +127,21 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
           <DialogTitle>Edit details</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tr-deal-type">Looking to</Label>
+            <Select
+              value={f.deal_type ?? 'lease'}
+              onValueChange={(v) => setF((p) => ({ ...p, deal_type: v }))}
+            >
+              <SelectTrigger id="tr-deal-type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lease">Lease space</SelectItem>
+                <SelectItem value="sale">Buy space</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="tr-source">Source</Label>
             <Select value={f.source ?? NONE} onValueChange={(v) => setF((p) => ({ ...p, source: v }))}>
