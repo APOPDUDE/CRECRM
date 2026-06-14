@@ -31,7 +31,7 @@ import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
 
 const NONE = '__none__'
-type MakeRep = 'no' | 'lease' | 'sale'
+type MakeRep = 'no' | 'lease' | 'sale' | 'both'
 
 interface AddTenantMatchDialogProps {
   open: boolean
@@ -211,6 +211,7 @@ export function AddTenantMatchDialog({
                 <SelectItem value="no">No — just a prospect on this listing</SelectItem>
                 <SelectItem value="lease">Yes — represent them (leasing)</SelectItem>
                 <SelectItem value="sale">Yes — represent them (buying)</SelectItem>
+                <SelectItem value="both">Yes — represent them (lease or buy)</SelectItem>
               </SelectContent>
             </Select>
           </div>

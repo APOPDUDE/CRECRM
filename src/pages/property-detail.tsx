@@ -64,8 +64,12 @@ function ListingDealRow({ listing }: { listing: PropertyListing }) {
           {listing.landlord?.name ?? 'Landlord listing'}
         </div>
         <div className="text-xs text-muted-foreground">
-          {listing.deal_type === 'sale' ? 'For sale' : 'For lease'} ·{' '}
-          {listingStageLabels[listing.stage] ?? listing.stage}
+          {listing.deal_type === 'sale'
+            ? 'For sale'
+            : listing.deal_type === 'both'
+              ? 'For lease or sale'
+              : 'For lease'}{' '}
+          · {listingStageLabels[listing.stage] ?? listing.stage}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">

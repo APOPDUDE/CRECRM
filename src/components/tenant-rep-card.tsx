@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { SourceBadge } from '@/components/source-badge'
+import { DealTypeBadge } from '@/components/deal-type-badge'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { TenantRepWithRelations } from '@/hooks/use-tenant-reps'
 import { formatSf } from '@/lib/format'
@@ -63,9 +63,6 @@ export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: Tenan
   const inPlay = liveMatches(tenantRep.matches)
   const overdue = tenantRep.status === 'active' && isOverdue(tenantRep.next_action_date)
   const summary = sizeSummary(tenantRep)
-  const brokerName = tenantRep.broker
-    ? [tenantRep.broker.first_name, tenantRep.broker.last_name].filter(Boolean).join(' ')
-    : null
 
   return (
     <div
@@ -130,12 +127,7 @@ export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: Tenan
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        {tenantRep.deal_type === 'sale' && (
-          <Badge variant="outline" className="border-violet-200 bg-violet-50 font-medium text-violet-700">
-            Buyer
-          </Badge>
-        )}
-        <SourceBadge source={tenantRep.source} brokerName={brokerName} />
+        <DealTypeBadge dealType={tenantRep.deal_type} />
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">

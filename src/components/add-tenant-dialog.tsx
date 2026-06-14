@@ -117,6 +117,7 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
               <SelectContent>
                 <SelectItem value="lease">Lease space</SelectItem>
                 <SelectItem value="sale">Buy space</SelectItem>
+                <SelectItem value="both">Lease or buy</SelectItem>
               </SelectContent>
             </Select>
           </div>

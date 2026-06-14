@@ -941,7 +941,7 @@ export type Database = {
     }
     Enums: {
       company_type: "landlord" | "tenant" | "broker" | "other"
-      deal_type: "lease" | "sale"
+      deal_type: "lease" | "sale" | "both"
       engagement_status: "active" | "lost"
       file_category:
         | "listing_agreement"
@@ -1119,7 +1119,7 @@ export const Constants = {
   public: {
     Enums: {
       company_type: ["landlord", "tenant", "broker", "other"],
-      deal_type: ["lease", "sale"],
+      deal_type: ["lease", "sale", "both"],
       engagement_status: ["active", "lost"],
       file_category: [
         "listing_agreement",

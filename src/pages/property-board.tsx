@@ -285,7 +285,7 @@ export function PropertyBoardPage() {
                 )}
                 {formatListingPrice(listing) && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">{listing.deal_type === 'sale' ? 'Price' : 'Rate'}</span>
+                    <span className="text-muted-foreground">{listing.deal_type === 'sale' ? 'Price' : listing.deal_type === 'both' ? 'Rate / Price' : 'Rate'}</span>
                     <span className="tabular-nums">{formatListingPrice(listing)}</span>
                   </div>
                 )}

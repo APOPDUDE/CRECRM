@@ -44,7 +44,7 @@ export const matchStageSaleLabels: Record<Enums<'match_stage'>, string> = {
 
 /** Property-board columns: all five live match stages, labeled per deal type. */
 export function propertyBoardStages(
-  dealType: 'lease' | 'sale',
+  dealType: Enums<'deal_type'>,
 ): StageDef<Enums<'match_stage'>>[] {
   const labels = dealType === 'sale' ? matchStageSaleLabels : matchStageLabels
   return (['lead', 'toured', 'loi', 'lease_negotiation', 'executed'] as const).map((value) => ({
@@ -60,7 +60,7 @@ export function propertyBoardStages(
  * single match_stage enum stays the source of truth across both boards.
  */
 export function tenantBoardStages(
-  dealType: 'lease' | 'sale' = 'lease',
+  dealType: Enums<'deal_type'> = 'lease',
 ): StageDef<Enums<'match_stage'>>[] {
   const labels = dealType === 'sale' ? matchStageSaleLabels : matchStageLabels
   return [

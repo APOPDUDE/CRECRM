@@ -36,7 +36,8 @@ const numOrNull = (v: string): number | null => (v.trim() === '' ? null : Number
 export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTermsDialogProps) {
   const queryClient = useQueryClient()
   const updateListing = useUpdateListing()
-  const isSale = listing.deal_type === 'sale'
+  const showLease = listing.deal_type === 'lease' || listing.deal_type === 'both'
+  const showSale = listing.deal_type === 'sale' || listing.deal_type === 'both'
 
   const [rate, setRate] = useState('')
   const [price, setPrice] = useState('')
@@ -65,9 +66,10 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
       co_broke_split_pct: numOrNull(coBroke),
       listing_expiration: expiration || null,
     }
-    if (isSale) {
+    if (showSale) {
       patch.asking_price = numOrNull(price)
-    } else {
+    }
+    if (showLease) {
       patch.asking_rate_psf = numOrNull(rate)
       patch.opex_psf = numOrNull(opex)
       patch.lease_structure = structure || null
@@ -92,7 +94,7 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isSale ? (
+          {showSale && (
             <div className="space-y-2">
               <Label htmlFor="terms-price">Asking price</Label>
               <Input
@@ -104,7 +106,8 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
                 placeholder="$"
               />
             </div>
-          ) : (
+          )}
+          {showLease && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="terms-rate">Asking rate $/SF</Label>

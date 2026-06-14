@@ -87,8 +87,8 @@ export function AddListingDialog({
         p_property_type: propertyType === NONE ? undefined : (propertyType as Enums<'property_kind'>),
         p_landlord_company_id: landlordId ?? undefined,
         p_source: source === NONE ? undefined : (source as Enums<'lead_source'>),
-        p_asking_rate_psf: dealType === 'lease' && rate ? Number(rate) : undefined,
-        p_asking_price: dealType === 'sale' && price ? Number(price) : undefined,
+        p_asking_rate_psf: (dealType === 'lease' || dealType === 'both') && rate ? Number(rate) : undefined,
+        p_asking_price: (dealType === 'sale' || dealType === 'both') && price ? Number(price) : undefined,
       })
       if (error) throw error
 
@@ -155,20 +155,21 @@ export function AddListingDialog({
               placeholder="Select or create landlord"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="listing-deal-type">Deal type</Label>
+            <Select value={dealType} onValueChange={(v) => setDealType(v as Enums<'deal_type'>)}>
+              <SelectTrigger id="listing-deal-type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lease">For lease</SelectItem>
+                <SelectItem value="sale">For sale</SelectItem>
+                <SelectItem value="both">Lease &amp; sale</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="listing-deal-type">Deal type</Label>
-              <Select value={dealType} onValueChange={(v) => setDealType(v as Enums<'deal_type'>)}>
-                <SelectTrigger id="listing-deal-type" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lease">For lease</SelectItem>
-                  <SelectItem value="sale">For sale</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {dealType === 'lease' ? (
+            {(dealType === 'lease' || dealType === 'both') && (
               <div className="space-y-2">
                 <Label htmlFor="listing-rate">Asking rate (PSF)</Label>
                 <Input
@@ -180,7 +181,8 @@ export function AddListingDialog({
                   onChange={(e) => setRate(e.target.value)}
                 />
               </div>
-            ) : (
+            )}
+            {(dealType === 'sale' || dealType === 'both') && (
               <div className="space-y-2">
                 <Label htmlFor="listing-price">Asking price</Label>
                 <Input

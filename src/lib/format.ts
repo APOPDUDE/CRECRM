@@ -1,3 +1,5 @@
+import type { Enums } from '@/lib/database.types'
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -30,11 +32,18 @@ export function formatBytes(bytes: number | null | undefined): string | null {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-/** Rate for a lease listing, price for a sale listing. */
+/** Rate for a lease listing, price for a sale listing, both for a 'both' listing. */
 export function formatListingPrice(deal: {
-  deal_type: 'lease' | 'sale'
+  deal_type: Enums<'deal_type'>
   asking_rate_psf: number | null
   asking_price: number | null
 }): string | null {
+  if (deal.deal_type === 'both') {
+    return (
+      [formatPsf(deal.asking_rate_psf), formatCurrency(deal.asking_price)]
+        .filter(Boolean)
+        .join(' · ') || null
+    )
+  }
   return deal.deal_type === 'sale' ? formatCurrency(deal.asking_price) : formatPsf(deal.asking_rate_psf)
 }

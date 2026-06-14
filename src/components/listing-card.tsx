@@ -1,6 +1,7 @@
 import { MoreHorizontal, RotateCcw, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DealTypeBadge } from '@/components/deal-type-badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,16 +97,7 @@ export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCa
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {price && <span className="text-sm font-medium tabular-nums">{price}</span>}
-        <Badge
-          variant="outline"
-          className={
-            listing.deal_type === 'sale'
-              ? 'border-violet-200 bg-violet-50 font-medium text-violet-700'
-              : 'border-blue-200 bg-blue-50 font-medium text-blue-700'
-          }
-        >
-          {listing.deal_type === 'sale' ? 'Sale' : 'Lease'}
-        </Badge>
+        <DealTypeBadge dealType={listing.deal_type} />
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">

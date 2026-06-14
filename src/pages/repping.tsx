@@ -57,16 +57,15 @@ import {
 import type { TenantRepWithRelations } from '@/hooks/use-tenant-reps'
 import { formatListingPrice } from '@/lib/format'
 import {
-  bucketToListingStage,
   bucketToTenantRepStage,
   listingStages,
-  listingStageToBucket,
   liveMatches,
   reppingOverviewStages,
   tenantRepStages,
   tenantRepStageToBucket,
   type ReppingBucket,
 } from '@/lib/stages'
+import type { Enums } from '@/lib/database.types'
 import { cn } from '@/lib/utils'
 
 type StatusFilter = 'active' | 'lost' | 'all'
@@ -151,15 +150,14 @@ export function ReppingPage() {
     [tenantsQ.data, status],
   )
 
-  const handleListingMove = (listing: ListingWithRelations, toBucket: ReppingBucket) => {
+  const handleListingMove = (listing: ListingWithRelations, toStage: Enums<'listing_stage'>) => {
     const fromStage = listing.stage
-    const target = bucketToListingStage(toBucket)
-    if (fromStage === target) return
+    if (fromStage === toStage) return
     updateListingStage.mutate(
-      { id: listing.id, stage: target },
+      { id: listing.id, stage: toStage },
       {
         onSuccess: () => {
-          toast.success(`Moved to ${bucketLabels[toBucket]}`, {
+          toast.success(`Moved to ${listingStageLabels[toStage]}`, {
             action: {
               label: 'Undo',
               onClick: () => updateListingStage.mutate({ id: listing.id, stage: fromStage }),
@@ -335,10 +333,10 @@ export function ReppingPage() {
       ) : view === 'board' ? (
         isLandlord ? (
           <KanbanBoard
-            columns={reppingOverviewStages}
+            columns={listingStages}
             items={filteredListings}
             getId={(l) => l.id}
-            getStage={(l) => listingStageToBucket(l.stage)}
+            getStage={(l) => l.stage}
             onMove={handleListingMove}
             renderCard={(l) => (
               <ListingCard
