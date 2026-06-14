@@ -23,9 +23,20 @@ import {
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
-import { useDeleteProperty, useProperties } from '@/hooks/use-properties'
+import { dealCount, useDeleteProperty, useProperties } from '@/hooks/use-properties'
 import type { Property } from '@/hooks/use-properties'
 import { friendlyDbError } from '@/lib/db-errors'
+import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
+
+/** $14.50 PSF (lease) or $5,200,000 (sale) — whichever the property carries. */
+function askingLabel(p: Pick<Property, 'asking_rate_psf' | 'asking_price'>): string | null {
+  return formatPsf(p.asking_rate_psf) ?? formatCurrency(p.asking_price)
+}
+
+/** Building SF, falling back to land acres. */
+function sizeLabel(p: Pick<Property, 'building_sf' | 'land_acres'>): string | null {
+  return formatSf(p.building_sf) ?? (p.land_acres != null ? `${p.land_acres} AC` : null)
+}
 
 export function PropertyTypeBadge({ type }: { type: Property['property_type'] }) {
   if (!type) return null
@@ -171,7 +182,9 @@ export function PropertiesPage() {
                   <TableHead>Address</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Location</TableHead>
-                  <TableHead>Building SF</TableHead>
+                  <TableHead>Size</TableHead>
+                  <TableHead>Asking</TableHead>
+                  <TableHead>Deals</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
@@ -189,10 +202,16 @@ export function PropertiesPage() {
                     <TableCell className="text-muted-foreground">
                       {formatLocation(property)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {property.building_sf != null
-                        ? `${property.building_sf.toLocaleString()} SF`
-                        : ''}
+                    <TableCell className="text-muted-foreground">{sizeLabel(property) ?? ''}</TableCell>
+                    <TableCell className="text-muted-foreground">{askingLabel(property) ?? ''}</TableCell>
+                    <TableCell>
+                      {dealCount(property) > 0 ? (
+                        <Badge variant="secondary" className="font-normal">
+                          {dealCount(property)}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>{rowMenu(property)}</TableCell>
                   </TableRow>
@@ -215,6 +234,15 @@ export function PropertiesPage() {
                       {formatLocation(property)}
                     </span>
                   )}
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                    {askingLabel(property) && <span>{askingLabel(property)}</span>}
+                    {sizeLabel(property) && <span>{sizeLabel(property)}</span>}
+                    {dealCount(property) > 0 && (
+                      <span>
+                        {dealCount(property)} deal{dealCount(property) === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </span>
                 </Link>
                 <div className="flex shrink-0 items-center gap-1 pr-3">
                   <PropertyTypeBadge type={property.property_type} />
