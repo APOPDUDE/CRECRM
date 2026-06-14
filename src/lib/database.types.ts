@@ -354,6 +354,16 @@ export type Database = {
           dd_expiration_date: string | null
           execution_date: string | null
           flagged_new: boolean
+          tour_at: string | null
+          loi_date: string | null
+          lease_negotiation_date: string | null
+          executed_rate_psf: number | null
+          executed_price: number | null
+          lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          escalations: string | null
+          ti_psf: number | null
+          term_months: number | null
+          free_rent_months: number | null
           id: string
           inquiry_date: string
           lease_expiration: string | null
@@ -378,6 +388,16 @@ export type Database = {
           dd_expiration_date?: string | null
           execution_date?: string | null
           flagged_new?: boolean
+          tour_at?: string | null
+          loi_date?: string | null
+          lease_negotiation_date?: string | null
+          executed_rate_psf?: number | null
+          executed_price?: number | null
+          lease_structure?: Database["public"]["Enums"]["lease_structure"] | null
+          escalations?: string | null
+          ti_psf?: number | null
+          term_months?: number | null
+          free_rent_months?: number | null
           id?: string
           inquiry_date?: string
           lease_expiration?: string | null
@@ -402,6 +422,16 @@ export type Database = {
           dd_expiration_date?: string | null
           execution_date?: string | null
           flagged_new?: boolean
+          tour_at?: string | null
+          loi_date?: string | null
+          lease_negotiation_date?: string | null
+          executed_rate_psf?: number | null
+          executed_price?: number | null
+          lease_structure?: Database["public"]["Enums"]["lease_structure"] | null
+          escalations?: string | null
+          ti_psf?: number | null
+          term_months?: number | null
+          free_rent_months?: number | null
           id?: string
           inquiry_date?: string
           lease_expiration?: string | null
