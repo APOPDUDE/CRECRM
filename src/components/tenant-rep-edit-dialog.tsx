@@ -51,8 +51,6 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
     setF({
       deal_type: tenantRep.deal_type ?? 'lease',
       source: tenantRep.source ?? NONE,
-      business_industry: s(tenantRep.business_industry),
-      business_website: s(tenantRep.business_website),
       move_in_date: s(tenantRep.move_in_date),
       move_in_context: s(tenantRep.move_in_context),
       property_type: tenantRep.property_type ?? NONE,
@@ -82,8 +80,6 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
         deal_type: (f.deal_type as Enums<'deal_type'>) || 'lease',
         source: f.source === NONE ? null : (f.source as Enums<'lead_source'>),
         broker_contact_id: f.source === 'broker' ? brokerId : null,
-        business_industry: str(f.business_industry),
-        business_website: str(f.business_website),
         move_in_date: f.move_in_date || null,
         move_in_context: str(f.move_in_context),
         property_type: f.property_type === NONE ? null : (f.property_type as Enums<'property_kind'>),
@@ -164,17 +160,6 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
               <ContactSelect value={brokerId} onChange={setBrokerId} placeholder="Select or create broker" />
             </div>
           )}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="tr-industry">Business industry</Label>
-              <Input id="tr-industry" value={f.business_industry ?? ''} onChange={set('business_industry')} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tr-website">Business website</Label>
-              <Input id="tr-website" value={f.business_website ?? ''} onChange={set('business_website')} placeholder="example.com" />
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="tr-movein">Move-in date</Label>

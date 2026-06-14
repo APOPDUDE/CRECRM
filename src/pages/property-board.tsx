@@ -226,27 +226,43 @@ export function PropertyBoardPage() {
           >
             {landlordContact && (
               <SidebarSection title="Landlord contact">
-                <div className="rounded-lg border bg-card p-3 text-sm">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/contacts/${landlordContact.id}`)}
+                  className="w-full rounded-lg border bg-card p-3 text-left text-sm transition-colors hover:bg-accent"
+                >
                   <div className="font-medium">{contactNameOf(landlordContact)}</div>
                   {landlordContact.title && (
                     <div className="text-xs text-muted-foreground">{landlordContact.title}</div>
                   )}
                   {landlordContact.email && <div className="mt-1 text-xs">{landlordContact.email}</div>}
                   {landlordContact.phone && <div className="text-xs">{landlordContact.phone}</div>}
-                </div>
+                </button>
               </SidebarSection>
             )}
 
             {listing.property?.address && (
               <SidebarSection title="Location">
-                <PropertyMiniMap
-                  lat={listing.property?.lat}
-                  lng={listing.property?.lng}
-                  address={listing.property?.address}
-                  city={listing.property?.city}
-                  state={listing.property?.state}
-                  zip={listing.property?.zip}
-                />
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/properties/${listing.property_id}`)}
+                    className="block text-left text-sm font-medium hover:underline"
+                  >
+                    {[listing.property?.address, listing.property?.city, listing.property?.state]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </button>
+                  <PropertyMiniMap
+                    lat={listing.property?.lat}
+                    lng={listing.property?.lng}
+                    address={listing.property?.address}
+                    city={listing.property?.city}
+                    state={listing.property?.state}
+                    zip={listing.property?.zip}
+                    onClick={() => navigate(`/properties/${listing.property_id}`)}
+                  />
+                </div>
               </SidebarSection>
             )}
 
@@ -277,13 +293,6 @@ export function PropertyBoardPage() {
             </SidebarSection>
             )}
 
-            {listing.landlord_requirements && (
-              <SidebarSection title="Landlord requirements">
-                <p className="rounded-lg border bg-card p-3 text-sm whitespace-pre-wrap">
-                  {listing.landlord_requirements}
-                </p>
-              </SidebarSection>
-            )}
           </BoardInfoPanel>
         </aside>
       </div>

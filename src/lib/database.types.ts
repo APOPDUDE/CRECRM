@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          industry: string | null
           name: string
           notes: string | null
           phone: string | null
@@ -28,6 +29,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          industry?: string | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -38,6 +40,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          industry?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -701,8 +704,6 @@ export type Database = {
           actual_fee: number | null
           broker_contact_id: string | null
           budget: string | null
-          business_industry: string | null
-          business_website: string | null
           clear_height: string | null
           commission_pct: number | null
           deal_type: Database["public"]["Enums"]["deal_type"]
@@ -738,8 +739,6 @@ export type Database = {
           actual_fee?: number | null
           broker_contact_id?: string | null
           budget?: string | null
-          business_industry?: string | null
-          business_website?: string | null
           clear_height?: string | null
           deal_type?: Database["public"]["Enums"]["deal_type"]
           commission_pct?: number | null
@@ -775,8 +774,6 @@ export type Database = {
           actual_fee?: number | null
           broker_contact_id?: string | null
           budget?: string | null
-          business_industry?: string | null
-          business_website?: string | null
           clear_height?: string | null
           deal_type?: Database["public"]["Enums"]["deal_type"]
           commission_pct?: number | null
@@ -897,8 +894,6 @@ export type Database = {
           actual_fee: number | null
           broker_contact_id: string | null
           budget: string | null
-          business_industry: string | null
-          business_website: string | null
           clear_height: string | null
           commission_pct: number | null
           deal_type: Database["public"]["Enums"]["deal_type"]

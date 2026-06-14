@@ -4,7 +4,9 @@ import type { Tables } from '@/lib/database.types'
 import { formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 
-type TenantRep = Tables<'tenant_reps'>
+type TenantRep = Tables<'tenant_reps'> & {
+  company?: Pick<Tables<'companies'>, 'industry' | 'website'> | null
+}
 
 const acres = (n: number) => `${n} AC`
 
@@ -21,10 +23,10 @@ function Row({ label, value }: { label: string; value: string | null | undefined
 /** Read-only requirement breakdown shown on the tenant board sidebar. */
 export function TenantRequirements({ tenantRep }: { tenantRep: TenantRep }) {
   const rows: { label: string; value: string | null }[] = [
-    { label: 'Industry', value: tenantRep.business_industry },
+    { label: 'Industry', value: tenantRep.company?.industry ?? null },
     {
       label: 'Website',
-      value: tenantRep.business_website,
+      value: tenantRep.company?.website ?? null,
     },
     { label: 'Move-in', value: formatDate(tenantRep.move_in_date) },
     { label: 'Move-in context', value: tenantRep.move_in_context },

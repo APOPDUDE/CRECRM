@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { PanelLeftClose, PanelLeftOpen, StickyNote, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { FileSection } from '@/components/files/file-section'
 import { NotesLog } from '@/components/notes-log'
 import { cn } from '@/lib/utils'
@@ -48,14 +48,14 @@ interface BoardInfoPanelProps {
   fileCategory: Enums<'file_category'>
   collapsed: boolean
   onToggle: () => void
-  /** Board-specific info sections (contact, terms, requirements, map…). */
+  /** Board-specific info sections (contact, terms, location…). */
   children: ReactNode
 }
 
 /**
  * HubSpot-style "About this deal" panel: a visually distinct shaded rail with an
- * Upload file / Log note action row, the deal's info sections, and its files + notes.
- * Collapses (on lg+) to a thin strip so the board can take the full width.
+ * Upload file / Log note action row (each opens a popover) plus the deal's info
+ * sections. Collapses (on lg+) to a thin strip so the board can take full width.
  */
 export function BoardInfoPanel({
   entityType,
@@ -65,16 +65,6 @@ export function BoardInfoPanel({
   onToggle,
   children,
 }: BoardInfoPanelProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
-
-  const triggerUpload = () =>
-    panelRef.current?.querySelector<HTMLInputElement>('[data-file-input]')?.click()
-  const focusNote = () => {
-    const el = panelRef.current?.querySelector<HTMLTextAreaElement>('[data-note-input]')
-    el?.focus()
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
-
   return (
     <>
       {/* Collapsed strip (lg only) — a thin shaded edge with an expand arrow next to the board. */}
@@ -92,7 +82,6 @@ export function BoardInfoPanel({
 
       {/* Full panel — always shown on mobile; on lg only when expanded. */}
       <div
-        ref={panelRef}
         className={cn(
           'w-full space-y-4 rounded-lg border bg-muted/40 p-4 lg:w-80',
           collapsed && 'lg:hidden',
@@ -112,27 +101,31 @@ export function BoardInfoPanel({
         </div>
 
         <div className="flex gap-2">
-          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={triggerUpload}>
-            <Upload className="size-4" />
-            Upload file
-          </Button>
-          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={focusNote}>
-            <StickyNote className="size-4" />
-            Log note
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" size="sm" variant="outline" className="flex-1">
+                <Upload className="size-4" />
+                Upload file
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="max-h-[70vh] w-80 overflow-y-auto">
+              <FileSection entityType={entityType} entityId={entityId} defaultCategory={fileCategory} />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" size="sm" variant="outline" className="flex-1">
+                <StickyNote className="size-4" />
+                Log note
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="max-h-[70vh] w-80 overflow-y-auto">
+              <NotesLog entityType={entityType} entityId={entityId} />
+            </PopoverContent>
+          </Popover>
         </div>
 
         {children}
-
-        <Separator />
-        <SidebarSection title="Files">
-          <FileSection entityType={entityType} entityId={entityId} defaultCategory={fileCategory} />
-        </SidebarSection>
-
-        <Separator />
-        <SidebarSection title="Notes">
-          <NotesLog entityType={entityType} entityId={entityId} />
-        </SidebarSection>
       </div>
     </>
   )

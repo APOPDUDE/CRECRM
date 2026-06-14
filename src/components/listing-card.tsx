@@ -7,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { SourceBadge } from '@/components/source-badge'
 import type { ListingWithRelations } from '@/hooks/use-listings'
 import { formatListingPrice } from '@/lib/format'
 import { hottestStage, liveMatches, matchStageLabels } from '@/lib/stages'
@@ -28,9 +27,6 @@ export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCa
   const hottest = hottestStage(listing.matches)
   const overdue = listing.status === 'active' && isOverdue(listing.next_action_date)
   const price = formatListingPrice(listing)
-  const brokerName = listing.broker
-    ? [listing.broker.first_name, listing.broker.last_name].filter(Boolean).join(' ')
-    : null
 
   return (
     <div
@@ -96,7 +92,16 @@ export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCa
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {price && <span className="text-sm font-medium tabular-nums">{price}</span>}
-        <SourceBadge source={listing.source} brokerName={brokerName} />
+        <Badge
+          variant="outline"
+          className={
+            listing.deal_type === 'sale'
+              ? 'border-violet-200 bg-violet-50 font-medium text-violet-700'
+              : 'border-blue-200 bg-blue-50 font-medium text-blue-700'
+          }
+        >
+          {listing.deal_type === 'sale' ? 'Sale' : 'Lease'}
+        </Badge>
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">

@@ -47,6 +47,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
   const [type, setType] = useState<Enums<'company_type'>>('other')
   const [phone, setPhone] = useState('')
   const [website, setWebsite] = useState('')
+  const [industry, setIndustry] = useState('')
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
       setType(company?.type ?? 'other')
       setPhone(company?.phone ?? '')
       setWebsite(company?.website ?? '')
+      setIndustry(company?.industry ?? '')
       setNotes(company?.notes ?? '')
     }
   }, [open, company])
@@ -66,6 +68,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
       type,
       phone: phone.trim() || null,
       website: website.trim() || null,
+      industry: industry.trim() || null,
       notes: notes.trim() || null,
     }
     const onError = (error: unknown) =>
@@ -144,6 +147,15 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
                 placeholder="example.com"
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="company-industry">Industry</Label>
+            <Input
+              id="company-industry"
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value)}
+              placeholder="e.g. Logistics, Food distribution"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="company-notes">Notes</Label>

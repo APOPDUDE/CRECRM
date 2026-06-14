@@ -17,7 +17,7 @@ export const tenantRepStages: StageDef<Enums<'tenant_rep_stage'>>[] = [
   { value: 'lead', label: 'Lead' },
   { value: 'touring', label: 'Touring' },
   { value: 'loi', label: 'LOI' },
-  { value: 'lease_negotiation', label: 'Lease negotiation' },
+  { value: 'lease_negotiation', label: 'Negotiation' },
   { value: 'executed', label: 'Executed' },
 ]
 
@@ -26,7 +26,7 @@ export const matchStageLabels: Record<Enums<'match_stage'>, string> = {
   lead: 'Lead',
   toured: 'Toured',
   loi: 'LOI',
-  lease_negotiation: 'Lease negotiation',
+  lease_negotiation: 'Negotiation',
   executed: 'Executed',
   dead: 'Dead',
 }

@@ -76,6 +76,7 @@ export function CompanyDetailPage() {
       <dl className="grid max-w-lg grid-cols-1 gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
         <Field label="Phone" value={company.phone} />
         <Field label="Website" value={company.website} />
+        <Field label="Industry" value={company.industry} />
         <div className="sm:col-span-2">
           <Field label="Notes" value={company.notes} />
         </div>
