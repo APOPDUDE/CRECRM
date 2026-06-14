@@ -1,7 +1,47 @@
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { geocodeAddress } from '@/lib/geocode'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
+
+/**
+ * Background-geocode properties that lack coordinates. Runs in the browser (whose
+ * Referer satisfies Nominatim's policy — the scrape actor returns no lat/lng, and
+ * the n8n server IP is rate-limited). Processes a small batch per mount.
+ */
+export function useGeocodeMissing(enabled = true) {
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    void (async () => {
+      const { data } = await supabase
+        .from('properties')
+        .select('id, address, city, state, zip')
+        .is('lat', null)
+        .not('address', 'is', null)
+        .limit(25)
+      if (!data || cancelled) return
+      let any = false
+      for (const p of data) {
+        if (cancelled) return
+        const geo = await geocodeAddress(p)
+        if (geo) {
+          await supabase.from('properties').update({ lat: geo.lat, lng: geo.lng }).eq('id', p.id)
+          any = true
+        }
+        await new Promise((r) => setTimeout(r, 1100))
+      }
+      if (any && !cancelled) {
+        queryClient.invalidateQueries({ queryKey: ['deal-map'] })
+        queryClient.invalidateQueries({ queryKey: ['properties'] })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [enabled, queryClient])
+}
 
 export type Property = Tables<'properties'>
 

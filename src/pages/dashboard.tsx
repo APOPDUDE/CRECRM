@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaf
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { useDealMap, type DealStatus, type MapDeal } from '@/hooks/use-deals'
+import { useGeocodeMissing } from '@/hooks/use-properties'
 
 const STATUS: Record<DealStatus, { label: string; color: string; chip: string }> = {
   active: { label: 'Active', color: '#2563eb', chip: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -49,6 +50,7 @@ function FitBounds({ deals }: { deals: MapDeal[] }) {
 
 export function DashboardPage() {
   const { data: deals = [], isLoading } = useDealMap()
+  useGeocodeMissing() // backfill coordinates for any properties that lack them
   const [shown, setShown] = useState<Set<DealStatus>>(new Set(ALL_STATUSES))
 
   const counts = useMemo(() => {
