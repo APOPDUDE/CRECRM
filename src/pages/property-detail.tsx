@@ -186,6 +186,9 @@ export function PropertyDetailPage() {
               src={url}
               alt=""
               loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
               className="h-28 w-40 shrink-0 rounded-lg border object-cover"
             />
           ))}

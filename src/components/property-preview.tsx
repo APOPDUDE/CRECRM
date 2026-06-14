@@ -74,6 +74,9 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
                       src={u}
                       alt=""
                       loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                      }}
                       className="h-24 w-36 shrink-0 rounded-lg border object-cover"
                     />
                   ))}

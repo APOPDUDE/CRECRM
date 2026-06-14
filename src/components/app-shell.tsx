@@ -52,8 +52,8 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             cn(
               'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
               isActive
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                ? 'bg-white/15 text-white'
+                : 'text-slate-300 hover:bg-white/10 hover:text-white',
             )
           }
         >
@@ -71,7 +71,7 @@ function SidebarBrand({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
         <Building2 className="size-4" />
       </div>
-      <span className="text-sm font-semibold">CRE CRM</span>
+      <span className="text-sm font-semibold text-white">CRE CRM</span>
     </Link>
   )
 }
@@ -89,17 +89,17 @@ export function AppShell() {
   return (
     <div className="flex min-h-svh">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-svh w-56 shrink-0 flex-col border-r bg-sidebar md:flex">
+      <aside className="sticky top-0 hidden h-svh w-56 shrink-0 flex-col border-r border-slate-800 bg-slate-900 text-slate-200 md:flex">
         <SidebarBrand />
-        <Separator />
+        <Separator className="bg-slate-700/60" />
         <div className="flex-1 overflow-y-auto py-3">
           <NavLinks />
         </div>
-        <Separator />
+        <Separator className="bg-slate-700/60" />
         <div className="p-2">
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2.5 text-muted-foreground"
+            className="w-full justify-start gap-2.5 text-slate-300 hover:bg-white/10 hover:text-white"
             onClick={() => void signOut()}
           >
             <LogOut className="size-4" />
@@ -118,20 +118,20 @@ export function AppShell() {
                 <span className="sr-only">Open navigation</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
+            <SheetContent side="left" className="w-64 bg-slate-900 p-0 text-slate-200">
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation</SheetTitle>
               </SheetHeader>
               <SidebarBrand onNavigate={() => setMobileNavOpen(false)} />
-              <Separator />
+              <Separator className="bg-slate-700/60" />
               <div className="py-3">
                 <NavLinks onNavigate={() => setMobileNavOpen(false)} />
               </div>
-              <Separator />
+              <Separator className="bg-slate-700/60" />
               <div className="p-2">
                 <Button
                   variant="ghost"
-                  className="w-full justify-start gap-2.5 text-muted-foreground"
+                  className="w-full justify-start gap-2.5 text-slate-300 hover:bg-white/10 hover:text-white"
                   onClick={() => void signOut()}
                 >
                   <LogOut className="size-4" />
