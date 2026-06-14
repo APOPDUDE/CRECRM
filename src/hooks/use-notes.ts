@@ -59,3 +59,43 @@ export function useCreateNote() {
       queryClient.invalidateQueries({ queryKey: notesKey(entityType, entityId) }),
   })
 }
+
+export function useUpdateNote() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      body,
+      kind,
+    }: {
+      id: string
+      entityType: NoteEntity
+      entityId: string
+      body: string
+      kind: NoteKind
+    }) => {
+      const { data, error } = await supabase
+        .from('notes')
+        .update({ body, kind })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, { entityType, entityId }) =>
+      queryClient.invalidateQueries({ queryKey: notesKey(entityType, entityId) }),
+  })
+}
+
+export function useDeleteNote() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; entityType: NoteEntity; entityId: string }) => {
+      const { error } = await supabase.from('notes').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_data, { entityType, entityId }) =>
+      queryClient.invalidateQueries({ queryKey: notesKey(entityType, entityId) }),
+  })
+}
