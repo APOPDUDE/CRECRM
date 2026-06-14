@@ -6,14 +6,6 @@ export type Note = Tables<'notes'>
 type NoteEntity = Enums<'note_entity'>
 type NoteKind = Enums<'note_kind'>
 
-export const noteKindLabels: Record<NoteKind, string> = {
-  note: 'Note',
-  call: 'Call',
-  text: 'Text',
-  email: 'Email',
-  meeting: 'Meeting',
-}
-
 const notesKey = (entityType: NoteEntity, entityId: string) => ['notes', entityType, entityId]
 
 export function useNotes(entityType: NoteEntity, entityId: string | undefined) {
@@ -66,17 +58,15 @@ export function useUpdateNote() {
     mutationFn: async ({
       id,
       body,
-      kind,
     }: {
       id: string
       entityType: NoteEntity
       entityId: string
       body: string
-      kind: NoteKind
     }) => {
       const { data, error } = await supabase
         .from('notes')
-        .update({ body, kind })
+        .update({ body })
         .eq('id', id)
         .select()
         .single()

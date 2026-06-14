@@ -226,6 +226,7 @@ export function FileSection({
           ref={inputRef}
           type="file"
           multiple
+          data-file-input
           className="hidden"
           onChange={(e) => {
             doUpload(e.target.files)

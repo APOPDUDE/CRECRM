@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
+import { PropertyMiniMap } from '@/components/property-mini-map'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
@@ -194,6 +195,16 @@ export function PropertyDetailPage() {
           ))}
         </div>
       )}
+
+      <PropertyMiniMap
+        lat={property.lat}
+        lng={property.lng}
+        address={property.address}
+        city={property.city}
+        state={property.state}
+        zip={property.zip}
+        className="max-w-2xl"
+      />
 
       <dl className="grid max-w-2xl grid-cols-1 gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
         <Field

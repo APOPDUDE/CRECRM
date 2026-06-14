@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Pencil, Plus, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AddPropertyMatchDialog } from '@/components/add-property-match-dialog'
 import { ExecutedMatchDialog } from '@/components/executed-match-dialog'
@@ -12,8 +11,7 @@ import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { ListErrorState } from '@/components/list-error-state'
 import { MatchCard } from '@/components/match-card'
 import { MatchSlideOver } from '@/components/match-slide-over'
-import { FileSection } from '@/components/files/file-section'
-import { NotesLog } from '@/components/notes-log'
+import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
 import { SourceBadge } from '@/components/source-badge'
 import { TenantRequirements } from '@/components/tenant-requirements'
 import { TenantRepEditDialog } from '@/components/tenant-rep-edit-dialog'
@@ -38,16 +36,6 @@ import { mapTenantBoardColumn, matchStageLabels, tenantBoardStages } from '@/lib
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
 
-function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <h3 className="text-xs font-medium text-muted-foreground">{title}</h3>
-      {children}
-    </div>
-  )
-}
-
-
 export function TenantBoardPage() {
   const { tenantRepId } = useParams()
   const navigate = useNavigate()
@@ -69,6 +57,7 @@ export function TenantBoardPage() {
     null,
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
+  const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
 
   // Viewing the board clears the "new match" flag (the red tag stays visible for
   // this view; it's gone next time). Fire once per tenant rep.
@@ -288,60 +277,58 @@ export function TenantBoardPage() {
           )}
         </div>
 
-        <aside className="order-2 w-full space-y-4 lg:order-1 lg:w-80 lg:shrink-0">
-          {contact && (
-            <SidebarSection title="Tenant contact">
+        <aside className="order-2 w-full lg:order-1 lg:w-auto lg:shrink-0">
+          <BoardInfoPanel
+            entityType="tenant_rep"
+            entityId={tenantRep.id}
+            fileCategory="rep_agreement"
+            collapsed={infoCollapsed}
+            onToggle={toggleInfo}
+          >
+            {contact && (
+              <SidebarSection title="Tenant contact">
+                <button
+                  type="button"
+                  onClick={() => setContactEditOpen(true)}
+                  className="group/edit relative w-full rounded-lg border bg-card p-3 text-left text-sm transition-colors hover:bg-accent"
+                >
+                  <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
+                  <div className="font-medium">{contactNameOf(contact)}</div>
+                  {contact.title && (
+                    <div className="text-xs text-muted-foreground">{contact.title}</div>
+                  )}
+                  {contact.email && <div className="mt-1 text-xs">{contact.email}</div>}
+                  {contact.phone && <div className="text-xs">{contact.phone}</div>}
+                </button>
+              </SidebarSection>
+            )}
+
+            <SidebarSection title="Requirements">
               <button
                 type="button"
-                onClick={() => setContactEditOpen(true)}
-                className="group/edit relative w-full rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent"
+                onClick={() => setEditOpen(true)}
+                className="group/edit relative w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
               >
                 <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
-                <div className="font-medium">{contactNameOf(contact)}</div>
-                {contact.title && (
-                  <div className="text-xs text-muted-foreground">{contact.title}</div>
-                )}
-                {contact.email && <div className="mt-1 text-xs">{contact.email}</div>}
-                {contact.phone && <div className="text-xs">{contact.phone}</div>}
+                <TenantRequirements tenantRep={tenantRep} />
               </button>
             </SidebarSection>
-          )}
 
-          <SidebarSection title="Requirements">
-            <button
-              type="button"
-              onClick={() => setEditOpen(true)}
-              className="group/edit relative w-full rounded-lg border p-3 text-left transition-colors hover:bg-accent"
-            >
-              <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
-              <TenantRequirements tenantRep={tenantRep} />
-            </button>
-          </SidebarSection>
-
-          <SidebarSection title="Source">
-            <button
-              type="button"
-              onClick={() => setEditOpen(true)}
-              className="group/edit relative w-full rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent"
-            >
-              <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
-              {tenantRep.source ? (
-                <SourceBadge source={tenantRep.source} brokerName={brokerName} />
-              ) : (
-                <span className="text-xs text-muted-foreground">No source — click to set</span>
-              )}
-            </button>
-          </SidebarSection>
-
-          <Separator />
-          <SidebarSection title="Files">
-            <FileSection entityType="tenant_rep" entityId={tenantRep.id} defaultCategory="rep_agreement" />
-          </SidebarSection>
-
-          <Separator />
-          <SidebarSection title="Notes">
-            <NotesLog entityType="tenant_rep" entityId={tenantRep.id} />
-          </SidebarSection>
+            <SidebarSection title="Source">
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="group/edit relative w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+              >
+                <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
+                {tenantRep.source ? (
+                  <SourceBadge source={tenantRep.source} brokerName={brokerName} />
+                ) : (
+                  <span className="text-xs text-muted-foreground">No source — click to set</span>
+                )}
+              </button>
+            </SidebarSection>
+          </BoardInfoPanel>
         </aside>
       </div>
 

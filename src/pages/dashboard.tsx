@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { useDealMap, type DealStatus, type MapDeal } from '@/hooks/use-deals'
 import { useGeocodeMissing } from '@/hooks/use-properties'
 import { useDashboardMatches } from '@/hooks/use-dashboard'
-import { DashboardActivity, NewMatchesFeed } from '@/components/dashboard-activity'
+import { DashboardActivity, NewMatchesFeed, TasksDueWidget } from '@/components/dashboard-activity'
 
 const STATUS: Record<DealStatus, { label: string; color: string; chip: string }> = {
   active: { label: 'Active', color: '#2563eb', chip: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -77,6 +77,8 @@ export function DashboardPage() {
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
       <DashboardActivity matches={dashMatches} />
+
+      <TasksDueWidget />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-2 lg:col-span-2">

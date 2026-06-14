@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   format,
   isSameMonth,
@@ -14,8 +14,16 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import { matchFee, type DashMatch } from '@/hooks/use-dashboard'
-import { daysAgoLabel } from '@/lib/dates'
+import { daysAgoLabel, formatDate } from '@/lib/dates'
 import { contactNameOf } from '@/hooks/use-contacts'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  taskDealPath,
+  taskKindLabels,
+  useTasks,
+  useToggleTask,
+  type TaskWithContact,
+} from '@/hooks/use-tasks'
 
 type Gran = 'week' | 'month'
 
@@ -234,6 +242,98 @@ export function NewMatchesFeed({ matches }: { matches: DashMatch[] }) {
             )
           })}
         </ul>
+      )}
+    </div>
+  )
+}
+
+function TaskRow({ task, tone }: { task: TaskWithContact; tone: 'overdue' | 'today' }) {
+  const navigate = useNavigate()
+  const toggle = useToggleTask()
+  const path = taskDealPath(task)
+  const who = task.contact ? contactNameOf(task.contact) : null
+  return (
+    <li
+      className={cn(
+        'flex items-center gap-2.5 px-3 py-2',
+        tone === 'overdue' ? 'bg-red-50/60' : 'bg-amber-50/50',
+      )}
+    >
+      <Checkbox
+        checked={task.status === 'done'}
+        onCheckedChange={(v) => toggle.mutate({ id: task.id, status: v === true ? 'done' : 'open' })}
+        aria-label="Mark task done"
+      />
+      <button
+        type="button"
+        onClick={() => path && navigate(path)}
+        disabled={!path}
+        className="min-w-0 flex-1 text-left disabled:cursor-default"
+      >
+        <div className="truncate text-sm font-medium">{task.title}</div>
+        <div className="truncate text-xs text-muted-foreground">
+          {taskKindLabels[task.kind]}
+          {who ? ` · ${who}` : ''}
+        </div>
+      </button>
+      <span
+        className={cn(
+          'shrink-0 text-xs font-medium tabular-nums',
+          tone === 'overdue' ? 'text-red-700' : 'text-amber-700',
+        )}
+      >
+        {task.due_date ? formatDate(task.due_date) : ''}
+      </span>
+    </li>
+  )
+}
+
+/** Tasks that are overdue or due today — surfaced on the dashboard so nothing slips. */
+export function TasksDueWidget() {
+  const { data: tasks = [] } = useTasks()
+
+  const { overdue, dueToday } = useMemo(() => {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const open = tasks.filter((t) => t.status === 'open' && t.due_date)
+    return {
+      overdue: open.filter((t) => (t.due_date as string) < today),
+      dueToday: open.filter((t) => t.due_date === today),
+    }
+  }, [tasks])
+
+  if (overdue.length === 0 && dueToday.length === 0) return null
+
+  return (
+    <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="flex items-center justify-between border-b p-3">
+        <h2 className="text-sm font-medium">Tasks due</h2>
+        <Link to="/tasks" className="text-xs text-primary hover:underline">
+          View all
+        </Link>
+      </div>
+      {overdue.length > 0 && (
+        <div>
+          <div className="bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
+            Overdue · {overdue.length}
+          </div>
+          <ul className="divide-y">
+            {overdue.map((t) => (
+              <TaskRow key={t.id} task={t} tone="overdue" />
+            ))}
+          </ul>
+        </div>
+      )}
+      {dueToday.length > 0 && (
+        <div>
+          <div className="bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+            Due today · {dueToday.length}
+          </div>
+          <ul className="divide-y">
+            {dueToday.map((t) => (
+              <TaskRow key={t.id} task={t} tone="today" />
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )

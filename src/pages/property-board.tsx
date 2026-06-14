@@ -3,17 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AddTenantMatchDialog } from '@/components/add-tenant-match-dialog'
 import { ExecutedMatchDialog } from '@/components/executed-match-dialog'
 import type { ExecutedResult } from '@/components/executed-match-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { MatchCard } from '@/components/match-card'
-import { FileSection } from '@/components/files/file-section'
+import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
+import { PropertyMiniMap } from '@/components/property-mini-map'
 import { ListErrorState } from '@/components/list-error-state'
 import { MatchSlideOver } from '@/components/match-slide-over'
-import { NotesLog } from '@/components/notes-log'
 import { StageDateDialog } from '@/components/stage-date-dialog'
 import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
@@ -33,15 +32,6 @@ import { matchStageLabels, propertyBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
 
-function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <h3 className="text-xs font-medium text-muted-foreground">{title}</h3>
-      {children}
-    </div>
-  )
-}
-
 export function PropertyBoardPage() {
   const { listingId } = useParams()
   const navigate = useNavigate()
@@ -58,6 +48,7 @@ export function PropertyBoardPage() {
     null,
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
+  const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
 
   useSetBreadcrumb(listing?.property?.address)
 
@@ -225,60 +216,75 @@ export function PropertyBoardPage() {
           )}
         </div>
 
-        <aside className="order-2 w-full space-y-4 lg:order-1 lg:w-80 lg:shrink-0">
-          {landlordContact && (
-            <SidebarSection title="Landlord contact">
-              <div className="rounded-lg border p-3 text-sm">
-                <div className="font-medium">{contactNameOf(landlordContact)}</div>
-                {landlordContact.title && (
-                  <div className="text-xs text-muted-foreground">{landlordContact.title}</div>
+        <aside className="order-2 w-full lg:order-1 lg:w-auto lg:shrink-0">
+          <BoardInfoPanel
+            entityType="listing"
+            entityId={listing.id}
+            fileCategory="listing_agreement"
+            collapsed={infoCollapsed}
+            onToggle={toggleInfo}
+          >
+            {landlordContact && (
+              <SidebarSection title="Landlord contact">
+                <div className="rounded-lg border bg-card p-3 text-sm">
+                  <div className="font-medium">{contactNameOf(landlordContact)}</div>
+                  {landlordContact.title && (
+                    <div className="text-xs text-muted-foreground">{landlordContact.title}</div>
+                  )}
+                  {landlordContact.email && <div className="mt-1 text-xs">{landlordContact.email}</div>}
+                  {landlordContact.phone && <div className="text-xs">{landlordContact.phone}</div>}
+                </div>
+              </SidebarSection>
+            )}
+
+            {listing.property?.address && (
+              <SidebarSection title="Location">
+                <PropertyMiniMap
+                  lat={listing.property?.lat}
+                  lng={listing.property?.lng}
+                  address={listing.property?.address}
+                  city={listing.property?.city}
+                  state={listing.property?.state}
+                  zip={listing.property?.zip}
+                />
+              </SidebarSection>
+            )}
+
+            {(formatListingPrice(listing) ||
+              listing.commission_pct != null ||
+              listing.listing_expiration) && (
+            <SidebarSection title="Terms">
+              <div className="space-y-1 rounded-lg border bg-card p-3 text-sm">
+                {formatListingPrice(listing) && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{listing.deal_type === 'sale' ? 'Price' : 'Rate'}</span>
+                    <span className="tabular-nums">{formatListingPrice(listing)}</span>
+                  </div>
                 )}
-                {landlordContact.email && <div className="mt-1 text-xs">{landlordContact.email}</div>}
-                {landlordContact.phone && <div className="text-xs">{landlordContact.phone}</div>}
+                {listing.commission_pct != null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Commission</span>
+                    <span>{listing.commission_pct}%</span>
+                  </div>
+                )}
+                {listing.listing_expiration && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Listing expires</span>
+                    <span>{formatDate(listing.listing_expiration)}</span>
+                  </div>
+                )}
               </div>
             </SidebarSection>
-          )}
+            )}
 
-          <SidebarSection title="Terms">
-            <div className="space-y-1 rounded-lg border p-3 text-sm">
-              {formatListingPrice(listing) && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{listing.deal_type === 'sale' ? 'Price' : 'Rate'}</span>
-                  <span className="tabular-nums">{formatListingPrice(listing)}</span>
-                </div>
-              )}
-              {listing.commission_pct != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Commission</span>
-                  <span>{listing.commission_pct}%</span>
-                </div>
-              )}
-              {listing.listing_expiration && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Listing expires</span>
-                  <span>{formatDate(listing.listing_expiration)}</span>
-                </div>
-              )}
-            </div>
-          </SidebarSection>
-
-          {listing.landlord_requirements && (
-            <SidebarSection title="Landlord requirements">
-              <p className="rounded-lg border p-3 text-sm whitespace-pre-wrap">
-                {listing.landlord_requirements}
-              </p>
-            </SidebarSection>
-          )}
-
-          <Separator />
-          <SidebarSection title="Files">
-            <FileSection entityType="listing" entityId={listing.id} defaultCategory="listing_agreement" />
-          </SidebarSection>
-
-          <Separator />
-          <SidebarSection title="Notes">
-            <NotesLog entityType="listing" entityId={listing.id} />
-          </SidebarSection>
+            {listing.landlord_requirements && (
+              <SidebarSection title="Landlord requirements">
+                <p className="rounded-lg border bg-card p-3 text-sm whitespace-pre-wrap">
+                  {listing.landlord_requirements}
+                </p>
+              </SidebarSection>
+            )}
+          </BoardInfoPanel>
         </aside>
       </div>
 
