@@ -37,14 +37,22 @@ function invalidateAutomationViews(qc: ReturnType<typeof useQueryClient>) {
 export function useScrapePropertyByUrl() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ url, tenantRepId }: { url: string; tenantRepId?: string | null }) => {
+    mutationFn: async ({
+      url,
+      urls,
+      tenantRepId,
+    }: {
+      url?: string
+      urls?: string[]
+      tenantRepId?: string | null
+    }) => {
       const res = await callN8nWebhook<ScrapeResult>(
         N8N_PATHS.scrapeUrl,
-        { url, tenant_rep_id: tenantRepId ?? undefined },
-        { timeoutMs: 120_000 },
+        { url, urls, tenant_rep_id: tenantRepId ?? undefined },
+        { timeoutMs: 180_000 },
       )
-      if (res?.ok === false) throw new Error(res.message || 'Could not scrape that listing.')
-      if (!res?.scraped) throw new Error('No listing was found at that link.')
+      if (res?.ok === false) throw new Error(res.message || 'Could not scrape those listings.')
+      if (!res?.scraped) throw new Error('No listings were found at those links.')
       return res
     },
     onSuccess: () => invalidateAutomationViews(qc),

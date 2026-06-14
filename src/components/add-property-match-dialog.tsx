@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
+import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -19,21 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ContactSelect } from '@/components/contact-select'
-import { PropertySelect } from '@/components/property-select'
-import { leadSourceLabels } from '@/components/source-badge'
+import { propertyKindLabels } from '@/components/property-form-dialog'
 import { useCreateMatch } from '@/hooks/use-matches'
+import { useCreateProperty } from '@/hooks/use-properties'
 import { useScrapePropertyByUrl } from '@/hooks/use-automation'
 import type { TenantRepDetail } from '@/hooks/use-tenant-reps'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
 import { automationEnabled } from '@/lib/n8n'
-import { supabase } from '@/lib/supabase'
-import { cn } from '@/lib/utils'
 
 const NONE = '__none__'
-
-type Mode = 'search' | 'link'
+type Mode = 'paste' | 'manual'
 
 interface AddPropertyMatchDialogProps {
   open: boolean
@@ -41,176 +39,168 @@ interface AddPropertyMatchDialogProps {
   tenantRep: TenantRepDetail
 }
 
+const numOrNull = (v: string | undefined) => (v && v.trim() ? Number(v) : null)
+const intOrNull = (v: string | undefined) => (v && v.trim() ? Math.round(Number(v)) : null)
+
 export function AddPropertyMatchDialog({
   open,
   onOpenChange,
   tenantRep,
 }: AddPropertyMatchDialogProps) {
-  const createMatch = useCreateMatch()
   const scrape = useScrapePropertyByUrl()
-  const showLinkMode = automationEnabled()
+  const createProperty = useCreateProperty()
+  const createMatch = useCreateMatch()
+  const showPaste = automationEnabled()
 
-  const [mode, setMode] = useState<Mode>('search')
-  const [propertyId, setPropertyId] = useState<string | null>(null)
-  const [source, setSource] = useState<string>(NONE)
-  const [brokerId, setBrokerId] = useState<string | null>(null)
-  const [inquiryDate, setInquiryDate] = useState('')
-  const [url, setUrl] = useState('')
+  const [mode, setMode] = useState<Mode>('paste')
+  const [links, setLinks] = useState('')
+  const [m, setM] = useState<Record<string, string>>({ property_type: NONE })
 
   useEffect(() => {
     if (open) {
-      setMode('search')
-      setPropertyId(null)
-      setSource(NONE)
-      setBrokerId(null)
-      setInquiryDate(format(new Date(), 'yyyy-MM-dd'))
-      setUrl('')
+      setMode(showPaste ? 'paste' : 'manual')
+      setLinks('')
+      setM({ property_type: NONE })
     }
-  }, [open])
+  }, [open, showPaste])
 
-  const isBroker = source === 'broker'
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!propertyId) return
-
-    // If this property is one of my active listings, link it so the match
-    // becomes dual-sided and the card shows the "My listing" badge.
-    let listingId: string | null = null
-    // link to the most recent active listing on this property (deterministic if several)
-    const { data: listings } = await supabase
-      .from('listings')
-      .select('id')
-      .eq('property_id', propertyId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-    if (listings && listings.length > 0) listingId = listings[0].id
-
-    createMatch.mutate(
-      {
-        property_id: propertyId,
-        tenant_rep_id: tenantRep.id,
-        listing_id: listingId,
-        tenant_company_id: tenantRep.tenant_company_id,
-        tenant_contact_id: tenantRep.tenant_contact_id,
-        source: source === NONE ? null : (source as Enums<'lead_source'>),
-        broker_contact_id: isBroker ? brokerId : null,
-        inquiry_date: inquiryDate || undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Property added')
-          onOpenChange(false)
-        },
-        onError: (error) => toast.error(friendlyDbError(error, 'Could not add property')),
-      },
-    )
-  }
+  const setF = (k: string) => (e: { target: { value: string } }) =>
+    setM((prev) => ({ ...prev, [k]: e.target.value }))
 
   const handleScrape = (e: FormEvent) => {
     e.preventDefault()
-    const trimmed = url.trim()
-    if (!trimmed) return
+    const urls = links
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 5)
+    if (!urls.length) return
     scrape.mutate(
-      { url: trimmed, tenantRepId: tenantRep.id },
+      { urls, tenantRepId: tenantRep.id },
       {
-        onSuccess: () => {
-          toast.success('Property added from listing')
+        onSuccess: (res) => {
+          const n = res?.scraped ?? urls.length
+          toast.success(`Added ${n} ${n === 1 ? 'property' : 'properties'}`)
           onOpenChange(false)
         },
-        onError: (error) =>
-          toast.error(error instanceof Error ? error.message : 'Could not scrape that listing'),
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : 'Could not scrape those listings'),
       },
     )
   }
 
-  // tenant_rep_id satisfies the match identity constraint; broker source needs a broker
-  const canSubmit = !!propertyId && (!isBroker || !!brokerId)
+  const pending = createProperty.isPending || createMatch.isPending
+
+  const handleManual = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!m.address?.trim()) return
+    try {
+      const prop = await createProperty.mutateAsync({
+        address: m.address.trim(),
+        city: m.city?.trim() || null,
+        state: m.state?.trim() || null,
+        zip: m.zip?.trim() || null,
+        property_type: m.property_type === NONE ? null : (m.property_type as Enums<'property_kind'>),
+        building_sf: intOrNull(m.building_sf),
+        land_acres: numOrNull(m.land_acres),
+        asking_rate_psf: numOrNull(m.asking_rate_psf),
+        asking_price: numOrNull(m.asking_price),
+        cap_rate_pct: numOrNull(m.cap_rate_pct),
+        specs: m.specs?.trim() || null,
+        source: 'manual',
+      })
+      await createMatch.mutateAsync({
+        property_id: prop.id,
+        tenant_rep_id: tenantRep.id,
+        tenant_company_id: tenantRep.tenant_company_id,
+        tenant_contact_id: tenantRep.tenant_contact_id,
+        inquiry_date: format(new Date(), 'yyyy-MM-dd'),
+      })
+      toast.success('Property added')
+      onOpenChange(false)
+    } catch (err) {
+      toast.error(friendlyDbError(err, 'Could not add property'))
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add property</DialogTitle>
+          <DialogTitle>{mode === 'manual' ? 'Add property manually' : 'Add property'}</DialogTitle>
         </DialogHeader>
 
-        {showLinkMode && (
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-            <button
-              type="button"
-              onClick={() => setMode('search')}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                mode === 'search' ? 'bg-background shadow-sm' : 'text-muted-foreground',
-              )}
-            >
-              Search existing
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('link')}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                mode === 'link' ? 'bg-background shadow-sm' : 'text-muted-foreground',
-              )}
-            >
-              Paste a link
-            </button>
-          </div>
-        )}
-
-        {mode === 'link' && showLinkMode ? (
+        {mode === 'paste' && showPaste ? (
           <form onSubmit={handleScrape} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="scrape-url">LoopNet or Crexi link</Label>
-              <Input
-                id="scrape-url"
-                type="url"
-                inputMode="url"
-                placeholder="https://www.loopnet.com/Listing/…"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
+              <Label htmlFor="links">Paste Crexi/LoopNet link(s)</Label>
+              <Textarea
+                id="links"
+                value={links}
+                onChange={(e) => setLinks(e.target.value)}
+                rows={4}
                 autoFocus
+                placeholder={'https://www.loopnet.com/Listing/…\nhttps://www.loopnet.com/Listing/…'}
               />
               <p className="text-xs text-muted-foreground">
-                We'll pull the address, size, rate, broker and photos, then add it to this tenant's
-                board as a new inquiry.
+                One link per line, up to 5. We'll pull the details (size, rate, broker, photos) and
+                add them to this tenant's board.
               </p>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setMode('manual')}
+            >
+              Add manually instead
+            </Button>
             <DialogFooter>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 onClick={() => onOpenChange(false)}
                 disabled={scrape.isPending}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={scrape.isPending || !url.trim()}>
-                {scrape.isPending ? 'Scraping…' : 'Add from link'}
+              <Button type="submit" disabled={scrape.isPending || !links.trim()}>
+                {scrape.isPending ? 'Scraping…' : 'Add from link(s)'}
               </Button>
             </DialogFooter>
           </form>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleManual} className="space-y-4">
             <div className="space-y-2">
-              <Label>Property</Label>
-              <PropertySelect
-                value={propertyId}
-                onChange={setPropertyId}
-                placeholder="Search or create property"
-              />
+              <Label htmlFor="man-address">Address *</Label>
+              <Input id="man-address" value={m.address ?? ''} onChange={setF('address')} autoFocus />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="space-y-2 sm:col-span-1">
+                <Label htmlFor="man-city">City</Label>
+                <Input id="man-city" value={m.city ?? ''} onChange={setF('city')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="man-state">State</Label>
+                <Input id="man-state" value={m.state ?? ''} onChange={setF('state')} placeholder="FL" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="man-zip">Zip</Label>
+                <Input id="man-zip" value={m.zip ?? ''} onChange={setF('zip')} />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="match-source">Source</Label>
-              <Select value={source} onValueChange={setSource}>
-                <SelectTrigger id="match-source" className="w-full">
-                  <SelectValue placeholder="No source" />
+              <Label htmlFor="man-type">Property type</Label>
+              <Select
+                value={m.property_type ?? NONE}
+                onValueChange={(v) => setM((p) => ({ ...p, property_type: v }))}
+              >
+                <SelectTrigger id="man-type" className="w-full">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>No source</SelectItem>
-                  {Object.entries(leadSourceLabels).map(([value, label]) => (
+                  <SelectItem value={NONE}>No type</SelectItem>
+                  {Object.entries(propertyKindLabels).map(([value, label]) => (
                     <SelectItem key={value} value={value}>
                       {label}
                     </SelectItem>
@@ -218,36 +208,41 @@ export function AddPropertyMatchDialog({
                 </SelectContent>
               </Select>
             </div>
-            {isBroker && (
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Referring broker</Label>
-                <ContactSelect
-                  value={brokerId}
-                  onChange={setBrokerId}
-                  placeholder="Select or create broker"
-                />
+                <Label htmlFor="man-sf">Building SF</Label>
+                <Input id="man-sf" type="number" inputMode="numeric" value={m.building_sf ?? ''} onChange={setF('building_sf')} />
               </div>
-            )}
+              <div className="space-y-2">
+                <Label htmlFor="man-ac">Land acres</Label>
+                <Input id="man-ac" type="number" inputMode="decimal" step="0.01" value={m.land_acres ?? ''} onChange={setF('land_acres')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="man-rate">Asking rate ($/SF)</Label>
+                <Input id="man-rate" type="number" inputMode="decimal" step="0.01" value={m.asking_rate_psf ?? ''} onChange={setF('asking_rate_psf')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="man-price">Asking price ($)</Label>
+                <Input id="man-price" type="number" inputMode="numeric" value={m.asking_price ?? ''} onChange={setF('asking_price')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="man-cap">Cap rate (%)</Label>
+                <Input id="man-cap" type="number" inputMode="decimal" step="0.01" value={m.cap_rate_pct ?? ''} onChange={setF('cap_rate_pct')} />
+              </div>
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="match-inquiry-date">Inquiry date</Label>
-              <Input
-                id="match-inquiry-date"
-                type="date"
-                value={inquiryDate}
-                onChange={(e) => setInquiryDate(e.target.value)}
-              />
+              <Label htmlFor="man-specs">Specs / notes</Label>
+              <Textarea id="man-specs" rows={2} value={m.specs ?? ''} onChange={setF('specs')} />
             </div>
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={createMatch.isPending}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createMatch.isPending || !canSubmit}>
-                {createMatch.isPending ? 'Adding…' : 'Add property'}
+              {showPaste && (
+                <Button type="button" variant="ghost" onClick={() => setMode('paste')}>
+                  <ArrowLeft className="size-4" />
+                  Back
+                </Button>
+              )}
+              <Button type="submit" disabled={pending || !m.address?.trim()}>
+                {pending ? 'Adding…' : 'Add property'}
               </Button>
             </DialogFooter>
           </form>
