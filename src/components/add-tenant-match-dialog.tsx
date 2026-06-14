@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/select'
 import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
-import { companyTypeLabels } from '@/components/company-form-dialog'
 import { leadSourceLabels } from '@/components/source-badge'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase'
@@ -63,7 +62,6 @@ export function AddTenantMatchDialog({
 
   // company
   const [companyId, setCompanyId] = useState<string | null>(null)
-  const [companyType, setCompanyType] = useState<Enums<'company_type'>>('tenant')
   const [companyPhone, setCompanyPhone] = useState('')
   const [companyWebsite, setCompanyWebsite] = useState('')
   const [companyIndustry, setCompanyIndustry] = useState('')
@@ -85,7 +83,6 @@ export function AddTenantMatchDialog({
   useEffect(() => {
     if (!open) return
     setCompanyId(null)
-    setCompanyType('tenant')
     setCompanyPhone('')
     setCompanyWebsite('')
     setCompanyIndustry('')
@@ -116,9 +113,10 @@ export function AddTenantMatchDialog({
     setPending(true)
     try {
       // enrich the picked/created company with any details the user typed
+      // (only fields they filled — never overwrite an existing company's type)
       if (companyId) {
-        const patch = { ...filled({ phone: companyPhone, website: companyWebsite, industry: companyIndustry }), type: companyType }
-        await supabase.from('companies').update(patch).eq('id', companyId)
+        const patch = filled({ phone: companyPhone, website: companyWebsite, industry: companyIndustry })
+        if (Object.keys(patch).length) await supabase.from('companies').update(patch).eq('id', companyId)
       }
       // enrich the picked/created contact
       if (contactId) {
@@ -191,19 +189,6 @@ export function AddTenantMatchDialog({
           </div>
           {companyId && (
             <div className="grid grid-cols-1 gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="at-company-type" className="text-xs">Type</Label>
-                <Select value={companyType} onValueChange={(v) => setCompanyType(v as Enums<'company_type'>)}>
-                  <SelectTrigger id="at-company-type" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(companyTypeLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="at-company-phone" className="text-xs">Phone</Label>
                 <Input id="at-company-phone" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
