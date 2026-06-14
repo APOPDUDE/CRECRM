@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { geocodeAddress } from '@/lib/geocode'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
 
 export type Property = Tables<'properties'>
@@ -98,15 +99,27 @@ export function useProperty(id: string | undefined) {
   })
 }
 
+function invalidatePropertyViews(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['properties'] })
+  queryClient.invalidateQueries({ queryKey: ['property-deals'] })
+  queryClient.invalidateQueries({ queryKey: ['deal-map'] })
+}
+
 export function useCreateProperty() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (values: TablesInsert<'properties'>) => {
-      const { data, error } = await supabase.from('properties').insert(values).select().single()
+      let v = values
+      // geocode manually-entered properties so they appear on the Deal Map
+      if (v.address && v.lat == null && v.lng == null) {
+        const geo = await geocodeAddress(v)
+        if (geo) v = { ...v, lat: geo.lat, lng: geo.lng }
+      }
+      const { data, error } = await supabase.from('properties').insert(v).select().single()
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['properties'] }),
+    onSuccess: () => invalidatePropertyViews(queryClient),
   })
 }
 
@@ -114,11 +127,17 @@ export function useUpdateProperty() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...values }: TablesUpdate<'properties'> & { id: string }) => {
-      const { data, error } = await supabase.from('properties').update(values).eq('id', id).select().single()
+      let v = values
+      // re-geocode when the address is edited and coordinates weren't set explicitly
+      if (v.address && v.lat == null && v.lng == null) {
+        const geo = await geocodeAddress(v)
+        if (geo) v = { ...v, lat: geo.lat, lng: geo.lng }
+      }
+      const { data, error } = await supabase.from('properties').update(v).eq('id', id).select().single()
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['properties'] }),
+    onSuccess: () => invalidatePropertyViews(queryClient),
   })
 }
 

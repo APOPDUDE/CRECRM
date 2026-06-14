@@ -517,7 +517,9 @@ export type Database = {
           days_on_market: number | null
           id: string
           land_acres: number | null
+          lat: number | null
           listed_at: string | null
+          lng: number | null
           listing_url: string | null
           photo_urls: string[] | null
           property_type: Database["public"]["Enums"]["property_kind"] | null
@@ -545,8 +547,10 @@ export type Database = {
           days_on_market?: number | null
           id?: string
           land_acres?: number | null
+          lat?: number | null
           listed_at?: string | null
           listing_url?: string | null
+          lng?: number | null
           photo_urls?: string[] | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
           scraped_at?: string | null
@@ -573,8 +577,10 @@ export type Database = {
           days_on_market?: number | null
           id?: string
           land_acres?: number | null
+          lat?: number | null
           listed_at?: string | null
           listing_url?: string | null
+          lng?: number | null
           photo_urls?: string[] | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
           scraped_at?: string | null

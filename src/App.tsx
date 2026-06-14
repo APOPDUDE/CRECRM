@@ -6,7 +6,7 @@ import { ProtectedRoute } from '@/components/protected-route'
 import { AuthProvider } from '@/hooks/use-auth'
 import { BreadcrumbProvider } from '@/hooks/use-breadcrumb'
 import { LoginPage } from '@/pages/login'
-import { PlaceholderPage } from '@/pages/placeholder'
+import { DashboardPage } from '@/pages/dashboard'
 import { LandlordRepPage } from '@/pages/landlord-rep'
 import { PropertyBoardPage } from '@/pages/property-board'
 import { TenantRepPage } from '@/pages/tenant-rep'
@@ -36,10 +36,7 @@ export default function App() {
                   </BreadcrumbProvider>
                 }
               >
-                <Route
-                  path="/"
-                  element={<PlaceholderPage title="Dashboard" description="Pipeline summaries land here in Phase 7." />}
-                />
+                <Route path="/" element={<DashboardPage />} />
                 <Route path="/landlord-rep" element={<LandlordRepPage />} />
                 <Route path="/landlord-rep/:listingId" element={<PropertyBoardPage />} />
                 <Route path="/tenant-rep" element={<TenantRepPage />} />

@@ -140,6 +140,19 @@ The CRM calls the webhooks from the browser via `src/lib/n8n.ts` +
 - Webhook nodes set `options.allowedOrigins='*'` so the browser (Vercel + localhost) can call them.
 - **Vercel**: add `VITE_N8N_WEBHOOK_BASE=https://n8n.ayxco.com/webhook` env var for prod.
 
+## Properties enrichment + Deal Map
+- Property list/detail surface the scraped provenance (asking price/rate, cap rate,
+  days on market, broker, listing link, photos) + association views (linked listings
+  and matches). `usePropertyDeals` / deal-count on the list.
+- `properties.lat/lng` (migration `…0013`) feed a **Leaflet Deal Map** on the Dashboard
+  (`/`, `src/pages/dashboard.tsx` + `use-deals.ts`): one pin per listing/match on a
+  located property, colored Active/Closed/Lost (derived from stage/status), filterable.
+  The map reads existing deals — no separate table (per the chosen architecture).
+- Coordinates: the n8n map nodes now pass `lat/lng` from the Apify address and the
+  RPC (`…0014`) stores them; manual properties are geocoded via OpenStreetMap/Nominatim
+  (`src/lib/geocode.ts`, wired into useCreateProperty/useUpdateProperty). One-time
+  backfill geocoded existing rows.
+
 ## n8n credentials (encrypted in n8n, never in the browser/app)
 - **Supabase service role** — type `supabaseApi`, id `ZxJ5godenAx0UYK3`. Injects
   `apikey` + `Authorization: Bearer` on HTTP Request nodes via
