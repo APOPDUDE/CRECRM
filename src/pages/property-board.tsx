@@ -188,8 +188,8 @@ export function PropertyBoardPage() {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-6">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <div className="order-1 min-w-0 flex-1 lg:order-2">
           {matchesError ? (
             <ListErrorState message="Could not load prospects." onRetry={() => refetchMatches()} />
           ) : matches.length === 0 ? (
@@ -214,7 +214,7 @@ export function PropertyBoardPage() {
           )}
         </div>
 
-        <aside className="w-full space-y-4">
+        <aside className="order-2 w-full space-y-4 lg:order-1 lg:w-80 lg:shrink-0">
           {landlordContact && (
             <SidebarSection title="Landlord contact">
               <div className="rounded-lg border p-3 text-sm">

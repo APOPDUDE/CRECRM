@@ -18,6 +18,7 @@ import { SourceBadge } from '@/components/source-badge'
 import { TenantRequirements } from '@/components/tenant-requirements'
 import { TenantRepEditDialog } from '@/components/tenant-rep-edit-dialog'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
+import { PropertyPreview } from '@/components/property-preview'
 import { contactNameOf, type Contact } from '@/hooks/use-contacts'
 import { useUpdateListing } from '@/hooks/use-listings'
 import {
@@ -60,6 +61,7 @@ export function TenantBoardPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [contactEditOpen, setContactEditOpen] = useState(false)
+  const [previewPropertyId, setPreviewPropertyId] = useState<string | null>(null)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
 
@@ -224,8 +226,8 @@ export function TenantBoardPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-6">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <div className="order-1 min-w-0 flex-1 lg:order-2">
           {matchesError ? (
             <ListErrorState message="Could not load properties in play." onRetry={() => refetchMatches()} />
           ) : matches.length === 0 ? (
@@ -246,13 +248,18 @@ export function TenantBoardPage() {
               getStage={(m) => mapTenantBoardColumn(m.stage)}
               onMove={handleMove}
               renderCard={(m) => (
-                <MatchCard match={m} facing="tenant" onOpen={() => setOpenMatchId(m.id)} />
+                <MatchCard
+                  match={m}
+                  facing="tenant"
+                  onPreview={() => setPreviewPropertyId(m.property_id)}
+                  onOpen={() => navigate(`/properties/${m.property_id}`)}
+                />
               )}
             />
           )}
         </div>
 
-        <aside className="w-full space-y-4">
+        <aside className="order-2 w-full space-y-4 lg:order-1 lg:w-80 lg:shrink-0">
           {contact && (
             <SidebarSection title="Tenant contact">
               <button
@@ -322,6 +329,11 @@ export function TenantBoardPage() {
         matchId={openMatchId}
         open={!!openMatchId}
         onOpenChange={(open) => !open && setOpenMatchId(null)}
+      />
+      <PropertyPreview
+        propertyId={previewPropertyId}
+        open={!!previewPropertyId}
+        onOpenChange={(open) => !open && setPreviewPropertyId(null)}
       />
       <ExecutedMatchDialog
         open={!!executedMove}
