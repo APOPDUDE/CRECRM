@@ -10,7 +10,6 @@ import type { ExecutedResult } from '@/components/executed-match-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { ListErrorState } from '@/components/list-error-state'
 import { MatchCard } from '@/components/match-card'
-import { MatchSlideOver } from '@/components/match-slide-over'
 import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
 import { DealTasks } from '@/components/deal-tasks'
 import { NotesLog } from '@/components/notes-log'
@@ -65,7 +64,6 @@ export function TenantBoardPage() {
   const [contactEditOpen, setContactEditOpen] = useState(false)
   const [companyEditOpen, setCompanyEditOpen] = useState(false)
   const [previewPropertyId, setPreviewPropertyId] = useState<string | null>(null)
-  const [openMatchId, setOpenMatchId] = useState<string | null>(null)
   const [dateMove, setDateMove] = useState<{ match: MatchWithRelations; stage: DatedStage } | null>(
     null,
   )
@@ -298,7 +296,7 @@ export function TenantBoardPage() {
                   match={m}
                   facing="tenant"
                   onPreview={() => setPreviewPropertyId(m.property_id)}
-                  onOpen={() => setOpenMatchId(m.id)}
+                  onOpen={() => navigate(`/properties/${m.property_id}`)}
                 />
               )}
             />
@@ -383,13 +381,9 @@ export function TenantBoardPage() {
                   >
                     <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
                     <div className="font-medium">{tenantRep.company.name}</div>
-                    {tenantRep.company.industry ? (
+                    {tenantRep.company.industry && (
                       <div className="text-xs text-muted-foreground">
                         {tenantRep.company.industry}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground italic">
-                        Add industry, website…
                       </div>
                     )}
                     {tenantRep.company.phone && (
@@ -465,11 +459,6 @@ export function TenantBoardPage() {
           company={tenantRep.company as unknown as Company}
         />
       )}
-      <MatchSlideOver
-        matchId={openMatchId}
-        open={!!openMatchId}
-        onOpenChange={(open) => !open && setOpenMatchId(null)}
-      />
       <PropertyPreview
         propertyId={previewPropertyId}
         open={!!previewPropertyId}

@@ -5,7 +5,7 @@ import { formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 
 type TenantRep = Tables<'tenant_reps'> & {
-  company?: Pick<Tables<'companies'>, 'industry' | 'website'> | null
+  company?: Pick<Tables<'companies'>, 'industry'> | null
 }
 
 const acres = (n: number) => `${n} AC`
@@ -24,10 +24,6 @@ function Row({ label, value }: { label: string; value: string | null | undefined
 export function TenantRequirements({ tenantRep }: { tenantRep: TenantRep }) {
   const rows: { label: string; value: string | null }[] = [
     { label: 'Industry', value: tenantRep.company?.industry ?? null },
-    {
-      label: 'Website',
-      value: tenantRep.company?.website ?? null,
-    },
     { label: 'Move-in', value: formatDate(tenantRep.move_in_date) },
     { label: 'Move-in context', value: tenantRep.move_in_context },
     {
@@ -60,23 +56,9 @@ export function TenantRequirements({ tenantRep }: { tenantRep: TenantRep }) {
 
   return (
     <div className="space-y-1.5 rounded-lg border p-3">
-      {populated.map((r) =>
-        r.label === 'Website' ? (
-          <div key={r.label} className="flex justify-between gap-3 text-sm">
-            <span className="shrink-0 text-muted-foreground">Website</span>
-            <a
-              href={/^https?:\/\//.test(r.value!) ? r.value! : `https://${r.value}`}
-              target="_blank"
-              rel="noreferrer"
-              className="truncate text-right text-primary hover:underline"
-            >
-              {r.value}
-            </a>
-          </div>
-        ) : (
-          <Row key={r.label} label={r.label} value={r.value} />
-        ),
-      )}
+      {populated.map((r) => (
+        <Row key={r.label} label={r.label} value={r.value} />
+      ))}
       {tenantRep.must_haves && (
         <p className="border-t pt-2 text-sm whitespace-pre-wrap">{tenantRep.must_haves}</p>
       )}
