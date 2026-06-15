@@ -34,6 +34,53 @@ const int = (v: string) => (v.trim() === '' ? null : Math.round(Number(v)))
 const num = (v: string) => (v.trim() === '' ? null : Number(v))
 const s = (v: number | string | null) => (v == null ? '' : String(v))
 
+type SetHandler = (k: string) => (e: { target: { value: string } }) => void
+
+/**
+ * A min/max range of number inputs. MUST live at module scope — defining it inside
+ * the dialog body makes a new component identity every render, which remounts the
+ * inputs on each keystroke and ejects focus (the "one number at a time" bug).
+ */
+function MinMax({
+  label,
+  minKey,
+  maxKey,
+  step,
+  values,
+  set,
+}: {
+  label: string
+  minKey: string
+  maxKey: string
+  step?: string
+  values: Record<string, string>
+  set: SetHandler
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          type="number"
+          inputMode="decimal"
+          step={step}
+          placeholder="Min"
+          value={values[minKey] ?? ''}
+          onChange={set(minKey)}
+        />
+        <Input
+          type="number"
+          inputMode="decimal"
+          step={step}
+          placeholder="Max"
+          value={values[maxKey] ?? ''}
+          onChange={set(maxKey)}
+        />
+      </div>
+    </div>
+  )
+}
+
 interface TenantRepEditDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -105,16 +152,6 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
       },
     )
   }
-
-  const MinMax = ({ label, minKey, maxKey, step }: { label: string; minKey: string; maxKey: string; step?: string }) => (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="grid grid-cols-2 gap-2">
-        <Input type="number" inputMode="decimal" step={step} placeholder="Min" value={f[minKey] ?? ''} onChange={set(minKey)} />
-        <Input type="number" inputMode="decimal" step={step} placeholder="Max" value={f[maxKey] ?? ''} onChange={set(maxKey)} />
-      </div>
-    </div>
-  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -189,9 +226,9 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
             <Input id="tr-movein-context" value={f.move_in_context ?? ''} onChange={set('move_in_context')} placeholder="e.g. lease expiring, expansion" />
           </div>
 
-          <MinMax label="Warehouse SF" minKey="warehouse_sf_min" maxKey="warehouse_sf_max" />
-          <MinMax label="Office SF" minKey="office_sf_min" maxKey="office_sf_max" />
-          <MinMax label="Outdoor storage (acres)" minKey="outdoor_storage_min_ac" maxKey="outdoor_storage_max_ac" step="0.1" />
+          <MinMax label="Warehouse SF" minKey="warehouse_sf_min" maxKey="warehouse_sf_max" values={f} set={set} />
+          <MinMax label="Office SF" minKey="office_sf_min" maxKey="office_sf_max" values={f} set={set} />
+          <MinMax label="Outdoor storage (acres)" minKey="outdoor_storage_min_ac" maxKey="outdoor_storage_max_ac" step="0.1" values={f} set={set} />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">

@@ -12,6 +12,9 @@ import { ListErrorState } from '@/components/list-error-state'
 import { MatchCard } from '@/components/match-card'
 import { MatchSlideOver } from '@/components/match-slide-over'
 import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
+import { NextActionCard } from '@/components/next-action-card'
+import { ContactActions } from '@/components/contact-actions'
+import { Badge } from '@/components/ui/badge'
 import { SourceBadge } from '@/components/source-badge'
 import { TenantRequirements } from '@/components/tenant-requirements'
 import { TenantRepEditDialog } from '@/components/tenant-rep-edit-dialog'
@@ -32,6 +35,7 @@ import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-auto
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { automationEnabled } from '@/lib/n8n'
+import { setReppingSide } from '@/lib/repping-side'
 import { mapTenantBoardColumn, matchStageLabels, tenantBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
@@ -58,6 +62,11 @@ export function TenantBoardPage() {
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
   const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
+
+  // Returning to /repping after viewing a tenant deal should land on the tenant side.
+  useEffect(() => {
+    setReppingSide('tenant')
+  }, [])
 
   // Viewing the board clears the "new match" flag (the red tag stays visible for
   // this view; it's gone next time). Fire once per tenant rep.
@@ -104,6 +113,19 @@ export function TenantBoardPage() {
 
   const contact = tenantRep.contact
   const brokerName = tenantRep.broker ? contactNameOf(tenantRep.broker) : null
+
+  const saveNextAction = (description: string | null, nextActionDate: string | null) =>
+    updateTenantRep.mutate({
+      id: tenantRep.id,
+      next_action_description: description,
+      next_action_date: nextActionDate,
+    })
+
+  // Pipeline snapshot from the matches already loaded for the board.
+  const liveInPlay = matches.filter((m) => m.stage !== 'dead')
+  const pastLoi = liveInPlay.filter((m) =>
+    ['loi', 'lease_negotiation', 'executed'].includes(m.stage),
+  ).length
 
   const plainMove = (match: MatchWithRelations, toStage: Enums<'match_stage'>) => {
     const fromStage = match.stage
@@ -164,7 +186,11 @@ export function TenantBoardPage() {
       await updateStage.mutateAsync({
         id: match.id,
         stage: 'executed',
-        patch: { execution_date: result.executionDate, ...econ },
+        patch: {
+          execution_date: result.executionDate,
+          ...(fee != null ? { actual_fee: fee } : {}),
+          ...econ,
+        },
       })
       // record the fee on the tenant rep (board context) and bump it if asked
       const tenantPatch = {
@@ -270,7 +296,7 @@ export function TenantBoardPage() {
                   match={m}
                   facing="tenant"
                   onPreview={() => setPreviewPropertyId(m.property_id)}
-                  onOpen={() => navigate(`/properties/${m.property_id}`)}
+                  onOpen={() => setOpenMatchId(m.id)}
                 />
               )}
             />
@@ -285,21 +311,44 @@ export function TenantBoardPage() {
             collapsed={infoCollapsed}
             onToggle={toggleInfo}
           >
+            <NextActionCard
+              description={tenantRep.next_action_description}
+              dueDate={tenantRep.next_action_date}
+              pending={updateTenantRep.isPending}
+              onSave={saveNextAction}
+            />
+
+            {liveInPlay.length > 0 && (
+              <SidebarSection title="Pipeline">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary" className="font-normal">
+                    {liveInPlay.length} in play
+                  </Badge>
+                  {pastLoi > 0 && (
+                    <Badge variant="secondary" className="font-normal">
+                      {pastLoi} past LOI
+                    </Badge>
+                  )}
+                </div>
+              </SidebarSection>
+            )}
+
             {contact && (
               <SidebarSection title="Tenant contact">
-                <button
-                  type="button"
-                  onClick={() => setContactEditOpen(true)}
-                  className="group/edit relative w-full rounded-lg border bg-card p-3 text-left text-sm transition-colors hover:bg-accent"
-                >
-                  <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
-                  <div className="font-medium">{contactNameOf(contact)}</div>
-                  {contact.title && (
-                    <div className="text-xs text-muted-foreground">{contact.title}</div>
-                  )}
-                  {contact.email && <div className="mt-1 text-xs">{contact.email}</div>}
-                  {contact.phone && <div className="text-xs">{contact.phone}</div>}
-                </button>
+                <div className="group/edit relative rounded-lg border bg-card p-3 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setContactEditOpen(true)}
+                    className="text-left"
+                  >
+                    <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
+                    <div className="font-medium">{contactNameOf(contact)}</div>
+                    {contact.title && (
+                      <div className="text-xs text-muted-foreground">{contact.title}</div>
+                    )}
+                  </button>
+                  <ContactActions phone={contact.phone} email={contact.email} />
+                </div>
               </SidebarSection>
             )}
 
@@ -364,6 +413,15 @@ export function TenantBoardPage() {
         hasTenantRep
         hasListing={!!executedMove?.match.listing_id}
         dealType={tenantRep.deal_type}
+        commissionCalcContext={
+          executedMove?.match.listing
+            ? {
+                commissionPct: executedMove.match.listing.commission_pct,
+                coBrokeSplitPct: executedMove.match.listing.co_broke_split_pct,
+                buildingSf: executedMove.match.property?.building_sf ?? null,
+              }
+            : null
+        }
         pending={updateStage.isPending || updateListing.isPending || updateTenantRep.isPending}
         onConfirm={confirmExecuted}
       />

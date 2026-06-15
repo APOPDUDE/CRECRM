@@ -17,11 +17,14 @@ import { FileSection } from '@/components/files/file-section'
 import { LeaseDetailsDialog } from '@/components/lease-details-dialog'
 import { NotesLog } from '@/components/notes-log'
 import { SourceBadge } from '@/components/source-badge'
+import { ContactActions } from '@/components/contact-actions'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useMatch, usePromoteToTenantRep } from '@/hooks/use-matches'
 import { useAuth } from '@/hooks/use-auth'
 import { matchStageLabels } from '@/lib/stages'
+import { formatCurrency, formatPsf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
+import { cn } from '@/lib/utils'
 
 interface MatchSlideOverProps {
   matchId: string | null
@@ -35,6 +38,16 @@ function DateRow({ label, value }: { label: string; value: string | null }) {
     <div className="flex justify-between text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span>{formatDate(value)}</span>
+    </div>
+  )
+}
+
+function ValRow({ label, value, bold }: { label: string; value: string | null; bold?: boolean }) {
+  if (!value) return null
+  return (
+    <div className={cn('flex justify-between text-sm', bold && 'font-medium')}>
+      <span className={cn(!bold && 'text-muted-foreground')}>{label}</span>
+      <span className="tabular-nums">{value}</span>
     </div>
   )
 }
@@ -106,6 +119,19 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                     />
                   </div>
 
+                  {match.tenant_contact &&
+                    (match.tenant_contact.phone || match.tenant_contact.email) && (
+                      <div className="-mt-1 flex items-center justify-between gap-2 text-sm">
+                        <span className="truncate text-muted-foreground">
+                          {contactNameOf(match.tenant_contact)}
+                        </span>
+                        <ContactActions
+                          phone={match.tenant_contact.phone}
+                          email={match.tenant_contact.email}
+                        />
+                      </div>
+                    )}
+
                   <div className="space-y-1.5 rounded-lg border p-3">
                     <DateRow label="Inquiry" value={match.inquiry_date} />
                     <DateRow label="Tour" value={match.tour_date} />
@@ -116,6 +142,22 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                     <DateRow label="DD expiration" value={match.dd_expiration_date} />
                     <DateRow label="Closing" value={match.closing_date} />
                   </div>
+
+                  {(match.actual_fee != null ||
+                    match.executed_rate_psf != null ||
+                    match.executed_price != null) && (
+                    <div className="space-y-1.5 rounded-lg border p-3">
+                      <p className="text-xs font-medium text-muted-foreground">Economics</p>
+                      <ValRow label="Executed rate" value={formatPsf(match.executed_rate_psf)} />
+                      <ValRow label="Executed price" value={formatCurrency(match.executed_price)} />
+                      <ValRow
+                        label="Term"
+                        value={match.term_months != null ? `${match.term_months} mo` : null}
+                      />
+                      <ValRow label="Structure" value={match.lease_structure} />
+                      <ValRow label="Fee" value={formatCurrency(match.actual_fee)} bold />
+                    </div>
+                  )}
 
                   {(match.listing_id || match.tenant_rep_id) && (
                     <div className="space-y-2">

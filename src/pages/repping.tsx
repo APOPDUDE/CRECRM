@@ -56,6 +56,7 @@ import {
 } from '@/hooks/use-tenant-reps'
 import type { TenantRepWithRelations } from '@/hooks/use-tenant-reps'
 import { formatListingPrice } from '@/lib/format'
+import { getReppingSide, setReppingSide } from '@/lib/repping-side'
 import {
   bucketToTenantRepStage,
   listingStages,
@@ -124,7 +125,7 @@ function RowActions({
 
 export function ReppingPage() {
   const navigate = useNavigate()
-  const [side, setSide] = useState<Side>('landlord')
+  const [side, setSide] = useState<Side>(getReppingSide)
   const [status, setStatus] = useState<StatusFilter>('active')
   const [view, setView] = useState<'board' | 'table'>('board')
   const [addListingOpen, setAddListingOpen] = useState(false)
@@ -254,7 +255,14 @@ export function ReppingPage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs value={side} onValueChange={(v) => setSide(v as Side)}>
+        <Tabs
+          value={side}
+          onValueChange={(v) => {
+            const next = v as Side
+            setSide(next)
+            setReppingSide(next)
+          }}
+        >
           <TabsList>
             <TabsTrigger value="landlord">Landlord repping</TabsTrigger>
             <TabsTrigger value="tenant">Tenant repping</TabsTrigger>

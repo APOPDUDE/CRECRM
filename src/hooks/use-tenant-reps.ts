@@ -89,7 +89,10 @@ export function useUpdateTenantRep() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tenant_reps'] }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
+      if (data?.id) queryClient.invalidateQueries({ queryKey: ['tenant_rep', data.id] })
+    },
   })
 }
 

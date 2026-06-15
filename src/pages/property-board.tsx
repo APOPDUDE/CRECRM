@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Pencil, Plus } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AddTenantMatchDialog } from '@/components/add-tenant-match-dialog'
@@ -11,6 +12,8 @@ import { ListingTermsDialog } from '@/components/listing-terms-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { MatchCard } from '@/components/match-card'
 import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
+import { NextActionCard } from '@/components/next-action-card'
+import { ContactActions } from '@/components/contact-actions'
 import { PropertyMiniMap } from '@/components/property-mini-map'
 import { ListErrorState } from '@/components/list-error-state'
 import { MatchSlideOver } from '@/components/match-slide-over'
@@ -28,7 +31,9 @@ import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { formatDate } from '@/lib/dates'
-import { formatListingPrice, formatPsf, formatSf } from '@/lib/format'
+import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
+import { calculateCommission } from '@/lib/commission'
+import { setReppingSide } from '@/lib/repping-side'
 import { matchStageLabels, propertyBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
@@ -51,6 +56,11 @@ export function PropertyBoardPage() {
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
   const [termsOpen, setTermsOpen] = useState(false)
   const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
+
+  // Returning to /repping after viewing a landlord deal should land on the landlord side.
+  useEffect(() => {
+    setReppingSide('landlord')
+  }, [])
 
   useSetBreadcrumb(listing?.property?.address)
 
@@ -142,7 +152,11 @@ export function PropertyBoardPage() {
       await updateStage.mutateAsync({
         id: match.id,
         stage: 'executed',
-        patch: { execution_date: result.executionDate, ...econ },
+        patch: {
+          execution_date: result.executionDate,
+          ...(fee != null ? { actual_fee: fee } : {}),
+          ...econ,
+        },
       })
       // record the fee on the listing (board context) and close it if asked
       const listingPatch = {
@@ -165,6 +179,39 @@ export function PropertyBoardPage() {
       toast.error('Could not fully sync the deal — some linked records may need a manual update')
     }
   }
+
+  const saveNextAction = (description: string | null, nextActionDate: string | null) =>
+    updateListing.mutate({
+      id: listing.id,
+      next_action_description: description,
+      next_action_date: nextActionDate,
+    })
+
+  // Pipeline snapshot from the matches already loaded for the board.
+  const liveProspects = matches.filter((m) => m.stage !== 'dead')
+  const pastLoi = liveProspects.filter((m) =>
+    ['loi', 'lease_negotiation', 'executed'].includes(m.stage),
+  ).length
+  const oldestDays = (() => {
+    const dates = liveProspects.map((m) => m.inquiry_date).filter(Boolean) as string[]
+    if (!dates.length) return null
+    const oldest = dates.reduce((a, b) => (a < b ? a : b))
+    return Math.max(0, Math.round((Date.now() - new Date(oldest).getTime()) / 86400000))
+  })()
+
+  // Live commission estimate from the asking terms (shown on the Terms panel).
+  const commissionEstimate = calculateCommission({
+    dealType: listing.deal_type === 'both' ? 'lease' : listing.deal_type,
+    commissionPct: listing.commission_pct,
+    coBrokeSplitPct: listing.co_broke_split_pct,
+    buildingSf: listing.property?.building_sf ?? null,
+    executedRatePsf: listing.asking_rate_psf,
+    executedPrice: listing.asking_price,
+    termMonths: null, // calculateCommission defaults to a 5-year term
+  })
+  const commissionNeedsInput =
+    listing.commission_pct == null ||
+    (listing.deal_type !== 'sale' && listing.property?.building_sf == null)
 
   return (
     <div className="space-y-4">
@@ -226,20 +273,50 @@ export function PropertyBoardPage() {
             collapsed={infoCollapsed}
             onToggle={toggleInfo}
           >
+            <NextActionCard
+              description={listing.next_action_description}
+              dueDate={listing.next_action_date}
+              pending={updateListing.isPending}
+              onSave={saveNextAction}
+            />
+
+            {liveProspects.length > 0 && (
+              <SidebarSection title="Pipeline">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary" className="font-normal">
+                    {liveProspects.length} in play
+                  </Badge>
+                  {pastLoi > 0 && (
+                    <Badge variant="secondary" className="font-normal">
+                      {pastLoi} past LOI
+                    </Badge>
+                  )}
+                  {oldestDays != null && (
+                    <Badge variant="secondary" className="font-normal">
+                      Oldest {oldestDays}d
+                    </Badge>
+                  )}
+                </div>
+              </SidebarSection>
+            )}
+
             {landlordContact && (
               <SidebarSection title="Landlord contact">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/contacts/${landlordContact.id}`)}
-                  className="w-full rounded-lg border bg-card p-3 text-left text-sm transition-colors hover:bg-accent"
-                >
-                  <div className="font-medium">{contactNameOf(landlordContact)}</div>
-                  {landlordContact.title && (
-                    <div className="text-xs text-muted-foreground">{landlordContact.title}</div>
-                  )}
-                  {landlordContact.email && <div className="mt-1 text-xs">{landlordContact.email}</div>}
-                  {landlordContact.phone && <div className="text-xs">{landlordContact.phone}</div>}
-                </button>
+                <div className="rounded-lg border bg-card p-3 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/contacts/${landlordContact.id}`)}
+                    className="text-left"
+                  >
+                    <div className="font-medium hover:underline">
+                      {contactNameOf(landlordContact)}
+                    </div>
+                    {landlordContact.title && (
+                      <div className="text-xs text-muted-foreground">{landlordContact.title}</div>
+                    )}
+                  </button>
+                  <ContactActions phone={landlordContact.phone} email={landlordContact.email} />
+                </div>
               </SidebarSection>
             )}
 
@@ -319,9 +396,24 @@ export function PropertyBoardPage() {
                     <span>{formatDate(listing.listing_expiration)}</span>
                   </div>
                 )}
+                {commissionEstimate.netFee != null ? (
+                  <div className="mt-1 flex justify-between border-t pt-1.5 font-medium">
+                    <span>Est. fee</span>
+                    <span className="tabular-nums text-primary">
+                      {formatCurrency(commissionEstimate.netFee)}
+                    </span>
+                  </div>
+                ) : commissionNeedsInput ? (
+                  <div className="mt-1 border-t pt-1.5 text-xs text-muted-foreground">
+                    {listing.commission_pct == null
+                      ? 'Add commission %'
+                      : 'Add building SF'}{' '}
+                    to estimate the fee.
+                  </div>
+                ) : null}
               </div>
               ) : (
-                <p className="text-xs text-muted-foreground">No terms set yet.</p>
+                <p className="text-xs text-muted-foreground">No terms set yet — add them to estimate the fee.</p>
               )}
               <Button
                 type="button"

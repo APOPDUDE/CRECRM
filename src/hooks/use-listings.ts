@@ -91,7 +91,10 @@ export function useUpdateListing() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings'] }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['listings'] })
+      if (data?.id) queryClient.invalidateQueries({ queryKey: ['listing', data.id] })
+    },
   })
 }
 

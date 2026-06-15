@@ -150,30 +150,14 @@ export function ExecutedMatchDialog({
           <DialogDescription>Record the deal economics and sync the linked records.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="executed-fee">Actual fee</Label>
-              <Input
-                id="executed-fee"
-                type="number"
-                inputMode="numeric"
-                value={fee}
-                onChange={(e) => {
-                  setFee(e.target.value)
-                  setFeeTouched(true)
-                }}
-                placeholder="$"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="executed-date">Execution date</Label>
-              <Input
-                id="executed-date"
-                type="date"
-                value={executionDate}
-                onChange={(e) => setExecutionDate(e.target.value)}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="executed-date">Execution date</Label>
+            <Input
+              id="executed-date"
+              type="date"
+              value={executionDate}
+              onChange={(e) => setExecutionDate(e.target.value)}
+            />
           </div>
 
           <div className="space-y-3 rounded-lg border p-3">
@@ -295,6 +279,33 @@ export function ExecutedMatchDialog({
               </div>
             </div>
           )}
+
+          {commissionCalcContext && calc?.netFee == null && (
+            <p className="text-xs text-muted-foreground">
+              Set commission %{isSale ? '' : ' and building SF'} on the listing (Edit terms) to
+              estimate the fee.
+            </p>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="executed-fee">Actual fee</Label>
+            <Input
+              id="executed-fee"
+              type="number"
+              inputMode="numeric"
+              value={fee}
+              onChange={(e) => {
+                setFee(e.target.value)
+                setFeeTouched(true)
+              }}
+              placeholder="$"
+            />
+            {calc?.netFee != null && !feeTouched && (
+              <p className="text-xs text-muted-foreground">
+                Prefilled from the estimate — edit if the actual fee differs.
+              </p>
+            )}
+          </div>
 
           {(hasListing || hasTenantRep) && (
             <div className="space-y-2">

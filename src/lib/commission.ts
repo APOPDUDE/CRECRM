@@ -1,5 +1,8 @@
 import type { Enums } from '@/lib/database.types'
 
+/** Standard lease term assumed when the broker hasn't entered one yet. */
+export const DEFAULT_LEASE_TERM_MONTHS = 60
+
 export interface CommissionInput {
   dealType: Enums<'deal_type'>
   /** listings.commission_pct */
@@ -57,13 +60,11 @@ export function calculateCommission(input: CommissionInput): CommissionResult {
   let dealValue: number | null = null
   if (dealType === 'sale') {
     dealValue = executedPrice ?? null
-  } else if (
-    executedRatePsf != null &&
-    buildingSf != null &&
-    termMonths != null &&
-    termMonths > 0
-  ) {
-    dealValue = executedRatePsf * buildingSf * (termMonths / 12)
+  } else if (executedRatePsf != null && buildingSf != null) {
+    // Default to a 5-year term when none is entered, so the estimate computes from
+    // just rate + SF + commission% (the common case before a lease is signed).
+    const term = termMonths != null && termMonths > 0 ? termMonths : DEFAULT_LEASE_TERM_MONTHS
+    dealValue = executedRatePsf * buildingSf * (term / 12)
   }
 
   if (dealValue == null || !Number.isFinite(dealValue)) return EMPTY

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
+  addDays,
+  endOfWeek,
   format,
   isSameMonth,
   isSameWeek,
@@ -247,16 +249,19 @@ export function NewMatchesFeed({ matches }: { matches: DashMatch[] }) {
   )
 }
 
-function TaskRow({ task, tone }: { task: TaskWithContact; tone: 'overdue' | 'today' }) {
+type TaskTone = 'overdue' | 'today' | 'upcoming'
+
+function TaskRow({ task, tone }: { task: TaskWithContact; tone: TaskTone }) {
   const navigate = useNavigate()
   const toggle = useToggleTask()
-  const path = taskDealPath(task)
+  // Fall back to the Tasks page so match-attached tasks (no standalone route) never dead-end.
+  const path = taskDealPath(task) ?? '/tasks'
   const who = task.contact ? contactNameOf(task.contact) : null
   return (
     <li
       className={cn(
         'flex items-center gap-2.5 px-3 py-2',
-        tone === 'overdue' ? 'bg-red-50/60' : 'bg-amber-50/50',
+        tone === 'overdue' ? 'bg-red-50/60' : tone === 'today' ? 'bg-amber-50/50' : '',
       )}
     >
       <Checkbox
@@ -266,9 +271,8 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: 'overdue' | 'tod
       />
       <button
         type="button"
-        onClick={() => path && navigate(path)}
-        disabled={!path}
-        className="min-w-0 flex-1 text-left disabled:cursor-default"
+        onClick={() => navigate(path)}
+        className="min-w-0 flex-1 text-left"
       >
         <div className="truncate text-sm font-medium">{task.title}</div>
         <div className="truncate text-xs text-muted-foreground">
@@ -279,7 +283,11 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: 'overdue' | 'tod
       <span
         className={cn(
           'shrink-0 text-xs font-medium tabular-nums',
-          tone === 'overdue' ? 'text-red-700' : 'text-amber-700',
+          tone === 'overdue'
+            ? 'text-red-700'
+            : tone === 'today'
+              ? 'text-amber-700'
+              : 'text-muted-foreground',
         )}
       >
         {task.due_date ? formatDate(task.due_date) : ''}
@@ -288,52 +296,63 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: 'overdue' | 'tod
   )
 }
 
-/** Tasks that are overdue or due today — surfaced on the dashboard so nothing slips. */
+const HORIZON_DAYS = 14
+
+/** Upcoming tasks for the next 14 days, grouped Overdue → Today → This week → Later. */
 export function TasksDueWidget() {
   const { data: tasks = [] } = useTasks()
 
-  const { overdue, dueToday } = useMemo(() => {
+  const groups = useMemo(() => {
     const today = format(new Date(), 'yyyy-MM-dd')
-    const open = tasks.filter((t) => t.status === 'open' && t.due_date)
+    const horizon = format(addDays(new Date(), HORIZON_DAYS), 'yyyy-MM-dd')
+    const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    const open = tasks.filter(
+      (t) => t.status === 'open' && t.due_date && (t.due_date as string) <= horizon,
+    )
+    const d = (t: TaskWithContact) => t.due_date as string
     return {
-      overdue: open.filter((t) => (t.due_date as string) < today),
-      dueToday: open.filter((t) => t.due_date === today),
+      overdue: open.filter((t) => d(t) < today),
+      today: open.filter((t) => d(t) === today),
+      thisWeek: open.filter((t) => d(t) > today && d(t) <= weekEnd),
+      later: open.filter((t) => d(t) > weekEnd),
     }
   }, [tasks])
 
-  if (overdue.length === 0 && dueToday.length === 0) return null
+  const total =
+    groups.overdue.length + groups.today.length + groups.thisWeek.length + groups.later.length
+
+  const sections: { key: TaskTone; label: string; items: TaskWithContact[]; head: string }[] = [
+    { key: 'overdue', label: `Overdue · ${groups.overdue.length}`, items: groups.overdue, head: 'bg-red-50 text-red-700' },
+    { key: 'today', label: `Today · ${groups.today.length}`, items: groups.today, head: 'bg-amber-50 text-amber-700' },
+    { key: 'upcoming', label: `This week · ${groups.thisWeek.length}`, items: groups.thisWeek, head: 'bg-muted text-muted-foreground' },
+    { key: 'upcoming', label: `Later · ${groups.later.length}`, items: groups.later, head: 'bg-muted text-muted-foreground' },
+  ]
 
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
       <div className="flex items-center justify-between border-b p-3">
-        <h2 className="text-sm font-medium">Tasks due</h2>
+        <h2 className="text-sm font-medium">Upcoming tasks</h2>
         <Link to="/tasks" className="text-xs text-primary hover:underline">
           View all
         </Link>
       </div>
-      {overdue.length > 0 && (
-        <div>
-          <div className="bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
-            Overdue · {overdue.length}
-          </div>
-          <ul className="divide-y">
-            {overdue.map((t) => (
-              <TaskRow key={t.id} task={t} tone="overdue" />
-            ))}
-          </ul>
-        </div>
-      )}
-      {dueToday.length > 0 && (
-        <div>
-          <div className="bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
-            Due today · {dueToday.length}
-          </div>
-          <ul className="divide-y">
-            {dueToday.map((t) => (
-              <TaskRow key={t.id} task={t} tone="today" />
-            ))}
-          </ul>
-        </div>
+      {total === 0 ? (
+        <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+          You're all caught up for the next {HORIZON_DAYS} days.
+        </p>
+      ) : (
+        sections
+          .filter((s) => s.items.length > 0)
+          .map((s, i) => (
+            <div key={i}>
+              <div className={cn('px-3 py-1.5 text-xs font-semibold', s.head)}>{s.label}</div>
+              <ul className="divide-y">
+                {s.items.map((t) => (
+                  <TaskRow key={t.id} task={t} tone={s.key} />
+                ))}
+              </ul>
+            </div>
+          ))
       )}
     </div>
   )

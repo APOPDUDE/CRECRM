@@ -6,19 +6,22 @@ type Contact = Tables<'contacts'>
 type Company = Tables<'companies'>
 
 export type MatchWithRelations = Tables<'matches'> & {
-  property: Pick<Tables<'properties'>, 'id' | 'address' | 'city' | 'state'> | null
-  listing: Pick<Tables<'listings'>, 'id' | 'deal_type'> | null
+  property: Pick<Tables<'properties'>, 'id' | 'address' | 'city' | 'state' | 'building_sf'> | null
+  listing: Pick<
+    Tables<'listings'>,
+    'id' | 'deal_type' | 'commission_pct' | 'co_broke_split_pct'
+  > | null
   tenant_company: Pick<Company, 'id' | 'name'> | null
-  tenant_contact: Pick<Contact, 'id' | 'first_name' | 'last_name'> | null
+  tenant_contact: Pick<Contact, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'title'> | null
   broker: Pick<Contact, 'id' | 'first_name' | 'last_name'> | null
 }
 
 const MATCH_SELECT = `
   *,
-  property:properties!matches_property_id_fkey(id, address, city, state),
-  listing:listings!matches_listing_id_fkey(id, deal_type),
+  property:properties!matches_property_id_fkey(id, address, city, state, building_sf),
+  listing:listings!matches_listing_id_fkey(id, deal_type, commission_pct, co_broke_split_pct),
   tenant_company:companies!matches_tenant_company_id_fkey(id, name),
-  tenant_contact:contacts!matches_tenant_contact_id_fkey(id, first_name, last_name),
+  tenant_contact:contacts!matches_tenant_contact_id_fkey(id, first_name, last_name, email, phone, title),
   broker:contacts!matches_broker_contact_id_fkey(id, first_name, last_name)
 `
 

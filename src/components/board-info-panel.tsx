@@ -6,6 +6,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { FileSection } from '@/components/files/file-section'
 import { NotesLog } from '@/components/notes-log'
 import { CreateTaskPopover } from '@/components/create-task-popover'
+import { useFiles } from '@/hooks/use-files'
+import { useNotes } from '@/hooks/use-notes'
 import { cn } from '@/lib/utils'
 import type { Enums } from '@/lib/database.types'
 
@@ -66,6 +68,8 @@ export function BoardInfoPanel({
   onToggle,
   children,
 }: BoardInfoPanelProps) {
+  const { data: files = [] } = useFiles(entityType, entityId)
+  const { data: notes = [] } = useNotes(entityType, entityId)
   return (
     <>
       {/* Collapsed strip (lg only) — a thin shaded edge with an expand arrow next to the board. */}
@@ -106,7 +110,7 @@ export function BoardInfoPanel({
             <PopoverTrigger asChild>
               <Button type="button" size="sm" variant="outline" className="flex-1">
                 <Upload className="size-4" />
-                Upload file
+                Files{files.length > 0 ? ` ${files.length}` : ''}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="max-h-[70vh] w-80 overflow-y-auto">
@@ -117,7 +121,7 @@ export function BoardInfoPanel({
             <PopoverTrigger asChild>
               <Button type="button" size="sm" variant="outline" className="flex-1">
                 <StickyNote className="size-4" />
-                Log note
+                Notes{notes.length > 0 ? ` ${notes.length}` : ''}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="max-h-[70vh] w-80 overflow-y-auto">

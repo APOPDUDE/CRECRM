@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { useUpdateListing } from '@/hooks/use-listings'
 import type { ListingDetail } from '@/hooks/use-listings'
+import { useUpdateProperty } from '@/hooks/use-properties'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 
 interface ListingTermsDialogProps {
@@ -36,9 +37,12 @@ const numOrNull = (v: string): number | null => (v.trim() === '' ? null : Number
 export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTermsDialogProps) {
   const queryClient = useQueryClient()
   const updateListing = useUpdateListing()
+  const updateProperty = useUpdateProperty()
+  const pending = updateListing.isPending || updateProperty.isPending
   const showLease = listing.deal_type === 'lease' || listing.deal_type === 'both'
   const showSale = listing.deal_type === 'sale' || listing.deal_type === 'both'
 
+  const [buildingSf, setBuildingSf] = useState('')
   const [rate, setRate] = useState('')
   const [price, setPrice] = useState('')
   const [opex, setOpex] = useState('')
@@ -49,6 +53,7 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
 
   useEffect(() => {
     if (!open) return
+    setBuildingSf(listing.property?.building_sf?.toString() ?? '')
     setRate(listing.asking_rate_psf?.toString() ?? '')
     setPrice(listing.asking_price?.toString() ?? '')
     setOpex(listing.opex_psf?.toString() ?? '')
@@ -76,6 +81,11 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
     }
     try {
       await updateListing.mutateAsync(patch)
+      // Building SF lives on the property — update it too so the commission can compute.
+      const nextSf = buildingSf.trim() === '' ? null : Math.round(Number(buildingSf))
+      if (listing.property_id && nextSf !== (listing.property?.building_sf ?? null)) {
+        await updateProperty.mutateAsync({ id: listing.property_id, building_sf: nextSf })
+      }
       queryClient.invalidateQueries({ queryKey: ['listing', listing.id] })
       toast.success('Terms saved')
       onOpenChange(false)
@@ -94,6 +104,18 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="terms-sf">Building SF</Label>
+            <Input
+              id="terms-sf"
+              type="number"
+              inputMode="numeric"
+              value={buildingSf}
+              onChange={(e) => setBuildingSf(e.target.value)}
+              placeholder="e.g. 25000"
+            />
+            <p className="text-xs text-muted-foreground">Needed to estimate the lease commission.</p>
+          </div>
           {showSale && (
             <div className="space-y-2">
               <Label htmlFor="terms-price">Asking price</Label>
@@ -186,12 +208,12 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={updateListing.isPending}
+              disabled={pending}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={updateListing.isPending}>
-              {updateListing.isPending ? 'Saving…' : 'Save terms'}
+            <Button type="submit" disabled={pending}>
+              {pending ? 'Saving…' : 'Save terms'}
             </Button>
           </DialogFooter>
         </form>

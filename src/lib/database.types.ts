@@ -356,6 +356,7 @@ export type Database = {
       }
       matches: {
         Row: {
+          actual_fee: number | null
           broker_contact_id: string | null
           closing_date: string | null
           commencement_date: string | null
@@ -390,6 +391,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          actual_fee?: number | null
           broker_contact_id?: string | null
           closing_date?: string | null
           commencement_date?: string | null
@@ -424,6 +426,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          actual_fee?: number | null
           broker_contact_id?: string | null
           closing_date?: string | null
           commencement_date?: string | null
