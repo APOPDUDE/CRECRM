@@ -505,6 +505,45 @@ export type Database = {
           },
         ]
       }
+      match_suggestions: {
+        Row: {
+          created_at: string
+          id: string
+          property_id: string
+          status: string
+          tenant_rep_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          property_id: string
+          status?: string
+          tenant_rep_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          property_id?: string
+          status?: string
+          tenant_rep_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_suggestions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_suggestions_tenant_rep_id_fkey"
+            columns: ["tenant_rep_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           body: string
@@ -843,6 +882,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_match_suggestion: {
+        Args: { p_suggestion_id: string }
+        Returns: string
+      }
       create_property_and_listing: {
         Args: {
           p_address: string
