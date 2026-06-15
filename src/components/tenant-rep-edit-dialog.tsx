@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, KeyboardEvent } from 'react'
+import { X } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -77,6 +79,65 @@ function MinMax({
           onChange={set(maxKey)}
         />
       </div>
+    </div>
+  )
+}
+
+/**
+ * Multi-city input for the target area. Cities are stored comma-separated in the
+ * single text column; type a city + Enter to add a chip, click × to remove one.
+ * Module scope so the input keeps focus across renders.
+ */
+function CityTagsInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [draft, setDraft] = useState('')
+  const cities = value
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean)
+
+  const add = () => {
+    const c = draft.trim()
+    if (c && !cities.some((x) => x.toLowerCase() === c.toLowerCase())) {
+      onChange([...cities, c].join(', '))
+    }
+    setDraft('')
+  }
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      add()
+    } else if (e.key === 'Backspace' && !draft && cities.length) {
+      onChange(cities.slice(0, -1).join(', '))
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {cities.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {cities.map((c) => (
+            <Badge key={c} variant="secondary" className="gap-1 font-normal">
+              {c}
+              <button
+                type="button"
+                onClick={() => onChange(cities.filter((x) => x !== c).join(', '))}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={`Remove ${c}`}
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      <Input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={add}
+        placeholder="Add a city, press Enter"
+      />
     </div>
   )
 }
@@ -243,10 +304,14 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
               <Label htmlFor="tr-clear">Clear height</Label>
               <Input id="tr-clear" value={f.clear_height ?? ''} onChange={set('clear_height')} placeholder="e.g. 32'" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="tr-area">Target area</Label>
-              <Input id="tr-area" value={f.target_area ?? ''} onChange={set('target_area')} />
-            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Target area</Label>
+            <CityTagsInput
+              value={f.target_area ?? ''}
+              onChange={(v) => setF((p) => ({ ...p, target_area: v }))}
+            />
           </div>
 
           <div className="space-y-2">
