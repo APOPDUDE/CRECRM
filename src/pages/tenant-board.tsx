@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { SourceBadge } from '@/components/source-badge'
 import { TenantRequirements } from '@/components/tenant-requirements'
 import { TenantRepEditDialog } from '@/components/tenant-rep-edit-dialog'
+import { TenantCommissionDialog } from '@/components/tenant-commission-dialog'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { PropertyPreview } from '@/components/property-preview'
 import { StageDateDialog } from '@/components/stage-date-dialog'
@@ -34,6 +35,7 @@ import { useTenantRepDetail, useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { useNotes } from '@/hooks/use-notes'
 import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-automation'
 import { formatDate } from '@/lib/dates'
+import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { automationEnabled } from '@/lib/n8n'
@@ -59,6 +61,7 @@ export function TenantBoardPage() {
 
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [commissionOpen, setCommissionOpen] = useState(false)
   const [contactEditOpen, setContactEditOpen] = useState(false)
   const [previewPropertyId, setPreviewPropertyId] = useState<string | null>(null)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
@@ -338,6 +341,30 @@ export function TenantBoardPage() {
               </SidebarSection>
             )}
 
+            {(tenantRep.stage === 'executed' || tenantRep.actual_fee != null) && (
+              <SidebarSection title="Commission">
+                <button
+                  type="button"
+                  onClick={() => setCommissionOpen(true)}
+                  className="group/edit relative w-full space-y-1 rounded-lg border bg-card p-3 text-left text-sm transition-colors hover:bg-accent"
+                >
+                  <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Fee earned</span>
+                    <span className="font-medium tabular-nums">
+                      {formatCurrency(tenantRep.actual_fee) ?? 'Add fee'}
+                    </span>
+                  </div>
+                  {tenantRep.commission_pct != null && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Commission</span>
+                      <span>{tenantRep.commission_pct}%</span>
+                    </div>
+                  )}
+                </button>
+              </SidebarSection>
+            )}
+
             {contact && (
               <SidebarSection title="Tenant contact">
                 <div className="group/edit relative rounded-lg border bg-card p-3 text-sm">
@@ -428,6 +455,11 @@ export function TenantBoardPage() {
 
       <AddPropertyMatchDialog open={addOpen} onOpenChange={setAddOpen} tenantRep={tenantRep} />
       <TenantRepEditDialog open={editOpen} onOpenChange={setEditOpen} tenantRep={tenantRep} />
+      <TenantCommissionDialog
+        open={commissionOpen}
+        onOpenChange={setCommissionOpen}
+        tenantRep={tenantRep}
+      />
       {contact && (
         <ContactFormDialog
           open={contactEditOpen}
