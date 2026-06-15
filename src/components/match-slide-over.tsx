@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowUpRight, UserPlus } from 'lucide-react'
+import { ArrowUpRight, Trash2, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import {
   Sheet,
   SheetContent,
@@ -19,7 +20,7 @@ import { NotesLog } from '@/components/notes-log'
 import { SourceBadge } from '@/components/source-badge'
 import { ContactActions } from '@/components/contact-actions'
 import { contactNameOf } from '@/hooks/use-contacts'
-import { useMatch, usePromoteToTenantRep } from '@/hooks/use-matches'
+import { useDeleteMatch, useMatch, usePromoteToTenantRep } from '@/hooks/use-matches'
 import { useAuth } from '@/hooks/use-auth'
 import { matchStageLabels } from '@/lib/stages'
 import { formatCurrency, formatPsf } from '@/lib/format'
@@ -57,7 +58,21 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
   const { session } = useAuth()
   const { data: match, isLoading } = useMatch(matchId ?? undefined)
   const promote = usePromoteToTenantRep()
+  const deleteMatch = useDeleteMatch()
   const [leaseOpen, setLeaseOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const handleDelete = () => {
+    if (!match) return
+    deleteMatch.mutate(match.id, {
+      onSuccess: () => {
+        toast.success('Removed from board')
+        setConfirmDelete(false)
+        onOpenChange(false)
+      },
+      onError: () => toast.error('Could not remove it'),
+    })
+  }
 
   const tenantName =
     match?.tenant_company?.name ??
@@ -198,6 +213,16 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                       {promote.isPending ? 'Promoting…' : 'Promote to tenant rep'}
                     </Button>
                   )}
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    <Trash2 className="size-4" />
+                    Remove from board
+                  </Button>
                 </div>
               </TabsContent>
 
@@ -220,6 +245,14 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
             </Tabs>
 
             <LeaseDetailsDialog open={leaseOpen} onOpenChange={setLeaseOpen} match={match} />
+            <ConfirmDeleteDialog
+              open={confirmDelete}
+              onOpenChange={setConfirmDelete}
+              title="Remove from board?"
+              description={`This removes ${match.property?.address ?? 'this property'} from the board. The property record itself is kept.`}
+              pending={deleteMatch.isPending}
+              onConfirm={handleDelete}
+            />
           </>
         )}
       </SheetContent>

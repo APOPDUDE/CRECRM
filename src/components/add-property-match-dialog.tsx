@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
-import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -58,11 +57,13 @@ export function AddPropertyMatchDialog({
 
   useEffect(() => {
     if (open) {
-      setMode(showPaste ? 'paste' : 'manual')
+      // Default to manual entry — adding a property here never calls n8n. The
+      // "paste a link" scrape flow is opt-in via the button below.
+      setMode('manual')
       setLinks('')
       setM({ property_type: NONE })
     }
-  }, [open, showPaste])
+  }, [open])
 
   const setF = (k: string) => (e: { target: { value: string } }) =>
     setM((prev) => ({ ...prev, [k]: e.target.value }))
@@ -105,7 +106,6 @@ export function AddPropertyMatchDialog({
         land_acres: numOrNull(m.land_acres),
         asking_rate_psf: numOrNull(m.asking_rate_psf),
         asking_price: numOrNull(m.asking_price),
-        cap_rate_pct: numOrNull(m.cap_rate_pct),
         specs: m.specs?.trim() || null,
         source: 'manual',
       })
@@ -133,7 +133,7 @@ export function AddPropertyMatchDialog({
         {mode === 'paste' && showPaste ? (
           <form onSubmit={handleScrape} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="links">Paste Crexi/LoopNet link(s)</Label>
+              <Label htmlFor="links">Paste LoopNet link(s)</Label>
               <Textarea
                 id="links"
                 value={links}
@@ -225,10 +225,6 @@ export function AddPropertyMatchDialog({
                 <Label htmlFor="man-price">Asking price ($)</Label>
                 <Input id="man-price" type="number" inputMode="numeric" value={m.asking_price ?? ''} onChange={setF('asking_price')} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="man-cap">Cap rate (%)</Label>
-                <Input id="man-cap" type="number" inputMode="decimal" step="0.01" value={m.cap_rate_pct ?? ''} onChange={setF('cap_rate_pct')} />
-              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="man-specs">Specs / notes</Label>
@@ -237,8 +233,7 @@ export function AddPropertyMatchDialog({
             <DialogFooter>
               {showPaste && (
                 <Button type="button" variant="ghost" onClick={() => setMode('paste')}>
-                  <ArrowLeft className="size-4" />
-                  Back
+                  Paste a LoopNet link instead
                 </Button>
               )}
               <Button type="submit" disabled={pending || !m.address?.trim()}>

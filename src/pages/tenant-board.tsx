@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, Plus, Search } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Pencil, Plus, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -31,7 +31,9 @@ import {
 } from '@/hooks/use-matches'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail, useUpdateTenantRep } from '@/hooks/use-tenant-reps'
+import { useNotes } from '@/hooks/use-notes'
 import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-automation'
+import { formatDate } from '@/lib/dates'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { automationEnabled } from '@/lib/n8n'
@@ -40,12 +42,15 @@ import { mapTenantBoardColumn, matchStageLabels, tenantBoardStages } from '@/lib
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
 
+const withScheme = (url: string) => (/^https?:\/\//i.test(url) ? url : `https://${url}`)
+
 export function TenantBoardPage() {
   const { tenantRepId } = useParams()
   const navigate = useNavigate()
   const { data: tenantRep, isLoading, isError } = useTenantRepDetail(tenantRepId)
   const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
     useTenantRepMatches(tenantRepId)
+  const { data: notes = [] } = useNotes('tenant_rep', tenantRepId)
   const updateStage = useUpdateMatchStage(tenantRepMatchesKey(tenantRepId ?? ''))
   const updateListing = useUpdateListing()
   const updateTenantRep = useUpdateTenantRep()
@@ -352,6 +357,31 @@ export function TenantBoardPage() {
               </SidebarSection>
             )}
 
+            {tenantRep.company && (
+              <SidebarSection title="Tenant company">
+                <div className="space-y-1 rounded-lg border bg-card p-3 text-sm">
+                  <div className="font-medium">{tenantRep.company.name}</div>
+                  {tenantRep.company.industry && (
+                    <div className="text-xs text-muted-foreground">{tenantRep.company.industry}</div>
+                  )}
+                  {tenantRep.company.website && (
+                    <a
+                      href={withScheme(tenantRep.company.website)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 break-all text-xs text-primary hover:underline"
+                    >
+                      {tenantRep.company.website}
+                      <ExternalLink className="size-3 shrink-0" />
+                    </a>
+                  )}
+                  {tenantRep.company.phone && (
+                    <div className="text-xs text-muted-foreground">{tenantRep.company.phone}</div>
+                  )}
+                </div>
+              </SidebarSection>
+            )}
+
             <SidebarSection title="Requirements">
               <button
                 type="button"
@@ -362,6 +392,21 @@ export function TenantBoardPage() {
                 <TenantRequirements tenantRep={tenantRep} />
               </button>
             </SidebarSection>
+
+            {notes.length > 0 && (
+              <SidebarSection title="Notes">
+                <div className="space-y-2">
+                  {notes.map((n) => (
+                    <div key={n.id} className="rounded-lg border bg-card p-3 text-sm">
+                      <div className="whitespace-pre-wrap break-words">{n.body}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {formatDate(n.created_at)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SidebarSection>
+            )}
 
             <SidebarSection title="Source">
               <button

@@ -339,7 +339,6 @@ export function PropertyBoardPage() {
                     city={listing.property?.city}
                     state={listing.property?.state}
                     zip={listing.property?.zip}
-                    onClick={() => navigate(`/properties/${listing.property_id}`)}
                   />
                 </div>
               </SidebarSection>

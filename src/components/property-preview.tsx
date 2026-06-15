@@ -66,6 +66,15 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
                 )}
               </div>
 
+              {listingUrl && (
+                <Button asChild variant="outline" className="w-full justify-between">
+                  <a href={listingUrl} target="_blank" rel="noopener noreferrer">
+                    View listing
+                    <ExternalLink className="size-4" />
+                  </a>
+                </Button>
+              )}
+
               {p.photo_urls && p.photo_urls.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto">
                   {p.photo_urls.slice(0, 5).map((u, i) => (
@@ -86,7 +95,6 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
               <div className="space-y-1.5 rounded-lg border p-3">
                 <Row label="Asking rate" value={formatPsf(p.asking_rate_psf)} />
                 <Row label="Asking price" value={formatCurrency(p.asking_price)} />
-                <Row label="Cap rate" value={p.cap_rate_pct != null ? `${p.cap_rate_pct}%` : null} />
                 <Row label="Building SF" value={formatSf(p.building_sf)} />
                 <Row label="Land acres" value={p.land_acres != null ? `${p.land_acres} AC` : null} />
                 <Row
@@ -111,18 +119,6 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
               )}
 
               {p.specs && <Row label="Specs" value={p.specs} />}
-
-              {listingUrl && (
-                <a
-                  href={listingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                >
-                  View listing
-                  <ExternalLink className="size-3.5" />
-                </a>
-              )}
 
               <Button
                 variant="outline"

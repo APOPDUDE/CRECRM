@@ -111,6 +111,18 @@ export function useUpdateMatch() {
   })
 }
 
+/** Remove a match (e.g. drop a property from a tenant's inquiry list). */
+export function useDeleteMatch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('matches').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateMatchViews(queryClient),
+  })
+}
+
 /**
  * Optimistically move a match to a new stage on the board identified by `boardKey`
  * (also accepts an extra patch, e.g. tour_date when dropping onto Toured).

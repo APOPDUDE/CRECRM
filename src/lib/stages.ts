@@ -115,8 +115,8 @@ export function liveMatches<T extends { stage: Enums<'match_stage'> }>(matches: 
 export type ReppingBucket = 'lead' | 'searching' | 'closed'
 
 export const reppingOverviewStages: StageDef<ReppingBucket>[] = [
-  { value: 'lead', label: 'Lead' },
-  { value: 'searching', label: 'Searching' },
+  { value: 'lead', label: 'Passive' },
+  { value: 'searching', label: 'Active' },
   { value: 'closed', label: 'Closed' },
 ]
 
