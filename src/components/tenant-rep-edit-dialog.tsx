@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { propertyKindLabels } from '@/components/property-form-dialog'
+import { propertyKindLabels, tenantPropertyTypeOptions } from '@/components/property-form-dialog'
 import { ContactSelect } from '@/components/contact-select'
 import { leadSourceLabels } from '@/components/source-badge'
 import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
@@ -272,9 +272,9 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>No type</SelectItem>
-                  {Object.entries(propertyKindLabels).map(([value, label]) => (
+                  {tenantPropertyTypeOptions.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {label}
+                      {propertyKindLabels[value]}
                     </SelectItem>
                   ))}
                 </SelectContent>

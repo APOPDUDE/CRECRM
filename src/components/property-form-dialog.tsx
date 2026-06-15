@@ -33,6 +33,14 @@ export const propertyKindLabels: Record<Enums<'property_kind'>, string> = {
   other: 'Other',
 }
 
+/** Property types offered for tenant requirements (a focused subset). */
+export const tenantPropertyTypeOptions: Enums<'property_kind'>[] = [
+  'office',
+  'retail',
+  'industrial',
+  'land',
+]
+
 /** Radix Select cannot use an empty string for an item value, so null maps to this sentinel. */
 const NO_TYPE = '__none__'
 
