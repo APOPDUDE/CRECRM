@@ -12,7 +12,8 @@ import { ListErrorState } from '@/components/list-error-state'
 import { MatchCard } from '@/components/match-card'
 import { MatchSlideOver } from '@/components/match-slide-over'
 import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
-import { NextActionCard } from '@/components/next-action-card'
+import { DealTasks } from '@/components/deal-tasks'
+import { NotesLog } from '@/components/notes-log'
 import { ContactActions } from '@/components/contact-actions'
 import { Badge } from '@/components/ui/badge'
 import { SourceBadge } from '@/components/source-badge'
@@ -20,10 +21,12 @@ import { TenantRequirements } from '@/components/tenant-requirements'
 import { TenantRepEditDialog } from '@/components/tenant-rep-edit-dialog'
 import { TenantCommissionDialog } from '@/components/tenant-commission-dialog'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
+import { CompanyFormDialog } from '@/components/company-form-dialog'
 import { PropertyPreview } from '@/components/property-preview'
 import { StageDateDialog } from '@/components/stage-date-dialog'
 import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf, type Contact } from '@/hooks/use-contacts'
+import type { Company } from '@/hooks/use-companies'
 import { useUpdateListing } from '@/hooks/use-listings'
 import {
   tenantRepMatchesKey,
@@ -32,9 +35,7 @@ import {
 } from '@/hooks/use-matches'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail, useUpdateTenantRep } from '@/hooks/use-tenant-reps'
-import { useNotes } from '@/hooks/use-notes'
 import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-automation'
-import { formatDate } from '@/lib/dates'
 import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
@@ -52,7 +53,6 @@ export function TenantBoardPage() {
   const { data: tenantRep, isLoading, isError } = useTenantRepDetail(tenantRepId)
   const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
     useTenantRepMatches(tenantRepId)
-  const { data: notes = [] } = useNotes('tenant_rep', tenantRepId)
   const updateStage = useUpdateMatchStage(tenantRepMatchesKey(tenantRepId ?? ''))
   const updateListing = useUpdateListing()
   const updateTenantRep = useUpdateTenantRep()
@@ -63,6 +63,7 @@ export function TenantBoardPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [commissionOpen, setCommissionOpen] = useState(false)
   const [contactEditOpen, setContactEditOpen] = useState(false)
+  const [companyEditOpen, setCompanyEditOpen] = useState(false)
   const [previewPropertyId, setPreviewPropertyId] = useState<string | null>(null)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
   const [dateMove, setDateMove] = useState<{ match: MatchWithRelations; stage: DatedStage } | null>(
@@ -121,13 +122,6 @@ export function TenantBoardPage() {
 
   const contact = tenantRep.contact
   const brokerName = tenantRep.broker ? contactNameOf(tenantRep.broker) : null
-
-  const saveNextAction = (description: string | null, nextActionDate: string | null) =>
-    updateTenantRep.mutate({
-      id: tenantRep.id,
-      next_action_description: description,
-      next_action_date: nextActionDate,
-    })
 
   // Pipeline snapshot from the matches already loaded for the board.
   const liveInPlay = matches.filter((m) => m.stage !== 'dead')
@@ -319,12 +313,7 @@ export function TenantBoardPage() {
             collapsed={infoCollapsed}
             onToggle={toggleInfo}
           >
-            <NextActionCard
-              description={tenantRep.next_action_description}
-              dueDate={tenantRep.next_action_date}
-              pending={updateTenantRep.isPending}
-              onSave={saveNextAction}
-            />
+            <DealTasks entityType="tenant_rep" entityId={tenantRep.id} />
 
             {liveInPlay.length > 0 && (
               <SidebarSection title="Pipeline">
@@ -386,11 +375,27 @@ export function TenantBoardPage() {
 
             {tenantRep.company && (
               <SidebarSection title="Tenant company">
-                <div className="space-y-1 rounded-lg border bg-card p-3 text-sm">
-                  <div className="font-medium">{tenantRep.company.name}</div>
-                  {tenantRep.company.industry && (
-                    <div className="text-xs text-muted-foreground">{tenantRep.company.industry}</div>
-                  )}
+                <div className="group/edit relative space-y-1 rounded-lg border bg-card p-3 text-sm transition-colors hover:bg-accent">
+                  <button
+                    type="button"
+                    onClick={() => setCompanyEditOpen(true)}
+                    className="block w-full text-left"
+                  >
+                    <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
+                    <div className="font-medium">{tenantRep.company.name}</div>
+                    {tenantRep.company.industry ? (
+                      <div className="text-xs text-muted-foreground">
+                        {tenantRep.company.industry}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground italic">
+                        Add industry, website…
+                      </div>
+                    )}
+                    {tenantRep.company.phone && (
+                      <div className="text-xs text-muted-foreground">{tenantRep.company.phone}</div>
+                    )}
+                  </button>
                   {tenantRep.company.website && (
                     <a
                       href={withScheme(tenantRep.company.website)}
@@ -401,9 +406,6 @@ export function TenantBoardPage() {
                       {tenantRep.company.website}
                       <ExternalLink className="size-3 shrink-0" />
                     </a>
-                  )}
-                  {tenantRep.company.phone && (
-                    <div className="text-xs text-muted-foreground">{tenantRep.company.phone}</div>
                   )}
                 </div>
               </SidebarSection>
@@ -420,20 +422,9 @@ export function TenantBoardPage() {
               </button>
             </SidebarSection>
 
-            {notes.length > 0 && (
-              <SidebarSection title="Notes">
-                <div className="space-y-2">
-                  {notes.map((n) => (
-                    <div key={n.id} className="rounded-lg border bg-card p-3 text-sm">
-                      <div className="whitespace-pre-wrap break-words">{n.body}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {formatDate(n.created_at)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </SidebarSection>
-            )}
+            <SidebarSection title="Notes">
+              <NotesLog entityType="tenant_rep" entityId={tenantRep.id} showComposer={false} />
+            </SidebarSection>
 
             <SidebarSection title="Source">
               <button
@@ -465,6 +456,13 @@ export function TenantBoardPage() {
           open={contactEditOpen}
           onOpenChange={setContactEditOpen}
           contact={contact as unknown as Contact}
+        />
+      )}
+      {tenantRep.company && (
+        <CompanyFormDialog
+          open={companyEditOpen}
+          onOpenChange={setCompanyEditOpen}
+          company={tenantRep.company as unknown as Company}
         />
       )}
       <MatchSlideOver

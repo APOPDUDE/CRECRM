@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Check, ExternalLink, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { PropertyPreview } from '@/components/property-preview'
 import {
   usePendingSuggestions,
   useApproveSuggestion,
@@ -28,6 +30,7 @@ export function SuggestionsWidget() {
   const { data: suggestions = [] } = usePendingSuggestions()
   const approve = useApproveSuggestion()
   const dismiss = useDismissSuggestion()
+  const [previewId, setPreviewId] = useState<string | null>(null)
 
   if (suggestions.length === 0) return null
 
@@ -40,6 +43,7 @@ export function SuggestionsWidget() {
     dismiss.mutate(s.id, { onError: () => toast.error('Could not dismiss it') })
 
   return (
+    <>
     <div className="overflow-hidden rounded-lg border bg-card">
       <div className="flex items-center gap-2 border-b p-3">
         <Sparkles className="size-4 text-primary" />
@@ -65,7 +69,14 @@ export function SuggestionsWidget() {
             <li key={s.id} className="flex flex-wrap items-start justify-between gap-3 p-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-medium">{p?.address ?? 'Property'}</span>
+                  <button
+                    type="button"
+                    onClick={() => p && setPreviewId(p.id)}
+                    className="truncate text-left text-sm font-medium hover:underline"
+                    title="See overview"
+                  >
+                    {p?.address ?? 'Property'}
+                  </button>
                   {url && (
                     <a
                       href={url}
@@ -107,5 +118,11 @@ export function SuggestionsWidget() {
         })}
       </ul>
     </div>
+    <PropertyPreview
+      propertyId={previewId}
+      open={!!previewId}
+      onOpenChange={(o) => !o && setPreviewId(null)}
+    />
+    </>
   )
 }

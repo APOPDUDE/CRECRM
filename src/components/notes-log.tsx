@@ -11,10 +11,12 @@ import { formatDate } from '@/lib/dates'
 interface NotesLogProps {
   entityType: Enums<'note_entity'>
   entityId: string
+  /** Hide the "add a note" composer (e.g. when an Add button already lives elsewhere). */
+  showComposer?: boolean
 }
 
 /** A simple dated notes log — one timestamped note per entry, with inline edit + delete. */
-export function NotesLog({ entityType, entityId }: NotesLogProps) {
+export function NotesLog({ entityType, entityId, showComposer = true }: NotesLogProps) {
   const { data: notes = [], isLoading } = useNotes(entityType, entityId)
   const createNote = useCreateNote()
   const updateNote = useUpdateNote()
@@ -66,23 +68,25 @@ export function NotesLog({ entityType, entityId }: NotesLogProps) {
 
   return (
     <div className="space-y-3">
-      <form onSubmit={handleSubmit} className="space-y-2">
-        <Textarea
-          data-note-input
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Add a note…"
-          rows={2}
-        />
-        <Button
-          type="submit"
-          size="sm"
-          className="w-full"
-          disabled={!body.trim() || createNote.isPending}
-        >
-          {createNote.isPending ? 'Saving…' : 'Log note'}
-        </Button>
-      </form>
+      {showComposer && (
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <Textarea
+            data-note-input
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Add a note…"
+            rows={2}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            className="w-full"
+            disabled={!body.trim() || createNote.isPending}
+          >
+            {createNote.isPending ? 'Saving…' : 'Log note'}
+          </Button>
+        </form>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

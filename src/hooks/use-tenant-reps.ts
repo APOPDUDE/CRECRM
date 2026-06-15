@@ -33,13 +33,16 @@ export function useTenantReps() {
 
 const TENANT_REP_DETAIL_SELECT = `
   *,
-  company:companies!tenant_reps_tenant_company_id_fkey(id, name, phone, website, industry),
+  company:companies!tenant_reps_tenant_company_id_fkey(id, name, type, phone, website, industry, notes),
   contact:contacts!tenant_reps_tenant_contact_id_fkey(id, first_name, last_name, title, email, phone, company_id, notes),
   broker:contacts!tenant_reps_broker_contact_id_fkey(id, first_name, last_name)
 `
 
 export type TenantRepDetail = Tables<'tenant_reps'> & {
-  company: Pick<Tables<'companies'>, 'id' | 'name' | 'phone' | 'website' | 'industry'> | null
+  company: Pick<
+    Tables<'companies'>,
+    'id' | 'name' | 'type' | 'phone' | 'website' | 'industry' | 'notes'
+  > | null
   contact: Pick<
     Tables<'contacts'>,
     'id' | 'first_name' | 'last_name' | 'title' | 'email' | 'phone' | 'company_id' | 'notes'

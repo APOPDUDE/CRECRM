@@ -49,8 +49,12 @@ export function useUpdateCompany() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] })
-      // contacts embed the company name via a join, so refresh them too
+      // the company is embedded in several joined queries — refresh those too
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
+      queryClient.invalidateQueries({ queryKey: ['tenant_rep'] })
+      queryClient.invalidateQueries({ queryKey: ['listings'] })
+      queryClient.invalidateQueries({ queryKey: ['listing'] })
     },
   })
 }
