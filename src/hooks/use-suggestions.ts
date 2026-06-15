@@ -27,17 +27,19 @@ export type Suggestion = {
     | null
 }
 
+// `!inner` on tenant_rep so the status/stage filters below exclude suggestions whose
+// tenant has left the active repping pool (closed/executed/lost).
 const SUGGESTION_SELECT = `
   id, created_at,
   property:properties!match_suggestions_property_id_fkey(id, address, city, state, property_type, building_sf, asking_rate_psf, asking_price, listing_url, source_url),
-  tenant_rep:tenant_reps!match_suggestions_tenant_rep_id_fkey(
+  tenant_rep:tenant_reps!match_suggestions_tenant_rep_id_fkey!inner(
     id,
     company:companies!tenant_reps_tenant_company_id_fkey(name),
     contact:contacts!tenant_reps_tenant_contact_id_fkey(first_name, last_name)
   )
 `
 
-/** Pending property suggestions from the daily sweep, newest first. */
+/** Pending suggestions for tenants still in the active repping pool, newest first. */
 export function usePendingSuggestions() {
   return useQuery({
     queryKey: ['suggestions', 'pending'],
@@ -46,6 +48,8 @@ export function usePendingSuggestions() {
         .from('match_suggestions')
         .select(SUGGESTION_SELECT)
         .eq('status', 'pending')
+        .eq('tenant_rep.status', 'active')
+        .in('tenant_rep.stage', ['lead', 'touring', 'loi', 'lease_negotiation'])
         .order('created_at', { ascending: false })
       if (error) throw error
       return data as unknown as Suggestion[]
