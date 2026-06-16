@@ -861,43 +861,7 @@ export type Database = {
       }
     }
     Views: {
-      v_listing_pursuits: {
-        Row: {
-          actual_fee: number | null
-          client_deal_type: Database["public"]["Enums"]["deal_type"] | null
-          client_id: string | null
-          client_status: Database["public"]["Enums"]["client_status"] | null
-          company_id: string | null
-          company_name: string | null
-          contact_first_name: string | null
-          contact_id: string | null
-          contact_last_name: string | null
-          double_ended: boolean | null
-          executed_date: string | null
-          flagged_new: boolean | null
-          inquiry_date: string | null
-          listing_deal_type: Database["public"]["Enums"]["deal_type"] | null
-          listing_id: string | null
-          listing_stage: Database["public"]["Enums"]["listing_stage"] | null
-          listing_status:
-            | Database["public"]["Enums"]["engagement_status"]
-            | null
-          property_id: string | null
-          pursuit_id: string | null
-          pursuit_notes: string | null
-          pursuit_stage: Database["public"]["Enums"]["pursuit_stage"] | null
-          tour_date: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "listings_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       approve_suggestion: { Args: { p_suggestion_id: string }; Returns: string }
