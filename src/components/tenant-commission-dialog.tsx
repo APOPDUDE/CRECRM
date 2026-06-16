@@ -12,8 +12,10 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useQueryClient } from '@tanstack/react-query'
 import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import type { TenantRepDetail } from '@/hooks/use-tenant-reps'
+import { supabase } from '@/lib/supabase'
 
 interface TenantCommissionDialogProps {
   open: boolean
@@ -26,6 +28,8 @@ const numOrNull = (v: string): number | null => (v.trim() === '' ? null : Number
 /** Edit the commission booked on an executed tenant-rep deal (shown on the About panel). */
 export function TenantCommissionDialog({ open, onOpenChange, tenantRep }: TenantCommissionDialogProps) {
   const updateTenantRep = useUpdateTenantRep()
+  const queryClient = useQueryClient()
+  const [saving, setSaving] = useState(false)
 
   const [fee, setFee] = useState('')
   const [commission, setCommission] = useState('')
@@ -36,22 +40,31 @@ export function TenantCommissionDialog({ open, onOpenChange, tenantRep }: Tenant
     setCommission(tenantRep.commission_pct?.toString() ?? '')
   }, [open, tenantRep])
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    updateTenantRep.mutate(
-      {
+    const feeVal = numOrNull(fee)
+    setSaving(true)
+    try {
+      await updateTenantRep.mutateAsync({
         id: tenantRep.id,
-        actual_fee: numOrNull(fee),
+        actual_fee: feeVal,
         commission_pct: numOrNull(commission),
-      },
-      {
-        onSuccess: () => {
-          toast.success('Commission saved')
-          onOpenChange(false)
-        },
-        onError: () => toast.error('Could not save commission'),
-      },
-    )
+      })
+      // the booked fee lives on the executed pursuit (the dashboard's YTD source)
+      await supabase
+        .from('pursuits')
+        .update({ actual_fee: feeVal })
+        .eq('client_id', tenantRep.id)
+        .eq('stage', 'executed')
+      queryClient.invalidateQueries({ queryKey: ['dashboard-matches'] })
+      queryClient.invalidateQueries({ queryKey: ['matches'] })
+      toast.success('Commission saved')
+      onOpenChange(false)
+    } catch {
+      toast.error('Could not save commission')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -89,12 +102,12 @@ export function TenantCommissionDialog({ open, onOpenChange, tenantRep }: Tenant
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={updateTenantRep.isPending}
+              disabled={saving}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={updateTenantRep.isPending}>
-              {updateTenantRep.isPending ? 'Saving…' : 'Save'}
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
         </form>

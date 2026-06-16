@@ -20,15 +20,20 @@ import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/f
 import { pursuitStageLabels } from '@/lib/stages'
 import { formatDate } from '@/lib/dates'
 
-function Field({ label, value }: { label: string; value: ReactNode }) {
-  if (value == null || value === '') return null
+/** A standard property field row — always rendered, shows an em-dash when empty. */
+function Field({ label, value, full }: { label: string; value: ReactNode; full?: boolean }) {
+  const empty = value == null || value === ''
   return (
-    <div>
+    <div className={full ? 'sm:col-span-2' : undefined}>
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-sm">{value}</dd>
+      <dd className={`mt-0.5 text-sm ${empty ? 'text-muted-foreground' : ''}`}>
+        {empty ? '—' : value}
+      </dd>
     </div>
   )
 }
+
+const yesNo = (b: boolean | null): string | null => (b == null ? null : b ? 'Yes' : 'No')
 
 const listingStageLabels: Record<string, string> = {
   proposal: 'Proposal',
@@ -205,27 +210,51 @@ export function PropertyDetailPage() {
       />
 
       <dl className="grid max-w-2xl grid-cols-1 gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
+        <Field label="Title" value={property.title} full />
         <Field
           label="Type"
           value={property.property_type ? propertyKindLabels[property.property_type] : null}
         />
+        <Field label="Sub-types" value={property.property_sub_types?.join(', ') ?? null} />
         <Field label="Location" value={location || null} />
+        <Field label="Parcel number" value={property.parcel_number} />
         <Field label="Building SF" value={formatSf(property.building_sf)} />
         <Field
           label="Land acres"
           value={property.land_acres != null ? `${property.land_acres} AC` : null}
         />
+        <Field label="Gross leasable area" value={property.gross_leasable_area} />
+        <Field label="Stories" value={property.stories} />
+        <Field label="Units" value={property.num_units} />
+        <Field label="Year built" value={property.year_built} />
+        <Field label="Year renovated" value={property.year_renovated} />
+        <Field label="Building class" value={property.building_class} />
+        <Field label="Construction status" value={property.construction_status} />
+        <Field label="Building FAR" value={property.building_far} />
+        <Field label="Parking ratio" value={property.parking_ratio} />
+        <Field label="Occupancy" value={property.occupancy} />
+        <Field label="Zoning district" value={property.zoning_district} />
+        <Field label="Zoning description" value={property.zoning_description} full />
         <Field label="Asking rate" value={formatPsf(property.asking_rate_psf)} />
         <Field label="Asking price" value={formatCurrency(property.asking_price)} />
         <Field
           label="Cap rate"
           value={property.cap_rate_pct != null ? `${property.cap_rate_pct}%` : null}
         />
+        <Field label="Sale type" value={property.sale_type} />
+        <Field label="Sale conditions" value={property.sale_conditions} />
+        <Field label="On ground lease" value={yesNo(property.on_ground_lease)} />
+        <Field label="Opportunity zone" value={yesNo(property.opportunity_zone)} />
+        <Field label="Auction" value={yesNo(property.is_auction)} />
         <Field
           label="Days on market"
           value={property.days_on_market != null ? `${property.days_on_market} days` : null}
         />
         <Field label="Listed" value={property.listed_at ? formatDate(property.listed_at) : null} />
+        <Field
+          label="Source last updated"
+          value={property.source_last_updated ? formatDate(property.source_last_updated) : null}
+        />
         <Field
           label="Broker"
           value={
@@ -238,6 +267,7 @@ export function PropertyDetailPage() {
         />
         <Field label="Broker phone" value={property.broker_phone} />
         <Field label="Broker email" value={property.broker_email} />
+        <Field label="Source" value={property.source} />
         <Field
           label="Listing"
           value={
@@ -254,9 +284,7 @@ export function PropertyDetailPage() {
             ) : null
           }
         />
-        <div className="sm:col-span-2">
-          <Field label="Specs" value={property.specs} />
-        </div>
+        <Field label="Specs" value={property.specs} full />
       </dl>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
