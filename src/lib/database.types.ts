@@ -590,26 +590,48 @@ export type Database = {
           broker_email: string | null
           broker_name: string | null
           broker_phone: string | null
+          building_class: string | null
+          building_far: string | null
           building_sf: number | null
           cap_rate_pct: number | null
           city: string | null
+          construction_status: string | null
           created_at: string
           days_on_market: number | null
+          gross_leasable_area: string | null
           id: string
+          is_auction: boolean | null
           land_acres: number | null
           lat: number | null
           listed_at: string | null
           listing_url: string | null
           lng: number | null
+          num_units: number | null
+          occupancy: string | null
+          on_ground_lease: boolean | null
+          opportunity_zone: boolean | null
+          parcel_number: string | null
+          parking_ratio: string | null
           photo_urls: string[] | null
+          property_sub_types: string[] | null
           property_type: Database["public"]["Enums"]["property_kind"] | null
+          sale_conditions: string | null
+          sale_status: number | null
+          sale_type: string | null
           scraped_at: string | null
           source: string | null
           source_key: string | null
+          source_last_updated: string | null
           specs: string | null
           state: string | null
+          stories: number | null
+          title: string | null
           updated_at: string
+          year_built: number | null
+          year_renovated: number | null
           zip: string | null
+          zoning_description: string | null
+          zoning_district: string | null
         }
         Insert: {
           address: string
@@ -619,26 +641,48 @@ export type Database = {
           broker_email?: string | null
           broker_name?: string | null
           broker_phone?: string | null
+          building_class?: string | null
+          building_far?: string | null
           building_sf?: number | null
           cap_rate_pct?: number | null
           city?: string | null
+          construction_status?: string | null
           created_at?: string
           days_on_market?: number | null
+          gross_leasable_area?: string | null
           id?: string
+          is_auction?: boolean | null
           land_acres?: number | null
           lat?: number | null
           listed_at?: string | null
           listing_url?: string | null
           lng?: number | null
+          num_units?: number | null
+          occupancy?: string | null
+          on_ground_lease?: boolean | null
+          opportunity_zone?: boolean | null
+          parcel_number?: string | null
+          parking_ratio?: string | null
           photo_urls?: string[] | null
+          property_sub_types?: string[] | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
+          sale_conditions?: string | null
+          sale_status?: number | null
+          sale_type?: string | null
           scraped_at?: string | null
           source?: string | null
           source_key?: string | null
+          source_last_updated?: string | null
           specs?: string | null
           state?: string | null
+          stories?: number | null
+          title?: string | null
           updated_at?: string
+          year_built?: number | null
+          year_renovated?: number | null
           zip?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
         }
         Update: {
           address?: string
@@ -648,26 +692,48 @@ export type Database = {
           broker_email?: string | null
           broker_name?: string | null
           broker_phone?: string | null
+          building_class?: string | null
+          building_far?: string | null
           building_sf?: number | null
           cap_rate_pct?: number | null
           city?: string | null
+          construction_status?: string | null
           created_at?: string
           days_on_market?: number | null
+          gross_leasable_area?: string | null
           id?: string
+          is_auction?: boolean | null
           land_acres?: number | null
           lat?: number | null
           listed_at?: string | null
           listing_url?: string | null
           lng?: number | null
+          num_units?: number | null
+          occupancy?: string | null
+          on_ground_lease?: boolean | null
+          opportunity_zone?: boolean | null
+          parcel_number?: string | null
+          parking_ratio?: string | null
           photo_urls?: string[] | null
+          property_sub_types?: string[] | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
+          sale_conditions?: string | null
+          sale_status?: number | null
+          sale_type?: string | null
           scraped_at?: string | null
           source?: string | null
           source_key?: string | null
+          source_last_updated?: string | null
           specs?: string | null
           state?: string | null
+          stories?: number | null
+          title?: string | null
           updated_at?: string
+          year_built?: number | null
+          year_renovated?: number | null
           zip?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
         }
         Relationships: []
       }
