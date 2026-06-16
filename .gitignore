@@ -15,10 +15,11 @@ dist-ssr
 # Environment
 .env
 
-# Local handoff notes (keep out of the public repo)
+# Local handoff notes + secrets (keep out of the public repo)
 context.md
 passover*.md
 history.md
+secrets.md
 
 # Editor directories and files
 .vscode/*
