@@ -23,10 +23,12 @@ import { contactNameOf } from '@/hooks/use-contacts'
 import { useListingDetail, useUpdateListing } from '@/hooks/use-listings'
 import {
   propertyMatchesKey,
+  useDeleteMatch,
   useExecutePursuit,
   usePropertyMatches,
   useUpdateMatchStage,
 } from '@/hooks/use-matches'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
@@ -48,6 +50,7 @@ export function PropertyBoardPage() {
   const updateStage = useUpdateMatchStage(propertyMatchesKey(propertyId ?? ''))
   const updateListing = useUpdateListing()
   const executePursuit = useExecutePursuit()
+  const deleteMatch = useDeleteMatch()
 
   const [addOpen, setAddOpen] = useState(false)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
@@ -55,6 +58,7 @@ export function PropertyBoardPage() {
     null,
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
+  const [removingMatch, setRemovingMatch] = useState<MatchWithRelations | null>(null)
   const [termsOpen, setTermsOpen] = useState(false)
   const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
 
@@ -239,7 +243,14 @@ export function PropertyBoardPage() {
               getId={(m) => m.id}
               getStage={(m) => m.stage}
               onMove={handleMove}
-              renderCard={(m) => <MatchCard match={m} facing="property" onOpen={() => setOpenMatchId(m.id)} />}
+              renderCard={(m) => (
+                <MatchCard
+                  match={m}
+                  facing="property"
+                  onOpen={() => setOpenMatchId(m.id)}
+                  onRemove={() => setRemovingMatch(m)}
+                />
+              )}
             />
           )}
         </div>
@@ -439,6 +450,23 @@ export function PropertyBoardPage() {
         onConfirm={confirmExecuted}
       />
       <ListingTermsDialog open={termsOpen} onOpenChange={setTermsOpen} listing={listing} />
+      <ConfirmDeleteDialog
+        open={!!removingMatch}
+        onOpenChange={(open) => !open && setRemovingMatch(null)}
+        title="Remove from board?"
+        description="This removes this prospect from the board. The property record itself is kept."
+        pending={deleteMatch.isPending}
+        onConfirm={() => {
+          if (!removingMatch) return
+          deleteMatch.mutate(removingMatch.id, {
+            onSuccess: () => {
+              toast.success('Removed from board')
+              setRemovingMatch(null)
+            },
+            onError: () => toast.error('Could not remove it'),
+          })
+        }}
+      />
     </div>
   )
 }

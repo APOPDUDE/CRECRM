@@ -1,4 +1,4 @@
-import { Eye } from 'lucide-react'
+import { Eye, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SourceBadge } from '@/components/source-badge'
@@ -14,9 +14,11 @@ interface MatchCardProps {
   onOpen?: (match: MatchWithRelations) => void
   /** Corner preview icon — opens a quick preview. Hidden when not provided. */
   onPreview?: (match: MatchWithRelations) => void
+  /** Corner trash icon — removes this card from the board. Hidden when not provided. */
+  onRemove?: (match: MatchWithRelations) => void
 }
 
-export function MatchCard({ match, facing, onOpen, onPreview }: MatchCardProps) {
+export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchCardProps) {
   const brokerName = match.broker ? contactNameOf(match.broker) : null
 
   const title =
@@ -70,6 +72,25 @@ export function MatchCard({ match, facing, onOpen, onPreview }: MatchCardProps) 
                 </button>
               </TooltipTrigger>
               <TooltipContent>Preview</TooltipContent>
+            </Tooltip>
+          )}
+          {onRemove && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRemove(match)
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span className="sr-only">Remove from board</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Remove from board</TooltipContent>
             </Tooltip>
           )}
           {match.flagged_new && (

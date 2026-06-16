@@ -28,10 +28,12 @@ import { contactNameOf, type Contact } from '@/hooks/use-contacts'
 import type { Company } from '@/hooks/use-companies'
 import {
   tenantRepMatchesKey,
+  useDeleteMatch,
   useExecutePursuit,
   useTenantRepMatches,
   useUpdateMatchStage,
 } from '@/hooks/use-matches'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail } from '@/hooks/use-tenant-reps'
 import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-automation'
@@ -54,6 +56,7 @@ export function TenantBoardPage() {
     useTenantRepMatches(tenantRepId)
   const updateStage = useUpdateMatchStage(tenantRepMatchesKey(tenantRepId ?? ''))
   const executePursuit = useExecutePursuit()
+  const deleteMatch = useDeleteMatch()
   const search = useSearchListingsForTenant()
   const clearFlagged = useClearFlaggedNew()
 
@@ -67,6 +70,7 @@ export function TenantBoardPage() {
     null,
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
+  const [removingMatch, setRemovingMatch] = useState<MatchWithRelations | null>(null)
   const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
 
   // Returning to /repping after viewing a tenant deal should land on the tenant side.
@@ -272,6 +276,7 @@ export function TenantBoardPage() {
                   facing="tenant"
                   onPreview={() => setPreviewPropertyId(m.property_id)}
                   onOpen={() => navigate(`/properties/${m.property_id}`)}
+                  onRemove={() => setRemovingMatch(m)}
                 />
               )}
             />
@@ -438,6 +443,23 @@ export function TenantBoardPage() {
         propertyId={previewPropertyId}
         open={!!previewPropertyId}
         onOpenChange={(open) => !open && setPreviewPropertyId(null)}
+      />
+      <ConfirmDeleteDialog
+        open={!!removingMatch}
+        onOpenChange={(open) => !open && setRemovingMatch(null)}
+        title="Remove from board?"
+        description={`This removes ${removingMatch?.property?.address ?? 'this property'} from ${title}'s board. The property record itself is kept.`}
+        pending={deleteMatch.isPending}
+        onConfirm={() => {
+          if (!removingMatch) return
+          deleteMatch.mutate(removingMatch.id, {
+            onSuccess: () => {
+              toast.success('Removed from board')
+              setRemovingMatch(null)
+            },
+            onError: () => toast.error('Could not remove it'),
+          })
+        }}
       />
       <StageDateDialog
         stage={dateMove?.stage ?? null}

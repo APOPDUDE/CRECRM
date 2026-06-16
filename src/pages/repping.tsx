@@ -34,7 +34,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { AddListingDialog } from '@/components/add-listing-dialog'
-import { AddTenantDialog } from '@/components/add-tenant-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { ListingCard } from '@/components/listing-card'
 import { ListErrorState } from '@/components/list-error-state'
@@ -56,6 +55,7 @@ import {
 } from '@/hooks/use-tenant-reps'
 import type { TenantRepWithRelations } from '@/hooks/use-tenant-reps'
 import { formatListingPrice } from '@/lib/format'
+import { TENANT_INTAKE_FORM_URL } from '@/lib/n8n'
 import { getReppingSide, setReppingSide } from '@/lib/repping-side'
 import {
   clientOverviewStages,
@@ -124,7 +124,8 @@ export function ReppingPage() {
   const [status, setStatus] = useState<StatusFilter>('active')
   const [view, setView] = useState<'board' | 'table'>('board')
   const [addListingOpen, setAddListingOpen] = useState(false)
-  const [addTenantOpen, setAddTenantOpen] = useState(false)
+  const openTenantForm = () =>
+    window.open(TENANT_INTAKE_FORM_URL, '_blank', 'noopener,noreferrer')
   const [losingListing, setLosingListing] = useState<ListingWithRelations | null>(null)
   const [losingTenant, setLosingTenant] = useState<TenantRepWithRelations | null>(null)
 
@@ -250,7 +251,7 @@ export function ReppingPage() {
             Add property
           </Button>
         ) : (
-          <Button onClick={() => setAddTenantOpen(true)}>
+          <Button onClick={openTenantForm}>
             <Plus className="size-4" />
             Add tenant
           </Button>
@@ -335,7 +336,7 @@ export function ReppingPage() {
                 Add property
               </Button>
             ) : (
-              <Button onClick={() => setAddTenantOpen(true)}>
+              <Button onClick={openTenantForm}>
                 <Plus className="size-4" />
                 Add tenant
               </Button>
@@ -486,7 +487,6 @@ export function ReppingPage() {
         onOpenChange={setAddListingOpen}
         defaultDealType="lease"
       />
-      <AddTenantDialog open={addTenantOpen} onOpenChange={setAddTenantOpen} />
 
       <MarkLostDialog
         open={!!losingListing}

@@ -159,10 +159,10 @@ export function PropertyDetailPage() {
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => navigate('/properties')}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft className="size-4" />
-            <span className="sr-only">Back to properties</span>
+            <span className="sr-only">Back</span>
           </Button>
           <div>
             <h1 className="text-xl font-semibold">{property.address}</h1>
@@ -219,6 +219,16 @@ export function PropertyDetailPage() {
         <Field label="Location" value={location || null} />
         <Field label="Parcel number" value={property.parcel_number} />
         <Field label="Building SF" value={formatSf(property.building_sf)} />
+        <Field
+          label="Available space"
+          value={
+            property.space_sf_min != null || property.space_sf_max != null
+              ? property.space_sf_min === property.space_sf_max
+                ? formatSf(property.space_sf_min)
+                : `${formatSf(property.space_sf_min) ?? '?'} – ${formatSf(property.space_sf_max) ?? '?'}`
+              : null
+          }
+        />
         <Field
           label="Land acres"
           value={property.land_acres != null ? `${property.land_acres} AC` : null}

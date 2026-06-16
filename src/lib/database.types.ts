@@ -622,6 +622,8 @@ export type Database = {
           source: string | null
           source_key: string | null
           source_last_updated: string | null
+          space_sf_max: number | null
+          space_sf_min: number | null
           specs: string | null
           state: string | null
           stories: number | null
@@ -673,6 +675,8 @@ export type Database = {
           source?: string | null
           source_key?: string | null
           source_last_updated?: string | null
+          space_sf_max?: number | null
+          space_sf_min?: number | null
           specs?: string | null
           state?: string | null
           stories?: number | null
@@ -724,6 +728,8 @@ export type Database = {
           source?: string | null
           source_key?: string | null
           source_last_updated?: string | null
+          space_sf_max?: number | null
+          space_sf_min?: number | null
           specs?: string | null
           state?: string | null
           stories?: number | null
