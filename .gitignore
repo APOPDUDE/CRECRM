@@ -15,8 +15,9 @@ dist-ssr
 # Environment
 .env
 
-# Local handoff notes (contains a PAT — never commit)
+# Local handoff notes (keep out of the public repo)
 passover2.md
+history.md
 
 # Editor directories and files
 .vscode/*
