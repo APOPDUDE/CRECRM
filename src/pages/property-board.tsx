@@ -22,31 +22,32 @@ import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useListingDetail, useUpdateListing } from '@/hooks/use-listings'
 import {
-  listingMatchesKey,
-  useListingMatches,
+  propertyMatchesKey,
+  useExecutePursuit,
+  usePropertyMatches,
   useUpdateMatchStage,
 } from '@/hooks/use-matches'
 import type { MatchWithRelations } from '@/hooks/use-matches'
-import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { formatDate } from '@/lib/dates'
 import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
 import { calculateCommission } from '@/lib/commission'
 import { setReppingSide } from '@/lib/repping-side'
-import { matchStageLabels, propertyBoardStages } from '@/lib/stages'
+import { pursuitStageLabels, propertyBoardStages } from '@/lib/stages'
 
-type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
+type PendingMove = { match: MatchWithRelations; toStage: Enums<'pursuit_stage'> }
 
 export function PropertyBoardPage() {
   const { listingId } = useParams()
   const navigate = useNavigate()
   const { data: listing, isLoading, isError } = useListingDetail(listingId)
+  const propertyId = listing?.property_id
   const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
-    useListingMatches(listingId)
-  const updateStage = useUpdateMatchStage(listingMatchesKey(listingId ?? ''))
+    usePropertyMatches(propertyId)
+  const updateStage = useUpdateMatchStage(propertyMatchesKey(propertyId ?? ''))
   const updateListing = useUpdateListing()
-  const updateTenantRep = useUpdateTenantRep()
+  const executePursuit = useExecutePursuit()
 
   const [addOpen, setAddOpen] = useState(false)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
@@ -92,31 +93,27 @@ export function PropertyBoardPage() {
   const columns = propertyBoardStages(listing.deal_type)
   const landlordContact = listing.landlord_contact
 
-  const plainMove = (match: MatchWithRelations, toStage: Enums<'match_stage'>) => {
+  const plainMove = (match: MatchWithRelations, toStage: Enums<'pursuit_stage'>) => {
     const fromStage = match.stage
     updateStage.mutate(
       { id: match.id, stage: toStage },
       {
         onSuccess: () =>
-          toast.success(`Moved to ${matchStageLabels[toStage]}`, {
+          toast.success(`Moved to ${pursuitStageLabels[toStage]}`, {
             action: {
               label: 'Undo',
               onClick: () => updateStage.mutate({ id: match.id, stage: fromStage }),
             },
           }),
-        onError: () => toast.error('Could not move match'),
+        onError: () => toast.error('Could not move pursuit'),
       },
     )
   }
 
   const handleMove = (match: MatchWithRelations, toStageStr: string) => {
-    const toStage = toStageStr as Enums<'match_stage'>
-    if (toStage === 'toured' && !match.tour_date) {
-      setDateMove({ match, stage: 'toured' })
-    } else if (toStage === 'loi' && !match.loi_date) {
-      setDateMove({ match, stage: 'loi' })
-    } else if (toStage === 'lease_negotiation' && !match.lease_negotiation_date) {
-      setDateMove({ match, stage: 'lease_negotiation' })
+    const toStage = toStageStr as Enums<'pursuit_stage'>
+    if (toStage === 'touring' && !match.tour_date) {
+      setDateMove({ match, stage: 'touring' })
     } else if (toStage === 'executed') {
       setExecutedMove({ match, toStage })
     } else {
@@ -124,59 +121,41 @@ export function PropertyBoardPage() {
     }
   }
 
-  const confirmDate = (patch: Partial<TablesUpdate<'matches'>>) => {
+  const confirmDate = (patch: Partial<TablesUpdate<'pursuits'>>) => {
     if (!dateMove) return
     const { match, stage } = dateMove
     updateStage.mutate(
       { id: match.id, stage, patch },
       {
         onSuccess: () => {
-          toast.success(`Moved to ${matchStageLabels[stage]}`)
+          toast.success(`Moved to ${pursuitStageLabels[stage]}`)
           setDateMove(null)
         },
-        onError: () => toast.error('Could not move match'),
+        onError: () => toast.error('Could not move pursuit'),
       },
     )
   }
 
-  // Await every write so the success toast only fires once the linked records are
-  // actually synced; a partial failure surfaces an error instead of a false success.
+  // Execute the pursuit: the RPC writes the comp, stamps the fee, and optionally
+  // closes the property's listing + the client.
   const confirmExecuted = async (result: ExecutedResult) => {
     if (!executedMove) return
     const match = executedMove.match
-    const fee = result.actualFee
-    const econ = Object.fromEntries(
-      Object.entries(result.economics).filter(([, v]) => v != null),
-    )
     try {
-      await updateStage.mutateAsync({
-        id: match.id,
-        stage: 'executed',
-        patch: {
-          execution_date: result.executionDate,
-          ...(fee != null ? { actual_fee: fee } : {}),
-          ...econ,
+      await executePursuit.mutateAsync({
+        pursuitId: match.id,
+        terms: {
+          executed_date: result.executedDate,
+          ...(result.actualFee != null ? { actual_fee: result.actualFee } : {}),
+          ...result.economics,
+          close_client: result.closeClient,
+          close_listing: result.closeListing,
         },
       })
-      // record the fee on the listing (board context) and close it if asked
-      const listingPatch = {
-        ...(result.markListingClosed ? { stage: 'closed' as const } : {}),
-        ...(fee != null ? { actual_fee: fee } : {}),
-      }
-      if (Object.keys(listingPatch).length > 0) {
-        await updateListing.mutateAsync({ id: listing.id, ...listingPatch })
-      }
-      if (result.moveTenantExecuted && match.tenant_rep_id) {
-        await updateTenantRep.mutateAsync({
-          id: match.tenant_rep_id,
-          stage: 'executed',
-          ...(fee != null ? { actual_fee: fee } : {}),
-        })
-      }
       toast.success('Deal executed')
       setExecutedMove(null)
     } catch {
-      toast.error('Could not fully sync the deal — some linked records may need a manual update')
+      toast.error('Could not execute the deal')
     }
   }
 
@@ -187,10 +166,10 @@ export function PropertyBoardPage() {
       next_action_date: nextActionDate,
     })
 
-  // Pipeline snapshot from the matches already loaded for the board.
-  const liveProspects = matches.filter((m) => m.stage !== 'dead')
+  // Pipeline snapshot from the pursuits already loaded for the board.
+  const liveProspects = matches.filter((m) => m.stage !== 'passed')
   const pastLoi = liveProspects.filter((m) =>
-    ['loi', 'lease_negotiation', 'executed'].includes(m.stage),
+    ['negotiation', 'executed'].includes(m.stage),
   ).length
   const oldestDays = (() => {
     const dates = liveProspects.map((m) => m.inquiry_date).filter(Boolean) as string[]
@@ -433,7 +412,6 @@ export function PropertyBoardPage() {
       <AddTenantMatchDialog
         open={addOpen}
         onOpenChange={setAddOpen}
-        listingId={listing.id}
         propertyId={listing.property_id}
       />
       <MatchSlideOver
@@ -451,15 +429,13 @@ export function PropertyBoardPage() {
       <ExecutedMatchDialog
         open={!!executedMove}
         onOpenChange={(open) => !open && setExecutedMove(null)}
-        hasListing
-        hasTenantRep={!!executedMove?.match.tenant_rep_id}
         dealType={listing.deal_type}
         commissionCalcContext={{
           commissionPct: listing.commission_pct,
           coBrokeSplitPct: listing.co_broke_split_pct,
           buildingSf: listing.property?.building_sf ?? null,
         }}
-        pending={updateStage.isPending || updateListing.isPending || updateTenantRep.isPending}
+        pending={executePursuit.isPending}
         onConfirm={confirmExecuted}
       />
       <ListingTermsDialog open={termsOpen} onOpenChange={setTermsOpen} listing={listing} />

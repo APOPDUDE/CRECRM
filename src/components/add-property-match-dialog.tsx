@@ -111,9 +111,8 @@ export function AddPropertyMatchDialog({
       })
       await createMatch.mutateAsync({
         property_id: prop.id,
-        tenant_rep_id: tenantRep.id,
-        tenant_company_id: tenantRep.tenant_company_id,
-        tenant_contact_id: tenantRep.tenant_contact_id,
+        client_id: tenantRep.id,
+        owner_id: tenantRep.owner_id,
         inquiry_date: format(new Date(), 'yyyy-MM-dd'),
       })
       toast.success('Property added')

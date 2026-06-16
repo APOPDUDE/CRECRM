@@ -24,32 +24,20 @@ import type { Enums } from '@/lib/database.types'
 import { calculateCommission } from '@/lib/commission'
 import { formatCurrency } from '@/lib/format'
 
-/** Executed-deal economics captured on the match (asking-vs-executed comps live here). */
-export interface ExecutedEconomics {
-  executed_rate_psf: number | null
-  executed_price: number | null
-  lease_structure: Enums<'lease_structure'> | null
-  escalations: string | null
-  ti_psf: number | null
-  term_months: number | null
-  free_rent_months: number | null
-}
-
+/** Executed-deal terms, keyed to the execute_pursuit RPC params (written to a comp). */
 export interface ExecutedResult {
+  executedDate: string | null
   actualFee: number | null
-  executionDate: string | null
-  markListingClosed: boolean
-  moveTenantExecuted: boolean
-  economics: ExecutedEconomics
+  closeClient: boolean
+  closeListing: boolean
+  economics: Record<string, unknown>
 }
 
 interface ExecutedMatchDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  hasListing: boolean
-  hasTenantRep: boolean
   dealType?: Enums<'deal_type'>
-  /** Listing-derived inputs the dialog can't see, used to estimate the commission. */
+  /** Inputs the dialog can't see, used to estimate the commission. */
   commissionCalcContext?: {
     commissionPct: number | null
     coBrokeSplitPct: number | null
@@ -64,8 +52,6 @@ const numOrNull = (v: string): number | null => (v.trim() === '' ? null : Number
 export function ExecutedMatchDialog({
   open,
   onOpenChange,
-  hasListing,
-  hasTenantRep,
   dealType = 'lease',
   commissionCalcContext,
   pending,
@@ -73,14 +59,14 @@ export function ExecutedMatchDialog({
 }: ExecutedMatchDialogProps) {
   const isSale = dealType === 'sale'
   const [fee, setFee] = useState('')
-  // once the user edits the fee, stop auto-filling it from the calculator
   const [feeTouched, setFeeTouched] = useState(false)
   const [executionDate, setExecutionDate] = useState('')
-  const [closeListing, setCloseListing] = useState(true)
-  const [bumpTenant, setBumpTenant] = useState(true)
+  const [closeClient, setCloseClient] = useState(true)
+  const [closeListing, setCloseListing] = useState(false)
   // economics
   const [rate, setRate] = useState('')
   const [price, setPrice] = useState('')
+  const [capRate, setCapRate] = useState('')
   const [structure, setStructure] = useState<Enums<'lease_structure'> | ''>('')
   const [escalations, setEscalations] = useState('')
   const [tiPsf, setTiPsf] = useState('')
@@ -92,10 +78,11 @@ export function ExecutedMatchDialog({
       setFee('')
       setFeeTouched(false)
       setExecutionDate(format(new Date(), 'yyyy-MM-dd'))
-      setCloseListing(true)
-      setBumpTenant(true)
+      setCloseClient(true)
+      setCloseListing(false)
       setRate('')
       setPrice('')
+      setCapRate('')
       setStructure('')
       setEscalations('')
       setTiPsf('')
@@ -104,7 +91,6 @@ export function ExecutedMatchDialog({
     }
   }, [open])
 
-  // Estimate the brokerage fee from the listing terms + the economics being entered.
   const calc = useMemo(() => {
     if (!commissionCalcContext) return null
     return calculateCommission({
@@ -118,27 +104,30 @@ export function ExecutedMatchDialog({
     })
   }, [commissionCalcContext, dealType, rate, price, term])
 
-  // Suggest the computed fee until the user types their own.
   useEffect(() => {
     if (!feeTouched && calc?.netFee != null) setFee(String(Math.round(calc.netFee)))
   }, [calc?.netFee, feeTouched])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    const economics: Record<string, unknown> = {}
+    if (isSale) {
+      if (numOrNull(price) != null) economics.sale_price = numOrNull(price)
+      if (numOrNull(capRate) != null) economics.cap_rate_pct = numOrNull(capRate)
+    } else {
+      if (numOrNull(rate) != null) economics.executed_rate_psf = numOrNull(rate)
+      if (structure) economics.lease_structure = structure
+      if (numOrNull(term) != null) economics.term_months = numOrNull(term)
+      if (numOrNull(freeRent) != null) economics.free_rent_months = numOrNull(freeRent)
+      if (numOrNull(tiPsf) != null) economics.ti_psf = numOrNull(tiPsf)
+      if (escalations.trim()) economics.escalations = escalations.trim()
+    }
     onConfirm({
+      executedDate: executionDate || null,
       actualFee: fee ? Number(fee) : null,
-      executionDate: executionDate || null,
-      markListingClosed: hasListing && closeListing,
-      moveTenantExecuted: hasTenantRep && bumpTenant,
-      economics: {
-        executed_rate_psf: isSale ? null : numOrNull(rate),
-        executed_price: isSale ? numOrNull(price) : null,
-        lease_structure: isSale ? null : structure || null,
-        escalations: isSale ? null : escalations.trim() || null,
-        ti_psf: isSale ? null : numOrNull(tiPsf),
-        term_months: isSale ? null : numOrNull(term),
-        free_rent_months: isSale ? null : numOrNull(freeRent),
-      },
+      closeClient,
+      closeListing,
+      economics,
     })
   }
 
@@ -147,7 +136,7 @@ export function ExecutedMatchDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Mark executed</DialogTitle>
-          <DialogDescription>Record the deal economics and sync the linked records.</DialogDescription>
+          <DialogDescription>Record the deal terms — they become a comp.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -165,16 +154,29 @@ export function ExecutedMatchDialog({
               {isSale ? 'Sale terms' : 'Executed lease terms'}
             </p>
             {isSale ? (
-              <div className="space-y-2">
-                <Label htmlFor="executed-price">Sale price</Label>
-                <Input
-                  id="executed-price"
-                  type="number"
-                  inputMode="numeric"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="$"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="executed-price">Sale price</Label>
+                  <Input
+                    id="executed-price"
+                    type="number"
+                    inputMode="numeric"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="$"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="executed-caprate">Cap rate %</Label>
+                  <Input
+                    id="executed-caprate"
+                    type="number"
+                    inputMode="decimal"
+                    value={capRate}
+                    onChange={(e) => setCapRate(e.target.value)}
+                    placeholder="%"
+                  />
+                </div>
               </div>
             ) : (
               <>
@@ -280,13 +282,6 @@ export function ExecutedMatchDialog({
             </div>
           )}
 
-          {commissionCalcContext && calc?.netFee == null && (
-            <p className="text-xs text-muted-foreground">
-              Set commission %{isSale ? '' : ' and building SF'} on the listing (Edit terms) to
-              estimate the fee.
-            </p>
-          )}
-
           <div className="space-y-2">
             <Label htmlFor="executed-fee">Actual fee</Label>
             <Input
@@ -307,28 +302,17 @@ export function ExecutedMatchDialog({
             )}
           </div>
 
-          {(hasListing || hasTenantRep) && (
-            <div className="space-y-2">
-              {hasListing && (
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={closeListing}
-                    onCheckedChange={(v) => setCloseListing(v === true)}
-                  />
-                  Mark the listing Closed
-                </label>
-              )}
-              {hasTenantRep && (
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={bumpTenant}
-                    onCheckedChange={(v) => setBumpTenant(v === true)}
-                  />
-                  Move the tenant rep to Executed
-                </label>
-              )}
-            </div>
-          )}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={closeClient} onCheckedChange={(v) => setCloseClient(v === true)} />
+              Mark this client closed
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={closeListing} onCheckedChange={(v) => setCloseListing(v === true)} />
+              Also close the listing on this property
+            </label>
+          </div>
+
           <DialogFooter>
             <Button
               type="button"

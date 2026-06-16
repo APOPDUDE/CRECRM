@@ -77,11 +77,6 @@ export function MatchCard({ match, facing, onOpen, onPreview }: MatchCardProps) 
               New
             </Badge>
           )}
-          {facing === 'tenant' && match.listing_id && (
-            <Badge variant="secondary" className="font-normal">
-              My listing
-            </Badge>
-          )}
         </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">

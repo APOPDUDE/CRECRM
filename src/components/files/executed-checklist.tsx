@@ -12,7 +12,7 @@ interface ExecutedChecklistProps {
 
 /** Auto-checks each required executed document from the categories already uploaded on the match. */
 export function ExecutedChecklist({ matchId, dealType }: ExecutedChecklistProps) {
-  const { data: files = [] } = useFiles('match', matchId)
+  const { data: files = [] } = useFiles('pursuit', matchId)
   const present = new Set(files.map((f) => f.category))
 
   const items: { label: string; category: FileCategory }[] = [

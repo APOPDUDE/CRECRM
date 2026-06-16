@@ -1,23 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Enums, Tables } from '@/lib/database.types'
+import type { Enums, Tables, TablesInsert } from '@/lib/database.types'
 
 export type Note = Tables<'notes'>
-type NoteEntity = Enums<'note_entity'>
+/** The deal entity a note/file/task hangs on (typed FK columns). */
+export type ParentType = 'client' | 'listing' | 'pursuit'
 type NoteKind = Enums<'note_kind'>
 
-const notesKey = (entityType: NoteEntity, entityId: string) => ['notes', entityType, entityId]
+const parentColumn = (t: ParentType) =>
+  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
 
-export function useNotes(entityType: NoteEntity, entityId: string | undefined) {
+const notesKey = (parentType: ParentType, parentId: string) => ['notes', parentType, parentId]
+
+export function useNotes(parentType: ParentType, parentId: string | undefined) {
   return useQuery({
-    queryKey: notesKey(entityType, entityId ?? ''),
-    enabled: !!entityId,
+    queryKey: notesKey(parentType, parentId ?? ''),
+    enabled: !!parentId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notes')
         .select('*')
-        .eq('entity_type', entityType)
-        .eq('entity_id', entityId!)
+        .eq(parentColumn(parentType), parentId!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
@@ -29,26 +32,26 @@ export function useCreateNote() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
-      entityType,
-      entityId,
+      parentType,
+      parentId,
       body,
       kind = 'note',
     }: {
-      entityType: NoteEntity
-      entityId: string
+      parentType: ParentType
+      parentId: string
       body: string
       kind?: NoteKind
     }) => {
       const { data, error } = await supabase
         .from('notes')
-        .insert({ entity_type: entityType, entity_id: entityId, body, kind })
+        .insert({ [parentColumn(parentType)]: parentId, body, kind } as TablesInsert<'notes'>)
         .select()
         .single()
       if (error) throw error
       return data
     },
-    onSuccess: (_data, { entityType, entityId }) =>
-      queryClient.invalidateQueries({ queryKey: notesKey(entityType, entityId) }),
+    onSuccess: (_data, { parentType, parentId }) =>
+      queryClient.invalidateQueries({ queryKey: notesKey(parentType, parentId) }),
   })
 }
 
@@ -60,8 +63,8 @@ export function useUpdateNote() {
       body,
     }: {
       id: string
-      entityType: NoteEntity
-      entityId: string
+      parentType: ParentType
+      parentId: string
       body: string
     }) => {
       const { data, error } = await supabase
@@ -73,19 +76,19 @@ export function useUpdateNote() {
       if (error) throw error
       return data
     },
-    onSuccess: (_data, { entityType, entityId }) =>
-      queryClient.invalidateQueries({ queryKey: notesKey(entityType, entityId) }),
+    onSuccess: (_data, { parentType, parentId }) =>
+      queryClient.invalidateQueries({ queryKey: notesKey(parentType, parentId) }),
   })
 }
 
 export function useDeleteNote() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id }: { id: string; entityType: NoteEntity; entityId: string }) => {
+    mutationFn: async ({ id }: { id: string; parentType: ParentType; parentId: string }) => {
       const { error } = await supabase.from('notes').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: (_data, { entityType, entityId }) =>
-      queryClient.invalidateQueries({ queryKey: notesKey(entityType, entityId) }),
+    onSuccess: (_data, { parentType, parentId }) =>
+      queryClient.invalidateQueries({ queryKey: notesKey(parentType, parentId) }),
   })
 }

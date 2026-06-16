@@ -11,7 +11,7 @@ import { DealTypeBadge } from '@/components/deal-type-badge'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { TenantRepWithRelations } from '@/hooks/use-tenant-reps'
 import { formatSf } from '@/lib/format'
-import { liveMatches } from '@/lib/stages'
+import { livePursuits } from '@/lib/stages'
 import { isOverdue } from '@/lib/dates'
 
 interface TenantRepCardProps {
@@ -36,14 +36,16 @@ export function rangeSummary(
   return null
 }
 
-/** Short card summary — warehouse SF first, then office, then a sensible fallback. */
+const acres = (n: number) => `${n} AC`
+
+/** Short card summary — building SF first, then land acres, then a sensible fallback. */
 export function sizeSummary(tenantRep: TenantRepWithRelations): string | null {
   return (
-    rangeSummary(tenantRep.warehouse_sf_min, tenantRep.warehouse_sf_max, formatSf) ||
-    rangeSummary(tenantRep.office_sf_min, tenantRep.office_sf_max, formatSf) ||
+    rangeSummary(tenantRep.building_sf_min, tenantRep.building_sf_max, formatSf) ||
+    rangeSummary(tenantRep.land_acres_min, tenantRep.land_acres_max, acres) ||
     (tenantRep.property_type ? propertyKindLabels[tenantRep.property_type] : null) ||
     tenantRep.must_haves ||
-    tenantRep.target_area ||
+    tenantRep.target_markets ||
     null
   )
 }
@@ -60,7 +62,7 @@ function tenantName(tenantRep: TenantRepWithRelations): string {
 }
 
 export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: TenantRepCardProps) {
-  const inPlay = liveMatches(tenantRep.matches)
+  const inPlay = livePursuits(tenantRep.matches)
   const overdue = tenantRep.status === 'active' && isOverdue(tenantRep.next_action_date)
   const summary = sizeSummary(tenantRep)
 

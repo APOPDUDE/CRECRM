@@ -32,9 +32,7 @@ type Gran = 'week' | 'month'
 const METRICS: { key: string; label: string; dateOf: (m: DashMatch) => string | null }[] = [
   { key: 'inquiry', label: 'Inquiries', dateOf: (m) => m.inquiry_date },
   { key: 'tour', label: 'Tours', dateOf: (m) => m.tour_date },
-  { key: 'loi', label: 'LOIs', dateOf: (m) => m.loi_date },
-  { key: 'leaseneg', label: 'Lease neg.', dateOf: (m) => m.lease_negotiation_date },
-  { key: 'exec', label: 'Executions', dateOf: (m) => m.execution_date },
+  { key: 'exec', label: 'Executions', dateOf: (m) => m.executed_date },
 ]
 
 function periodStarts(gran: Gran): Date[] {
@@ -71,10 +69,10 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
     let commissionYtd = 0
     let flagged = 0
     for (const m of matches) {
-      if (m.stage !== 'dead' && m.stage !== 'executed') active++
+      if (m.stage !== 'passed' && m.stage !== 'executed') active++
       if (m.flagged_new) flagged++
-      if (m.execution_date) {
-        const ed = parseISO(m.execution_date)
+      if (m.executed_date) {
+        const ed = parseISO(m.executed_date)
         if (ed >= d90) exec90++
         if (ed >= ytdStart) commissionYtd += matchFee(m)
       }
@@ -96,7 +94,7 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
     const commission = periods.map((p) =>
       matches.reduce(
         (sum, m) =>
-          m.execution_date && inPeriod(parseISO(m.execution_date), p, gran)
+          m.executed_date && inPeriod(parseISO(m.executed_date), p, gran)
             ? sum + matchFee(m)
             : sum,
         0,
@@ -212,7 +210,7 @@ export function NewMatchesFeed({ matches }: { matches: DashMatch[] }) {
             return (
               <li key={m.id}>
                 <Link
-                  to={m.property ? `/properties/${m.property.id}` : '#'}
+                  to={m.tenant_rep_id ? `/tenant-rep/${m.tenant_rep_id}` : '#'}
                   className="flex items-start justify-between gap-2 p-3 transition-colors hover:bg-accent"
                 >
                   <div className="min-w-0">

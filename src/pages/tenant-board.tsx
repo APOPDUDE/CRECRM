@@ -26,23 +26,23 @@ import { StageDateDialog } from '@/components/stage-date-dialog'
 import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf, type Contact } from '@/hooks/use-contacts'
 import type { Company } from '@/hooks/use-companies'
-import { useUpdateListing } from '@/hooks/use-listings'
 import {
   tenantRepMatchesKey,
+  useExecutePursuit,
   useTenantRepMatches,
   useUpdateMatchStage,
 } from '@/hooks/use-matches'
 import type { MatchWithRelations } from '@/hooks/use-matches'
-import { useTenantRepDetail, useUpdateTenantRep } from '@/hooks/use-tenant-reps'
+import { useTenantRepDetail } from '@/hooks/use-tenant-reps'
 import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-automation'
 import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { automationEnabled } from '@/lib/n8n'
 import { setReppingSide } from '@/lib/repping-side'
-import { mapTenantBoardColumn, matchStageLabels, tenantBoardStages } from '@/lib/stages'
+import { pursuitStageLabels, tenantBoardStages } from '@/lib/stages'
 
-type PendingMove = { match: MatchWithRelations; toStage: Enums<'match_stage'> }
+type PendingMove = { match: MatchWithRelations; toStage: Enums<'pursuit_stage'> }
 
 const withScheme = (url: string) => (/^https?:\/\//i.test(url) ? url : `https://${url}`)
 
@@ -53,8 +53,7 @@ export function TenantBoardPage() {
   const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
     useTenantRepMatches(tenantRepId)
   const updateStage = useUpdateMatchStage(tenantRepMatchesKey(tenantRepId ?? ''))
-  const updateListing = useUpdateListing()
-  const updateTenantRep = useUpdateTenantRep()
+  const executePursuit = useExecutePursuit()
   const search = useSearchListingsForTenant()
   const clearFlagged = useClearFlaggedNew()
 
@@ -75,8 +74,7 @@ export function TenantBoardPage() {
     setReppingSide('tenant')
   }, [])
 
-  // Viewing the board clears the "new match" flag (the red tag stays visible for
-  // this view; it's gone next time). Fire once per tenant rep.
+  // Viewing the board clears the "new" flag (the tag stays visible for this view).
   const clearedFor = useRef<string | null>(null)
   useEffect(() => {
     if (!tenantRepId || clearedFor.current === tenantRepId) return
@@ -113,7 +111,7 @@ export function TenantBoardPage() {
           <ArrowLeft className="size-4" />
           Back to Tenant Rep
         </Button>
-        <p className="text-sm text-muted-foreground">This tenant rep could not be found.</p>
+        <p className="text-sm text-muted-foreground">This client could not be found.</p>
       </div>
     )
   }
@@ -121,37 +119,31 @@ export function TenantBoardPage() {
   const contact = tenantRep.contact
   const brokerName = tenantRep.broker ? contactNameOf(tenantRep.broker) : null
 
-  // Pipeline snapshot from the matches already loaded for the board.
-  const liveInPlay = matches.filter((m) => m.stage !== 'dead')
-  const pastLoi = liveInPlay.filter((m) =>
-    ['loi', 'lease_negotiation', 'executed'].includes(m.stage),
-  ).length
+  // Pipeline snapshot from the pursuits already loaded for the board.
+  const liveInPlay = matches.filter((m) => m.stage !== 'passed')
+  const pastLoi = liveInPlay.filter((m) => ['negotiation', 'executed'].includes(m.stage)).length
 
-  const plainMove = (match: MatchWithRelations, toStage: Enums<'match_stage'>) => {
+  const plainMove = (match: MatchWithRelations, toStage: Enums<'pursuit_stage'>) => {
     const fromStage = match.stage
     updateStage.mutate(
       { id: match.id, stage: toStage },
       {
         onSuccess: () =>
-          toast.success(`Moved to ${matchStageLabels[toStage]}`, {
+          toast.success(`Moved to ${pursuitStageLabels[toStage]}`, {
             action: {
               label: 'Undo',
               onClick: () => updateStage.mutate({ id: match.id, stage: fromStage }),
             },
           }),
-        onError: () => toast.error('Could not move match'),
+        onError: () => toast.error('Could not move pursuit'),
       },
     )
   }
 
   const handleMove = (match: MatchWithRelations, toStageStr: string) => {
-    const toStage = toStageStr as Enums<'match_stage'>
-    if (toStage === 'toured' && !match.tour_date) {
-      setDateMove({ match, stage: 'toured' })
-    } else if (toStage === 'loi' && !match.loi_date) {
-      setDateMove({ match, stage: 'loi' })
-    } else if (toStage === 'lease_negotiation' && !match.lease_negotiation_date) {
-      setDateMove({ match, stage: 'lease_negotiation' })
+    const toStage = toStageStr as Enums<'pursuit_stage'>
+    if (toStage === 'touring' && !match.tour_date) {
+      setDateMove({ match, stage: 'touring' })
     } else if (toStage === 'executed') {
       setExecutedMove({ match, toStage })
     } else {
@@ -159,58 +151,41 @@ export function TenantBoardPage() {
     }
   }
 
-  const confirmDate = (patch: Partial<TablesUpdate<'matches'>>) => {
+  const confirmDate = (patch: Partial<TablesUpdate<'pursuits'>>) => {
     if (!dateMove) return
     const { match, stage } = dateMove
     updateStage.mutate(
       { id: match.id, stage, patch },
       {
         onSuccess: () => {
-          toast.success(`Moved to ${matchStageLabels[stage]}`)
+          toast.success(`Moved to ${pursuitStageLabels[stage]}`)
           setDateMove(null)
         },
-        onError: () => toast.error('Could not move match'),
+        onError: () => toast.error('Could not move pursuit'),
       },
     )
   }
 
-  // Await every write so success only reports once linked records are synced.
+  // Execute the pursuit: the RPC writes the comp, stamps the fee, and optionally
+  // closes the client + the property's listing.
   const confirmExecuted = async (result: ExecutedResult) => {
     if (!executedMove) return
     const match = executedMove.match
-    const fee = result.actualFee
-    const econ = Object.fromEntries(
-      Object.entries(result.economics).filter(([, v]) => v != null),
-    )
     try {
-      await updateStage.mutateAsync({
-        id: match.id,
-        stage: 'executed',
-        patch: {
-          execution_date: result.executionDate,
-          ...(fee != null ? { actual_fee: fee } : {}),
-          ...econ,
+      await executePursuit.mutateAsync({
+        pursuitId: match.id,
+        terms: {
+          executed_date: result.executedDate,
+          ...(result.actualFee != null ? { actual_fee: result.actualFee } : {}),
+          ...result.economics,
+          close_client: result.closeClient,
+          close_listing: result.closeListing,
         },
       })
-      // record the fee on the tenant rep (board context) and bump it if asked
-      const tenantPatch = {
-        ...(result.moveTenantExecuted ? { stage: 'executed' as const } : {}),
-        ...(fee != null ? { actual_fee: fee } : {}),
-      }
-      if (Object.keys(tenantPatch).length > 0) {
-        await updateTenantRep.mutateAsync({ id: tenantRep.id, ...tenantPatch })
-      }
-      if (result.markListingClosed && match.listing_id) {
-        await updateListing.mutateAsync({
-          id: match.listing_id,
-          stage: 'closed',
-          ...(fee != null ? { actual_fee: fee } : {}),
-        })
-      }
       toast.success('Deal executed')
       setExecutedMove(null)
     } catch {
-      toast.error('Could not fully sync the deal — some linked records may need a manual update')
+      toast.error('Could not execute the deal')
     }
   }
 
@@ -289,7 +264,7 @@ export function TenantBoardPage() {
               columns={tenantBoardStages(tenantRep.deal_type)}
               items={matches}
               getId={(m) => m.id}
-              getStage={(m) => mapTenantBoardColumn(m.stage)}
+              getStage={(m) => m.stage}
               onMove={handleMove}
               renderCard={(m) => (
                 <MatchCard
@@ -305,13 +280,13 @@ export function TenantBoardPage() {
 
         <aside className="order-2 w-full lg:order-1 lg:w-auto lg:shrink-0">
           <BoardInfoPanel
-            entityType="tenant_rep"
+            entityType="client"
             entityId={tenantRep.id}
             fileCategory="rep_agreement"
             collapsed={infoCollapsed}
             onToggle={toggleInfo}
           >
-            <DealTasks entityType="tenant_rep" entityId={tenantRep.id} />
+            <DealTasks parentType="client" parentId={tenantRep.id} />
 
             {liveInPlay.length > 0 && (
               <SidebarSection title="Pipeline">
@@ -321,14 +296,14 @@ export function TenantBoardPage() {
                   </Badge>
                   {pastLoi > 0 && (
                     <Badge variant="secondary" className="font-normal">
-                      {pastLoi} past LOI
+                      {pastLoi} in negotiation
                     </Badge>
                   )}
                 </div>
               </SidebarSection>
             )}
 
-            {(tenantRep.stage === 'executed' || tenantRep.actual_fee != null) && (
+            {(tenantRep.status === 'closed' || tenantRep.actual_fee != null) && (
               <SidebarSection title="Commission">
                 <button
                   type="button"
@@ -417,7 +392,7 @@ export function TenantBoardPage() {
             </SidebarSection>
 
             <SidebarSection title="Notes">
-              <NotesLog entityType="tenant_rep" entityId={tenantRep.id} showComposer={false} />
+              <NotesLog parentType="client" parentId={tenantRep.id} showComposer={false} />
             </SidebarSection>
 
             <SidebarSection title="Source">
@@ -474,19 +449,13 @@ export function TenantBoardPage() {
       <ExecutedMatchDialog
         open={!!executedMove}
         onOpenChange={(open) => !open && setExecutedMove(null)}
-        hasTenantRep
-        hasListing={!!executedMove?.match.listing_id}
         dealType={tenantRep.deal_type}
-        commissionCalcContext={
-          executedMove?.match.listing
-            ? {
-                commissionPct: executedMove.match.listing.commission_pct,
-                coBrokeSplitPct: executedMove.match.listing.co_broke_split_pct,
-                buildingSf: executedMove.match.property?.building_sf ?? null,
-              }
-            : null
-        }
-        pending={updateStage.isPending || updateListing.isPending || updateTenantRep.isPending}
+        commissionCalcContext={{
+          commissionPct: tenantRep.commission_pct,
+          coBrokeSplitPct: null,
+          buildingSf: executedMove?.match.property?.building_sf ?? null,
+        }}
+        pending={executePursuit.isPending}
         onConfirm={confirmExecuted}
       />
     </div>

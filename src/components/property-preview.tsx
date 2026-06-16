@@ -35,7 +35,7 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPreviewProps) {
   const navigate = useNavigate()
   const { data: p, isLoading } = useProperty(propertyId ?? undefined)
-  const listingUrl = p?.listing_url ?? p?.source_url
+  const listingUrl = p?.listing_url
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

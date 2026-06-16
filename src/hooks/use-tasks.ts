@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
+import type { ParentType } from '@/hooks/use-notes'
 
 export type TaskWithContact = Tables<'tasks'> & {
   contact: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
@@ -17,11 +18,12 @@ export const taskKindLabels: Record<Enums<'task_kind'>, string> = {
   general: 'Task',
 }
 
-/** Route into the deal a task is attached to, for the "click task → open deal" flow. */
-export function taskDealPath(task: Pick<Tables<'tasks'>, 'entity_type' | 'entity_id'>): string | null {
-  if (!task.entity_type || !task.entity_id) return null
-  if (task.entity_type === 'tenant_rep') return `/tenant-rep/${task.entity_id}`
-  if (task.entity_type === 'listing') return `/landlord-rep/${task.entity_id}`
+/** Route into the deal a task is attached to, for the "click task -> open deal" flow. */
+export function taskDealPath(
+  task: Pick<Tables<'tasks'>, 'client_id' | 'listing_id' | 'pursuit_id'>,
+): string | null {
+  if (task.client_id) return `/tenant-rep/${task.client_id}`
+  if (task.listing_id) return `/landlord-rep/${task.listing_id}`
   return null
 }
 
@@ -89,25 +91,27 @@ export function useToggleTask() {
   })
 }
 
-/** Create/replace the auto-generated lease-renewal reminder for a deal. */
+const parentColumn = (t: ParentType) =>
+  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
+
+/** Create/replace the auto-generated lease-renewal reminder for a pursuit. */
 export function useUpsertRenewalTask() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (args: {
       owner: string
-      matchId: string
-      entityType: Enums<'note_entity'>
-      entityId: string
+      pursuitId: string
+      parentType: ParentType
+      parentId: string
       contactId: string | null
       title: string
       dueDate: string
     }) => {
-      // replace any existing open auto renewal task for THIS match (scoped to the
-      // match, not the parent deal, since one deal can have many matches/leases)
+      // replace any existing open auto renewal task for THIS pursuit
       await supabase
         .from('tasks')
         .delete()
-        .eq('match_id', args.matchId)
+        .eq('pursuit_id', args.pursuitId)
         .eq('source', 'lease_renewal')
         .eq('status', 'open')
       const { error } = await supabase.from('tasks').insert({
@@ -115,13 +119,12 @@ export function useUpsertRenewalTask() {
         title: args.title,
         kind: 'renewal',
         due_date: args.dueDate,
-        match_id: args.matchId,
-        entity_type: args.entityType,
-        entity_id: args.entityId,
+        pursuit_id: args.pursuitId,
+        [parentColumn(args.parentType)]: args.parentId,
         contact_id: args.contactId,
         auto_generated: true,
         source: 'lease_renewal',
-      })
+      } as TablesInsert<'tasks'>)
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),

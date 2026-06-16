@@ -17,7 +17,7 @@ import {
 } from '@/hooks/use-properties'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
-import { matchStageLabels } from '@/lib/stages'
+import { pursuitStageLabels } from '@/lib/stages'
 import { formatDate } from '@/lib/dates'
 
 function Field({ label, value }: { label: string; value: ReactNode }) {
@@ -36,13 +36,13 @@ const listingStageLabels: Record<string, string> = {
   closed: 'Closed',
 }
 
-function StatusPill({ status }: { status: 'active' | 'lost' | 'closed' | 'dead' | 'executed' }) {
+function StatusPill({ status }: { status: 'active' | 'lost' | 'closed' | 'passed' | 'executed' }) {
   const map: Record<string, string> = {
     active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     executed: 'bg-blue-50 text-blue-700 border-blue-200',
     closed: 'bg-blue-50 text-blue-700 border-blue-200',
     lost: 'bg-red-50 text-red-700 border-red-200',
-    dead: 'bg-red-50 text-red-700 border-red-200',
+    passed: 'bg-red-50 text-red-700 border-red-200',
   }
   const label = status.charAt(0).toUpperCase() + status.slice(1)
   return (
@@ -87,16 +87,10 @@ function MatchDealRow({ match }: { match: PropertyMatch }) {
   const who =
     match.tenant_company?.name ??
     (match.tenant_contact ? contactNameOf(match.tenant_contact) : 'Tenant prospect')
-  const target = match.tenant_rep_id
-    ? `/tenant-rep/${match.tenant_rep_id}`
-    : match.listing_id
-      ? `/landlord-rep/${match.listing_id}`
-      : null
   return (
     <button
-      onClick={() => target && navigate(target)}
-      disabled={!target}
-      className="flex w-full items-center justify-between gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent disabled:cursor-default disabled:hover:bg-card"
+      onClick={() => navigate(`/tenant-rep/${match.tenant_rep_id}`)}
+      className="flex w-full items-center justify-between gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
@@ -107,9 +101,9 @@ function MatchDealRow({ match }: { match: PropertyMatch }) {
             </Badge>
           )}
         </div>
-        <div className="text-xs text-muted-foreground">{matchStageLabels[match.stage]}</div>
+        <div className="text-xs text-muted-foreground">{pursuitStageLabels[match.stage]}</div>
       </div>
-      <StatusPill status={match.stage === 'dead' ? 'dead' : match.stage === 'executed' ? 'executed' : 'active'} />
+      <StatusPill status={match.stage === 'passed' ? 'passed' : match.stage === 'executed' ? 'executed' : 'active'} />
     </button>
   )
 }
@@ -145,7 +139,7 @@ export function PropertyDetailPage() {
   }
 
   const location = [property.city, property.state, property.zip].filter(Boolean).join(', ')
-  const listingUrl = property.listing_url ?? property.source_url
+  const listingUrl = property.listing_url
   const sourceLabel =
     property.source === 'scrape' ? 'Scraped' : property.source === 'landlord_rep' ? 'My listing' : null
   const photos = property.photo_urls ?? []

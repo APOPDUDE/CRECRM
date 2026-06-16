@@ -45,13 +45,13 @@ export function useGeocodeMissing(enabled = true) {
 
 export type Property = Tables<'properties'>
 
-/** Property plus embedded linked-deal counts (listings + matches). */
+/** Property plus embedded linked-deal counts (listings + pursuits). */
 export type PropertyWithCounts = Property & {
   listings: { count: number }[]
   matches: { count: number }[]
 }
 
-/** Total linked deals on a property: landlord listings + tenant matches. */
+/** Total linked deals on a property: landlord listings + tenant pursuits. */
 export function dealCount(p: Pick<PropertyWithCounts, 'listings' | 'matches'>): number {
   return (p.listings?.[0]?.count ?? 0) + (p.matches?.[0]?.count ?? 0)
 }
@@ -62,7 +62,7 @@ export function useProperties() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('properties')
-        .select('*, listings(count), matches(count)')
+        .select('*, listings(count), matches:pursuits(count)')
         .order('address')
       if (error) throw error
       return data as unknown as PropertyWithCounts[]
@@ -78,20 +78,30 @@ export type PropertyListing = Pick<
 }
 
 export type PropertyMatch = Pick<
-  Tables<'matches'>,
-  'id' | 'stage' | 'flagged_new' | 'tenant_rep_id' | 'listing_id' | 'inquiry_date'
+  Tables<'pursuits'>,
+  'id' | 'stage' | 'flagged_new' | 'inquiry_date'
 > & {
+  /** alias of client_id, for routing to the tenant board */
+  tenant_rep_id: string
   tenant_company: Pick<Tables<'companies'>, 'id' | 'name'> | null
   tenant_contact: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
 }
 
-/** Landlord listings + tenant matches tied to a property — its association view. */
+type PropertyPursuitRow = Pick<Tables<'pursuits'>, 'id' | 'stage' | 'flagged_new' | 'inquiry_date'> & {
+  client_id: string
+  client: {
+    company: Pick<Tables<'companies'>, 'id' | 'name'> | null
+    contact: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
+  } | null
+}
+
+/** Landlord listings + tenant pursuits tied to a property — its association view. */
 export function usePropertyDeals(propertyId: string | undefined) {
   return useQuery({
     queryKey: ['property-deals', propertyId],
     enabled: !!propertyId,
     queryFn: async () => {
-      const [listingsRes, matchesRes] = await Promise.all([
+      const [listingsRes, pursuitsRes] = await Promise.all([
         supabase
           .from('listings')
           .select(
@@ -100,18 +110,29 @@ export function usePropertyDeals(propertyId: string | undefined) {
           .eq('property_id', propertyId!)
           .order('created_at', { ascending: false }),
         supabase
-          .from('matches')
+          .from('pursuits')
           .select(
-            'id, stage, flagged_new, tenant_rep_id, listing_id, inquiry_date, tenant_company:companies!matches_tenant_company_id_fkey(id, name), tenant_contact:contacts!matches_tenant_contact_id_fkey(id, first_name, last_name)',
+            'id, stage, flagged_new, inquiry_date, client_id, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(id, name), contact:contacts!clients_contact_id_fkey(id, first_name, last_name))',
           )
           .eq('property_id', propertyId!)
           .order('inquiry_date', { ascending: false }),
       ])
       if (listingsRes.error) throw listingsRes.error
-      if (matchesRes.error) throw matchesRes.error
+      if (pursuitsRes.error) throw pursuitsRes.error
+      const matches: PropertyMatch[] = ((pursuitsRes.data ?? []) as unknown as PropertyPursuitRow[]).map(
+        (p) => ({
+          id: p.id,
+          stage: p.stage,
+          flagged_new: p.flagged_new,
+          inquiry_date: p.inquiry_date,
+          tenant_rep_id: p.client_id,
+          tenant_company: p.client?.company ?? null,
+          tenant_contact: p.client?.contact ?? null,
+        }),
+      )
       return {
         listings: (listingsRes.data ?? []) as unknown as PropertyListing[],
-        matches: (matchesRes.data ?? []) as unknown as PropertyMatch[],
+        matches,
       }
     },
   })
@@ -125,7 +146,7 @@ export function propertyAsking(p: Pick<Property, 'asking_rate_psf' | 'asking_pri
   return { rate: p.asking_rate_psf, price: p.asking_price }
 }
 
-export type MatchStage = Enums<'match_stage'>
+export type MatchStage = Enums<'pursuit_stage'>
 
 export function useProperty(id: string | undefined) {
   return useQuery({

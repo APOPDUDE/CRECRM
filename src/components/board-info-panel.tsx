@@ -7,7 +7,7 @@ import { FileSection } from '@/components/files/file-section'
 import { NotesLog } from '@/components/notes-log'
 import { CreateTaskPopover } from '@/components/create-task-popover'
 import { useFiles } from '@/hooks/use-files'
-import { useNotes } from '@/hooks/use-notes'
+import { useNotes, type ParentType } from '@/hooks/use-notes'
 import { cn } from '@/lib/utils'
 import type { Enums } from '@/lib/database.types'
 
@@ -46,7 +46,7 @@ export function SidebarSection({ title, children }: { title: string; children: R
 }
 
 interface BoardInfoPanelProps {
-  entityType: Extract<Enums<'note_entity'>, 'listing' | 'tenant_rep'>
+  entityType: ParentType
   entityId: string
   fileCategory: Enums<'file_category'>
   collapsed: boolean
@@ -114,7 +114,7 @@ export function BoardInfoPanel({
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="max-h-[70vh] w-80 overflow-y-auto">
-              <FileSection entityType={entityType} entityId={entityId} defaultCategory={fileCategory} />
+              <FileSection parentType={entityType} parentId={entityId} defaultCategory={fileCategory} />
             </PopoverContent>
           </Popover>
           <Popover>
@@ -125,10 +125,10 @@ export function BoardInfoPanel({
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="max-h-[70vh] w-80 overflow-y-auto">
-              <NotesLog entityType={entityType} entityId={entityId} />
+              <NotesLog parentType={entityType} parentId={entityId} />
             </PopoverContent>
           </Popover>
-          <CreateTaskPopover entityType={entityType} entityId={entityId} />
+          <CreateTaskPopover parentType={entityType} parentId={entityId} />
         </div>
 
         {children}

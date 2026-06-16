@@ -28,7 +28,6 @@ export const propertyKindLabels: Record<Enums<'property_kind'>, string> = {
   industrial: 'Industrial',
   office: 'Office',
   retail: 'Retail',
-  flex: 'Flex',
   land: 'Land',
   other: 'Other',
 }

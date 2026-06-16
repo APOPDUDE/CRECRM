@@ -52,19 +52,16 @@ import {
   useMarkTenantRepLost,
   useReopenTenantRep,
   useTenantReps,
-  useUpdateTenantRepStage,
+  useUpdateClientStatus,
 } from '@/hooks/use-tenant-reps'
 import type { TenantRepWithRelations } from '@/hooks/use-tenant-reps'
 import { formatListingPrice } from '@/lib/format'
 import { getReppingSide, setReppingSide } from '@/lib/repping-side'
 import {
-  bucketToTenantRepStage,
+  clientOverviewStages,
+  clientStatusLabels,
   listingStages,
-  liveMatches,
-  reppingOverviewStages,
-  tenantRepStages,
-  tenantRepStageToBucket,
-  type ReppingBucket,
+  livePursuits,
 } from '@/lib/stages'
 import type { Enums } from '@/lib/database.types'
 import { cn } from '@/lib/utils'
@@ -73,8 +70,6 @@ type StatusFilter = 'active' | 'lost' | 'all'
 type Side = 'landlord' | 'tenant'
 
 const listingStageLabels = Object.fromEntries(listingStages.map((s) => [s.value, s.label]))
-const tenantStageLabels = Object.fromEntries(tenantRepStages.map((s) => [s.value, s.label]))
-const bucketLabels = Object.fromEntries(reppingOverviewStages.map((s) => [s.value, s.label]))
 
 function tenantName(t: TenantRepWithRelations): string {
   if (t.company?.name) return t.company.name
@@ -136,7 +131,7 @@ export function ReppingPage() {
   const listingsQ = useListings()
   const tenantsQ = useTenantReps()
   const updateListingStage = useUpdateListingStage()
-  const updateTenantStage = useUpdateTenantRepStage()
+  const updateClientStatus = useUpdateClientStatus()
   const markListingLost = useMarkListingLost()
   const markTenantLost = useMarkTenantRepLost()
   const reopenListing = useReopenListing()
@@ -170,18 +165,20 @@ export function ReppingPage() {
     )
   }
 
-  const handleTenantMove = (tenantRep: TenantRepWithRelations, toBucket: ReppingBucket) => {
-    const fromStage = tenantRep.stage
-    const target = bucketToTenantRepStage(toBucket)
-    if (fromStage === target) return
-    updateTenantStage.mutate(
-      { id: tenantRep.id, stage: target },
+  const handleTenantMove = (
+    tenantRep: TenantRepWithRelations,
+    toStatus: Enums<'client_status'>,
+  ) => {
+    const fromStatus = tenantRep.status
+    if (fromStatus === toStatus) return
+    updateClientStatus.mutate(
+      { id: tenantRep.id, status: toStatus },
       {
         onSuccess: () => {
-          toast.success(`Moved to ${bucketLabels[toBucket]}`, {
+          toast.success(`Moved to ${clientStatusLabels[toStatus]}`, {
             action: {
               label: 'Undo',
-              onClick: () => updateTenantStage.mutate({ id: tenantRep.id, stage: fromStage }),
+              onClick: () => updateClientStatus.mutate({ id: tenantRep.id, status: fromStatus }),
             },
           })
         },
@@ -357,10 +354,10 @@ export function ReppingPage() {
           />
         ) : (
           <KanbanBoard
-            columns={reppingOverviewStages}
+            columns={clientOverviewStages}
             items={filteredTenants}
             getId={(t) => t.id}
-            getStage={(t) => tenantRepStageToBucket(t.stage)}
+            getStage={(t) => t.status}
             onMove={handleTenantMove}
             renderCard={(t) => (
               <TenantRepCard
@@ -398,7 +395,7 @@ export function ReppingPage() {
                   <TableCell className="text-muted-foreground">{l.landlord?.name}</TableCell>
                   <TableCell>{listingStageLabels[l.stage]}</TableCell>
                   <TableCell className="tabular-nums">{formatListingPrice(l)}</TableCell>
-                  <TableCell>{liveMatches(l.matches).length}</TableCell>
+                  <TableCell>{livePursuits(l.matches).length}</TableCell>
                   <TableCell>
                     <SourceBadge source={l.source} />
                   </TableCell>
@@ -447,9 +444,9 @@ export function ReppingPage() {
                   onClick={() => navigate(`/tenant-rep/${t.id}`)}
                 >
                   <TableCell className="font-medium">{tenantName(t)}</TableCell>
-                  <TableCell>{tenantStageLabels[t.stage]}</TableCell>
+                  <TableCell>{clientStatusLabels[t.status]}</TableCell>
                   <TableCell className="text-muted-foreground">{sizeSummary(t) ?? '—'}</TableCell>
-                  <TableCell>{liveMatches(t.matches).length}</TableCell>
+                  <TableCell>{livePursuits(t.matches).length}</TableCell>
                   <TableCell>
                     <SourceBadge source={t.source} />
                   </TableCell>
@@ -460,12 +457,12 @@ export function ReppingPage() {
                         t.status === 'lost' ? 'text-red-600' : 'text-muted-foreground',
                       )}
                     >
-                      {t.status === 'lost' ? 'Lost' : 'Active'}
+                      {clientStatusLabels[t.status]}
                     </span>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <RowActions
-                      status={t.status}
+                      status={t.status === 'lost' ? 'lost' : 'active'}
                       onMarkLost={() => setLosingTenant(t)}
                       onReopen={() => handleReopenTenant(t)}
                       label="Tenant actions"
@@ -489,7 +486,7 @@ export function ReppingPage() {
         open={!!losingListing}
         onOpenChange={(open) => !open && setLosingListing(null)}
         title={`Mark “${losingListing?.property?.address ?? 'listing'}” lost?`}
-        openMatchCount={losingListing ? liveMatches(losingListing.matches).length : 0}
+        openMatchCount={losingListing ? livePursuits(losingListing.matches).length : 0}
         pending={markListingLost.isPending}
         onConfirm={confirmListingLost}
       />
@@ -497,7 +494,7 @@ export function ReppingPage() {
         open={!!losingTenant}
         onOpenChange={(open) => !open && setLosingTenant(null)}
         title={`Mark “${losingTenant ? tenantName(losingTenant) : 'tenant'}” lost?`}
-        openMatchCount={losingTenant ? liveMatches(losingTenant.matches).length : 0}
+        openMatchCount={losingTenant ? livePursuits(losingTenant.matches).length : 0}
         pending={markTenantLost.isPending}
         onConfirm={confirmTenantLost}
       />

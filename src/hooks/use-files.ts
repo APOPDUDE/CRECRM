@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Enums, Tables } from '@/lib/database.types'
+import type { Enums, Tables, TablesInsert } from '@/lib/database.types'
+import type { ParentType } from '@/hooks/use-notes'
 
 export type FileRow = Tables<'files'>
-type NoteEntity = Enums<'note_entity'>
 type FileCategory = Enums<'file_category'>
 
 const BUCKET = 'deal-files'
-const filesKey = (entityType: NoteEntity, entityId: string) => ['files', entityType, entityId]
+const parentColumn = (t: ParentType) =>
+  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
+const filesKey = (parentType: ParentType, parentId: string) => ['files', parentType, parentId]
 
 export const fileCategoryLabels: Record<FileCategory, string> = {
   listing_agreement: 'Listing agreement',
@@ -23,16 +25,15 @@ export const fileCategoryLabels: Record<FileCategory, string> = {
   other: 'Other',
 }
 
-export function useFiles(entityType: NoteEntity, entityId: string | undefined) {
+export function useFiles(parentType: ParentType, parentId: string | undefined) {
   return useQuery({
-    queryKey: filesKey(entityType, entityId ?? ''),
-    enabled: !!entityId,
+    queryKey: filesKey(parentType, parentId ?? ''),
+    enabled: !!parentId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('files')
         .select('*')
-        .eq('entity_type', entityType)
-        .eq('entity_id', entityId!)
+        .eq(parentColumn(parentType), parentId!)
         .order('uploaded_at', { ascending: false })
       if (error) throw error
       return data
@@ -45,7 +46,7 @@ export interface UploadResult {
   failed: string[]
 }
 
-export function useUploadFiles(entityType: NoteEntity, entityId: string) {
+export function useUploadFiles(parentType: ParentType, parentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
@@ -56,23 +57,20 @@ export function useUploadFiles(entityType: NoteEntity, entityId: string) {
       category: FileCategory
     }): Promise<UploadResult> => {
       const failed: string[] = []
-      // each file commits independently; one failure doesn't abort the rest
       for (const file of files) {
         try {
-          const path = `${entityType}/${entityId}/${crypto.randomUUID()}-${file.name}`
+          const path = `${parentType}/${parentId}/${crypto.randomUUID()}-${file.name}`
           const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file)
           if (uploadError) throw uploadError
           const { error: insertError } = await supabase.from('files').insert({
-            entity_type: entityType,
-            entity_id: entityId,
+            [parentColumn(parentType)]: parentId,
             category,
             file_name: file.name,
             storage_path: path,
             file_size: file.size,
             mime_type: file.type || null,
-          })
+          } as TablesInsert<'files'>)
           if (insertError) {
-            // roll back the orphaned storage object if the row insert fails
             await supabase.storage.from(BUCKET).remove([path])
             throw insertError
           }
@@ -82,23 +80,22 @@ export function useUploadFiles(entityType: NoteEntity, entityId: string) {
       }
       return { total: files.length, failed }
     },
-    // always refresh so successfully-committed files surface, even on partial failure
-    onSettled: () => queryClient.invalidateQueries({ queryKey: filesKey(entityType, entityId) }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: filesKey(parentType, parentId) }),
   })
 }
 
-export function useRenameFile(entityType: NoteEntity, entityId: string) {
+export function useRenameFile(parentType: ParentType, parentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const { error } = await supabase.from('files').update({ file_name: name }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: filesKey(entityType, entityId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: filesKey(parentType, parentId) }),
   })
 }
 
-export function useDeleteFile(entityType: NoteEntity, entityId: string) {
+export function useDeleteFile(parentType: ParentType, parentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (file: FileRow) => {
@@ -106,7 +103,7 @@ export function useDeleteFile(entityType: NoteEntity, entityId: string) {
       const { error } = await supabase.from('files').delete().eq('id', file.id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: filesKey(entityType, entityId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: filesKey(parentType, parentId) }),
   })
 }
 

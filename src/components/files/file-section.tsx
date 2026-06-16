@@ -36,36 +36,36 @@ import {
   useUploadFiles,
 } from '@/hooks/use-files'
 import type { FileRow } from '@/hooks/use-files'
+import type { ParentType } from '@/hooks/use-notes'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatBytes } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 
-type NoteEntity = Enums<'note_entity'>
 type FileCategory = Enums<'file_category'>
 
 const isPreviewable = (mime: string | null) =>
   !!mime && (mime.startsWith('image/') || mime === 'application/pdf')
 
 interface FileSectionProps {
-  entityType: NoteEntity
-  entityId: string
+  parentType: ParentType
+  parentId: string
   defaultCategory?: FileCategory
   /** Fires after a lease/PSA file uploads successfully (used to prompt for lease dates). */
   onLeaseUploaded?: () => void
 }
 
 export function FileSection({
-  entityType,
-  entityId,
+  parentType,
+  parentId,
   defaultCategory = 'other',
   onLeaseUploaded,
 }: FileSectionProps) {
-  const { data: files = [], isLoading } = useFiles(entityType, entityId)
-  const upload = useUploadFiles(entityType, entityId)
-  const rename = useRenameFile(entityType, entityId)
-  const remove = useDeleteFile(entityType, entityId)
+  const { data: files = [], isLoading } = useFiles(parentType, parentId)
+  const upload = useUploadFiles(parentType, parentId)
+  const rename = useRenameFile(parentType, parentId)
+  const remove = useDeleteFile(parentType, parentId)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [category, setCategory] = useState<FileCategory>(defaultCategory)
@@ -152,7 +152,7 @@ export function FileSection({
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${entityType}-files.zip`
+      a.download = `${parentType}-files.zip`
       a.click()
       URL.revokeObjectURL(url)
       if (failed.length > 0) toast.error(`${failed.length} file(s) couldn't be added to the zip`)

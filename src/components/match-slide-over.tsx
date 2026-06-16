@@ -21,11 +21,9 @@ import { SourceBadge } from '@/components/source-badge'
 import { ContactActions } from '@/components/contact-actions'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useDeleteMatch, useMatch, usePromoteToTenantRep } from '@/hooks/use-matches'
-import { useAuth } from '@/hooks/use-auth'
-import { matchStageLabels } from '@/lib/stages'
-import { formatCurrency, formatPsf } from '@/lib/format'
+import { pursuitStageLabels } from '@/lib/stages'
+import { formatCurrency } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
-import { cn } from '@/lib/utils'
 
 interface MatchSlideOverProps {
   matchId: string | null
@@ -43,19 +41,8 @@ function DateRow({ label, value }: { label: string; value: string | null }) {
   )
 }
 
-function ValRow({ label, value, bold }: { label: string; value: string | null; bold?: boolean }) {
-  if (!value) return null
-  return (
-    <div className={cn('flex justify-between text-sm', bold && 'font-medium')}>
-      <span className={cn(!bold && 'text-muted-foreground')}>{label}</span>
-      <span className="tabular-nums">{value}</span>
-    </div>
-  )
-}
-
 export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverProps) {
   const navigate = useNavigate()
-  const { session } = useAuth()
   const { data: match, isLoading } = useMatch(matchId ?? undefined)
   const promote = usePromoteToTenantRep()
   const deleteMatch = useDeleteMatch()
@@ -84,15 +71,15 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
   }
 
   const handlePromote = () => {
-    if (!match || !session?.user.id) return
+    if (!match) return
     promote.mutate(
-      { matchId: match.id, owner: session.user.id },
+      { clientId: match.client_id },
       {
-        onSuccess: (rep) => {
-          toast.success('Promoted to tenant rep')
-          goTo(`/tenant-rep/${rep.id}`)
+        onSuccess: (client) => {
+          toast.success('Promoted to active client')
+          goTo(`/tenant-rep/${client.id}`)
         },
-        onError: () => toast.error('Could not promote to tenant rep'),
+        onError: () => toast.error('Could not promote client'),
       },
     )
   }
@@ -102,9 +89,8 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
       <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
         {isLoading || !match ? (
           <>
-            {/* Radix requires a title for every dialog/sheet, even while loading */}
             <SheetHeader className="sr-only">
-              <SheetTitle>Match</SheetTitle>
+              <SheetTitle>Pursuit</SheetTitle>
             </SheetHeader>
             <div className="p-6 text-sm text-muted-foreground">Loading…</div>
           </>
@@ -112,7 +98,7 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
           <>
             <SheetHeader className="border-b">
               <SheetTitle>{tenantName}</SheetTitle>
-              <SheetDescription>{match.property?.address ?? 'Match'}</SheetDescription>
+              <SheetDescription>{match.property?.address ?? 'Pursuit'}</SheetDescription>
             </SheetHeader>
 
             <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
@@ -127,7 +113,7 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
               <TabsContent value="overview" className="min-h-0 flex-1 overflow-y-auto p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{matchStageLabels[match.stage]}</Badge>
+                    <Badge variant="secondary">{pursuitStageLabels[match.stage]}</Badge>
                     <SourceBadge
                       source={match.source}
                       brokerName={match.broker ? contactNameOf(match.broker) : null}
@@ -150,59 +136,38 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                   <div className="space-y-1.5 rounded-lg border p-3">
                     <DateRow label="Inquiry" value={match.inquiry_date} />
                     <DateRow label="Tour" value={match.tour_date} />
-                    <DateRow label="Executed" value={match.execution_date} />
-                    <DateRow label="Commencement" value={match.commencement_date} />
-                    <DateRow label="Lease expiration" value={match.lease_expiration} />
-                    <DateRow label="PSA executed" value={match.psa_execution_date} />
-                    <DateRow label="DD expiration" value={match.dd_expiration_date} />
-                    <DateRow label="Closing" value={match.closing_date} />
+                    <DateRow label="Executed" value={match.executed_date} />
+                    {match.actual_fee != null && (
+                      <div className="flex justify-between text-sm font-medium">
+                        <span>Fee</span>
+                        <span className="tabular-nums">{formatCurrency(match.actual_fee)}</span>
+                      </div>
+                    )}
                   </div>
 
-                  {(match.actual_fee != null ||
-                    match.executed_rate_psf != null ||
-                    match.executed_price != null) && (
-                    <div className="space-y-1.5 rounded-lg border p-3">
-                      <p className="text-xs font-medium text-muted-foreground">Economics</p>
-                      <ValRow label="Executed rate" value={formatPsf(match.executed_rate_psf)} />
-                      <ValRow label="Executed price" value={formatCurrency(match.executed_price)} />
-                      <ValRow
-                        label="Term"
-                        value={match.term_months != null ? `${match.term_months} mo` : null}
-                      />
-                      <ValRow label="Structure" value={match.lease_structure} />
-                      <ValRow label="Fee" value={formatCurrency(match.actual_fee)} bold />
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Boards</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-between"
+                      onClick={() => goTo(`/properties/${match.property_id}`)}
+                    >
+                      Property page
+                      <ArrowUpRight className="size-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-between"
+                      onClick={() => goTo(`/tenant-rep/${match.client_id}`)}
+                    >
+                      Tenant board
+                      <ArrowUpRight className="size-4" />
+                    </Button>
+                  </div>
 
-                  {(match.listing_id || match.tenant_rep_id) && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Boards</p>
-                      {match.listing_id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-between"
-                          onClick={() => goTo(`/landlord-rep/${match.listing_id}`)}
-                        >
-                          Property board
-                          <ArrowUpRight className="size-4" />
-                        </Button>
-                      )}
-                      {match.tenant_rep_id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-between"
-                          onClick={() => goTo(`/tenant-rep/${match.tenant_rep_id}`)}
-                        >
-                          Tenant board
-                          <ArrowUpRight className="size-4" />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-
-                  {!match.tenant_rep_id && (match.tenant_contact_id || match.tenant_company_id) && (
+                  {match.client?.status === 'prospect' && (
                     <Button
                       variant="secondary"
                       className="w-full"
@@ -210,7 +175,7 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                       disabled={promote.isPending}
                     >
                       <UserPlus className="size-4" />
-                      {promote.isPending ? 'Promoting…' : 'Promote to tenant rep'}
+                      {promote.isPending ? 'Promoting…' : 'Promote to active client'}
                     </Button>
                   )}
 
@@ -229,18 +194,18 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
               <TabsContent value="files" className="min-h-0 flex-1 overflow-y-auto p-4">
                 <div className="space-y-3">
                   {match.stage === 'executed' && (
-                    <ExecutedChecklist matchId={match.id} dealType={match.listing?.deal_type ?? null} />
+                    <ExecutedChecklist matchId={match.id} dealType={match.client?.deal_type ?? null} />
                   )}
                   <FileSection
-                    entityType="match"
-                    entityId={match.id}
+                    parentType="pursuit"
+                    parentId={match.id}
                     onLeaseUploaded={() => setLeaseOpen(true)}
                   />
                 </div>
               </TabsContent>
 
               <TabsContent value="notes" className="min-h-0 flex-1 overflow-y-auto p-4">
-                <NotesLog entityType="match" entityId={match.id} />
+                <NotesLog parentType="pursuit" parentId={match.id} />
               </TabsContent>
             </Tabs>
 

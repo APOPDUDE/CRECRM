@@ -4,11 +4,18 @@ import type { Tables } from '@/lib/database.types'
 import { formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 
-type TenantRep = Tables<'tenant_reps'> & {
+type TenantRep = Tables<'clients'> & {
   company?: Pick<Tables<'companies'>, 'industry'> | null
 }
 
 const acres = (n: number) => `${n} AC`
+
+const purposeLabels: Record<Tables<'clients'>['purpose'] & string, string> = {
+  expansion: 'Expansion',
+  first_location: 'First location',
+  relocation: 'Relocation',
+  investment: 'Investment',
+}
 
 function Row({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null
@@ -24,6 +31,7 @@ function Row({ label, value }: { label: string; value: string | null | undefined
 export function TenantRequirements({ tenantRep }: { tenantRep: TenantRep }) {
   const rows: { label: string; value: string | null }[] = [
     { label: 'Industry', value: tenantRep.company?.industry ?? null },
+    { label: 'Purpose', value: tenantRep.purpose ? purposeLabels[tenantRep.purpose] : null },
     { label: 'Move-in', value: formatDate(tenantRep.move_in_date) },
     { label: 'Move-in context', value: tenantRep.move_in_context },
     {
@@ -31,21 +39,18 @@ export function TenantRequirements({ tenantRep }: { tenantRep: TenantRep }) {
       value: tenantRep.property_type ? propertyKindLabels[tenantRep.property_type] : null,
     },
     {
-      label: 'Warehouse',
-      value: rangeSummary(tenantRep.warehouse_sf_min, tenantRep.warehouse_sf_max, formatSf),
+      label: 'Building',
+      value: rangeSummary(tenantRep.building_sf_min, tenantRep.building_sf_max, formatSf),
     },
     {
-      label: 'Office',
-      value: rangeSummary(tenantRep.office_sf_min, tenantRep.office_sf_max, formatSf),
+      label: 'Land',
+      value: rangeSummary(tenantRep.land_acres_min, tenantRep.land_acres_max, acres),
     },
     {
-      label: 'Outdoor storage',
-      value: rangeSummary(tenantRep.outdoor_storage_min_ac, tenantRep.outdoor_storage_max_ac, acres),
+      label: 'Min cap rate',
+      value: tenantRep.cap_rate_min != null ? `${tenantRep.cap_rate_min}%` : null,
     },
-    { label: 'Power', value: tenantRep.power_requirements },
-    { label: 'Loading', value: tenantRep.loading_type },
-    { label: 'Clear height', value: tenantRep.clear_height },
-    { label: 'Target area', value: tenantRep.target_area },
+    { label: 'Target markets', value: tenantRep.target_markets },
     { label: 'Budget', value: tenantRep.budget },
   ]
   const populated = rows.filter((r) => r.value)

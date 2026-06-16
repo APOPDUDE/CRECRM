@@ -5,59 +5,94 @@ import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.t
 type Contact = Tables<'contacts'>
 type Company = Tables<'companies'>
 
-export type MatchWithRelations = Tables<'matches'> & {
+/**
+ * A pursuit (one client chasing one property) with the relations the boards/cards need.
+ * `client` is the tenant/buyer side; `tenant_company`/`tenant_contact`/`broker`/`source` are
+ * convenience aliases derived from the client so existing card/panel code reads naturally.
+ */
+export type MatchWithRelations = Tables<'pursuits'> & {
   property: Pick<Tables<'properties'>, 'id' | 'address' | 'city' | 'state' | 'building_sf'> | null
-  listing: Pick<
-    Tables<'listings'>,
-    'id' | 'deal_type' | 'commission_pct' | 'co_broke_split_pct'
-  > | null
+  client:
+    | (Pick<
+        Tables<'clients'>,
+        'id' | 'status' | 'deal_type' | 'source' | 'commission_pct' | 'company_id' | 'contact_id'
+      > & {
+        company: Pick<Company, 'id' | 'name'> | null
+        contact: Pick<Contact, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'title'> | null
+        broker: Pick<Contact, 'id' | 'first_name' | 'last_name'> | null
+      })
+    | null
+  // convenience aliases (derived from client)
   tenant_company: Pick<Company, 'id' | 'name'> | null
   tenant_contact: Pick<Contact, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'title'> | null
   broker: Pick<Contact, 'id' | 'first_name' | 'last_name'> | null
+  source: Enums<'lead_source'> | null
+  /** alias of client_id, kept for call sites that route by the tenant side */
+  tenant_rep_id: string
 }
 
 const MATCH_SELECT = `
   *,
-  property:properties!matches_property_id_fkey(id, address, city, state, building_sf),
-  listing:listings!matches_listing_id_fkey(id, deal_type, commission_pct, co_broke_split_pct),
-  tenant_company:companies!matches_tenant_company_id_fkey(id, name),
-  tenant_contact:contacts!matches_tenant_contact_id_fkey(id, first_name, last_name, email, phone, title),
-  broker:contacts!matches_broker_contact_id_fkey(id, first_name, last_name)
+  property:properties!pursuits_property_id_fkey(id, address, city, state, building_sf),
+  client:clients!pursuits_client_id_fkey(
+    id, status, deal_type, source, commission_pct, company_id, contact_id,
+    company:companies!clients_company_id_fkey(id, name),
+    contact:contacts!clients_contact_id_fkey(id, first_name, last_name, email, phone, title),
+    broker:contacts!clients_broker_contact_id_fkey(id, first_name, last_name)
+  )
 `
+
+type PursuitRow = Tables<'pursuits'> & {
+  property: MatchWithRelations['property']
+  client: MatchWithRelations['client']
+}
+
+/** Add the convenience aliases the UI reads (tenant identity derived from the client). */
+function decorate(row: PursuitRow): MatchWithRelations {
+  return {
+    ...row,
+    tenant_company: row.client?.company ?? null,
+    tenant_contact: row.client?.contact ?? null,
+    broker: row.client?.broker ?? null,
+    source: row.client?.source ?? null,
+    tenant_rep_id: row.client_id,
+  }
+}
 
 export const listingMatchesKey = (listingId: string) => ['matches', 'listing', listingId]
 export const tenantRepMatchesKey = (tenantRepId: string) => ['matches', 'tenant_rep', tenantRepId]
+export const propertyMatchesKey = (propertyId: string) => ['matches', 'property', propertyId]
 
-/** Matches on a listing — the prospects shown on a property board. */
-export function useListingMatches(listingId: string | undefined) {
+/** Pursuits on a property (the prospects shown on a landlord/property board). */
+export function usePropertyMatches(propertyId: string | undefined) {
   return useQuery({
-    queryKey: listingMatchesKey(listingId ?? ''),
-    enabled: !!listingId,
+    queryKey: propertyMatchesKey(propertyId ?? ''),
+    enabled: !!propertyId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('matches')
+        .from('pursuits')
         .select(MATCH_SELECT)
-        .eq('listing_id', listingId!)
+        .eq('property_id', propertyId!)
         .order('inquiry_date', { ascending: false })
       if (error) throw error
-      return data as unknown as MatchWithRelations[]
+      return (data as unknown as PursuitRow[]).map(decorate)
     },
   })
 }
 
-/** Matches for a tenant rep — the properties in play shown on a tenant board. */
-export function useTenantRepMatches(tenantRepId: string | undefined) {
+/** Pursuits for a client — the properties in play shown on a tenant board. */
+export function useTenantRepMatches(clientId: string | undefined) {
   return useQuery({
-    queryKey: tenantRepMatchesKey(tenantRepId ?? ''),
-    enabled: !!tenantRepId,
+    queryKey: tenantRepMatchesKey(clientId ?? ''),
+    enabled: !!clientId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('matches')
+        .from('pursuits')
         .select(MATCH_SELECT)
-        .eq('tenant_rep_id', tenantRepId!)
+        .eq('client_id', clientId!)
         .order('inquiry_date', { ascending: false })
       if (error) throw error
-      return data as unknown as MatchWithRelations[]
+      return (data as unknown as PursuitRow[]).map(decorate)
     },
   })
 }
@@ -67,26 +102,32 @@ export function useMatch(id: string | undefined) {
     queryKey: ['match', id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase.from('matches').select(MATCH_SELECT).eq('id', id!).single()
+      const { data, error } = await supabase
+        .from('pursuits')
+        .select(MATCH_SELECT)
+        .eq('id', id!)
+        .single()
       if (error) throw error
-      return data as unknown as MatchWithRelations
+      return decorate(data as unknown as PursuitRow)
     },
   })
 }
 
 function invalidateMatchViews(queryClient: ReturnType<typeof useQueryClient>) {
-  // matches drive both boards' cards and the level-1 boards' aggregate counts
+  // pursuits drive both boards' cards and the level-1 boards' aggregate counts
   queryClient.invalidateQueries({ queryKey: ['matches'] })
   queryClient.invalidateQueries({ queryKey: ['match'] })
   queryClient.invalidateQueries({ queryKey: ['listings'] })
+  queryClient.invalidateQueries({ queryKey: ['listing'] })
   queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
+  queryClient.invalidateQueries({ queryKey: ['tenant_rep'] })
 }
 
 export function useCreateMatch() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: TablesInsert<'matches'>) => {
-      const { data, error } = await supabase.from('matches').insert(values).select().single()
+    mutationFn: async (values: TablesInsert<'pursuits'>) => {
+      const { data, error } = await supabase.from('pursuits').insert(values).select().single()
       if (error) throw error
       return data
     },
@@ -97,9 +138,9 @@ export function useCreateMatch() {
 export function useUpdateMatch() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...values }: TablesUpdate<'matches'> & { id: string }) => {
+    mutationFn: async ({ id, ...values }: TablesUpdate<'pursuits'> & { id: string }) => {
       const { data, error } = await supabase
-        .from('matches')
+        .from('pursuits')
         .update(values)
         .eq('id', id)
         .select()
@@ -111,12 +152,12 @@ export function useUpdateMatch() {
   })
 }
 
-/** Remove a match (e.g. drop a property from a tenant's inquiry list). */
+/** Remove a pursuit (e.g. drop a property from a client's list). */
 export function useDeleteMatch() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('matches').delete().eq('id', id)
+      const { error } = await supabase.from('pursuits').delete().eq('id', id)
       if (error) throw error
     },
     onSuccess: () => invalidateMatchViews(queryClient),
@@ -124,8 +165,8 @@ export function useDeleteMatch() {
 }
 
 /**
- * Optimistically move a match to a new stage on the board identified by `boardKey`
- * (also accepts an extra patch, e.g. tour_date when dropping onto Toured).
+ * Optimistically move a pursuit to a new stage on the board identified by `boardKey`
+ * (also accepts an extra patch, e.g. tour_date when dropping onto Touring).
  */
 export function useUpdateMatchStage(boardKey: readonly unknown[]) {
   const queryClient = useQueryClient()
@@ -136,11 +177,11 @@ export function useUpdateMatchStage(boardKey: readonly unknown[]) {
       patch,
     }: {
       id: string
-      stage: Enums<'match_stage'>
-      patch?: Partial<TablesUpdate<'matches'>>
+      stage: Enums<'pursuit_stage'>
+      patch?: Partial<TablesUpdate<'pursuits'>>
     }) => {
       const { error } = await supabase
-        .from('matches')
+        .from('pursuits')
         .update({ stage, ...patch })
         .eq('id', id)
       if (error) throw error
@@ -160,14 +201,27 @@ export function useUpdateMatchStage(boardKey: readonly unknown[]) {
   })
 }
 
-/** Promote a match's tenant to a full tenant rep (atomic RPC); returns the new tenant_rep id. */
+/** Promote a pursuit's client to an active (signed) client. Returns the client. */
 export function usePromoteToTenantRep() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ matchId, owner }: { matchId: string; owner: string }) => {
-      const { data, error } = await supabase.rpc('promote_match_to_tenant_rep', {
-        p_match_id: matchId,
-        p_owner: owner,
+    mutationFn: async ({ clientId }: { clientId: string }) => {
+      const { data, error } = await supabase.rpc('promote_client', { p_client_id: clientId })
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => invalidateMatchViews(queryClient),
+  })
+}
+
+/** Mark a pursuit executed + write its comp via the execute_pursuit RPC. */
+export function useExecutePursuit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ pursuitId, terms }: { pursuitId: string; terms?: Record<string, unknown> }) => {
+      const { data, error } = await supabase.rpc('execute_pursuit', {
+        p_pursuit_id: pursuitId,
+        p: (terms ?? {}) as never,
       })
       if (error) throw error
       return data

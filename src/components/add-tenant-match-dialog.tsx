@@ -36,14 +36,12 @@ type MakeRep = 'no' | 'lease' | 'sale' | 'both'
 interface AddTenantMatchDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  listingId: string
   propertyId: string
 }
 
 export function AddTenantMatchDialog({
   open,
   onOpenChange,
-  listingId,
   propertyId,
 }: AddTenantMatchDialogProps) {
   const { session } = useAuth()
@@ -79,47 +77,61 @@ export function AddTenantMatchDialog({
 
   const isBroker = source === 'broker'
   const sourceVal = source === NONE ? null : (source as Enums<'lead_source'>)
-  // match needs a tenant identity: a contact, or a tenant rep we're about to create
-  const canSubmit = (!!contactId || makeRep !== 'no') && (!isBroker || !!brokerId)
+  // a pursuit always points at a client, so a contact is required (a prospect IS a client)
+  const canSubmit = !!contactId && (!isBroker || !!brokerId)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!session?.user.id) {
-      toast.error('You must be signed in')
+    if (!session?.user.id || !contactId) {
+      toast.error('A contact is required')
       return
     }
     setPending(true)
     try {
-      // optionally promote to a tenant rep
-      let tenantRepId: string | null = null
-      if (makeRep !== 'no') {
-        const { data: tr, error: trErr } = await supabase
-          .from('tenant_reps')
+      // find-or-create the client for this contact ('no' makes a passive prospect)
+      let clientId: string | null = null
+      const { data: existing } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('owner_id', session.user.id)
+        .eq('contact_id', contactId)
+        .in('status', ['prospect', 'active'])
+        .limit(1)
+        .maybeSingle()
+      if (existing) {
+        clientId = existing.id
+        if (makeRep !== 'no') {
+          await supabase
+            .from('clients')
+            .update({ status: 'active', deal_type: makeRep })
+            .eq('id', clientId)
+        }
+      } else {
+        const { data: c, error: cErr } = await supabase
+          .from('clients')
           .insert({
             owner_id: session.user.id,
-            tenant_company_id: companyId,
-            tenant_contact_id: contactId,
-            deal_type: makeRep,
+            company_id: companyId,
+            contact_id: contactId,
+            status: makeRep === 'no' ? 'prospect' : 'active',
+            deal_type: makeRep === 'no' ? 'lease' : makeRep,
             source: sourceVal,
             broker_contact_id: isBroker ? brokerId : null,
-            target_area: targetArea.trim() || null,
+            target_markets: targetArea.trim() || null,
             budget: budget.trim() || null,
             must_haves: mustHaves.trim() || null,
           })
           .select('id')
           .single()
-        if (trErr) throw trErr
-        tenantRepId = tr.id
+        if (cErr) throw cErr
+        clientId = c.id
       }
 
-      const { error: mErr } = await supabase.from('matches').insert({
+      // open the pursuit on this property (links to the landlord board via property_id)
+      const { error: mErr } = await supabase.from('pursuits').insert({
         property_id: propertyId,
-        listing_id: listingId,
-        tenant_company_id: companyId,
-        tenant_contact_id: contactId,
-        tenant_rep_id: tenantRepId,
-        source: sourceVal,
-        broker_contact_id: isBroker ? brokerId : null,
+        client_id: clientId,
+        owner_id: session.user.id,
         inquiry_date: inquiryDate || undefined,
       })
       if (mErr) throw mErr
@@ -127,7 +139,7 @@ export function AddTenantMatchDialog({
       for (const key of ['matches', 'listings', 'tenant_reps', 'companies', 'contacts']) {
         queryClient.invalidateQueries({ queryKey: [key] })
       }
-      toast.success(makeRep !== 'no' ? 'Tenant added & promoted to tenant rep' : 'Tenant added')
+      toast.success(makeRep !== 'no' ? 'Tenant added & repping' : 'Tenant added')
       onOpenChange(false)
     } catch (error) {
       toast.error(friendlyDbError(error, 'Could not add tenant'))

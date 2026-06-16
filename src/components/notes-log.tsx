@@ -5,19 +5,19 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateNote, useDeleteNote, useNotes, useUpdateNote } from '@/hooks/use-notes'
-import type { Enums } from '@/lib/database.types'
+import type { ParentType } from '@/hooks/use-notes'
 import { formatDate } from '@/lib/dates'
 
 interface NotesLogProps {
-  entityType: Enums<'note_entity'>
-  entityId: string
+  parentType: ParentType
+  parentId: string
   /** Hide the "add a note" composer (e.g. when an Add button already lives elsewhere). */
   showComposer?: boolean
 }
 
 /** A simple dated notes log — one timestamped note per entry, with inline edit + delete. */
-export function NotesLog({ entityType, entityId, showComposer = true }: NotesLogProps) {
-  const { data: notes = [], isLoading } = useNotes(entityType, entityId)
+export function NotesLog({ parentType, parentId, showComposer = true }: NotesLogProps) {
+  const { data: notes = [], isLoading } = useNotes(parentType, parentId)
   const createNote = useCreateNote()
   const updateNote = useUpdateNote()
   const deleteNote = useDeleteNote()
@@ -31,7 +31,7 @@ export function NotesLog({ entityType, entityId, showComposer = true }: NotesLog
     const text = body.trim()
     if (!text) return
     createNote.mutate(
-      { entityType, entityId, body: text },
+      { parentType, parentId, body: text },
       {
         onSuccess: () => setBody(''),
         onError: () => toast.error('Could not save note'),
@@ -48,7 +48,7 @@ export function NotesLog({ entityType, entityId, showComposer = true }: NotesLog
     const text = editBody.trim()
     if (!editingId || !text) return
     updateNote.mutate(
-      { id: editingId, entityType, entityId, body: text },
+      { id: editingId, parentType, parentId, body: text },
       {
         onSuccess: () => setEditingId(null),
         onError: () => toast.error('Could not update'),
@@ -58,7 +58,7 @@ export function NotesLog({ entityType, entityId, showComposer = true }: NotesLog
 
   const handleDelete = (id: string) => {
     deleteNote.mutate(
-      { id, entityType, entityId },
+      { id, parentType, parentId },
       {
         onSuccess: () => toast.success('Deleted'),
         onError: () => toast.error('Could not delete'),

@@ -93,15 +93,15 @@ export function useSearchListingsForTenant() {
   })
 }
 
-/** Clear the "new match" flag for a tenant's matches once its board has been viewed. */
+/** Clear the "new" flag for a client's pursuits once its board has been viewed. */
 export function useClearFlaggedNew() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (tenantRepId: string) => {
+    mutationFn: async (clientId: string) => {
       const { error } = await supabase
-        .from('matches')
+        .from('pursuits')
         .update({ flagged_new: false })
-        .eq('tenant_rep_id', tenantRepId)
+        .eq('client_id', clientId)
         .eq('flagged_new', true)
       if (error) throw error
     },

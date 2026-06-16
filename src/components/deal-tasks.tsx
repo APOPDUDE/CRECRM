@@ -1,25 +1,29 @@
 import { Checkbox } from '@/components/ui/checkbox'
 import { SidebarSection } from '@/components/board-info-panel'
 import { useTasks, useToggleTask } from '@/hooks/use-tasks'
-import type { Enums } from '@/lib/database.types'
+import type { ParentType } from '@/hooks/use-notes'
 import { formatDate, isOverdue } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 
+const parentColumn = (t: ParentType) =>
+  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
+
 interface DealTasksProps {
-  entityType: Extract<Enums<'note_entity'>, 'listing' | 'tenant_rep'>
-  entityId: string
+  parentType: ParentType
+  parentId: string
 }
 
 /**
  * Open tasks for this deal, shown on the About panel. Add tasks with the Task button
  * in the panel header — this section only lists/completes them.
  */
-export function DealTasks({ entityType, entityId }: DealTasksProps) {
+export function DealTasks({ parentType, parentId }: DealTasksProps) {
   const { data: tasks = [] } = useTasks()
   const toggle = useToggleTask()
 
+  const column = parentColumn(parentType)
   const open = tasks
-    .filter((t) => t.status === 'open' && t.entity_type === entityType && t.entity_id === entityId)
+    .filter((t) => t.status === 'open' && t[column] === parentId)
     .sort((a, b) => ((a.due_date ?? '9999') < (b.due_date ?? '9999') ? -1 : 1))
 
   if (open.length === 0) return null

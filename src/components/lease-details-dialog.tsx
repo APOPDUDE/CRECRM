@@ -18,6 +18,7 @@ import { useUpdateMatch } from '@/hooks/use-matches'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useUpsertRenewalTask } from '@/hooks/use-tasks'
 import { useAuth } from '@/hooks/use-auth'
+import { supabase } from '@/lib/supabase'
 
 interface LeaseDetailsDialogProps {
   open: boolean
@@ -31,7 +32,8 @@ export function LeaseDetailsDialog({ open, onOpenChange, match }: LeaseDetailsDi
   const { session } = useAuth()
   const updateMatch = useUpdateMatch()
   const upsertRenewal = useUpsertRenewalTask()
-  const pending = updateMatch.isPending || upsertRenewal.isPending
+  const [saving, setSaving] = useState(false)
+  const pending = updateMatch.isPending || upsertRenewal.isPending || saving
 
   const [execution, setExecution] = useState('')
   const [commencement, setCommencement] = useState('')
@@ -40,10 +42,10 @@ export function LeaseDetailsDialog({ open, onOpenChange, match }: LeaseDetailsDi
 
   useEffect(() => {
     if (open) {
-      setExecution(match.execution_date ?? '')
-      setCommencement(match.commencement_date ?? '')
-      setExpiration(match.lease_expiration ?? '')
-      setRenewal(match.lease_renewal_date ?? '')
+      setExecution(match.executed_date ?? '')
+      setCommencement('')
+      setExpiration('')
+      setRenewal('')
     }
   }, [open, match])
 
@@ -53,43 +55,41 @@ export function LeaseDetailsDialog({ open, onOpenChange, match }: LeaseDetailsDi
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    setSaving(true)
     try {
-      await updateMatch.mutateAsync({
-        id: match.id,
-        execution_date: execution || null,
-        commencement_date: commencement || null,
-        lease_expiration: expiration || null,
-        lease_renewal_date: renewal || null,
-      })
+      // executed_date lives on the pursuit; lease dates live on the deal's comp
+      await updateMatch.mutateAsync({ id: match.id, executed_date: execution || null })
+      await supabase
+        .from('comps')
+        .update({
+          commencement_date: commencement || null,
+          expiration_date: expiration || null,
+          executed_at: execution || null,
+        })
+        .eq('pursuit_id', match.id)
 
       // auto-create a renewal reminder ~90 days before the notice deadline
       if (renewal && session?.user.id) {
-        const target = match.tenant_rep_id
-          ? { entityType: 'tenant_rep' as const, entityId: match.tenant_rep_id }
-          : match.listing_id
-            ? { entityType: 'listing' as const, entityId: match.listing_id }
-            : null
-        if (target) {
-          const today = new Date()
-          const due = max([subDays(parseISO(renewal), RENEWAL_LEAD_DAYS), today])
-          await upsertRenewal.mutateAsync({
-            owner: session.user.id,
-            matchId: match.id,
-            ...target,
-            contactId: match.tenant_contact_id,
-            title: `Reach out to ${tenantName} about renewal — ${match.property?.address ?? 'property'}`,
-            dueDate: format(due, 'yyyy-MM-dd'),
-          })
-          toast.success('Lease saved · renewal reminder scheduled')
-        } else {
-          toast.success('Lease details saved')
-        }
+        const today = new Date()
+        const due = max([subDays(parseISO(renewal), RENEWAL_LEAD_DAYS), today])
+        await upsertRenewal.mutateAsync({
+          owner: session.user.id,
+          pursuitId: match.id,
+          parentType: 'client',
+          parentId: match.client_id,
+          contactId: match.tenant_contact?.id ?? null,
+          title: `Reach out to ${tenantName} about renewal — ${match.property?.address ?? 'property'}`,
+          dueDate: format(due, 'yyyy-MM-dd'),
+        })
+        toast.success('Lease saved · renewal reminder scheduled')
       } else {
         toast.success('Lease details saved')
       }
       onOpenChange(false)
     } catch {
       toast.error('Could not save lease details')
+    } finally {
+      setSaving(false)
     }
   }
 

@@ -28,6 +28,7 @@ export const companyTypeLabels: Record<Enums<'company_type'>, string> = {
   landlord: 'Landlord',
   tenant: 'Tenant',
   broker: 'Broker',
+  vendor: 'Vendor',
   other: 'Other',
 }
 

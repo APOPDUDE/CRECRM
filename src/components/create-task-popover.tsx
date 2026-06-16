@@ -16,15 +16,19 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/use-auth'
 import { useCreateTask } from '@/hooks/use-tasks'
+import type { ParentType } from '@/hooks/use-notes'
 import type { Enums } from '@/lib/database.types'
 
+const parentColumn = (t: ParentType) =>
+  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
+
 interface CreateTaskPopoverProps {
-  entityType: Extract<Enums<'note_entity'>, 'listing' | 'tenant_rep'>
-  entityId: string
+  parentType: ParentType
+  parentId: string
 }
 
 /** Quick "add task" popover for the board info panel — sits next to Upload file / Log note. */
-export function CreateTaskPopover({ entityType, entityId }: CreateTaskPopoverProps) {
+export function CreateTaskPopover({ parentType, parentId }: CreateTaskPopoverProps) {
   const { session } = useAuth()
   const createTask = useCreateTask()
 
@@ -51,8 +55,7 @@ export function CreateTaskPopover({ entityType, entityId }: CreateTaskPopoverPro
         kind,
         due_date: dueDate || null,
         details: details.trim() || null,
-        entity_type: entityType,
-        entity_id: entityId,
+        [parentColumn(parentType)]: parentId,
         status: 'open',
         auto_generated: false,
       },

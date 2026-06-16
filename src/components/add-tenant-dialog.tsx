@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,7 +22,7 @@ import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
 import { leadSourceLabels } from '@/components/source-badge'
 import { useAuth } from '@/hooks/use-auth'
-import { supabase } from '@/lib/supabase'
+import { useCreateTenantRep } from '@/hooks/use-tenant-reps'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
 
@@ -36,7 +35,7 @@ interface AddTenantDialogProps {
 
 export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
   const { session } = useAuth()
-  const queryClient = useQueryClient()
+  const createClient = useCreateTenantRep()
   const [pending, setPending] = useState(false)
 
   const [companyId, setCompanyId] = useState<string | null>(null)
@@ -61,19 +60,21 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
       toast.error('You must be signed in to add a tenant')
       return
     }
+    if (!contactId) {
+      toast.error('A primary contact is required')
+      return
+    }
     setPending(true)
     try {
-      const { error } = await supabase.from('tenant_reps').insert({
+      await createClient.mutateAsync({
         owner_id: session.user.id,
-        tenant_company_id: companyId,
-        tenant_contact_id: contactId,
+        contact_id: contactId,
+        company_id: companyId,
+        status: 'active',
         deal_type: dealType,
         must_haves: requirements.trim() || null,
         source: source === NONE ? null : (source as Enums<'lead_source'>),
       })
-      if (error) throw error
-
-      queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
       toast.success('Tenant added')
       onOpenChange(false)
     } catch (error) {
@@ -155,7 +156,7 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || (!companyId && !contactId)}>
+            <Button type="submit" disabled={pending || !contactId}>
               {pending ? 'Adding…' : 'Add tenant'}
             </Button>
           </DialogFooter>

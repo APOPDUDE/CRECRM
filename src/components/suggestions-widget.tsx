@@ -55,7 +55,7 @@ export function SuggestionsWidget() {
       <ul className="divide-y">
         {suggestions.map((s) => {
           const p = s.property
-          const url = p?.listing_url ?? p?.source_url
+          const url = p?.listing_url
           const metrics = [
             formatPsf(p?.asking_rate_psf),
             formatCurrency(p?.asking_price),

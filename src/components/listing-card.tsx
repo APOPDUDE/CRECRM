@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { ListingWithRelations } from '@/hooks/use-listings'
 import { formatListingPrice } from '@/lib/format'
-import { hottestStage, liveMatches, matchStageLabels } from '@/lib/stages'
+import { hottestStage, livePursuits, pursuitStageLabels } from '@/lib/stages'
 import { isOverdue } from '@/lib/dates'
 
 interface ListingCardProps {
@@ -24,7 +24,7 @@ interface ListingCardProps {
 const stopDrag = (e: React.PointerEvent) => e.stopPropagation()
 
 export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCardProps) {
-  const prospects = liveMatches(listing.matches)
+  const prospects = livePursuits(listing.matches)
   const hottest = hottestStage(listing.matches)
   const overdue = listing.status === 'active' && isOverdue(listing.next_action_date)
   const price = formatListingPrice(listing)
@@ -105,7 +105,7 @@ export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCa
           {prospects.length} {prospects.length === 1 ? 'prospect' : 'prospects'}
         </Badge>
         {hottest && (
-          <span className="text-xs text-muted-foreground">{matchStageLabels[hottest]}</span>
+          <span className="text-xs text-muted-foreground">{pursuitStageLabels[hottest]}</span>
         )}
       </div>
     </div>
