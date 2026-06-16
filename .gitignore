@@ -16,7 +16,8 @@ dist-ssr
 .env
 
 # Local handoff notes (keep out of the public repo)
-passover2.md
+context.md
+passover*.md
 history.md
 
 # Editor directories and files
