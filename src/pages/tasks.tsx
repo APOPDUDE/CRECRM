@@ -23,6 +23,8 @@ import {
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -53,6 +55,23 @@ export function TasksPage() {
   const { data: tasks = [], isLoading, isError, refetch } = useTasks()
   const toggle = useToggleTask()
   const deleteTask = useDeleteTask()
+  const queryClient = useQueryClient()
+
+  const markPaymentReceived = async (task: TaskWithContact) => {
+    if (!task.pursuit_id) return
+    const { error } = await supabase
+      .from('pursuits')
+      .update({ payment_received: true })
+      .eq('id', task.pursuit_id)
+    if (error) {
+      toast.error('Could not update payment')
+      return
+    }
+    toggle.mutate({ id: task.id, status: 'done' })
+    queryClient.invalidateQueries({ queryKey: ['dashboard-matches'] })
+    queryClient.invalidateQueries({ queryKey: ['matches'] })
+    toast.success('Payment marked received')
+  }
 
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [showDone, setShowDone] = useState(false)
@@ -143,6 +162,19 @@ export function TasksPage() {
             {path && <span className="text-primary">· Open deal</span>}
           </div>
         </button>
+        {task.source === 'payment_check' && task.status === 'open' && task.pursuit_id && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              void markPaymentReceived(task)
+            }}
+          >
+            Received
+          </Button>
+        )}
         {rowMenu(task)}
       </div>
     )

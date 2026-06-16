@@ -754,6 +754,7 @@ export type Database = {
           inquiry_date: string
           notes: string | null
           owner_id: string
+          payment_received: boolean
           property_id: string
           stage: Database["public"]["Enums"]["pursuit_stage"]
           tour_date: string | null
@@ -769,6 +770,7 @@ export type Database = {
           inquiry_date?: string
           notes?: string | null
           owner_id: string
+          payment_received?: boolean
           property_id: string
           stage?: Database["public"]["Enums"]["pursuit_stage"]
           tour_date?: string | null
@@ -784,6 +786,7 @@ export type Database = {
           inquiry_date?: string
           notes?: string | null
           owner_id?: string
+          payment_received?: boolean
           property_id?: string
           stage?: Database["public"]["Enums"]["pursuit_stage"]
           tour_date?: string | null

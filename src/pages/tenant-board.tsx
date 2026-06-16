@@ -31,9 +31,11 @@ import {
   useDeleteMatch,
   useExecutePursuit,
   useTenantRepMatches,
+  useUpdateMatch,
   useUpdateMatchStage,
 } from '@/hooks/use-matches'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail } from '@/hooks/use-tenant-reps'
 import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-automation'
@@ -56,6 +58,7 @@ export function TenantBoardPage() {
     useTenantRepMatches(tenantRepId)
   const updateStage = useUpdateMatchStage(tenantRepMatchesKey(tenantRepId ?? ''))
   const executePursuit = useExecutePursuit()
+  const updateMatch = useUpdateMatch()
   const deleteMatch = useDeleteMatch()
   const search = useSearchListingsForTenant()
   const clearFlagged = useClearFlaggedNew()
@@ -126,6 +129,7 @@ export function TenantBoardPage() {
   // Pipeline snapshot from the pursuits already loaded for the board.
   const liveInPlay = matches.filter((m) => m.stage !== 'passed')
   const pastLoi = liveInPlay.filter((m) => ['negotiation', 'executed'].includes(m.stage)).length
+  const executedPursuit = matches.find((m) => m.stage === 'executed') ?? null
 
   const plainMove = (match: MatchWithRelations, toStage: Enums<'pursuit_stage'>) => {
     const fromStage = match.stage
@@ -329,6 +333,26 @@ export function TenantBoardPage() {
                     </div>
                   )}
                 </button>
+                {executedPursuit && (
+                  <label className="mt-2 flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={executedPursuit.payment_received}
+                      onCheckedChange={(v) =>
+                        updateMatch.mutate(
+                          { id: executedPursuit.id, payment_received: v === true },
+                          {
+                            onSuccess: () =>
+                              toast.success(v === true ? 'Payment marked received' : 'Payment reminders resumed'),
+                          },
+                        )
+                      }
+                    />
+                    Payment received
+                    {!executedPursuit.payment_received && (
+                      <span className="text-xs text-muted-foreground">· reminding monthly</span>
+                    )}
+                  </label>
+                )}
               </SidebarSection>
             )}
 
