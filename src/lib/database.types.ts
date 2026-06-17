@@ -596,6 +596,7 @@ export type Database = {
           cap_rate_pct: number | null
           city: string | null
           construction_status: string | null
+          county: string | null
           created_at: string
           days_on_market: number | null
           gross_leasable_area: string | null
@@ -649,6 +650,7 @@ export type Database = {
           cap_rate_pct?: number | null
           city?: string | null
           construction_status?: string | null
+          county?: string | null
           created_at?: string
           days_on_market?: number | null
           gross_leasable_area?: string | null
@@ -702,6 +704,7 @@ export type Database = {
           cap_rate_pct?: number | null
           city?: string | null
           construction_status?: string | null
+          county?: string | null
           created_at?: string
           days_on_market?: number | null
           gross_leasable_area?: string | null
@@ -936,7 +939,53 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_county_market_stats: {
+        Row: {
+          county: string | null
+          property_type: string | null
+          lease_n: number | null
+          lease_avg_psf: number | null
+          lease_median_psf: number | null
+          lease_p25_psf: number | null
+          lease_p75_psf: number | null
+          sale_n: number | null
+          sale_avg_psf: number | null
+          sale_median_psf: number | null
+          sale_p25_psf: number | null
+          sale_p75_psf: number | null
+          sale_avg_cap: number | null
+          sale_cap_n: number | null
+          land_n: number | null
+          land_avg_per_acre: number | null
+          land_median_per_acre: number | null
+          listing_n: number | null
+          avg_dom: number | null
+        }
+        Relationships: []
+      }
+      v_property_market_position: {
+        Row: {
+          id: string | null
+          county: string | null
+          property_type: string | null
+          asking_rate_psf: number | null
+          lease_baseline_median: number | null
+          lease_baseline_n: number | null
+          lease_vs_market_pct: number | null
+          good_lease_deal: boolean | null
+          sale_psf: number | null
+          sale_baseline_median: number | null
+          sale_baseline_n: number | null
+          sale_vs_market_pct: number | null
+          good_sale_deal: boolean | null
+          land_per_acre: number | null
+          land_baseline_median: number | null
+          land_baseline_n: number | null
+          land_vs_market_pct: number | null
+          good_land_deal: boolean | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       approve_suggestion: { Args: { p_suggestion_id: string }; Returns: string }

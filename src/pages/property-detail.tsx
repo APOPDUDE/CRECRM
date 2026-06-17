@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, Pencil } from 'lucide-react'
+import { ArrowLeft, ExternalLink, MapPin, Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { PropertyMiniMap } from '@/components/property-mini-map'
+import { MarketPositionCard } from '@/components/market-position-card'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
@@ -15,6 +16,7 @@ import {
   type PropertyListing,
   type PropertyMatch,
 } from '@/hooks/use-properties'
+import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
 import { pursuitStageLabels } from '@/lib/stages'
@@ -118,6 +120,7 @@ export function PropertyDetailPage() {
   const navigate = useNavigate()
   const { data: property, isLoading, isError } = useProperty(id)
   const { data: deals } = usePropertyDeals(id)
+  const { data: marketPos } = usePropertyMarketPosition(id)
   const [editOpen, setEditOpen] = useState(false)
 
   useSetBreadcrumb(property?.address)
@@ -144,6 +147,10 @@ export function PropertyDetailPage() {
   }
 
   const location = [property.city, property.state, property.zip].filter(Boolean).join(', ')
+  const mapsQuery = encodeURIComponent(
+    [property.address, property.city, property.state, property.zip].filter(Boolean).join(', '),
+  )
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`
   const listingUrl = property.listing_url
   const sourceLabel =
     property.source === 'scrape' ? 'Scraped' : property.source === 'landlord_rep' ? 'My listing' : null
@@ -165,7 +172,16 @@ export function PropertyDetailPage() {
             <span className="sr-only">Back</span>
           </Button>
           <div>
-            <h1 className="text-xl font-semibold">{property.address}</h1>
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open in Google Maps"
+              className="group inline-flex items-center gap-1.5 text-xl font-semibold hover:underline"
+            >
+              {property.address}
+              <MapPin className="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+            </a>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {property.property_type && <PropertyTypeBadge type={property.property_type} />}
               {sourceLabel && (
@@ -173,13 +189,28 @@ export function PropertyDetailPage() {
                   {sourceLabel}
                 </Badge>
               )}
+              {isGoodDeal(marketPos) && (
+                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700">
+                  Good deal
+                </Badge>
+              )}
             </div>
           </div>
         </div>
-        <Button variant="outline" onClick={() => setEditOpen(true)}>
-          <Pencil className="size-4" />
-          Edit
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {listingUrl && (
+            <Button variant="outline" asChild>
+              <a href={listingUrl} target="_blank" rel="noopener noreferrer">
+                View listing
+                <ExternalLink className="size-4" />
+              </a>
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setEditOpen(true)}>
+            <Pencil className="size-4" />
+            Edit
+          </Button>
+        </div>
       </div>
 
       {photos.length > 0 && (
@@ -209,7 +240,9 @@ export function PropertyDetailPage() {
         className="max-w-2xl"
       />
 
-      <dl className="grid max-w-2xl grid-cols-1 gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
+      <MarketPositionCard propertyId={property.id} county={property.county} />
+
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <Field label="Title" value={property.title} full />
         <Field
           label="Type"
@@ -217,6 +250,7 @@ export function PropertyDetailPage() {
         />
         <Field label="Sub-types" value={property.property_sub_types?.join(', ') ?? null} />
         <Field label="Location" value={location || null} />
+        <Field label="County" value={property.county ? `${property.county} County` : null} />
         <Field label="Parcel number" value={property.parcel_number} />
         <Field label="Building SF" value={formatSf(property.building_sf)} />
         <Field
@@ -278,22 +312,6 @@ export function PropertyDetailPage() {
         <Field label="Broker phone" value={property.broker_phone} />
         <Field label="Broker email" value={property.broker_email} />
         <Field label="Source" value={property.source} />
-        <Field
-          label="Listing"
-          value={
-            listingUrl ? (
-              <a
-                href={listingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-primary hover:underline"
-              >
-                View listing
-                <ExternalLink className="size-3.5" />
-              </a>
-            ) : null
-          }
-        />
         <Field label="Specs" value={property.specs} full />
       </dl>
 

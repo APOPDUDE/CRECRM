@@ -25,6 +25,7 @@ import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { dealCount, useDeleteProperty, useProperties } from '@/hooks/use-properties'
 import type { Property } from '@/hooks/use-properties'
+import { useGoodDealIds } from '@/hooks/use-market'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
@@ -54,6 +55,7 @@ function formatLocation(property: Property) {
 export function PropertiesPage() {
   const navigate = useNavigate()
   const { data: properties, isLoading, isError, refetch } = useProperties()
+  const { data: goodDealIds } = useGoodDealIds()
   const deleteProperty = useDeleteProperty()
 
   const [search, setSearch] = useState('')
@@ -195,7 +197,19 @@ export function PropertiesPage() {
                     className="cursor-pointer"
                     onClick={() => navigate(`/properties/${property.id}`)}
                   >
-                    <TableCell className="font-medium">{property.address}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="flex items-center gap-2">
+                        {property.address}
+                        {goodDealIds?.has(property.id) && (
+                          <Badge
+                            variant="outline"
+                            className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700"
+                          >
+                            Deal
+                          </Badge>
+                        )}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <PropertyTypeBadge type={property.property_type} />
                     </TableCell>
@@ -245,6 +259,14 @@ export function PropertiesPage() {
                   </span>
                 </Link>
                 <div className="flex shrink-0 items-center gap-1 pr-3">
+                  {goodDealIds?.has(property.id) && (
+                    <Badge
+                      variant="outline"
+                      className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700"
+                    >
+                      Deal
+                    </Badge>
+                  )}
                   <PropertyTypeBadge type={property.property_type} />
                   {rowMenu(property)}
                 </div>
