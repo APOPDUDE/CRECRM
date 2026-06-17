@@ -31,6 +31,7 @@ import {
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
+import { useCreateTask } from '@/hooks/use-tasks'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { formatDate } from '@/lib/dates'
 import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
@@ -48,6 +49,7 @@ export function PropertyBoardPage() {
   const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
     usePropertyMatches(propertyId)
   const updateStage = useUpdateMatchStage(propertyMatchesKey(propertyId ?? ''))
+  const createTask = useCreateTask()
   const updateListing = useUpdateListing()
   const executePursuit = useExecutePursuit()
   const deleteMatch = useDeleteMatch()
@@ -133,6 +135,19 @@ export function PropertyBoardPage() {
       {
         onSuccess: () => {
           toast.success(`Moved to ${pursuitStageLabels[stage]}`)
+          if (stage === 'touring' && patch.tour_date) {
+            const tourDate = patch.tour_date as string
+            const tourTime = (patch.tour_time as string | null | undefined) ?? null
+            createTask.mutate({
+              owner_id: match.owner_id,
+              kind: 'tour',
+              title: `Tour — ${match.property?.address ?? 'property'}`,
+              due_date: tourDate,
+              due_at: tourTime ? new Date(`${tourDate}T${tourTime}`).toISOString() : null,
+              pursuit_id: match.id,
+              contact_id: match.client?.contact_id ?? null,
+            })
+          }
           setDateMove(null)
         },
         onError: () => toast.error('Could not move pursuit'),

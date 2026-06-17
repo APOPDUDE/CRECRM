@@ -290,7 +290,7 @@ export type Database = {
           id: string
           last_name: string | null
           notes: string | null
-          phone: string | null
+          phone: string
           title: string | null
           updated_at: string
         }
@@ -338,6 +338,7 @@ export type Database = {
           id: string
           listing_id: string | null
           mime_type: string | null
+          property_id: string | null
           pursuit_id: string | null
           storage_path: string
           uploaded_at: string
@@ -351,6 +352,7 @@ export type Database = {
           id?: string
           listing_id?: string | null
           mime_type?: string | null
+          property_id?: string | null
           pursuit_id?: string | null
           storage_path: string
           uploaded_at?: string
@@ -364,6 +366,7 @@ export type Database = {
           id?: string
           listing_id?: string | null
           mime_type?: string | null
+          property_id?: string | null
           pursuit_id?: string | null
           storage_path?: string
           uploaded_at?: string
@@ -388,6 +391,13 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
           {
@@ -761,6 +771,7 @@ export type Database = {
           property_id: string
           stage: Database["public"]["Enums"]["pursuit_stage"]
           tour_date: string | null
+          tour_time: string | null
           updated_at: string
         }
         Insert: {
@@ -777,6 +788,7 @@ export type Database = {
           property_id: string
           stage?: Database["public"]["Enums"]["pursuit_stage"]
           tour_date?: string | null
+          tour_time?: string | null
           updated_at?: string
         }
         Update: {
@@ -793,6 +805,7 @@ export type Database = {
           property_id?: string
           stage?: Database["public"]["Enums"]["pursuit_stage"]
           tour_date?: string | null
+          tour_time?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -859,6 +872,7 @@ export type Database = {
           contact_id: string | null
           created_at: string
           details: string | null
+          due_at: string | null
           due_date: string | null
           id: string
           kind: Database["public"]["Enums"]["task_kind"]
@@ -877,6 +891,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           details?: string | null
+          due_at?: string | null
           due_date?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
@@ -895,6 +910,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           details?: string | null
+          due_at?: string | null
           due_date?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
@@ -997,6 +1013,7 @@ export type Database = {
           p_city?: string
           p_deal_type: Database["public"]["Enums"]["deal_type"]
           p_landlord_company_id?: string
+          p_landlord_contact_id?: string
           p_owner: string
           p_property_type?: Database["public"]["Enums"]["property_kind"]
           p_source?: Database["public"]["Enums"]["lead_source"]
@@ -1066,7 +1083,7 @@ export type Database = {
         | "executed"
         | "passed"
       suggestion_status: "pending" | "dismissed"
-      task_kind: "renewal" | "follow_up" | "general"
+      task_kind: "renewal" | "follow_up" | "general" | "tour"
       task_status: "open" | "done"
     }
     CompositeTypes: {
@@ -1241,7 +1258,7 @@ export const Constants = {
         "passed",
       ],
       suggestion_status: ["pending", "dismissed"],
-      task_kind: ["renewal", "follow_up", "general"],
+      task_kind: ["renewal", "follow_up", "general", "tour"],
       task_status: ["open", "done"],
     },
   },

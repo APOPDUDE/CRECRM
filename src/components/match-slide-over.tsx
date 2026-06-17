@@ -23,7 +23,7 @@ import { contactNameOf } from '@/hooks/use-contacts'
 import { useDeleteMatch, useMatch, usePromoteToTenantRep } from '@/hooks/use-matches'
 import { pursuitStageLabels } from '@/lib/stages'
 import { formatCurrency } from '@/lib/format'
-import { formatDate } from '@/lib/dates'
+import { formatDate, formatTimeOfDay } from '@/lib/dates'
 
 interface MatchSlideOverProps {
   matchId: string | null
@@ -135,7 +135,15 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
 
                   <div className="space-y-1.5 rounded-lg border p-3">
                     <DateRow label="Inquiry" value={match.inquiry_date} />
-                    <DateRow label="Tour" value={match.tour_date} />
+                    {match.tour_date && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Tour</span>
+                        <span>
+                          {formatDate(match.tour_date)}
+                          {match.tour_time ? ` · ${formatTimeOfDay(match.tour_time)}` : ''}
+                        </span>
+                      </div>
+                    )}
                     <DateRow label="Executed" value={match.executed_date} />
                     {match.actual_fee != null && (
                       <div className="flex justify-between text-sm font-medium">

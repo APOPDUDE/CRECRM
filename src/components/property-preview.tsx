@@ -77,18 +77,35 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
 
               {p.photo_urls && p.photo_urls.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto">
-                  {p.photo_urls.slice(0, 5).map((u, i) => (
-                    <img
-                      key={i}
-                      src={u}
-                      alt=""
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                      }}
-                      className="h-24 w-36 shrink-0 rounded-lg border object-cover"
-                    />
-                  ))}
+                  {p.photo_urls.slice(0, 5).map((u, i) => {
+                    const img = (
+                      <img
+                        src={u}
+                        alt=""
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                        className="h-24 w-36 shrink-0 rounded-lg border object-cover"
+                      />
+                    )
+                    return listingUrl ? (
+                      <a
+                        key={i}
+                        href={listingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="View listing"
+                        className="shrink-0 transition-opacity hover:opacity-90"
+                      >
+                        {img}
+                      </a>
+                    ) : (
+                      <span key={i} className="shrink-0">
+                        {img}
+                      </span>
+                    )
+                  })}
                 </div>
               )}
 

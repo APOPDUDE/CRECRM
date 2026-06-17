@@ -42,7 +42,7 @@ import { TaskFormDialog } from '@/components/task-form-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useDeleteTask, useTasks, useToggleTask, taskDealPath, taskKindLabels } from '@/hooks/use-tasks'
 import type { TaskWithContact } from '@/hooks/use-tasks'
-import { formatDate, isOverdue } from '@/lib/dates'
+import { formatDate, formatTimeOfDay, isOverdue } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 
 const kindBadgeClass: Record<string, string> = {
@@ -179,6 +179,7 @@ export function TasksPage() {
               <span className={cn(overdue && 'font-medium text-red-600')}>
                 {overdue ? 'Overdue · ' : ''}
                 {formatDate(task.due_date)}
+                {task.due_at ? ` · ${formatTimeOfDay(task.due_at)}` : ''}
               </span>
             )}
             {task.contact && <span>· {contactNameOf(task.contact)}</span>}

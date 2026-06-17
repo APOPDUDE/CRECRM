@@ -19,6 +19,9 @@ export const N8N_PATHS = {
 /** The live custom tenant-intake form (n8n-hosted HTML form). */
 export const TENANT_INTAKE_FORM_URL = 'https://n8n.ayxco.com/webhook/cre-tenant-form'
 
+/** The live custom landlord/listing-intake form (n8n-hosted HTML form). */
+export const LANDLORD_INTAKE_FORM_URL = 'https://n8n.ayxco.com/webhook/cre-landlord-form'
+
 /** POST JSON to an n8n webhook and return its JSON response (throws on failure). */
 export async function callN8nWebhook<T = unknown>(
   path: string,

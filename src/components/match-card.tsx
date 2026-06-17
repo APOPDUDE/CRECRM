@@ -1,10 +1,12 @@
 import { Eye, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { SourceBadge } from '@/components/source-badge'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
+import { SourceBadge, ListingSourceBadge, listingSourceOf } from '@/components/source-badge'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { daysAgoLabel } from '@/lib/dates'
+import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
 interface MatchCardProps {
   match: MatchWithRelations
@@ -36,7 +38,12 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
 
   const days = daysAgoLabel(match.inquiry_date)
 
-  return (
+  // On the tenant board the card is a property — badge where the LISTING came
+  // from (Crexi/LoopNet) and show its photo, not the client's lead source.
+  const listingSrc = facing === 'tenant' ? listingSourceOf(match.property ?? {}) : null
+  const photo = facing === 'tenant' ? match.property?.photo_urls?.[0] : null
+
+  const card = (
     <div
       role="button"
       tabIndex={0}
@@ -50,9 +57,22 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
       className="group w-full cursor-grab rounded-lg border bg-card p-3 text-left shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium">{title}</div>
-          {subtitle && <div className="truncate text-xs text-muted-foreground">{subtitle}</div>}
+        <div className="flex min-w-0 items-start gap-2">
+          {photo && (
+            <img
+              src={photo}
+              alt=""
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+              className="size-10 shrink-0 rounded-md border object-cover"
+            />
+          )}
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{title}</div>
+            {subtitle && <div className="truncate text-xs text-muted-foreground">{subtitle}</div>}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {onPreview && (
@@ -101,7 +121,11 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
         </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        <SourceBadge source={match.source} brokerName={brokerName} />
+        {facing === 'tenant' ? (
+          <ListingSourceBadge source={listingSrc} />
+        ) : (
+          <SourceBadge source={match.source} brokerName={brokerName} />
+        )}
         {days && (
           <span className="text-xs text-muted-foreground">
             {days === 'today' ? 'today' : `${days} ago`}
@@ -110,4 +134,44 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
       </div>
     </div>
   )
+
+  // On the tenant board, hovering a property card previews its photo + highlights.
+  if (facing === 'tenant' && (photo || match.property?.specs)) {
+    const price = [formatPsf(match.property?.asking_rate_psf), formatCurrency(match.property?.asking_price)]
+      .filter(Boolean)
+      .join(' · ')
+    const sf = formatSf(match.property?.building_sf)
+    return (
+      <HoverCard>
+        <HoverCardTrigger asChild>{card}</HoverCardTrigger>
+        <HoverCardContent align="start" className="overflow-hidden">
+          {photo && (
+            <img
+              src={photo}
+              alt=""
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+              className="h-36 w-full border-b object-cover"
+            />
+          )}
+          <div className="space-y-1 p-3">
+            <div className="text-sm font-medium">{match.property?.address}</div>
+            {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
+            {(price || sf) && (
+              <div className="text-xs text-muted-foreground">
+                {[price, sf].filter(Boolean).join(' · ')}
+              </div>
+            )}
+            {match.property?.specs && (
+              <p className="line-clamp-3 pt-1 text-xs text-muted-foreground">{match.property.specs}</p>
+            )}
+          </div>
+        </HoverCardContent>
+      </HoverCard>
+    )
+  }
+
+  return card
 }

@@ -11,7 +11,21 @@ type Company = Tables<'companies'>
  * convenience aliases derived from the client so existing card/panel code reads naturally.
  */
 export type MatchWithRelations = Tables<'pursuits'> & {
-  property: Pick<Tables<'properties'>, 'id' | 'address' | 'city' | 'state' | 'building_sf'> | null
+  property: Pick<
+    Tables<'properties'>,
+    | 'id'
+    | 'address'
+    | 'city'
+    | 'state'
+    | 'building_sf'
+    | 'source'
+    | 'source_key'
+    | 'listing_url'
+    | 'photo_urls'
+    | 'asking_rate_psf'
+    | 'asking_price'
+    | 'specs'
+  > | null
   client:
     | (Pick<
         Tables<'clients'>,
@@ -33,7 +47,7 @@ export type MatchWithRelations = Tables<'pursuits'> & {
 
 const MATCH_SELECT = `
   *,
-  property:properties!pursuits_property_id_fkey(id, address, city, state, building_sf),
+  property:properties!pursuits_property_id_fkey(id, address, city, state, building_sf, source, source_key, listing_url, photo_urls, asking_rate_psf, asking_price, specs),
   client:clients!pursuits_client_id_fkey(
     id, status, deal_type, source, commission_pct, company_id, contact_id,
     company:companies!clients_company_id_fkey(id, name),

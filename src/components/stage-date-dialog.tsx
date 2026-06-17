@@ -43,15 +43,19 @@ export function StageDateDialog({
 }: StageDateDialogProps) {
   const cfg = stage ? CONFIG[stage] : null
   const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
 
   useEffect(() => {
-    if (open) setDate(format(new Date(), 'yyyy-MM-dd'))
+    if (open) {
+      setDate(format(new Date(), 'yyyy-MM-dd'))
+      setTime('')
+    }
   }, [open, stage])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!stage || !date) return
-    onConfirm({ tour_date: date })
+    onConfirm({ tour_date: date, tour_time: time || null })
   }
 
   return (
@@ -62,15 +66,26 @@ export function StageDateDialog({
           <DialogDescription>{cfg?.description}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="stage-date">{cfg?.dateLabel}</Label>
-            <Input
-              id="stage-date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              autoFocus
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="stage-date">{cfg?.dateLabel}</Label>
+              <Input
+                id="stage-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="stage-time">Time</Label>
+              <Input
+                id="stage-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
+            </div>
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
             <Button

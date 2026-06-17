@@ -6,10 +6,19 @@ import type { ParentType } from '@/hooks/use-notes'
 export type FileRow = Tables<'files'>
 type FileCategory = Enums<'file_category'>
 
+/** Files attach to a deal entity OR directly to a property. */
+export type FileParentType = ParentType | 'property'
+
 const BUCKET = 'deal-files'
-const parentColumn = (t: ParentType) =>
-  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
-const filesKey = (parentType: ParentType, parentId: string) => ['files', parentType, parentId]
+const parentColumn = (t: FileParentType) =>
+  t === 'client'
+    ? 'client_id'
+    : t === 'listing'
+      ? 'listing_id'
+      : t === 'property'
+        ? 'property_id'
+        : 'pursuit_id'
+const filesKey = (parentType: FileParentType, parentId: string) => ['files', parentType, parentId]
 
 export const fileCategoryLabels: Record<FileCategory, string> = {
   listing_agreement: 'Listing agreement',
@@ -25,7 +34,7 @@ export const fileCategoryLabels: Record<FileCategory, string> = {
   other: 'Other',
 }
 
-export function useFiles(parentType: ParentType, parentId: string | undefined) {
+export function useFiles(parentType: FileParentType, parentId: string | undefined) {
   return useQuery({
     queryKey: filesKey(parentType, parentId ?? ''),
     enabled: !!parentId,
@@ -46,7 +55,7 @@ export interface UploadResult {
   failed: string[]
 }
 
-export function useUploadFiles(parentType: ParentType, parentId: string) {
+export function useUploadFiles(parentType: FileParentType, parentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
@@ -84,7 +93,7 @@ export function useUploadFiles(parentType: ParentType, parentId: string) {
   })
 }
 
-export function useRenameFile(parentType: ParentType, parentId: string) {
+export function useRenameFile(parentType: FileParentType, parentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
@@ -95,7 +104,7 @@ export function useRenameFile(parentType: ParentType, parentId: string) {
   })
 }
 
-export function useDeleteFile(parentType: ParentType, parentId: string) {
+export function useDeleteFile(parentType: FileParentType, parentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (file: FileRow) => {

@@ -24,6 +24,26 @@ export function formatSf(value: number | null | undefined): string | null {
   return `${value.toLocaleString('en-US')} SF`
 }
 
+/**
+ * Digits-only 10-digit US phone (drops a leading country-code 1), or null.
+ * Mirrors the SQL normalize_phone() so the UI dedupes the same way the DB does.
+ */
+export function normalizePhone(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const d = raw.replace(/\D/g, '')
+  if (d.length === 11 && d.startsWith('1')) return d.slice(1)
+  if (d.length === 10) return d
+  return null
+}
+
+/** Canonical phone display: 941-806-8432 for a valid US number, else unchanged. */
+export function formatPhone(raw: string | null | undefined): string | null {
+  if (raw == null) return null
+  const n = normalizePhone(raw)
+  if (n) return `${n.slice(0, 3)}-${n.slice(3, 6)}-${n.slice(6)}`
+  return raw
+}
+
 /** 1.4 MB, 312 KB, 980 B */
 export function formatBytes(bytes: number | null | undefined): string | null {
   if (bytes == null) return null

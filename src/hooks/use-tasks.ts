@@ -19,6 +19,7 @@ export const taskKindLabels: Record<Enums<'task_kind'>, string> = {
   renewal: 'Renewal',
   follow_up: 'Follow-up',
   general: 'Task',
+  tour: 'Tour',
 }
 
 /** Route into the deal a task is attached to, for the "click task -> open deal" flow. */

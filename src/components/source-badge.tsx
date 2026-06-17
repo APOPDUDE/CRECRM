@@ -36,3 +36,40 @@ export function SourceBadge({ source, brokerName }: SourceBadgeProps) {
     </Badge>
   )
 }
+
+// --- Listing source (where a property listing came from) --------------------
+// Distinct from lead_source: this is the marketplace a property was scraped or
+// entered from, shown on the tenant board so a Crexi listing reads "Crexi".
+export type ListingSource = 'crexi' | 'loopnet' | 'manual'
+
+const listingSourceConfig: Record<ListingSource, { label: string; className: string }> = {
+  crexi: { label: 'Crexi', className: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  loopnet: { label: 'LoopNet', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+  manual: { label: 'Manual', className: 'bg-slate-50 text-slate-600 border-slate-200' },
+}
+
+/** Derive a property's listing source from its dedupe key, URL, then source col. */
+export function listingSourceOf(p: {
+  source_key?: string | null
+  listing_url?: string | null
+  source?: string | null
+}): ListingSource | null {
+  const key = p.source_key ?? ''
+  if (key.startsWith('crexi:')) return 'crexi'
+  if (key.startsWith('loopnet:')) return 'loopnet'
+  const url = p.listing_url ?? ''
+  if (/crexi\.com/i.test(url)) return 'crexi'
+  if (/loopnet\.com/i.test(url)) return 'loopnet'
+  if (p.source === 'manual') return 'manual'
+  return null
+}
+
+export function ListingSourceBadge({ source }: { source: ListingSource | null | undefined }) {
+  if (!source) return null
+  const config = listingSourceConfig[source]
+  return (
+    <Badge variant="outline" className={config.className}>
+      {config.label}
+    </Badge>
+  )
+}

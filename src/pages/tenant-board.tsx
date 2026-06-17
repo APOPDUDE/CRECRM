@@ -45,6 +45,7 @@ import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail } from '@/hooks/use-tenant-reps'
+import { useCreateTask } from '@/hooks/use-tasks'
 import { useClearFlaggedNew } from '@/hooks/use-automation'
 import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
@@ -64,6 +65,7 @@ export function TenantBoardPage() {
   const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
     useTenantRepMatches(tenantRepId)
   const updateStage = useUpdateMatchStage(tenantRepMatchesKey(tenantRepId ?? ''))
+  const createTask = useCreateTask()
   const executePursuit = useExecutePursuit()
   const updateMatch = useUpdateMatch()
   const deleteMatch = useDeleteMatch()
@@ -179,6 +181,20 @@ export function TenantBoardPage() {
       {
         onSuccess: () => {
           toast.success(`Moved to ${pursuitStageLabels[stage]}`)
+          // Touring with a date/time becomes a scheduled tour task.
+          if (stage === 'touring' && patch.tour_date) {
+            const tourDate = patch.tour_date as string
+            const tourTime = (patch.tour_time as string | null | undefined) ?? null
+            createTask.mutate({
+              owner_id: match.owner_id,
+              kind: 'tour',
+              title: `Tour — ${match.property?.address ?? 'property'}`,
+              due_date: tourDate,
+              due_at: tourTime ? new Date(`${tourDate}T${tourTime}`).toISOString() : null,
+              pursuit_id: match.id,
+              contact_id: match.client?.contact_id ?? null,
+            })
+          }
           setDateMove(null)
         },
         onError: () => toast.error('Could not move pursuit'),

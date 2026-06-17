@@ -8,17 +8,21 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { PropertyMiniMap } from '@/components/property-mini-map'
 import { MarketPositionCard } from '@/components/market-position-card'
+import { InlineEditField } from '@/components/inline-edit-field'
+import { FileSection } from '@/components/files/file-section'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
   useProperty,
+  useUpdateProperty,
   usePropertyDeals,
   type PropertyListing,
   type PropertyMatch,
 } from '@/hooks/use-properties'
+import type { TablesUpdate } from '@/lib/database.types'
 import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
-import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
+import { formatListingPrice, formatSf } from '@/lib/format'
 import { pursuitStageLabels } from '@/lib/stages'
 import { formatDate } from '@/lib/dates'
 
@@ -121,6 +125,7 @@ export function PropertyDetailPage() {
   const { data: property, isLoading, isError } = useProperty(id)
   const { data: deals } = usePropertyDeals(id)
   const { data: marketPos } = usePropertyMarketPosition(id)
+  const updateProperty = useUpdateProperty()
   const [editOpen, setEditOpen] = useState(false)
 
   useSetBreadcrumb(property?.address)
@@ -157,6 +162,12 @@ export function PropertyDetailPage() {
   const photos = property.photo_urls ?? []
   const listings = deals?.listings ?? []
   const matches = deals?.matches ?? []
+
+  const propertyId = property.id
+  const saveField =
+    (field: keyof TablesUpdate<'properties'>) => async (value: number | null) => {
+      await updateProperty.mutateAsync({ id: propertyId, [field]: value })
+    }
 
   return (
     <div className="space-y-6">
@@ -215,18 +226,35 @@ export function PropertyDetailPage() {
 
       {photos.length > 0 && (
         <div className="flex gap-2 overflow-x-auto">
-          {photos.slice(0, 6).map((url, i) => (
-            <img
-              key={i}
-              src={url}
-              alt=""
-              loading="lazy"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-              className="h-28 w-40 shrink-0 rounded-lg border object-cover"
-            />
-          ))}
+          {photos.slice(0, 6).map((url, i) => {
+            const img = (
+              <img
+                src={url}
+                alt=""
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+                className="h-28 w-40 shrink-0 rounded-lg border object-cover"
+              />
+            )
+            return listingUrl ? (
+              <a
+                key={i}
+                href={listingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="View listing"
+                className="shrink-0 transition-opacity hover:opacity-90"
+              >
+                {img}
+              </a>
+            ) : (
+              <span key={i} className="shrink-0">
+                {img}
+              </span>
+            )
+          })}
         </div>
       )}
 
@@ -252,7 +280,12 @@ export function PropertyDetailPage() {
         <Field label="Location" value={location || null} />
         <Field label="County" value={property.county ? `${property.county} County` : null} />
         <Field label="Parcel number" value={property.parcel_number} />
-        <Field label="Building SF" value={formatSf(property.building_sf)} />
+        <InlineEditField
+          label="Building SF"
+          value={property.building_sf}
+          kind="sf"
+          onSave={saveField('building_sf')}
+        />
         <Field
           label="Available space"
           value={
@@ -263,9 +296,11 @@ export function PropertyDetailPage() {
               : null
           }
         />
-        <Field
+        <InlineEditField
           label="Land acres"
-          value={property.land_acres != null ? `${property.land_acres} AC` : null}
+          value={property.land_acres}
+          kind="acres"
+          onSave={saveField('land_acres')}
         />
         <Field label="Gross leasable area" value={property.gross_leasable_area} />
         <Field label="Stories" value={property.stories} />
@@ -279,11 +314,23 @@ export function PropertyDetailPage() {
         <Field label="Occupancy" value={property.occupancy} />
         <Field label="Zoning district" value={property.zoning_district} />
         <Field label="Zoning description" value={property.zoning_description} full />
-        <Field label="Asking rate" value={formatPsf(property.asking_rate_psf)} />
-        <Field label="Asking price" value={formatCurrency(property.asking_price)} />
-        <Field
+        <InlineEditField
+          label="Asking rate"
+          value={property.asking_rate_psf}
+          kind="psf"
+          onSave={saveField('asking_rate_psf')}
+        />
+        <InlineEditField
+          label="Asking price"
+          value={property.asking_price}
+          kind="currency"
+          onSave={saveField('asking_price')}
+        />
+        <InlineEditField
           label="Cap rate"
-          value={property.cap_rate_pct != null ? `${property.cap_rate_pct}%` : null}
+          value={property.cap_rate_pct}
+          kind="percent"
+          onSave={saveField('cap_rate_pct')}
         />
         <Field label="Sale type" value={property.sale_type} />
         <Field label="Sale conditions" value={property.sale_conditions} />
@@ -314,6 +361,11 @@ export function PropertyDetailPage() {
         <Field label="Source" value={property.source} />
         <Field label="Specs" value={property.specs} full />
       </dl>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Files</h2>
+        <FileSection parentType="property" parentId={property.id} />
+      </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="space-y-2">

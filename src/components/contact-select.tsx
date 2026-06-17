@@ -12,6 +12,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { useContacts, contactNameOf } from '@/hooks/use-contacts'
+import { normalizePhone } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 interface ContactSelectProps {
@@ -88,7 +89,7 @@ export function ContactSelect({
                 {contacts.map((contact) => (
                   <CommandItem
                     key={contact.id}
-                    value={`${contactNameOf(contact)} ${contact.id}`}
+                    value={`${contactNameOf(contact)} ${normalizePhone(contact.phone) ?? ''} ${contact.phone ?? ''} ${contact.id}`}
                     onSelect={() => {
                       onChange(contact.id)
                       setOpen(false)

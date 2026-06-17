@@ -35,8 +35,7 @@ import {
   useRenameFile,
   useUploadFiles,
 } from '@/hooks/use-files'
-import type { FileRow } from '@/hooks/use-files'
-import type { ParentType } from '@/hooks/use-notes'
+import type { FileRow, FileParentType } from '@/hooks/use-files'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatBytes } from '@/lib/format'
@@ -49,7 +48,7 @@ const isPreviewable = (mime: string | null) =>
   !!mime && (mime.startsWith('image/') || mime === 'application/pdf')
 
 interface FileSectionProps {
-  parentType: ParentType
+  parentType: FileParentType
   parentId: string
   defaultCategory?: FileCategory
   /** Fires after a lease/PSA file uploads successfully (used to prompt for lease dates). */

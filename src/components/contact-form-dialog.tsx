@@ -13,9 +13,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { CompanySelect } from '@/components/company-select'
-import { useCreateContact, useUpdateContact } from '@/hooks/use-contacts'
+import {
+  useContacts,
+  useUpdateContact,
+  useUpsertContactByPhone,
+  findContactByPhone,
+} from '@/hooks/use-contacts'
 import type { Contact } from '@/hooks/use-contacts'
 import { friendlyDbError } from '@/lib/db-errors'
+import { formatPhone, normalizePhone } from '@/lib/format'
 
 interface ContactFormDialogProps {
   open: boolean
@@ -35,9 +41,10 @@ export function ContactFormDialog({
   defaultCompanyId,
   onCreated,
 }: ContactFormDialogProps) {
-  const createContact = useCreateContact()
+  const upsertByPhone = useUpsertContactByPhone()
   const updateContact = useUpdateContact()
-  const pending = createContact.isPending || updateContact.isPending
+  const { data: contacts = [] } = useContacts()
+  const pending = upsertByPhone.isPending || updateContact.isPending
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -59,14 +66,32 @@ export function ContactFormDialog({
     }
   }, [open, contact, defaultCompanyId])
 
+  // When creating, a typed phone that matches an existing contact means we're
+  // really editing that contact — phone is the identity, so we upsert.
+  const matched = contact ? undefined : findContactByPhone(contacts, phone)
+
+  const loadMatched = () => {
+    if (!matched) return
+    setFirstName(matched.first_name ?? '')
+    setLastName(matched.last_name ?? '')
+    setTitle(matched.title ?? '')
+    setEmail(matched.email ?? '')
+    setCompanyId(matched.company_id ?? null)
+    setNotes(matched.notes ?? '')
+  }
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    if (!normalizePhone(phone)) {
+      toast.error('Enter a valid 10-digit phone number — it’s the contact’s unique ID')
+      return
+    }
     const values = {
       first_name: firstName.trim(),
       last_name: lastName.trim() || null,
       title: title.trim() || null,
       email: email.trim() || null,
-      phone: phone.trim() || null,
+      phone: formatPhone(phone),
       company_id: companyId,
       notes: notes.trim() || null,
     }
@@ -85,10 +110,10 @@ export function ContactFormDialog({
         },
       )
     } else {
-      createContact.mutate(values, {
-        onSuccess: (created) => {
-          toast.success('Contact created')
-          onCreated?.(created.id)
+      upsertByPhone.mutate(values, {
+        onSuccess: (saved) => {
+          toast.success(matched ? 'Contact updated' : 'Contact created')
+          onCreated?.(saved.id)
           onOpenChange(false)
         },
         onError,
@@ -142,15 +167,30 @@ export function ContactFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contact-phone">Phone</Label>
+              <Label htmlFor="contact-phone">Phone *</Label>
               <Input
                 id="contact-phone"
                 type="tel"
+                inputMode="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                onBlur={() => setPhone((p) => formatPhone(p) ?? p)}
+                placeholder="941-806-8432"
+                required
               />
             </div>
           </div>
+          {matched && (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+              <span>
+                Existing contact: <strong>{[matched.first_name, matched.last_name].filter(Boolean).join(' ')}</strong>
+                {matched.company?.name ? ` · ${matched.company.name}` : ''} — saving updates it.
+              </span>
+              <Button type="button" size="sm" variant="outline" className="h-7 shrink-0" onClick={loadMatched}>
+                Load details
+              </Button>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="contact-company">Company</Label>
             <CompanySelect value={companyId} onChange={setCompanyId} placeholder="Select company" />
