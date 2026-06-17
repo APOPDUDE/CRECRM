@@ -136,45 +136,56 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
-                <th className="px-3 py-2 text-left font-medium">Metric</th>
-                {periods.map((p, i) => (
-                  <th key={i} className="px-3 py-2 text-right font-medium tabular-nums">
-                    {label(p)}
+                <th className="px-3 py-2 text-left font-medium">{gran === 'week' ? 'Week of' : 'Month'}</th>
+                {rows.map((row) => (
+                  <th key={row.label} className="px-3 py-2 text-right font-medium">
+                    {row.label}
                   </th>
                 ))}
+                <th className="px-3 py-2 text-right font-medium">Commission</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.label} className="border-b last:border-0">
-                  <td className="px-3 py-2 text-muted-foreground">{row.label}</td>
-                  {row.counts.map((c, i) => (
+              {periods.map((p, i) => {
+                const isCurrent = i === periods.length - 1
+                return (
+                  <tr
+                    key={i}
+                    className={cn('border-b last:border-0', isCurrent && 'bg-emerald-50/70')}
+                  >
                     <td
-                      key={i}
                       className={cn(
-                        'px-3 py-2 text-right tabular-nums',
-                        c === 0 && 'text-muted-foreground/40',
+                        'px-3 py-2',
+                        isCurrent ? 'font-medium text-emerald-800' : 'text-muted-foreground',
                       )}
                     >
-                      {c}
+                      {label(p)}
+                      {isCurrent && (
+                        <span className="ml-1.5 text-xs font-normal text-emerald-600">now</span>
+                      )}
                     </td>
-                  ))}
-                </tr>
-              ))}
-              <tr className="bg-muted/40 font-medium">
-                <td className="px-3 py-2">Commission</td>
-                {commission.map((c, i) => (
-                  <td
-                    key={i}
-                    className={cn(
-                      'px-3 py-2 text-right tabular-nums',
-                      c === 0 && 'font-normal text-muted-foreground/40',
-                    )}
-                  >
-                    {c > 0 ? formatCurrency(c) : '—'}
-                  </td>
-                ))}
-              </tr>
+                    {rows.map((row, mi) => (
+                      <td
+                        key={mi}
+                        className={cn(
+                          'px-3 py-2 text-right tabular-nums',
+                          row.counts[i] === 0 && !isCurrent && 'text-muted-foreground/40',
+                        )}
+                      >
+                        {row.counts[i]}
+                      </td>
+                    ))}
+                    <td
+                      className={cn(
+                        'px-3 py-2 text-right font-medium tabular-nums',
+                        commission[i] === 0 && 'font-normal text-muted-foreground/40',
+                      )}
+                    >
+                      {commission[i] > 0 ? formatCurrency(commission[i]) : '—'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
