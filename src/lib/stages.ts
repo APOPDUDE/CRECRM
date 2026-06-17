@@ -27,9 +27,12 @@ export const clientStatusLabels: Record<Enums<'client_status'>, string> = {
   lost: 'Lost',
 }
 
-/** Tenant overview board columns: the live client statuses ('lost' is filtered out). */
+/**
+ * Tenant overview board columns — only ELECTED tenant reps. 'prospect' (a landlord-side
+ * prospect, not a rep) and 'lost' are intentionally absent; a prospect appears here only
+ * once elected as a rep (which moves it to 'searching').
+ */
 export const clientOverviewStages: StageDef<Enums<'client_status'>>[] = [
-  { value: 'prospect', label: 'Prospect' },
   { value: 'searching', label: 'Searching' },
   { value: 'negotiating', label: 'Negotiating' },
   { value: 'closed', label: 'Closed' },

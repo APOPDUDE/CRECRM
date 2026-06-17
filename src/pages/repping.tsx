@@ -142,14 +142,15 @@ export function ReppingPage() {
     () => (listingsQ.data ?? []).filter((l) => (status === 'all' ? true : l.status === status)),
     [listingsQ.data, status],
   )
-  // The tenant board's columns ARE the lifecycle (Prospect/Active/Closed), so the
-  // top filter only gates 'lost': default 'active' shows every live client across
-  // all three columns; 'lost' shows lost; 'all' shows everything.
+  // The tenant board shows only ELECTED tenant reps (Searching/Negotiating/Closed).
+  // Landlord-side prospects (status='prospect') live on the landlord board only and
+  // appear here once elected as a rep. The top filter then gates 'lost'.
   const filteredTenants = useMemo(
     () =>
-      (tenantsQ.data ?? []).filter((t) =>
-        status === 'all' ? true : status === 'lost' ? t.status === 'lost' : t.status !== 'lost',
-      ),
+      (tenantsQ.data ?? []).filter((t) => {
+        if (t.status === 'prospect') return false
+        return status === 'all' ? true : status === 'lost' ? t.status === 'lost' : t.status !== 'lost'
+      }),
     [tenantsQ.data, status],
   )
 
