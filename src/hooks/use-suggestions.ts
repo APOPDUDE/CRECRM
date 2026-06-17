@@ -27,7 +27,8 @@ export type Suggestion = {
 }
 
 // `!inner` on the client so the status filter excludes suggestions whose client has
-// left the active repping pool. (alias kept as `tenant_rep` for the widget.)
+// left the searching pool (negotiating/closed/lost no longer surface new matches).
+// (alias kept as `tenant_rep` for the widget.)
 const SUGGESTION_SELECT = `
   id, created_at,
   property:properties!suggestions_property_id_fkey(id, address, city, state, property_type, building_sf, asking_rate_psf, asking_price, listing_url),
@@ -38,7 +39,7 @@ const SUGGESTION_SELECT = `
   )
 `
 
-/** Pending suggestions for clients still actively being repped, newest first. */
+/** Pending suggestions for clients still in the searching pool, newest first. */
 export function usePendingSuggestions() {
   return useQuery({
     queryKey: ['suggestions', 'pending'],
@@ -47,7 +48,7 @@ export function usePendingSuggestions() {
         .from('suggestions')
         .select(SUGGESTION_SELECT)
         .eq('status', 'pending')
-        .eq('tenant_rep.status', 'active')
+        .eq('tenant_rep.status', 'searching')
         .order('created_at', { ascending: false })
       if (error) throw error
       return data as unknown as Suggestion[]

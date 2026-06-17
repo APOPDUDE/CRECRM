@@ -5,11 +5,14 @@ import type { ParentType } from '@/hooks/use-notes'
 
 export type TaskWithContact = Tables<'tasks'> & {
   contact: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
+  /** When a task hangs off a pursuit (e.g. payment checks), its client for routing. */
+  pursuit: { client_id: string } | null
 }
 
 const TASK_SELECT = `
   *,
-  contact:contacts!tasks_contact_id_fkey(id, first_name, last_name)
+  contact:contacts!tasks_contact_id_fkey(id, first_name, last_name),
+  pursuit:pursuits!tasks_pursuit_id_fkey(client_id)
 `
 
 export const taskKindLabels: Record<Enums<'task_kind'>, string> = {
@@ -20,10 +23,13 @@ export const taskKindLabels: Record<Enums<'task_kind'>, string> = {
 
 /** Route into the deal a task is attached to, for the "click task -> open deal" flow. */
 export function taskDealPath(
-  task: Pick<Tables<'tasks'>, 'client_id' | 'listing_id' | 'pursuit_id'>,
+  task: Pick<Tables<'tasks'>, 'client_id' | 'listing_id' | 'pursuit_id'> & {
+    pursuit?: { client_id: string } | null
+  },
 ): string | null {
   if (task.client_id) return `/tenant-rep/${task.client_id}`
   if (task.listing_id) return `/landlord-rep/${task.listing_id}`
+  if (task.pursuit?.client_id) return `/tenant-rep/${task.pursuit.client_id}`
   return null
 }
 

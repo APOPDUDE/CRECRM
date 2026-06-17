@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  addDays,
   addMonths,
   eachDayOfInterval,
   endOfMonth,
@@ -71,6 +72,28 @@ export function TasksPage() {
     queryClient.invalidateQueries({ queryKey: ['dashboard-matches'] })
     queryClient.invalidateQueries({ queryKey: ['matches'] })
     toast.success('Payment marked received')
+  }
+
+  // Not received yet: close this check and seed a fresh reminder 30 days out.
+  const markPaymentNotReceived = async (task: TaskWithContact) => {
+    if (!task.pursuit_id) return
+    const { error } = await supabase.from('tasks').insert({
+      owner_id: task.owner_id,
+      title: task.title,
+      kind: 'follow_up',
+      status: 'open',
+      due_date: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+      pursuit_id: task.pursuit_id,
+      auto_generated: true,
+      source: 'payment_check',
+    })
+    if (error) {
+      toast.error('Could not set reminder')
+      return
+    }
+    toggle.mutate({ id: task.id, status: 'done' })
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    toast.success('Reminder set for 30 days')
   }
 
   const [view, setView] = useState<'list' | 'calendar'>('list')
@@ -163,17 +186,30 @@ export function TasksPage() {
           </div>
         </button>
         {task.source === 'payment_check' && task.status === 'open' && task.pursuit_id && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 shrink-0"
-            onClick={(e) => {
-              e.stopPropagation()
-              void markPaymentReceived(task)
-            }}
-          >
-            Received
-          </Button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7"
+              onClick={(e) => {
+                e.stopPropagation()
+                void markPaymentReceived(task)
+              }}
+            >
+              Received
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-muted-foreground"
+              onClick={(e) => {
+                e.stopPropagation()
+                void markPaymentNotReceived(task)
+              }}
+            >
+              Not yet
+            </Button>
+          </div>
         )}
         {rowMenu(task)}
       </div>

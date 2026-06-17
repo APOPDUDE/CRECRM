@@ -21,15 +21,17 @@ export const listingStageLabels: Record<Enums<'listing_stage'>, string> = {
 /** Client lifecycle (the level-1 tenant overview columns). 'lost' is a status, not a column. */
 export const clientStatusLabels: Record<Enums<'client_status'>, string> = {
   prospect: 'Prospect',
-  active: 'Active',
+  searching: 'Searching',
+  negotiating: 'Negotiating',
   closed: 'Closed',
   lost: 'Lost',
 }
 
-/** Tenant overview board columns: the three live client statuses ('lost' is filtered out). */
+/** Tenant overview board columns: the live client statuses ('lost' is filtered out). */
 export const clientOverviewStages: StageDef<Enums<'client_status'>>[] = [
   { value: 'prospect', label: 'Prospect' },
-  { value: 'active', label: 'Active' },
+  { value: 'searching', label: 'Searching' },
+  { value: 'negotiating', label: 'Negotiating' },
   { value: 'closed', label: 'Closed' },
 ]
 

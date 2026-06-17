@@ -1029,7 +1029,7 @@ export type Database = {
         | "first_location"
         | "relocation"
         | "investment"
-      client_status: "prospect" | "active" | "closed" | "lost"
+      client_status: "prospect" | "searching" | "negotiating" | "closed" | "lost"
       comp_kind: "asking" | "executed"
       company_type: "landlord" | "tenant" | "broker" | "other" | "vendor"
       deal_type: "lease" | "sale" | "both"
@@ -1201,7 +1201,7 @@ export const Constants = {
         "relocation",
         "investment",
       ],
-      client_status: ["prospect", "active", "closed", "lost"],
+      client_status: ["prospect", "searching", "negotiating", "closed", "lost"],
       comp_kind: ["asking", "executed"],
       company_type: ["landlord", "tenant", "broker", "other", "vendor"],
       deal_type: ["lease", "sale", "both"],

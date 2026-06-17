@@ -153,7 +153,7 @@ export function useReopenTenantRep() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('clients')
-        .update({ status: 'active', lost_reason: null })
+        .update({ status: 'searching', lost_reason: null })
         .eq('id', id)
       if (error) throw error
     },

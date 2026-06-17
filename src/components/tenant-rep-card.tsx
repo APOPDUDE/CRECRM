@@ -63,7 +63,10 @@ function tenantName(tenantRep: TenantRepWithRelations): string {
 
 export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: TenantRepCardProps) {
   const inPlay = livePursuits(tenantRep.matches)
-  const overdue = tenantRep.status === 'active' && isOverdue(tenantRep.next_action_date)
+  const overdue =
+    tenantRep.status !== 'closed' &&
+    tenantRep.status !== 'lost' &&
+    isOverdue(tenantRep.next_action_date)
   const summary = sizeSummary(tenantRep)
 
   return (
@@ -111,7 +114,7 @@ export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: Tenan
               onPointerDown={stopDrag}
               onClick={(e) => e.stopPropagation()}
             >
-              {onMarkLost && tenantRep.status === 'active' && (
+              {onMarkLost && tenantRep.status !== 'closed' && tenantRep.status !== 'lost' && (
                 <DropdownMenuItem variant="destructive" onSelect={() => onMarkLost(tenantRep)}>
                   <XCircle className="size-4" />
                   Mark lost

@@ -70,7 +70,7 @@ export function AddTenantDialog({ open, onOpenChange }: AddTenantDialogProps) {
         owner_id: session.user.id,
         contact_id: contactId,
         company_id: companyId,
-        status: 'active',
+        status: 'searching',
         deal_type: dealType,
         must_haves: requirements.trim() || null,
         source: source === NONE ? null : (source as Enums<'lead_source'>),

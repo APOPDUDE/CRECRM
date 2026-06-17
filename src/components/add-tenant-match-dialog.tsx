@@ -95,7 +95,7 @@ export function AddTenantMatchDialog({
         .select('id')
         .eq('owner_id', session.user.id)
         .eq('contact_id', contactId)
-        .in('status', ['prospect', 'active'])
+        .in('status', ['prospect', 'searching', 'negotiating'])
         .limit(1)
         .maybeSingle()
       if (existing) {
@@ -103,7 +103,7 @@ export function AddTenantMatchDialog({
         if (makeRep !== 'no') {
           await supabase
             .from('clients')
-            .update({ status: 'active', deal_type: makeRep })
+            .update({ status: 'searching', deal_type: makeRep })
             .eq('id', clientId)
         }
       } else {
@@ -113,7 +113,7 @@ export function AddTenantMatchDialog({
             owner_id: session.user.id,
             company_id: companyId,
             contact_id: contactId,
-            status: makeRep === 'no' ? 'prospect' : 'active',
+            status: makeRep === 'no' ? 'prospect' : 'searching',
             deal_type: makeRep === 'no' ? 'lease' : makeRep,
             source: sourceVal,
             broker_contact_id: isBroker ? brokerId : null,
