@@ -30,12 +30,13 @@ import { friendlyDbError } from '@/lib/db-errors'
 import { automationEnabled } from '@/lib/n8n'
 
 const NONE = '__none__'
-type Mode = 'paste' | 'manual'
+type Mode = 'paste' | 'crexi' | 'manual'
 
 interface AddPropertyMatchDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   tenantRep: TenantRepDetail
+  initialMode?: Mode
 }
 
 const numOrNull = (v: string | undefined) => (v && v.trim() ? Number(v) : null)
@@ -45,6 +46,7 @@ export function AddPropertyMatchDialog({
   open,
   onOpenChange,
   tenantRep,
+  initialMode = 'manual',
 }: AddPropertyMatchDialogProps) {
   const scrape = useScrapePropertyByUrl()
   const createProperty = useCreateProperty()
@@ -57,13 +59,13 @@ export function AddPropertyMatchDialog({
 
   useEffect(() => {
     if (open) {
-      // Default to manual entry — adding a property here never calls n8n. The
-      // "paste a link" scrape flow is opt-in via the button below.
-      setMode('manual')
+      // The "Add property" menu chooses which mode to open (manual / paste LoopNet /
+      // paste Crexi). Only the paste modes call n8n.
+      setMode(initialMode)
       setLinks('')
       setM({ property_type: NONE })
     }
-  }, [open])
+  }, [open, initialMode])
 
   const setF = (k: string) => (e: { target: { value: string } }) =>
     setM((prev) => ({ ...prev, [k]: e.target.value }))
@@ -77,7 +79,7 @@ export function AddPropertyMatchDialog({
       .slice(0, 5)
     if (!urls.length) return
     scrape.mutate(
-      { urls, tenantRepId: tenantRep.id },
+      { urls, tenantRepId: tenantRep.id, source: mode === 'crexi' ? 'crexi' : 'loopnet' },
       {
         onSuccess: (res) => {
           const n = res?.scraped ?? urls.length
@@ -126,20 +128,30 @@ export function AddPropertyMatchDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{mode === 'manual' ? 'Add property manually' : 'Add property'}</DialogTitle>
+          <DialogTitle>
+            {mode === 'manual'
+              ? 'Add property manually'
+              : mode === 'crexi'
+                ? 'Add from Crexi link'
+                : 'Add from LoopNet link'}
+          </DialogTitle>
         </DialogHeader>
 
-        {mode === 'paste' && showPaste ? (
+        {(mode === 'paste' || mode === 'crexi') && showPaste ? (
           <form onSubmit={handleScrape} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="links">Paste LoopNet link(s)</Label>
+              <Label htmlFor="links">{mode === 'crexi' ? 'Paste Crexi link(s)' : 'Paste LoopNet link(s)'}</Label>
               <Textarea
                 id="links"
                 value={links}
                 onChange={(e) => setLinks(e.target.value)}
                 rows={4}
                 autoFocus
-                placeholder={'https://www.loopnet.com/Listing/…\nhttps://www.loopnet.com/Listing/…'}
+                placeholder={
+                  mode === 'crexi'
+                    ? 'https://www.crexi.com/properties/…\nhttps://www.crexi.com/properties/…'
+                    : 'https://www.loopnet.com/Listing/…\nhttps://www.loopnet.com/Listing/…'
+                }
               />
               <p className="text-xs text-muted-foreground">
                 One link per line, up to 5. We'll pull the details (size, rate, broker, photos) and

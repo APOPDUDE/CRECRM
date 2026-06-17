@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, Pencil, Plus, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ExternalLink, Pencil, Plus, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AddPropertyMatchDialog } from '@/components/add-property-match-dialog'
 import { ExecutedMatchDialog } from '@/components/executed-match-dialog'
@@ -64,6 +70,11 @@ export function TenantBoardPage() {
   const clearFlagged = useClearFlaggedNew()
 
   const [addOpen, setAddOpen] = useState(false)
+  const [addMode, setAddMode] = useState<'manual' | 'paste' | 'crexi'>('manual')
+  const openAdd = (mode: 'manual' | 'paste' | 'crexi') => {
+    setAddMode(mode)
+    setAddOpen(true)
+  }
   const [editOpen, setEditOpen] = useState(false)
   const [commissionOpen, setCommissionOpen] = useState(false)
   const [contactEditOpen, setContactEditOpen] = useState(false)
@@ -239,18 +250,39 @@ export function TenantBoardPage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {automationEnabled() && (
-            <Button variant="outline" onClick={handleFindListings} disabled={search.isPending}>
-              <Search className="size-4" />
-              {search.isPending ? 'Searching…' : 'Find listings'}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button disabled={search.isPending}>
+              <Plus className="size-4" />
+              {search.isPending ? 'Searching…' : 'Add property'}
+              <ChevronDown className="size-4 opacity-70" />
             </Button>
-          )}
-          <Button onClick={() => setAddOpen(true)}>
-            <Plus className="size-4" />
-            Add property
-          </Button>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {automationEnabled() && (
+              <DropdownMenuItem onSelect={handleFindListings}>
+                <Search className="size-4" />
+                Find listings
+              </DropdownMenuItem>
+            )}
+            {automationEnabled() && (
+              <DropdownMenuItem onSelect={() => openAdd('paste')}>
+                <ExternalLink className="size-4" />
+                Paste LoopNet link
+              </DropdownMenuItem>
+            )}
+            {automationEnabled() && (
+              <DropdownMenuItem onSelect={() => openAdd('crexi')}>
+                <ExternalLink className="size-4" />
+                Paste Crexi link
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => openAdd('manual')}>
+              <Plus className="size-4" />
+              Add manually
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -262,7 +294,7 @@ export function TenantBoardPage() {
               <p className="text-sm text-muted-foreground">
                 No properties in play yet — add a property to start.
               </p>
-              <Button onClick={() => setAddOpen(true)}>
+              <Button onClick={() => openAdd('manual')}>
                 <Plus className="size-4" />
                 Add property
               </Button>
@@ -442,7 +474,7 @@ export function TenantBoardPage() {
         </aside>
       </div>
 
-      <AddPropertyMatchDialog open={addOpen} onOpenChange={setAddOpen} tenantRep={tenantRep} />
+      <AddPropertyMatchDialog open={addOpen} onOpenChange={setAddOpen} tenantRep={tenantRep} initialMode={addMode} />
       <TenantRepEditDialog open={editOpen} onOpenChange={setEditOpen} tenantRep={tenantRep} />
       <TenantCommissionDialog
         open={commissionOpen}

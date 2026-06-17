@@ -31,8 +31,9 @@ function invalidateAutomationViews(qc: ReturnType<typeof useQueryClient>) {
 }
 
 /**
- * Scrape a pasted LoopNet/Crexi link via the n8n webhook. When a tenantRepId is
- * given the scraped property is added to that tenant's board as an 'inquiring' match.
+ * Scrape a pasted LoopNet or Crexi link via the n8n webhook (separate workflows /
+ * actors per source). When a tenantRepId is given the scraped property is added to
+ * that tenant's board as an 'inquiring' match.
  */
 export function useScrapePropertyByUrl() {
   const qc = useQueryClient()
@@ -41,13 +42,15 @@ export function useScrapePropertyByUrl() {
       url,
       urls,
       tenantRepId,
+      source = 'loopnet',
     }: {
       url?: string
       urls?: string[]
       tenantRepId?: string | null
+      source?: 'loopnet' | 'crexi'
     }) => {
       const res = await callN8nWebhook<ScrapeResult>(
-        N8N_PATHS.scrapeUrl,
+        source === 'crexi' ? N8N_PATHS.scrapeCrexi : N8N_PATHS.scrapeUrl,
         { url, urls, tenant_rep_id: tenantRepId ?? undefined },
         { timeoutMs: 180_000 },
       )

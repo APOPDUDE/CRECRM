@@ -12,6 +12,7 @@ export function automationEnabled(): boolean {
 
 export const N8N_PATHS = {
   scrapeUrl: 'cre-scrape-url',
+  scrapeCrexi: 'cre-scrape-crexi',
   searchTenant: 'cre-search-tenant',
 } as const
 
