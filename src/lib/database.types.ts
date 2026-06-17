@@ -31,7 +31,6 @@ export type Database = {
           land_acres_max: number | null
           land_acres_min: number | null
           lost_reason: string | null
-          move_in_context: string | null
           move_in_date: string | null
           must_haves: string | null
           next_action: string | null
@@ -60,7 +59,6 @@ export type Database = {
           land_acres_max?: number | null
           land_acres_min?: number | null
           lost_reason?: string | null
-          move_in_context?: string | null
           move_in_date?: string | null
           must_haves?: string | null
           next_action?: string | null
@@ -89,7 +87,6 @@ export type Database = {
           land_acres_max?: number | null
           land_acres_min?: number | null
           lost_reason?: string | null
-          move_in_context?: string | null
           move_in_date?: string | null
           must_haves?: string | null
           next_action?: string | null

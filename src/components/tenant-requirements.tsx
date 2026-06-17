@@ -33,7 +33,6 @@ export function TenantRequirements({ tenantRep }: { tenantRep: TenantRep }) {
     { label: 'Industry', value: tenantRep.company?.industry ?? null },
     { label: 'Purpose', value: tenantRep.purpose ? purposeLabels[tenantRep.purpose] : null },
     { label: 'Move-in', value: formatDate(tenantRep.move_in_date) },
-    { label: 'Move-in context', value: tenantRep.move_in_context },
     {
       label: 'Type',
       value: tenantRep.property_type ? propertyKindLabels[tenantRep.property_type] : null,

@@ -168,7 +168,6 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
       source: tenantRep.source ?? NONE,
       purpose: tenantRep.purpose ?? NONE,
       move_in_date: s(tenantRep.move_in_date),
-      move_in_context: s(tenantRep.move_in_context),
       property_type: tenantRep.property_type ?? NONE,
       building_sf_min: s(tenantRep.building_sf_min),
       building_sf_max: s(tenantRep.building_sf_max),
@@ -194,7 +193,6 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
         broker_contact_id: f.source === 'broker' ? brokerId : null,
         purpose: f.purpose === NONE ? null : (f.purpose as Enums<'client_purpose'>),
         move_in_date: f.move_in_date || null,
-        move_in_context: str(f.move_in_context),
         property_type: f.property_type === NONE ? null : (f.property_type as Enums<'property_kind'>),
         building_sf_min: int(f.building_sf_min),
         building_sf_max: int(f.building_sf_max),
@@ -297,11 +295,6 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tr-movein-context">Move-in context</Label>
-            <Input id="tr-movein-context" value={f.move_in_context ?? ''} onChange={set('move_in_context')} placeholder="e.g. lease expiring, expansion" />
           </div>
 
           <MinMax label="Building SF" minKey="building_sf_min" maxKey="building_sf_max" values={f} set={set} />
