@@ -28,6 +28,7 @@ export type Database = {
           created_at: string
           deal_type: Database["public"]["Enums"]["deal_type"]
           id: string
+          is_rep: boolean
           land_acres_max: number | null
           land_acres_min: number | null
           lost_reason: string | null
@@ -56,6 +57,7 @@ export type Database = {
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
           id?: string
+          is_rep?: boolean
           land_acres_max?: number | null
           land_acres_min?: number | null
           lost_reason?: string | null
@@ -84,6 +86,7 @@ export type Database = {
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
           id?: string
+          is_rep?: boolean
           land_acres_max?: number | null
           land_acres_min?: number | null
           lost_reason?: string | null

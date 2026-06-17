@@ -142,13 +142,13 @@ export function ReppingPage() {
     () => (listingsQ.data ?? []).filter((l) => (status === 'all' ? true : l.status === status)),
     [listingsQ.data, status],
   )
-  // The tenant board shows only ELECTED tenant reps (Searching/Negotiating/Closed).
-  // Landlord-side prospects (status='prospect') live on the landlord board only and
+  // The tenant board shows only ELECTED tenant reps (is_rep=true), in any status incl.
+  // Prospect. Landlord-side prospects (is_rep=false) live on the landlord board only and
   // appear here once elected as a rep. The top filter then gates 'lost'.
   const filteredTenants = useMemo(
     () =>
       (tenantsQ.data ?? []).filter((t) => {
-        if (t.status === 'prospect') return false
+        if (!t.is_rep) return false
         return status === 'all' ? true : status === 'lost' ? t.status === 'lost' : t.status !== 'lost'
       }),
     [tenantsQ.data, status],
