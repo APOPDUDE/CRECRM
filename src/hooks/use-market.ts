@@ -23,6 +23,22 @@ export function useCountyMarketStats(county: string | null | undefined) {
   })
 }
 
+/** County-wide rollups for every county, busiest first — for the dashboard table. */
+export function useAllCountyMarketStats() {
+  return useQuery({
+    queryKey: ['county-market-stats', 'all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('v_county_market_stats')
+        .select('*')
+        .is('property_type', null)
+        .order('listing_n', { ascending: false, nullsFirst: false })
+      if (error) throw error
+      return data
+    },
+  })
+}
+
 /** A single property's position vs its county market + good-deal flags. */
 export function usePropertyMarketPosition(id: string | null | undefined) {
   return useQuery({
