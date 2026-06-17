@@ -3,10 +3,10 @@ import { supabase } from '@/lib/supabase'
 
 export interface CompTrendBucket {
   label: string
-  leaseValue: number | null
-  leaseN: number
-  saleValue: number | null
-  saleN: number
+  leaseAsking: number | null
+  leaseExecuted: number | null
+  saleAsking: number | null
+  saleExecuted: number | null
 }
 
 type CompRow = {
@@ -51,12 +51,13 @@ function bucketTrend(rows: CompRow[], years: number): { buckets: CompTrendBucket
   const now = new Date()
   const winStart = bucketStart(new Date(now.getFullYear() - years, now.getMonth(), 1), granularity)
 
+  type Acc = { label: string; la: number; lan: number; le: number; len: number; sa: number; san: number; se: number; sen: number }
   const order: string[] = []
-  const map = new Map<string, { label: string; ls: number; ln: number; ss: number; sn: number }>()
+  const map = new Map<string, Acc>()
   for (let cur = new Date(winStart); cur <= now; cur = nextBucket(cur, granularity)) {
     const k = `${cur.getFullYear()}-${cur.getMonth()}`
     order.push(k)
-    map.set(k, { label: bucketLabel(cur, granularity), ls: 0, ln: 0, ss: 0, sn: 0 })
+    map.set(k, { label: bucketLabel(cur, granularity), la: 0, lan: 0, le: 0, len: 0, sa: 0, san: 0, se: 0, sen: 0 })
   }
 
   for (const r of rows) {
@@ -68,18 +69,17 @@ function bucketTrend(rows: CompRow[], years: number): { buckets: CompTrendBucket
     const b = map.get(`${bk.getFullYear()}-${bk.getMonth()}`)
     if (!b) continue
     const dt = (r.deal_type || '').toLowerCase()
+    const isExec = (r.kind || 'asking').toLowerCase() === 'executed'
     if (dt === 'lease' || dt === 'both') {
       const v = r.executed_lease_rate_psf ?? r.asking_lease_rate_psf
       if (v != null && Number(v) > 0) {
-        b.ls += Number(v)
-        b.ln++
+        if (isExec) { b.le += Number(v); b.len++ } else { b.la += Number(v); b.lan++ }
       }
     }
     if (dt === 'sale' || dt === 'both') {
       const v = r.price_per_sf ?? (r.sale_price != null && r.sf ? r.sale_price / r.sf : null)
       if (v != null && Number(v) > 0) {
-        b.ss += Number(v)
-        b.sn++
+        if (isExec) { b.se += Number(v); b.sen++ } else { b.sa += Number(v); b.san++ }
       }
     }
   }
@@ -88,10 +88,10 @@ function bucketTrend(rows: CompRow[], years: number): { buckets: CompTrendBucket
     const b = map.get(k)!
     return {
       label: b.label,
-      leaseValue: b.ln ? round2(b.ls / b.ln) : null,
-      leaseN: b.ln,
-      saleValue: b.sn ? round2(b.ss / b.sn) : null,
-      saleN: b.sn,
+      leaseAsking: b.lan ? round2(b.la / b.lan) : null,
+      leaseExecuted: b.len ? round2(b.le / b.len) : null,
+      saleAsking: b.san ? round2(b.sa / b.san) : null,
+      saleExecuted: b.sen ? round2(b.se / b.sen) : null,
     }
   })
   return { buckets, granularity }

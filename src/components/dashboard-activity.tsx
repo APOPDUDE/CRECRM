@@ -1,17 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import {
-  addDays,
-  endOfWeek,
-  format,
-  isSameMonth,
-  isSameWeek,
-  parseISO,
-  startOfMonth,
-  startOfWeek,
-  subMonths,
-  subWeeks,
-} from 'date-fns'
+import { addDays, endOfWeek, format, parseISO } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
@@ -26,27 +15,7 @@ import {
   useToggleTask,
   type TaskWithContact,
 } from '@/hooks/use-tasks'
-
-type Gran = 'week' | 'month'
-
-const METRICS: { key: string; label: string; dateOf: (m: DashMatch) => string | null }[] = [
-  { key: 'inquiry', label: 'Inquiries', dateOf: (m) => m.inquiry_date },
-  { key: 'tour', label: 'Tours', dateOf: (m) => m.tour_date },
-  { key: 'exec', label: 'Executions', dateOf: (m) => m.executed_date },
-]
-
-function periodStarts(gran: Gran): Date[] {
-  if (gran === 'week') {
-    const cur = startOfWeek(new Date(), { weekStartsOn: 1 })
-    return Array.from({ length: 8 }, (_, i) => subWeeks(cur, 7 - i))
-  }
-  const cur = startOfMonth(new Date())
-  return Array.from({ length: 6 }, (_, i) => subMonths(cur, 5 - i))
-}
-
-function inPeriod(date: Date, start: Date, gran: Gran): boolean {
-  return gran === 'week' ? isSameWeek(date, start, { weekStartsOn: 1 }) : isSameMonth(date, start)
-}
+import { activityRows, recentPeriods, METRIC_LABELS, type Gran } from '@/lib/activity'
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -80,30 +49,8 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
     return { active, exec90, commissionYtd, flagged }
   }, [matches])
 
-  const { periods, rows, commission } = useMemo(() => {
-    const periods = periodStarts(gran)
-    const rows = METRICS.map((metric) => ({
-      label: metric.label,
-      counts: periods.map((p) =>
-        matches.reduce((n, m) => {
-          const d = metric.dateOf(m)
-          return d && inPeriod(parseISO(d), p, gran) ? n + 1 : n
-        }, 0),
-      ),
-    }))
-    const commission = periods.map((p) =>
-      matches.reduce(
-        (sum, m) =>
-          m.executed_date && inPeriod(parseISO(m.executed_date), p, gran)
-            ? sum + matchFee(m)
-            : sum,
-        0,
-      ),
-    )
-    return { periods, rows, commission }
-  }, [matches, gran])
-
-  const label = (p: Date) => (gran === 'week' ? format(p, 'MMM d') : format(p, 'MMM'))
+  const navigate = useNavigate()
+  const data = useMemo(() => activityRows(matches, recentPeriods(gran, 5), gran), [matches, gran])
 
   return (
     <div className="space-y-4">
@@ -114,22 +61,36 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
         <StatCard label="New matches" value={String(stats.flagged)} />
       </div>
 
-      <div className="rounded-lg border bg-card">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate('/activity')}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/activity')}
+        className="cursor-pointer rounded-lg border bg-card transition-colors hover:border-primary/40"
+        title="See all activity, week by week"
+      >
         <div className="flex items-center justify-between border-b p-3">
           <h2 className="text-sm font-medium">Activity</h2>
-          <div className="flex gap-1 rounded-md bg-muted p-0.5 text-xs">
-            {(['week', 'month'] as Gran[]).map((g) => (
-              <button
-                key={g}
-                onClick={() => setGran(g)}
-                className={cn(
-                  'rounded px-2 py-1 font-medium capitalize transition-colors',
-                  gran === g ? 'bg-background shadow-sm' : 'text-muted-foreground',
-                )}
-              >
-                {g === 'week' ? 'Weekly' : 'Monthly'}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div
+              className="flex gap-1 rounded-md bg-muted p-0.5 text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {(['week', 'month'] as Gran[]).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGran(g)}
+                  className={cn(
+                    'rounded px-2 py-1 font-medium capitalize transition-colors',
+                    gran === g ? 'bg-background shadow-sm' : 'text-muted-foreground',
+                  )}
+                >
+                  {g === 'week' ? 'Weekly' : 'Monthly'}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs font-medium text-primary">View all →</span>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -137,55 +98,53 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
                 <th className="px-3 py-2 text-left font-medium">{gran === 'week' ? 'Week of' : 'Month'}</th>
-                {rows.map((row) => (
-                  <th key={row.label} className="px-3 py-2 text-right font-medium">
-                    {row.label}
+                {METRIC_LABELS.map((m) => (
+                  <th key={m} className="px-3 py-2 text-right font-medium">
+                    {m}
                   </th>
                 ))}
                 <th className="px-3 py-2 text-right font-medium">Commission</th>
               </tr>
             </thead>
             <tbody>
-              {periods.map((p, i) => {
-                const isCurrent = i === periods.length - 1
-                return (
-                  <tr
-                    key={i}
-                    className={cn('border-b last:border-0', isCurrent && 'bg-emerald-50/70')}
+              {data.map((row, i) => (
+                <tr
+                  key={i}
+                  className={cn('border-b last:border-0', row.isCurrent && 'bg-emerald-50/70')}
+                  style={{ opacity: 1 - i * 0.15 }}
+                >
+                  <td
+                    className={cn(
+                      'px-3 py-2',
+                      row.isCurrent ? 'font-medium text-emerald-800' : 'text-muted-foreground',
+                    )}
                   >
+                    {row.label}
+                    {row.isCurrent && (
+                      <span className="ml-1.5 text-xs font-normal text-emerald-600">now</span>
+                    )}
+                  </td>
+                  {row.metrics.map((c, mi) => (
                     <td
+                      key={mi}
                       className={cn(
-                        'px-3 py-2',
-                        isCurrent ? 'font-medium text-emerald-800' : 'text-muted-foreground',
+                        'px-3 py-2 text-right tabular-nums',
+                        c === 0 && !row.isCurrent && 'text-muted-foreground/40',
                       )}
                     >
-                      {label(p)}
-                      {isCurrent && (
-                        <span className="ml-1.5 text-xs font-normal text-emerald-600">now</span>
-                      )}
+                      {c}
                     </td>
-                    {rows.map((row, mi) => (
-                      <td
-                        key={mi}
-                        className={cn(
-                          'px-3 py-2 text-right tabular-nums',
-                          row.counts[i] === 0 && !isCurrent && 'text-muted-foreground/40',
-                        )}
-                      >
-                        {row.counts[i]}
-                      </td>
-                    ))}
-                    <td
-                      className={cn(
-                        'px-3 py-2 text-right font-medium tabular-nums',
-                        commission[i] === 0 && 'font-normal text-muted-foreground/40',
-                      )}
-                    >
-                      {commission[i] > 0 ? formatCurrency(commission[i]) : '—'}
-                    </td>
-                  </tr>
-                )
-              })}
+                  ))}
+                  <td
+                    className={cn(
+                      'px-3 py-2 text-right font-medium tabular-nums',
+                      row.commission === 0 && 'font-normal text-muted-foreground/40',
+                    )}
+                  >
+                    {row.commission > 0 ? formatCurrency(row.commission) : '—'}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

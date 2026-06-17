@@ -18,6 +18,7 @@ import { ContactsPage } from '@/pages/contacts'
 import { ContactDetailPage } from '@/pages/contact-detail'
 import { PropertiesPage } from '@/pages/properties'
 import { PropertyDetailPage } from '@/pages/property-detail'
+import { ActivityPage } from '@/pages/activity'
 
 const queryClient = new QueryClient()
 
@@ -38,6 +39,7 @@ export default function App() {
                 }
               >
                 <Route path="/" element={<DashboardPage />} />
+                <Route path="/activity" element={<ActivityPage />} />
                 <Route path="/repping" element={<ReppingPage />} />
                 <Route path="/landlord-rep" element={<Navigate to="/repping" replace />} />
                 <Route path="/landlord-rep/:listingId" element={<PropertyBoardPage />} />

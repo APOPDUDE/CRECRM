@@ -57,22 +57,28 @@ function CountyTrend({ county }: { county: string }) {
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
           <TrendChart
-            title="Lease asking $/SF"
-            color="#2563eb"
-            points={buckets.map((b) => ({ label: b.label, value: b.leaseValue, n: b.leaseN }))}
+            title="Lease $/SF"
+            labels={buckets.map((b) => b.label)}
             format={(v) => `$${v.toFixed(2)}`}
+            series={[
+              { label: 'Asking', color: '#2563eb', values: buckets.map((b) => b.leaseAsking) },
+              { label: 'Executed', color: '#16a34a', values: buckets.map((b) => b.leaseExecuted) },
+            ]}
           />
           <TrendChart
             title="Sale $/SF"
-            color="#16a34a"
-            points={buckets.map((b) => ({ label: b.label, value: b.saleValue, n: b.saleN }))}
+            labels={buckets.map((b) => b.label)}
             format={(v) => `$${Math.round(v)}`}
+            series={[
+              { label: 'Asking', color: '#2563eb', values: buckets.map((b) => b.saleAsking) },
+              { label: 'Executed', color: '#16a34a', values: buckets.map((b) => b.saleExecuted) },
+            ]}
           />
         </div>
       )}
       <p className="text-xs text-muted-foreground">
-        Blends current asking with executed comps by date — executed history fills in as you close
-        lease and sale deals.
+        Asking from scraped listings; executed from closed deals — the spread shows where deals
+        actually land vs ask. Executed history fills in as you close lease and sale deals.
       </p>
     </div>
   )
