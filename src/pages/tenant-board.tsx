@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AddPropertyMatchDialog } from '@/components/add-property-match-dialog'
+import { FindListingsDialog } from '@/components/find-listings-dialog'
 import { ExecutedMatchDialog } from '@/components/executed-match-dialog'
 import type { ExecutedResult } from '@/components/executed-match-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
@@ -44,7 +45,7 @@ import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail } from '@/hooks/use-tenant-reps'
-import { useClearFlaggedNew, useSearchListingsForTenant } from '@/hooks/use-automation'
+import { useClearFlaggedNew } from '@/hooks/use-automation'
 import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
@@ -66,10 +67,10 @@ export function TenantBoardPage() {
   const executePursuit = useExecutePursuit()
   const updateMatch = useUpdateMatch()
   const deleteMatch = useDeleteMatch()
-  const search = useSearchListingsForTenant()
   const clearFlagged = useClearFlaggedNew()
 
   const [addOpen, setAddOpen] = useState(false)
+  const [findOpen, setFindOpen] = useState(false)
   const [addMode, setAddMode] = useState<'manual' | 'paste' | 'crexi'>('manual')
   const openAdd = (mode: 'manual' | 'paste' | 'crexi') => {
     setAddMode(mode)
@@ -208,28 +209,6 @@ export function TenantBoardPage() {
     }
   }
 
-  const handleFindListings = () => {
-    const toastId = toast.loading('Searching the market for matching listings…')
-    search.mutate(
-      { tenantRepId: tenantRep.id },
-      {
-        onSuccess: (res) => {
-          const found = res?.found ?? 0
-          toast.success(
-            found > 0
-              ? `Found ${found} listing${found === 1 ? '' : 's'} — see Inquiring`
-              : 'No new listings matched',
-            { id: toastId },
-          )
-        },
-        onError: (err) =>
-          toast.error(err instanceof Error ? err.message : 'The market search failed', {
-            id: toastId,
-          }),
-      },
-    )
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -252,15 +231,15 @@ export function TenantBoardPage() {
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button disabled={search.isPending}>
+            <Button>
               <Plus className="size-4" />
-              {search.isPending ? 'Searching…' : 'Add property'}
+              Add property
               <ChevronDown className="size-4 opacity-70" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             {automationEnabled() && (
-              <DropdownMenuItem onSelect={handleFindListings}>
+              <DropdownMenuItem onSelect={() => setFindOpen(true)}>
                 <Search className="size-4" />
                 Find listings
               </DropdownMenuItem>
@@ -475,6 +454,7 @@ export function TenantBoardPage() {
       </div>
 
       <AddPropertyMatchDialog open={addOpen} onOpenChange={setAddOpen} tenantRep={tenantRep} initialMode={addMode} />
+      <FindListingsDialog open={findOpen} onOpenChange={setFindOpen} tenantRep={tenantRep} />
       <TenantRepEditDialog open={editOpen} onOpenChange={setEditOpen} tenantRep={tenantRep} />
       <TenantCommissionDialog
         open={commissionOpen}

@@ -63,30 +63,30 @@ export function useScrapePropertyByUrl() {
 }
 
 /**
- * Search the market for a tenant's requirements via the n8n webhook. Matching
- * listings land on the tenant's board as 'inquiring' matches.
+ * Kick off a market search for a tenant (LoopNet + Crexi via the kazkn actor). Runs
+ * async server-side (responds immediately, scrapes in the background), so callers
+ * should refresh the board after a delay. `criteria` carries the editable filters
+ * (cities, property_types, building_sf_*, land_acres_*, cap_rate_*, price_*, keywords).
  */
 export function useSearchListingsForTenant() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       tenantRepId,
-      city,
-      state,
+      criteria,
     }: {
       tenantRepId: string
-      city?: string
-      state?: string
+      criteria?: Record<string, unknown>
     }) => {
       const res = await callN8nWebhook<SearchResult>(
         N8N_PATHS.searchTenant,
-        { tenant_rep_id: tenantRepId, city, state },
-        { timeoutMs: 120_000 },
+        { tenant_rep_id: tenantRepId, ...(criteria || {}) },
+        { timeoutMs: 60_000 },
       )
       if (res?.ok === false) {
         throw new Error(
           res.error === 'no_location'
-            ? 'Add a target area (city) to this tenant first, or include a city.'
+            ? 'Add a target market (city) for this tenant, or enter one.'
             : res.message || 'The market search failed.',
         )
       }
