@@ -49,13 +49,31 @@ export function useScrapePropertyByUrl() {
       tenantRepId?: string | null
       source?: 'loopnet' | 'crexi'
     }) => {
-      const res = await callN8nWebhook<ScrapeResult>(
-        source === 'crexi' ? N8N_PATHS.scrapeCrexi : N8N_PATHS.scrapeUrl,
-        { url, urls, tenant_rep_id: tenantRepId ?? undefined },
-        { timeoutMs: 180_000 },
-      )
+      // The scraper resolves a listing from the path id, so strip query strings
+      // and fragments — this drops LoopNet/Crexi tracking + "recommId" recommendation
+      // params that can otherwise point at the wrong listing.
+      const clean = (u: string) => u.split('#')[0].split('?')[0]
+      const path = source === 'crexi' ? N8N_PATHS.scrapeCrexi : N8N_PATHS.scrapeUrl
+      const payload = {
+        url: url ? clean(url) : undefined,
+        urls: urls?.map(clean),
+        tenant_rep_id: tenantRepId ?? undefined,
+      }
+      const run = () => callN8nWebhook<ScrapeResult>(path, payload, { timeoutMs: 180_000 })
+
+      let res = await run()
       if (res?.ok === false) throw new Error(res.message || 'Could not scrape those listings.')
-      if (!res?.scraped) throw new Error('No listings were found at those links.')
+      // The LoopNet/Crexi actors occasionally return nothing on a transient
+      // anti-bot block; a single re-run almost always succeeds.
+      if (!res?.scraped) {
+        res = await run()
+        if (res?.ok === false) throw new Error(res.message || 'Could not scrape those listings.')
+      }
+      if (!res?.scraped) {
+        throw new Error(
+          'No listing found at that link — make sure it’s the listing page URL (not a search or “recommended” link).',
+        )
+      }
       return res
     },
     onSuccess: () => invalidateAutomationViews(qc),

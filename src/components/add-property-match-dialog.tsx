@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
+import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,9 +29,10 @@ import type { TenantRepDetail } from '@/hooks/use-tenant-reps'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
 import { automationEnabled } from '@/lib/n8n'
+import { normalizeListingUrl } from '@/lib/listing-url'
 
 const NONE = '__none__'
-type Mode = 'paste' | 'crexi' | 'manual'
+type Mode = 'paste' | 'manual'
 
 interface AddPropertyMatchDialogProps {
   open: boolean
@@ -41,6 +43,61 @@ interface AddPropertyMatchDialogProps {
 
 const numOrNull = (v: string | undefined) => (v && v.trim() ? Number(v) : null)
 const intOrNull = (v: string | undefined) => (v && v.trim() ? Math.round(Number(v)) : null)
+
+/** One URL per box, no spaces, with an "add another" button below. */
+function UrlInputList({
+  label,
+  hint,
+  urls,
+  setUrls,
+  placeholder,
+}: {
+  label: string
+  hint: string
+  urls: string[]
+  setUrls: (next: string[]) => void
+  placeholder: string
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      {urls.map((u, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <Input
+            value={u}
+            autoComplete="off"
+            placeholder={placeholder}
+            onChange={(e) =>
+              setUrls(urls.map((x, j) => (j === i ? e.target.value.replace(/\s+/g, '') : x)))
+            }
+          />
+          {urls.length > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9 shrink-0 text-muted-foreground"
+              onClick={() => setUrls(urls.filter((_, j) => j !== i))}
+            >
+              <X className="size-4" />
+              <span className="sr-only">Remove</span>
+            </Button>
+          )}
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setUrls([...urls, ''])}
+      >
+        <Plus className="size-3.5" />
+        Add another listing
+      </Button>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </div>
+  )
+}
 
 export function AddPropertyMatchDialog({
   open,
@@ -53,43 +110,69 @@ export function AddPropertyMatchDialog({
   const createMatch = useCreateMatch()
   const showPaste = automationEnabled()
 
-  const [mode, setMode] = useState<Mode>('paste')
-  const [links, setLinks] = useState('')
+  const [mode, setMode] = useState<Mode>('manual')
+  const [loopnetUrls, setLoopnetUrls] = useState<string[]>([''])
+  const [crexiUrls, setCrexiUrls] = useState<string[]>([''])
+  const [scraping, setScraping] = useState(false)
   const [m, setM] = useState<Record<string, string>>({ property_type: NONE })
 
   useEffect(() => {
     if (open) {
-      // The "Add property" menu chooses which mode to open (manual / paste LoopNet /
-      // paste Crexi). Only the paste modes call n8n.
-      setMode(initialMode)
-      setLinks('')
+      setMode(showPaste ? initialMode : 'manual')
+      setLoopnetUrls([''])
+      setCrexiUrls([''])
       setM({ property_type: NONE })
     }
-  }, [open, initialMode])
+  }, [open, initialMode, showPaste])
 
   const setF = (k: string) => (e: { target: { value: string } }) =>
     setM((prev) => ({ ...prev, [k]: e.target.value }))
 
-  const handleScrape = (e: FormEvent) => {
+  // Paste a mix of LoopNet + Crexi links; we detect the source per URL (so a link
+  // in the "wrong" box still works) and run both scrapers at the same time.
+  const handleScrape = async (e: FormEvent) => {
     e.preventDefault()
-    const urls = links
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .slice(0, 5)
-    if (!urls.length) return
-    scrape.mutate(
-      { urls, tenantRepId: tenantRep.id, source: mode === 'crexi' ? 'crexi' : 'loopnet' },
-      {
-        onSuccess: (res) => {
-          const n = res?.scraped ?? urls.length
-          toast.success(`Added ${n} ${n === 1 ? 'property' : 'properties'}`)
-          onOpenChange(false)
-        },
-        onError: (err) =>
-          toast.error(err instanceof Error ? err.message : 'Could not scrape those listings'),
-      },
-    )
+    const entered = [...loopnetUrls, ...crexiUrls].map((s) => s.trim()).filter(Boolean)
+    const normalized = entered.map(normalizeListingUrl)
+    const loopnet = [
+      ...new Set(normalized.filter((n) => n?.source === 'loopnet').map((n) => n!.url)),
+    ]
+    const crexi = [...new Set(normalized.filter((n) => n?.source === 'crexi').map((n) => n!.url))]
+
+    if (!loopnet.length && !crexi.length) {
+      toast.error(
+        entered.length
+          ? 'Those don’t look like LoopNet or Crexi listing links'
+          : 'Paste at least one listing link',
+      )
+      return
+    }
+
+    setScraping(true)
+    try {
+      const calls: Promise<{ scraped?: number } | undefined>[] = []
+      if (loopnet.length)
+        calls.push(scrape.mutateAsync({ urls: loopnet, source: 'loopnet', tenantRepId: tenantRep.id }))
+      if (crexi.length)
+        calls.push(scrape.mutateAsync({ urls: crexi, source: 'crexi', tenantRepId: tenantRep.id }))
+
+      const results = await Promise.allSettled(calls)
+      const added = results.reduce(
+        (n, r) => n + (r.status === 'fulfilled' ? (r.value?.scraped ?? 0) : 0),
+        0,
+      )
+      if (added > 0) {
+        toast.success(`Added ${added} ${added === 1 ? 'property' : 'properties'}`)
+        onOpenChange(false)
+      } else {
+        const firstError = results.find((r) => r.status === 'rejected') as
+          | PromiseRejectedResult
+          | undefined
+        toast.error(firstError?.reason?.message || 'Could not scrape those listings')
+      }
+    } finally {
+      setScraping(false)
+    }
   }
 
   const pending = createProperty.isPending || createMatch.isPending
@@ -128,55 +211,34 @@ export function AddPropertyMatchDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {mode === 'manual'
-              ? 'Add property manually'
-              : mode === 'crexi'
-                ? 'Add from Crexi link'
-                : 'Add from LoopNet link'}
-          </DialogTitle>
+          <DialogTitle>{mode === 'manual' ? 'Add property manually' : 'Paste listing link'}</DialogTitle>
         </DialogHeader>
 
-        {(mode === 'paste' || mode === 'crexi') && showPaste ? (
-          <form onSubmit={handleScrape} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="links">{mode === 'crexi' ? 'Paste Crexi link(s)' : 'Paste LoopNet link(s)'}</Label>
-              <Textarea
-                id="links"
-                value={links}
-                onChange={(e) => setLinks(e.target.value)}
-                rows={4}
-                autoFocus
-                placeholder={
-                  mode === 'crexi'
-                    ? 'https://www.crexi.com/properties/…\nhttps://www.crexi.com/properties/…'
-                    : 'https://www.loopnet.com/Listing/…\nhttps://www.loopnet.com/Listing/…'
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                One link per line, up to 5. We'll pull the details (size, rate, broker, photos) and
-                add them to this tenant's board.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setMode('manual')}
-            >
+        {mode === 'paste' && showPaste ? (
+          <form onSubmit={handleScrape} className="space-y-5">
+            <UrlInputList
+              label="LoopNet listings"
+              placeholder="https://www.loopnet.com/Listing/…"
+              hint="One link per box. We'll clean it up and pull the details."
+              urls={loopnetUrls}
+              setUrls={setLoopnetUrls}
+            />
+            <UrlInputList
+              label="Crexi listings"
+              placeholder="https://www.crexi.com/properties/…"
+              hint="One link per box. Paste from the listing page (not a “recommended” link)."
+              urls={crexiUrls}
+              setUrls={setCrexiUrls}
+            />
+            <Button type="button" variant="ghost" className="w-full" onClick={() => setMode('manual')}>
               Add manually instead
             </Button>
             <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-                disabled={scrape.isPending}
-              >
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={scraping}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={scrape.isPending || !links.trim()}>
-                {scrape.isPending ? 'Scraping…' : 'Add from link(s)'}
+              <Button type="submit" disabled={scraping}>
+                {scraping ? 'Scraping…' : 'Add listings'}
               </Button>
             </DialogFooter>
           </form>
@@ -244,7 +306,7 @@ export function AddPropertyMatchDialog({
             <DialogFooter>
               {showPaste && (
                 <Button type="button" variant="ghost" onClick={() => setMode('paste')}>
-                  Paste a LoopNet link instead
+                  Paste a listing link instead
                 </Button>
               )}
               <Button type="submit" disabled={pending || !m.address?.trim()}>

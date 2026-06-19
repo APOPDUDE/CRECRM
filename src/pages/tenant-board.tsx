@@ -73,8 +73,8 @@ export function TenantBoardPage() {
 
   const [addOpen, setAddOpen] = useState(false)
   const [findOpen, setFindOpen] = useState(false)
-  const [addMode, setAddMode] = useState<'manual' | 'paste' | 'crexi'>('manual')
-  const openAdd = (mode: 'manual' | 'paste' | 'crexi') => {
+  const [addMode, setAddMode] = useState<'manual' | 'paste'>('manual')
+  const openAdd = (mode: 'manual' | 'paste') => {
     setAddMode(mode)
     setAddOpen(true)
   }
@@ -263,13 +263,7 @@ export function TenantBoardPage() {
             {automationEnabled() && (
               <DropdownMenuItem onSelect={() => openAdd('paste')}>
                 <ExternalLink className="size-4" />
-                Paste LoopNet link
-              </DropdownMenuItem>
-            )}
-            {automationEnabled() && (
-              <DropdownMenuItem onSelect={() => openAdd('crexi')}>
-                <ExternalLink className="size-4" />
-                Paste Crexi link
+                Paste listing link
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onSelect={() => openAdd('manual')}>

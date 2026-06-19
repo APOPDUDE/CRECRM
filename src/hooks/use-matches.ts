@@ -87,7 +87,7 @@ export function usePropertyMatches(propertyId: string | undefined) {
         .from('pursuits')
         .select(MATCH_SELECT)
         .eq('property_id', propertyId!)
-        .order('inquiry_date', { ascending: false })
+        .order('created_at', { ascending: false })
       if (error) throw error
       return (data as unknown as PursuitRow[]).map(decorate)
     },
@@ -104,7 +104,7 @@ export function useTenantRepMatches(clientId: string | undefined) {
         .from('pursuits')
         .select(MATCH_SELECT)
         .eq('client_id', clientId!)
-        .order('inquiry_date', { ascending: false })
+        .order('created_at', { ascending: false })
       if (error) throw error
       return (data as unknown as PursuitRow[]).map(decorate)
     },
