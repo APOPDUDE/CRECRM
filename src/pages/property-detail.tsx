@@ -217,6 +217,11 @@ export function PropertyDetailPage() {
                   Good deal
                 </Badge>
               )}
+              {property.listing_status === 'off_market' && (
+                <Badge variant="outline" className="border-amber-200 bg-amber-50 font-medium text-amber-700">
+                  Off market
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -326,6 +331,16 @@ export function PropertyDetailPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Listing &amp; other</h2>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <InlineEditField
+            label="Listing status"
+            value={property.listing_status}
+            kind="select"
+            options={[
+              { value: 'on_market', label: 'On market' },
+              { value: 'off_market', label: 'Off market' },
+            ]}
+            onSave={saveField('listing_status')}
+          />
           <InlineEditField label="Broker name" value={property.broker_name} kind="text" onSave={saveField('broker_name')} />
           <InlineEditField label="Broker company" value={property.broker_company} kind="text" onSave={saveField('broker_company')} />
           <InlineEditField label="Broker phone" value={property.broker_phone} kind="text" onSave={saveField('broker_phone')} />

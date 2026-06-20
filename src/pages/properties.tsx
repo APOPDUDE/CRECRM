@@ -208,6 +208,14 @@ export function PropertiesPage() {
                             Deal
                           </Badge>
                         )}
+                        {property.listing_status === 'off_market' && (
+                          <Badge
+                            variant="outline"
+                            className="border-amber-200 bg-amber-50 font-medium text-amber-700"
+                          >
+                            Off market
+                          </Badge>
+                        )}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -265,6 +273,14 @@ export function PropertiesPage() {
                       className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700"
                     >
                       Deal
+                    </Badge>
+                  )}
+                  {property.listing_status === 'off_market' && (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-200 bg-amber-50 font-medium text-amber-700"
+                    >
+                      Off
                     </Badge>
                   )}
                   <PropertyTypeBadge type={property.property_type} />

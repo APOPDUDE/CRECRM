@@ -616,6 +616,7 @@ export type Database = {
           land_acres: number | null
           lat: number | null
           listed_at: string | null
+          listing_status: Database["public"]["Enums"]["listing_market_status"]
           listing_url: string | null
           lng: number | null
           num_units: number | null
@@ -671,6 +672,7 @@ export type Database = {
           land_acres?: number | null
           lat?: number | null
           listed_at?: string | null
+          listing_status?: Database["public"]["Enums"]["listing_market_status"]
           listing_url?: string | null
           lng?: number | null
           num_units?: number | null
@@ -726,6 +728,7 @@ export type Database = {
           land_acres?: number | null
           lat?: number | null
           listed_at?: string | null
+          listing_status?: Database["public"]["Enums"]["listing_market_status"]
           listing_url?: string | null
           lng?: number | null
           num_units?: number | null
@@ -1077,6 +1080,7 @@ export type Database = {
         | "referral"
         | "broker"
       lease_structure: "NNN" | "NN" | "MG"
+      listing_market_status: "on_market" | "off_market"
       listing_stage: "proposal" | "listed" | "closed"
       note_kind: "note" | "call" | "text" | "email" | "meeting"
       property_kind: "industrial" | "office" | "retail" | "land" | "other"
@@ -1251,6 +1255,7 @@ export const Constants = {
         "broker",
       ],
       lease_structure: ["NNN", "NN", "MG"],
+      listing_market_status: ["on_market", "off_market"],
       listing_stage: ["proposal", "listed", "closed"],
       note_kind: ["note", "call", "text", "email", "meeting"],
       property_kind: ["industrial", "office", "retail", "land", "other"],

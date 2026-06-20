@@ -63,6 +63,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
   const [buildingSf, setBuildingSf] = useState('')
   const [landAcres, setLandAcres] = useState('')
   const [specs, setSpecs] = useState('')
+  const [listingStatus, setListingStatus] = useState<Enums<'listing_market_status'>>('on_market')
 
   useEffect(() => {
     if (open) {
@@ -74,6 +75,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
       setBuildingSf(property?.building_sf != null ? String(property.building_sf) : '')
       setLandAcres(property?.land_acres != null ? String(property.land_acres) : '')
       setSpecs(property?.specs ?? '')
+      setListingStatus(property?.listing_status ?? 'on_market')
     }
   }, [open, property])
 
@@ -91,6 +93,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
       building_sf: buildingSfTrimmed ? parseInt(buildingSfTrimmed, 10) : null,
       land_acres: landAcresTrimmed ? parseFloat(landAcresTrimmed) : null,
       specs: specs.trim() || null,
+      listing_status: listingStatus,
     }
     const onError = (error: unknown) =>
       toast.error(friendlyDbError(error, 'Could not save property'))
@@ -160,21 +163,38 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="property-type">Type</Label>
-            <Select value={propertyType} onValueChange={setPropertyType}>
-              <SelectTrigger id="property-type" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_TYPE}>No type</SelectItem>
-                {Object.entries(propertyKindLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="property-type">Type</Label>
+              <Select value={propertyType} onValueChange={setPropertyType}>
+                <SelectTrigger id="property-type" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_TYPE}>No type</SelectItem>
+                  {Object.entries(propertyKindLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="property-listing-status">Listing status</Label>
+              <Select
+                value={listingStatus}
+                onValueChange={(v) => setListingStatus(v as Enums<'listing_market_status'>)}
+              >
+                <SelectTrigger id="property-listing-status" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="on_market">On market</SelectItem>
+                  <SelectItem value="off_market">Off market</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
