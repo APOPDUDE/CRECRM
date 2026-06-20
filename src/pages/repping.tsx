@@ -33,8 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { AddListingDialog } from '@/components/add-listing-dialog'
-import { AddTenantDialog } from '@/components/add-tenant-dialog'
+import { LANDLORD_INTAKE_FORM_URL, TENANT_INTAKE_FORM_URL } from '@/lib/n8n'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { ListingCard } from '@/components/listing-card'
 import { ListErrorState } from '@/components/list-error-state'
@@ -123,8 +122,12 @@ export function ReppingPage() {
   const [side, setSide] = useState<Side>(getReppingSide)
   const [status, setStatus] = useState<StatusFilter>('active')
   const [view, setView] = useState<'board' | 'table'>('board')
-  const [addListingOpen, setAddListingOpen] = useState(false)
-  const [addTenantOpen, setAddTenantOpen] = useState(false)
+  // Adding a property or tenant opens the n8n-hosted intake form (a new tab),
+  // which writes straight into Supabase via the intake RPCs.
+  const openLandlordForm = () =>
+    window.open(LANDLORD_INTAKE_FORM_URL, '_blank', 'noopener,noreferrer')
+  const openTenantForm = () =>
+    window.open(TENANT_INTAKE_FORM_URL, '_blank', 'noopener,noreferrer')
   const [losingListing, setLosingListing] = useState<ListingWithRelations | null>(null)
   const [losingTenant, setLosingTenant] = useState<TenantRepWithRelations | null>(null)
 
@@ -246,12 +249,12 @@ export function ReppingPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Repping</h1>
         {isLandlord ? (
-          <Button onClick={() => setAddListingOpen(true)}>
+          <Button onClick={openLandlordForm}>
             <Plus className="size-4" />
             Add property
           </Button>
         ) : (
-          <Button onClick={() => setAddTenantOpen(true)}>
+          <Button onClick={openTenantForm}>
             <Plus className="size-4" />
             Add tenant
           </Button>
@@ -331,12 +334,12 @@ export function ReppingPage() {
           </p>
           {status !== 'lost' &&
             (isLandlord ? (
-              <Button onClick={() => setAddListingOpen(true)}>
+              <Button onClick={openLandlordForm}>
                 <Plus className="size-4" />
                 Add property
               </Button>
             ) : (
-              <Button onClick={() => setAddTenantOpen(true)}>
+              <Button onClick={openTenantForm}>
                 <Plus className="size-4" />
                 Add tenant
               </Button>
@@ -481,14 +484,6 @@ export function ReppingPage() {
           </Table>
         </div>
       )}
-
-      <AddListingDialog
-        open={addListingOpen}
-        onOpenChange={setAddListingOpen}
-        defaultDealType="lease"
-      />
-
-      <AddTenantDialog open={addTenantOpen} onOpenChange={setAddTenantOpen} />
 
       <MarkLostDialog
         open={!!losingListing}
