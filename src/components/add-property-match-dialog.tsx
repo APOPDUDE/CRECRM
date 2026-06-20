@@ -113,7 +113,6 @@ export function AddPropertyMatchDialog({
   const [mode, setMode] = useState<Mode>('manual')
   const [loopnetUrls, setLoopnetUrls] = useState<string[]>([''])
   const [crexiUrls, setCrexiUrls] = useState<string[]>([''])
-  const [scraping, setScraping] = useState(false)
   const [m, setM] = useState<Record<string, string>>({ property_type: NONE })
 
   useEffect(() => {
@@ -129,8 +128,10 @@ export function AddPropertyMatchDialog({
     setM((prev) => ({ ...prev, [k]: e.target.value }))
 
   // Paste a mix of LoopNet + Crexi links; we detect the source per URL (so a link
-  // in the "wrong" box still works) and run both scrapers at the same time.
-  const handleScrape = async (e: FormEvent) => {
+  // in the "wrong" box still works) and run both scrapers at the same time. The
+  // scrape runs in the background (~1-2 min) so we close right away rather than
+  // making the broker sit and wait.
+  const handleScrape = (e: FormEvent) => {
     e.preventDefault()
     const entered = [...loopnetUrls, ...crexiUrls].map((s) => s.trim()).filter(Boolean)
     const normalized = entered.map(normalizeListingUrl)
@@ -148,31 +149,29 @@ export function AddPropertyMatchDialog({
       return
     }
 
-    setScraping(true)
-    try {
-      const calls: Promise<{ scraped?: number } | undefined>[] = []
-      if (loopnet.length)
-        calls.push(scrape.mutateAsync({ urls: loopnet, source: 'loopnet', tenantRepId: tenantRep.id }))
-      if (crexi.length)
-        calls.push(scrape.mutateAsync({ urls: crexi, source: 'crexi', tenantRepId: tenantRep.id }))
+    const calls: Promise<{ scraped?: number } | undefined>[] = []
+    if (loopnet.length)
+      calls.push(scrape.mutateAsync({ urls: loopnet, source: 'loopnet', tenantRepId: tenantRep.id }))
+    if (crexi.length)
+      calls.push(scrape.mutateAsync({ urls: crexi, source: 'crexi', tenantRepId: tenantRep.id }))
 
-      const results = await Promise.allSettled(calls)
+    void Promise.allSettled(calls).then((results) => {
       const added = results.reduce(
         (n, r) => n + (r.status === 'fulfilled' ? (r.value?.scraped ?? 0) : 0),
         0,
       )
       if (added > 0) {
-        toast.success(`Added ${added} ${added === 1 ? 'property' : 'properties'}`)
-        onOpenChange(false)
+        toast.success(`Added ${added} ${added === 1 ? 'property' : 'properties'} to the board`)
       } else {
         const firstError = results.find((r) => r.status === 'rejected') as
           | PromiseRejectedResult
           | undefined
         toast.error(firstError?.reason?.message || 'Could not scrape those listings')
       }
-    } finally {
-      setScraping(false)
-    }
+    })
+
+    toast.info('Scraping listings — this takes 1–2 minutes. They’ll appear on the board when ready.')
+    onOpenChange(false)
   }
 
   const pending = createProperty.isPending || createMatch.isPending
@@ -234,12 +233,10 @@ export function AddPropertyMatchDialog({
               Add manually instead
             </Button>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={scraping}>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={scraping}>
-                {scraping ? 'Scraping…' : 'Add listings'}
-              </Button>
+              <Button type="submit">Add listings</Button>
             </DialogFooter>
           </form>
         ) : (

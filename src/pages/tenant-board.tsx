@@ -21,7 +21,6 @@ import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/compone
 import { DealTasks } from '@/components/deal-tasks'
 import { NotesLog } from '@/components/notes-log'
 import { ContactActions } from '@/components/contact-actions'
-import { Badge } from '@/components/ui/badge'
 import { SourceBadge } from '@/components/source-badge'
 import { TenantRequirements } from '@/components/tenant-requirements'
 import { TenantRepEditDialog } from '@/components/tenant-rep-edit-dialog'
@@ -140,9 +139,6 @@ export function TenantBoardPage() {
   const contact = tenantRep.contact
   const brokerName = tenantRep.broker ? contactNameOf(tenantRep.broker) : null
 
-  // Pipeline snapshot from the pursuits already loaded for the board.
-  const liveInPlay = matches.filter((m) => m.stage !== 'passed')
-  const pastLoi = liveInPlay.filter((m) => ['negotiation', 'executed'].includes(m.stage)).length
   const executedPursuit = matches.find((m) => m.stage === 'executed') ?? null
 
   const plainMove = (match: MatchWithRelations, toStage: Enums<'pursuit_stage'>) => {
@@ -317,21 +313,6 @@ export function TenantBoardPage() {
             onToggle={toggleInfo}
           >
             <DealTasks parentType="client" parentId={tenantRep.id} />
-
-            {liveInPlay.length > 0 && (
-              <SidebarSection title="Pipeline">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary" className="font-normal">
-                    {liveInPlay.length} in play
-                  </Badge>
-                  {pastLoi > 0 && (
-                    <Badge variant="secondary" className="font-normal">
-                      {pastLoi} in negotiation
-                    </Badge>
-                  )}
-                </div>
-              </SidebarSection>
-            )}
 
             {(tenantRep.status === 'closed' || tenantRep.actual_fee != null) && (
               <SidebarSection title="Commission">

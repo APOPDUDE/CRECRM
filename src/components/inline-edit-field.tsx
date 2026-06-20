@@ -1,61 +1,105 @@
 import { useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
+import { formatDate } from '@/lib/dates'
 
-export type InlineFieldKind = 'currency' | 'psf' | 'percent' | 'sf' | 'acres' | 'number'
+export type InlineFieldKind =
+  | 'text'
+  | 'currency'
+  | 'psf'
+  | 'sf'
+  | 'percent'
+  | 'acres'
+  | 'number'
+  | 'select'
+  | 'boolean'
+  | 'date'
 
-function formatValue(kind: InlineFieldKind, value: number | null): string | null {
-  if (value == null) return null
+type Val = string | number | boolean | null
+export interface InlineOption {
+  value: string
+  label: string
+}
+
+const NUMERIC: InlineFieldKind[] = ['currency', 'psf', 'sf', 'percent', 'acres', 'number']
+
+function displayValue(kind: InlineFieldKind, value: Val, options?: InlineOption[]): string | null {
+  if (value == null || value === '') return null
   switch (kind) {
     case 'currency':
-      return formatCurrency(value)
+      return formatCurrency(Number(value))
     case 'psf':
-      return formatPsf(value)
+      return formatPsf(Number(value))
     case 'sf':
-      return formatSf(value)
+      return formatSf(Number(value))
     case 'percent':
       return `${value}%`
     case 'acres':
       return `${value} AC`
+    case 'number':
+      return Number(value).toLocaleString('en-US')
+    case 'date':
+      return formatDate(String(value))
+    case 'boolean':
+      return value ? 'Yes' : 'No'
+    case 'select':
+      return options?.find((o) => o.value === String(value))?.label ?? String(value)
     default:
-      return value.toLocaleString('en-US')
+      return String(value)
   }
+}
+
+function toDraft(kind: InlineFieldKind, value: Val): string {
+  if (value == null) return ''
+  if (kind === 'boolean') return value ? 'true' : 'false'
+  if (kind === 'date') return String(value).slice(0, 10)
+  return String(value)
+}
+
+function parseDraft(kind: InlineFieldKind, draft: string): Val {
+  const t = draft.trim()
+  if (kind === 'boolean') return t === '' ? null : t === 'true'
+  if (t === '') return null
+  if (kind === 'sf') {
+    const n = Number(t)
+    return Number.isFinite(n) ? Math.round(n) : null
+  }
+  if (NUMERIC.includes(kind)) {
+    const n = Number(t)
+    return Number.isFinite(n) ? n : null
+  }
+  return t // text, date, select
 }
 
 interface InlineEditFieldProps {
   label: string
-  value: number | null
+  value: Val
   kind: InlineFieldKind
-  /** Persist the new value (null clears it). */
-  onSave: (value: number | null) => Promise<void> | void
+  /** Options for kind="select". */
+  options?: InlineOption[]
+  /** Persist the new value (null clears it). Omit to render read-only. */
+  onSave?: (value: Val) => Promise<void> | void
   full?: boolean
+  /** Small muted note after the label, e.g. "auto". */
+  note?: string
 }
 
-/**
- * A property-grid field you can click to edit in place. Enter or blur saves
- * via onSave; Escape cancels. Matches the read-only `Field` row visually.
- */
-export function InlineEditField({ label, value, kind, onSave, full }: InlineEditFieldProps) {
+/** A property-grid field you can click to edit in place (any value type). */
+export function InlineEditField({ label, value, kind, options, onSave, full, note }: InlineEditFieldProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [saving, setSaving] = useState(false)
 
   const begin = () => {
-    setDraft(value == null ? '' : String(value))
+    if (!onSave) return
+    setDraft(toDraft(kind, value))
     setEditing(true)
   }
 
-  const commit = async () => {
-    if (saving) return
-    const trimmed = draft.trim()
-    let next = trimmed === '' ? null : Number(trimmed)
-    if (next != null && !Number.isFinite(next)) {
-      setEditing(false)
-      return
-    }
-    // SF columns are integers
-    if (next != null && kind === 'sf') next = Math.round(next)
-    if (next === value) {
+  const commit = async (raw?: string) => {
+    if (saving || !onSave) return
+    const next = parseDraft(kind, raw !== undefined ? raw : draft)
+    if (next === value || (next == null && (value == null || value === ''))) {
       setEditing(false)
       return
     }
@@ -68,43 +112,78 @@ export function InlineEditField({ label, value, kind, onSave, full }: InlineEdit
     }
   }
 
-  const display = formatValue(kind, value)
+  const shown = displayValue(kind, value, options)
+  const inputCls =
+    'w-full rounded-md border bg-background px-2 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
   return (
     <div className={full ? 'sm:col-span-2' : undefined}>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dt className="text-xs font-medium text-muted-foreground">
+        {label}
+        {note && <span className="ml-1 font-normal opacity-70">· {note}</span>}
+      </dt>
       <dd className="mt-0.5 text-sm">
-        {editing ? (
-          <input
-            type="number"
-            inputMode="decimal"
-            step="any"
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                commit()
-              } else if (e.key === 'Escape') {
-                setEditing(false)
-              }
-            }}
-            className="w-full rounded-md border px-2 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-        ) : (
+        {editing && onSave ? (
+          kind === 'select' || kind === 'boolean' ? (
+            <select
+              autoFocus
+              className={inputCls}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                void commit(e.target.value)
+              }}
+              onBlur={() => setEditing(false)}
+            >
+              <option value="">—</option>
+              {(kind === 'boolean'
+                ? [
+                    { value: 'true', label: 'Yes' },
+                    { value: 'false', label: 'No' },
+                  ]
+                : (options ?? [])
+              ).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              autoFocus
+              type={kind === 'date' ? 'date' : kind === 'text' ? 'text' : 'number'}
+              inputMode={kind === 'text' || kind === 'date' ? undefined : 'decimal'}
+              step="any"
+              className={inputCls}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => void commit()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void commit()
+                } else if (e.key === 'Escape') {
+                  setEditing(false)
+                }
+              }}
+            />
+          )
+        ) : onSave ? (
           <button
             type="button"
             onClick={begin}
-            className={`group/edit -mx-1 inline-flex max-w-full items-center gap-1 rounded px-1 text-left hover:bg-accent ${
-              value == null ? 'text-muted-foreground' : ''
-            }`}
             title="Click to edit"
+            className={`group/edit -mx-1 inline-flex max-w-full items-center gap-1 rounded px-1 text-left hover:bg-accent ${
+              value == null || value === '' ? 'text-muted-foreground' : ''
+            }`}
           >
-            <span className="truncate">{saving ? 'Saving…' : (display ?? '—')}</span>
+            <span className="truncate">{saving ? 'Saving…' : (shown ?? '—')}</span>
             <Pencil className="size-3 shrink-0 opacity-0 transition-opacity group-hover/edit:opacity-50" />
           </button>
+        ) : (
+          <span className={value == null || value === '' ? 'text-muted-foreground' : ''}>
+            {shown ?? '—'}
+          </span>
         )}
       </dd>
     </div>

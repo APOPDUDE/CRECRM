@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ExternalLink, MapPin, Pencil } from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -22,24 +22,8 @@ import {
 import type { TablesUpdate } from '@/lib/database.types'
 import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
-import { formatListingPrice, formatSf } from '@/lib/format'
+import { formatListingPrice } from '@/lib/format'
 import { pursuitStageLabels } from '@/lib/stages'
-import { formatDate } from '@/lib/dates'
-
-/** A standard property field row — always rendered, shows an em-dash when empty. */
-function Field({ label, value, full }: { label: string; value: ReactNode; full?: boolean }) {
-  const empty = value == null || value === ''
-  return (
-    <div className={full ? 'sm:col-span-2' : undefined}>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className={`mt-0.5 text-sm ${empty ? 'text-muted-foreground' : ''}`}>
-        {empty ? '—' : value}
-      </dd>
-    </div>
-  )
-}
-
-const yesNo = (b: boolean | null): string | null => (b == null ? null : b ? 'Yes' : 'No')
 
 const listingStageLabels: Record<string, string> = {
   proposal: 'Proposal',
@@ -151,7 +135,6 @@ export function PropertyDetailPage() {
     )
   }
 
-  const location = [property.city, property.state, property.zip].filter(Boolean).join(', ')
   const mapsQuery = encodeURIComponent(
     [property.address, property.city, property.state, property.zip].filter(Boolean).join(', '),
   )
@@ -164,10 +147,39 @@ export function PropertyDetailPage() {
   const matches = deals?.matches ?? []
 
   const propertyId = property.id
+  type FieldVal = string | number | boolean | null
   const saveField =
-    (field: keyof TablesUpdate<'properties'>) => async (value: number | null) => {
-      await updateProperty.mutateAsync({ id: propertyId, [field]: value })
+    (field: keyof TablesUpdate<'properties'>) => async (value: FieldVal) => {
+      await updateProperty.mutateAsync({
+        id: propertyId,
+        [field]: value,
+      } as TablesUpdate<'properties'> & { id: string })
     }
+  const typeOptions = Object.entries(propertyKindLabels).map(([value, label]) => ({ value, label }))
+  // Price / SF is derived from price ÷ building SF; editing it sets the price.
+  const pricePerSf =
+    property.asking_price != null && property.building_sf
+      ? property.asking_price / property.building_sf
+      : null
+  const savePricePerSf = async (value: FieldVal) => {
+    const n = value == null || value === '' ? null : Number(value)
+    if (n == null) {
+      await updateProperty.mutateAsync({ id: propertyId, asking_price: null })
+      return
+    }
+    if (!property.building_sf) {
+      toast.error('Add building SF first to set a price per SF')
+      return
+    }
+    await updateProperty.mutateAsync({ id: propertyId, asking_price: Math.round(n * property.building_sf) })
+  }
+  const saveSubTypes = async (value: FieldVal) => {
+    const arr = String(value ?? '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean)
+    await updateProperty.mutateAsync({ id: propertyId, property_sub_types: arr.length ? arr : null })
+  }
 
   return (
     <div className="space-y-6">
@@ -258,109 +270,79 @@ export function PropertyDetailPage() {
         </div>
       )}
 
-      <PropertyMiniMap
-        lat={property.lat}
-        lng={property.lng}
-        address={property.address}
-        city={property.city}
-        state={property.state}
-        zip={property.zip}
-        className="max-w-2xl"
-      />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <PropertyMiniMap
+          lat={property.lat}
+          lng={property.lng}
+          address={property.address}
+          city={property.city}
+          state={property.state}
+          zip={property.zip}
+        />
+        <MarketPositionCard propertyId={property.id} county={property.county} />
+      </div>
 
-      <MarketPositionCard propertyId={property.id} county={property.county} />
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Pricing &amp; size</h2>
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <InlineEditField label="Asking price" value={property.asking_price} kind="currency" onSave={saveField('asking_price')} />
+          <InlineEditField label="Price / SF" value={pricePerSf} kind="psf" onSave={savePricePerSf} note="auto" />
+          <InlineEditField label="Base rate / SF/yr" value={property.asking_rate_psf} kind="psf" onSave={saveField('asking_rate_psf')} />
+          <InlineEditField label="Opex / SF/yr" value={property.opex_psf} kind="psf" onSave={saveField('opex_psf')} />
+          <InlineEditField label="All-in rent / mo" value={property.all_in_monthly_rent} kind="currency" note="auto" />
+          <InlineEditField label="Cap rate" value={property.cap_rate_pct} kind="percent" onSave={saveField('cap_rate_pct')} />
+          <InlineEditField label="Building SF" value={property.building_sf} kind="sf" onSave={saveField('building_sf')} />
+          <InlineEditField label="Available SF (min)" value={property.space_sf_min} kind="sf" onSave={saveField('space_sf_min')} />
+          <InlineEditField label="Available SF (max)" value={property.space_sf_max} kind="sf" onSave={saveField('space_sf_max')} />
+          <InlineEditField label="Land acres" value={property.land_acres} kind="acres" onSave={saveField('land_acres')} />
+          <InlineEditField label="Year built" value={property.year_built} kind="number" onSave={saveField('year_built')} />
+          <InlineEditField label="Type" value={property.property_type} kind="select" options={typeOptions} onSave={saveField('property_type')} />
+        </dl>
+      </section>
 
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <Field label="Title" value={property.title} full />
-        <Field
-          label="Type"
-          value={property.property_type ? propertyKindLabels[property.property_type] : null}
-        />
-        <Field label="Sub-types" value={property.property_sub_types?.join(', ') ?? null} />
-        <Field label="Location" value={location || null} />
-        <Field label="County" value={property.county ? `${property.county} County` : null} />
-        <Field label="Parcel number" value={property.parcel_number} />
-        <InlineEditField
-          label="Building SF"
-          value={property.building_sf}
-          kind="sf"
-          onSave={saveField('building_sf')}
-        />
-        <Field
-          label="Available space"
-          value={
-            property.space_sf_min != null || property.space_sf_max != null
-              ? property.space_sf_min === property.space_sf_max
-                ? formatSf(property.space_sf_min)
-                : `${formatSf(property.space_sf_min) ?? '?'} – ${formatSf(property.space_sf_max) ?? '?'}`
-              : null
-          }
-        />
-        <InlineEditField
-          label="Land acres"
-          value={property.land_acres}
-          kind="acres"
-          onSave={saveField('land_acres')}
-        />
-        <Field label="Gross leasable area" value={property.gross_leasable_area} />
-        <Field label="Stories" value={property.stories} />
-        <Field label="Units" value={property.num_units} />
-        <Field label="Year built" value={property.year_built} />
-        <Field label="Year renovated" value={property.year_renovated} />
-        <Field label="Building class" value={property.building_class} />
-        <Field label="Construction status" value={property.construction_status} />
-        <Field label="Building FAR" value={property.building_far} />
-        <Field label="Parking ratio" value={property.parking_ratio} />
-        <Field label="Occupancy" value={property.occupancy} />
-        <Field label="Zoning district" value={property.zoning_district} />
-        <Field label="Zoning description" value={property.zoning_description} full />
-        <InlineEditField
-          label="Asking rate"
-          value={property.asking_rate_psf}
-          kind="psf"
-          onSave={saveField('asking_rate_psf')}
-        />
-        <InlineEditField
-          label="Asking price"
-          value={property.asking_price}
-          kind="currency"
-          onSave={saveField('asking_price')}
-        />
-        <InlineEditField
-          label="Cap rate"
-          value={property.cap_rate_pct}
-          kind="percent"
-          onSave={saveField('cap_rate_pct')}
-        />
-        <Field label="Sale type" value={property.sale_type} />
-        <Field label="Sale conditions" value={property.sale_conditions} />
-        <Field label="On ground lease" value={yesNo(property.on_ground_lease)} />
-        <Field label="Opportunity zone" value={yesNo(property.opportunity_zone)} />
-        <Field label="Auction" value={yesNo(property.is_auction)} />
-        <Field
-          label="Days on market"
-          value={property.days_on_market != null ? `${property.days_on_market} days` : null}
-        />
-        <Field label="Listed" value={property.listed_at ? formatDate(property.listed_at) : null} />
-        <Field
-          label="Source last updated"
-          value={property.source_last_updated ? formatDate(property.source_last_updated) : null}
-        />
-        <Field
-          label="Broker"
-          value={
-            property.broker_name
-              ? property.broker_company
-                ? `${property.broker_name} · ${property.broker_company}`
-                : property.broker_name
-              : null
-          }
-        />
-        <Field label="Broker phone" value={property.broker_phone} />
-        <Field label="Broker email" value={property.broker_email} />
-        <Field label="Source" value={property.source} />
-        <Field label="Specs" value={property.specs} full />
-      </dl>
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Building &amp; location</h2>
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <InlineEditField label="Title" value={property.title} kind="text" onSave={saveField('title')} full />
+          <InlineEditField label="Sub-types" value={property.property_sub_types?.join(', ') ?? null} kind="text" onSave={saveSubTypes} />
+          <InlineEditField label="City" value={property.city} kind="text" onSave={saveField('city')} />
+          <InlineEditField label="State" value={property.state} kind="text" onSave={saveField('state')} />
+          <InlineEditField label="Zip" value={property.zip} kind="text" onSave={saveField('zip')} />
+          <InlineEditField label="County" value={property.county} kind="text" note="auto" />
+          <InlineEditField label="Building class" value={property.building_class} kind="text" onSave={saveField('building_class')} />
+          <InlineEditField label="Construction status" value={property.construction_status} kind="text" onSave={saveField('construction_status')} />
+          <InlineEditField label="Stories" value={property.stories} kind="number" onSave={saveField('stories')} />
+          <InlineEditField label="Units" value={property.num_units} kind="number" onSave={saveField('num_units')} />
+          <InlineEditField label="Year renovated" value={property.year_renovated} kind="number" onSave={saveField('year_renovated')} />
+          <InlineEditField label="Gross leasable area" value={property.gross_leasable_area} kind="text" onSave={saveField('gross_leasable_area')} />
+          <InlineEditField label="Building FAR" value={property.building_far} kind="text" onSave={saveField('building_far')} />
+          <InlineEditField label="Parking ratio" value={property.parking_ratio} kind="text" onSave={saveField('parking_ratio')} />
+          <InlineEditField label="Occupancy" value={property.occupancy} kind="text" onSave={saveField('occupancy')} />
+          <InlineEditField label="Zoning district" value={property.zoning_district} kind="text" onSave={saveField('zoning_district')} />
+          <InlineEditField label="Zoning description" value={property.zoning_description} kind="text" onSave={saveField('zoning_description')} full />
+        </dl>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Listing &amp; other</h2>
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <InlineEditField label="Broker name" value={property.broker_name} kind="text" onSave={saveField('broker_name')} />
+          <InlineEditField label="Broker company" value={property.broker_company} kind="text" onSave={saveField('broker_company')} />
+          <InlineEditField label="Broker phone" value={property.broker_phone} kind="text" onSave={saveField('broker_phone')} />
+          <InlineEditField label="Broker email" value={property.broker_email} kind="text" onSave={saveField('broker_email')} />
+          <InlineEditField label="Sale type" value={property.sale_type} kind="text" onSave={saveField('sale_type')} />
+          <InlineEditField label="Sale conditions" value={property.sale_conditions} kind="text" onSave={saveField('sale_conditions')} />
+          <InlineEditField label="On ground lease" value={property.on_ground_lease} kind="boolean" onSave={saveField('on_ground_lease')} />
+          <InlineEditField label="Opportunity zone" value={property.opportunity_zone} kind="boolean" onSave={saveField('opportunity_zone')} />
+          <InlineEditField label="Auction" value={property.is_auction} kind="boolean" onSave={saveField('is_auction')} />
+          <InlineEditField label="Parcel number" value={property.parcel_number} kind="text" onSave={saveField('parcel_number')} />
+          <InlineEditField label="Listed" value={property.listed_at} kind="date" onSave={saveField('listed_at')} />
+          <InlineEditField label="Days on market" value={property.days_on_market} kind="number" note="auto" />
+          <InlineEditField label="Listing URL" value={property.listing_url} kind="text" onSave={saveField('listing_url')} full />
+          <InlineEditField label="Source" value={property.source} kind="text" note="auto" />
+          <InlineEditField label="Specs" value={property.specs} kind="text" onSave={saveField('specs')} full />
+        </dl>
+      </section>
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Files</h2>

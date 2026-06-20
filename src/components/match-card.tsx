@@ -144,7 +144,7 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
     return (
       <HoverCard>
         <HoverCardTrigger asChild>{card}</HoverCardTrigger>
-        <HoverCardContent align="start" className="overflow-hidden">
+        <HoverCardContent side="right" align="start" className="overflow-hidden">
           {photo && (
             <img
               src={photo}
