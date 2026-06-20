@@ -68,3 +68,38 @@ export function useDashboardMatches() {
 export function matchFee(m: DashMatch): number {
   return m.actual_fee ?? 0
 }
+
+export type OffMarketProperty = {
+  id: string
+  address: string
+  city: string | null
+  state: string | null
+  listing_url: string | null
+  asking_rate_psf: number | null
+  asking_price: number | null
+  building_sf: number | null
+  property_type: Enums<'property_kind'> | null
+  updated_at: string
+}
+
+/**
+ * Properties the weekly sweep flipped to off_market (present last sweep, gone this
+ * one), most recently first. Powers the dashboard "Recently off-market" widget.
+ */
+export function useRecentlyOffMarket() {
+  return useQuery({
+    queryKey: ['recently-off-market'],
+    queryFn: async (): Promise<OffMarketProperty[]> => {
+      const { data, error } = await supabase
+        .from('properties')
+        .select(
+          'id, address, city, state, listing_url, asking_rate_psf, asking_price, building_sf, property_type, updated_at',
+        )
+        .eq('listing_status', 'off_market')
+        .order('updated_at', { ascending: false })
+        .limit(12)
+      if (error) throw error
+      return (data ?? []) as OffMarketProperty[]
+    },
+  })
+}
