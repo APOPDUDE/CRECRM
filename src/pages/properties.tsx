@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -59,26 +68,75 @@ export function PropertiesPage() {
   const deleteProperty = useDeleteProperty()
 
   const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('all')
+  const [ptype, setPtype] = useState('all')
+  const [county, setCounty] = useState('all')
+  const [sfMin, setSfMin] = useState('')
+  const [sfMax, setSfMax] = useState('')
+  const [acMin, setAcMin] = useState('')
+  const [acMax, setAcMax] = useState('')
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
 
+  // The county list is derived from the data (98% populated) so it only offers real values.
+  const counties = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of properties ?? []) if (p.county) set.add(p.county)
+    return [...set].sort()
+  }, [properties])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return properties ?? []
-    return (properties ?? []).filter((p) =>
-      [
-        p.address,
-        p.city,
-        p.state,
-        p.zip,
-        p.specs,
-        p.property_type ? propertyKindLabels[p.property_type] : null,
-      ]
-        .filter(Boolean)
-        .some((field) => field!.toLowerCase().includes(q)),
-    )
-  }, [properties, search])
+    const n = (v: string) => {
+      const x = parseFloat(v)
+      return Number.isFinite(x) ? x : null
+    }
+    const sfLo = n(sfMin), sfHi = n(sfMax)
+    const acLo = n(acMin), acHi = n(acMax)
+    const prLo = n(priceMin), prHi = n(priceMax)
+    return (properties ?? []).filter((p) => {
+      if (
+        q &&
+        ![p.address, p.city, p.state, p.zip, p.specs, p.county, p.property_type ? propertyKindLabels[p.property_type] : null]
+          .filter(Boolean)
+          .some((field) => field!.toLowerCase().includes(q))
+      )
+        return false
+      if (status !== 'all' && (p.listing_status ?? 'on_market') !== status) return false
+      if (ptype !== 'all' && p.property_type !== ptype) return false
+      if (county !== 'all' && p.county !== county) return false
+      if (sfLo != null && (p.building_sf == null || p.building_sf < sfLo)) return false
+      if (sfHi != null && (p.building_sf == null || p.building_sf > sfHi)) return false
+      if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) return false
+      if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) return false
+      if (prLo != null && (p.asking_price == null || p.asking_price < prLo)) return false
+      if (prHi != null && (p.asking_price == null || p.asking_price > prHi)) return false
+      return true
+    })
+  }, [properties, search, status, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+
+  const activeFilterCount =
+    (status !== 'all' ? 1 : 0) +
+    (ptype !== 'all' ? 1 : 0) +
+    (county !== 'all' ? 1 : 0) +
+    (sfMin || sfMax ? 1 : 0) +
+    (acMin || acMax ? 1 : 0) +
+    (priceMin || priceMax ? 1 : 0)
+
+  const clearFilters = () => {
+    setStatus('all')
+    setPtype('all')
+    setCounty('all')
+    setSfMin('')
+    setSfMax('')
+    setAcMin('')
+    setAcMax('')
+    setPriceMin('')
+    setPriceMax('')
+  }
 
   const openCreate = () => {
     setEditing(null)
@@ -144,6 +202,95 @@ export function PropertiesPage() {
               className="pl-9"
             />
           </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <SlidersHorizontal className="size-4" />
+                <span className="hidden sm:inline">Filters</span>
+                {activeFilterCount > 0 && (
+                  <Badge className="ml-1 h-5 min-w-5 justify-center rounded-full px-1 tabular-nums">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 space-y-3">
+              <div className="space-y-1.5">
+                <Label>Market status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="on_market">On market</SelectItem>
+                    <SelectItem value="off_market">Off market</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Type</Label>
+                <Select value={ptype} onValueChange={setPtype}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All types</SelectItem>
+                    {Object.entries(propertyKindLabels).map(([v, label]) => (
+                      <SelectItem key={v} value={v}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>County</Label>
+                <Select value={county} onValueChange={setCounty}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All counties</SelectItem>
+                    {counties.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Building SF</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" inputMode="numeric" placeholder="Min" value={sfMin} onChange={(e) => setSfMin(e.target.value)} />
+                  <span className="text-muted-foreground">–</span>
+                  <Input type="number" inputMode="numeric" placeholder="Max" value={sfMax} onChange={(e) => setSfMax(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Land acres</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" inputMode="decimal" placeholder="Min" value={acMin} onChange={(e) => setAcMin(e.target.value)} />
+                  <span className="text-muted-foreground">–</span>
+                  <Input type="number" inputMode="decimal" placeholder="Max" value={acMax} onChange={(e) => setAcMax(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Asking price</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" inputMode="numeric" placeholder="Min" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} />
+                  <span className="text-muted-foreground">–</span>
+                  <Input type="number" inputMode="numeric" placeholder="Max" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex justify-end border-t pt-2">
+                <Button variant="ghost" size="sm" onClick={clearFilters} disabled={activeFilterCount === 0}>
+                  Clear all
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button onClick={openCreate}>
             <Plus className="size-4" />
             <span className="hidden sm:inline">Add property</span>
@@ -151,6 +298,12 @@ export function PropertiesPage() {
           </Button>
         </div>
       </div>
+
+      {!isLoading && !isError && (properties ?? []).length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Showing {filtered.length} of {(properties ?? []).length} properties
+        </p>
+      )}
 
       {isLoading ? (
         <div className="space-y-2">
