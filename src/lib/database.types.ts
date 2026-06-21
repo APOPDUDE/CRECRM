@@ -1011,7 +1011,10 @@ export type Database = {
       }
     }
     Functions: {
-      approve_suggestion: { Args: { p_suggestion_id: string }; Returns: string }
+      approve_suggestion: {
+        Args: { p_suggestion_id: string; p_client_id?: string | null }
+        Returns: string
+      }
       create_property_and_listing: {
         Args: {
           p_address: string

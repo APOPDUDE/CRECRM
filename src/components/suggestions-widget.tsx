@@ -3,9 +3,9 @@ import { Check, ExternalLink, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { PropertyPreview } from '@/components/property-preview'
+import { ApproveSuggestionDialog } from '@/components/approve-suggestion-dialog'
 import {
   usePendingSuggestions,
-  useApproveSuggestion,
   useDismissSuggestion,
   type Suggestion,
 } from '@/hooks/use-suggestions'
@@ -28,17 +28,12 @@ function tenantName(s: Suggestion): string {
  */
 export function SuggestionsWidget() {
   const { data: suggestions = [] } = usePendingSuggestions()
-  const approve = useApproveSuggestion()
   const dismiss = useDismissSuggestion()
   const [previewId, setPreviewId] = useState<string | null>(null)
+  const [approving, setApproving] = useState<Suggestion | null>(null)
 
   if (suggestions.length === 0) return null
 
-  const handleApprove = (s: Suggestion) =>
-    approve.mutate(s.id, {
-      onSuccess: () => toast.success(`Added to ${tenantName(s)}`),
-      onError: () => toast.error('Could not add it'),
-    })
   const handleDismiss = (s: Suggestion) =>
     dismiss.mutate(s.id, { onError: () => toast.error('Could not dismiss it') })
 
@@ -62,9 +57,7 @@ export function SuggestionsWidget() {
             formatSf(p?.building_sf),
             p?.property_type,
           ].filter(Boolean)
-          const busy =
-            (approve.isPending && approve.variables === s.id) ||
-            (dismiss.isPending && dismiss.variables === s.id)
+          const busy = dismiss.isPending && dismiss.variables === s.id
           return (
             <li key={s.id} className="flex flex-wrap items-start justify-between gap-3 p-3">
               <div className="min-w-0 flex-1">
@@ -99,7 +92,7 @@ export function SuggestionsWidget() {
                 </div>
               </div>
               <div className="flex shrink-0 gap-1.5">
-                <Button size="sm" disabled={busy} onClick={() => handleApprove(s)}>
+                <Button size="sm" disabled={busy} onClick={() => setApproving(s)}>
                   <Check className="size-4" />
                   Add
                 </Button>
@@ -122,6 +115,11 @@ export function SuggestionsWidget() {
       propertyId={previewId}
       open={!!previewId}
       onOpenChange={(o) => !o && setPreviewId(null)}
+    />
+    <ApproveSuggestionDialog
+      suggestion={approving}
+      open={!!approving}
+      onOpenChange={(o) => !o && setApproving(null)}
     />
     </>
   )
