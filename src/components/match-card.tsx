@@ -1,11 +1,11 @@
-import { Eye, Trash2 } from 'lucide-react'
+import { CalendarClock, Eye, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { SourceBadge, ListingSourceBadge, listingSourceOf } from '@/components/source-badge'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { contactNameOf } from '@/hooks/use-contacts'
-import { daysAgoLabel } from '@/lib/dates'
+import { daysAgoLabel, formatDate, formatTimeOfDay } from '@/lib/dates'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
 interface MatchCardProps {
@@ -37,6 +37,9 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
       : [match.property?.city, match.property?.state].filter(Boolean).join(', ') || null
 
   const days = daysAgoLabel(match.inquiry_date)
+  const tourLabel = match.tour_date
+    ? [formatDate(match.tour_date), formatTimeOfDay(match.tour_time)].filter(Boolean).join(' · ')
+    : null
 
   // On the tenant board the card is a property — badge where the LISTING came
   // from (Crexi/LoopNet) and show its photo, not the client's lead source.
@@ -121,15 +124,24 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
         </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        {facing === 'tenant' ? (
-          <ListingSourceBadge source={listingSrc} />
+        {tourLabel ? (
+          <Badge variant="outline" className="border-blue-200 bg-blue-50 font-medium text-blue-700">
+            <CalendarClock className="size-3" />
+            {tourLabel}
+          </Badge>
         ) : (
-          <SourceBadge source={match.source} brokerName={brokerName} />
-        )}
-        {days && (
-          <span className="text-xs text-muted-foreground">
-            {days === 'today' ? 'today' : `${days} ago`}
-          </span>
+          <>
+            {facing === 'tenant' ? (
+              <ListingSourceBadge source={listingSrc} />
+            ) : (
+              <SourceBadge source={match.source} brokerName={brokerName} />
+            )}
+            {days && (
+              <span className="text-xs text-muted-foreground">
+                {days === 'today' ? 'today' : `${days} ago`}
+              </span>
+            )}
+          </>
         )}
       </div>
     </div>

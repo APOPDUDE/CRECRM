@@ -72,6 +72,75 @@ export function useUpdateTask() {
   })
 }
 
+export type PropertyTask = Tables<'tasks'> & {
+  pursuit:
+    | {
+        client_id: string
+        client: {
+          company: { name: string } | null
+          contact: { first_name: string; last_name: string | null } | null
+        } | null
+      }
+    | null
+}
+
+/** Open tasks attached to any pursuit on this property (tours, follow-ups, etc.). */
+export function usePropertyTasks(propertyId: string | undefined) {
+  return useQuery({
+    queryKey: ['tasks', 'property', propertyId],
+    enabled: !!propertyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(
+          `*, pursuit:pursuits!tasks_pursuit_id_fkey!inner(client_id, property_id, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))`,
+        )
+        .eq('pursuit.property_id', propertyId!)
+        .eq('status', 'open')
+        .order('due_at', { ascending: true, nullsFirst: false })
+        .order('due_date', { ascending: true, nullsFirst: false })
+      if (error) throw error
+      return data as unknown as PropertyTask[]
+    },
+  })
+}
+
+/**
+ * Edit a tour's exact time from the property page. Updates the task's due_at AND the
+ * linked pursuit's tour_time so the board card and slide-over stay in sync.
+ */
+export function useUpdateTourTime() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      pursuitId,
+      dueDate,
+      time,
+    }: {
+      taskId: string
+      pursuitId: string | null
+      dueDate: string | null
+      time: string | null
+    }) => {
+      const dueAt = dueDate && time ? new Date(`${dueDate}T${time}`).toISOString() : null
+      const { error } = await supabase.from('tasks').update({ due_at: dueAt }).eq('id', taskId)
+      if (error) throw error
+      if (pursuitId) {
+        const { error: e2 } = await supabase
+          .from('pursuits')
+          .update({ tour_time: time })
+          .eq('id', pursuitId)
+        if (e2) throw e2
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['matches'] })
+    },
+  })
+}
+
 /** Optimistic open/done toggle so checking a task off feels instant. */
 export function useToggleTask() {
   const queryClient = useQueryClient()

@@ -10,6 +10,7 @@ import { PropertyMiniMap } from '@/components/property-mini-map'
 import { MarketPositionCard } from '@/components/market-position-card'
 import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
+import { PropertyTasks } from '@/components/property-tasks'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
@@ -362,6 +363,11 @@ export function PropertyDetailPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Files</h2>
         <FileSection parentType="property" parentId={property.id} />
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Tours &amp; tasks</h2>
+        <PropertyTasks propertyId={property.id} />
       </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
