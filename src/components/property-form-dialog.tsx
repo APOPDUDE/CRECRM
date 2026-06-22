@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useCreateProperty, useUpdateProperty } from '@/hooks/use-properties'
+import { useCreateProperty, useUpdateProperty, useEnrichProperty } from '@/hooks/use-properties'
 import type { Property } from '@/hooks/use-properties'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -53,9 +53,12 @@ interface PropertyFormDialogProps {
 export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFormDialogProps) {
   const createProperty = useCreateProperty()
   const updateProperty = useUpdateProperty()
+  const enrich = useEnrichProperty()
   const pending = createProperty.isPending || updateProperty.isPending
 
   const [address, setAddress] = useState('')
+  const [parcelNumber, setParcelNumber] = useState('')
+  const [county, setCounty] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [zip, setZip] = useState('')
@@ -68,6 +71,8 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
   useEffect(() => {
     if (open) {
       setAddress(property?.address ?? '')
+      setParcelNumber(property?.parcel_number ?? '')
+      setCounty(property?.county ?? '')
       setCity(property?.city ?? '')
       setState(property?.state ?? '')
       setZip(property?.zip ?? '')
@@ -94,6 +99,8 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
       land_acres: landAcresTrimmed ? parseFloat(landAcresTrimmed) : null,
       specs: specs.trim() || null,
       listing_status: listingStatus,
+      parcel_number: parcelNumber.trim() || null,
+      county: county.trim() || null,
     }
     const onError = (error: unknown) =>
       toast.error(friendlyDbError(error, 'Could not save property'))
@@ -111,8 +118,14 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
       )
     } else {
       createProperty.mutate(values, {
-        onSuccess: () => {
+        onSuccess: (data) => {
           toast.success('Property created')
+          // Auto-enrich from the county appraiser when we have a parcel + county.
+          if (data?.id && values.parcel_number && values.county) {
+            enrich.mutate(data.id, {
+              onSuccess: () => toast.success('Enriching from county appraiser…'),
+            })
+          }
           onOpenChange(false)
         },
         onError,
@@ -136,6 +149,27 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
               required
               autoFocus
             />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="property-parcel">Parcel ID{!property && ' *'}</Label>
+              <Input
+                id="property-parcel"
+                value={parcelNumber}
+                onChange={(e) => setParcelNumber(e.target.value)}
+                placeholder="county folio / strap"
+                required={!property}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="property-county">County</Label>
+              <Input
+                id="property-county"
+                value={county}
+                onChange={(e) => setCounty(e.target.value)}
+                placeholder="e.g. Hillsborough"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
@@ -236,7 +270,10 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || !address.trim()}>
+            <Button
+              type="submit"
+              disabled={pending || !address.trim() || (!property && !parcelNumber.trim())}
+            >
               {pending ? 'Saving…' : property ? 'Save changes' : 'Add property'}
             </Button>
           </DialogFooter>
