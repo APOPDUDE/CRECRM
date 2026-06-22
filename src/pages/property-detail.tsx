@@ -25,6 +25,7 @@ import type { TablesUpdate } from '@/lib/database.types'
 import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { formatCurrency, formatListingPrice } from '@/lib/format'
+import { dorLabel } from '@/lib/dor-codes'
 import { pursuitStageLabels } from '@/lib/stages'
 
 function AppraiserField({ label, value }: { label: string; value: string | null | undefined }) {
@@ -410,7 +411,14 @@ export function PropertyDetailPage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3">
             <AppraiserField label="Owner" value={property.owner_name} />
             <AppraiserField label="Owner mailing" value={property.owner_mailing_address} />
-            <AppraiserField label="DOR use code" value={property.dor_use_code} />
+            <AppraiserField
+              label="DOR use code"
+              value={
+                property.dor_use_code
+                  ? [property.dor_use_code, dorLabel(property.dor_use_code)].filter(Boolean).join(' · ')
+                  : null
+              }
+            />
             <AppraiserField label="Just value" value={formatCurrency(property.just_value)} />
             <AppraiserField label="Assessed value" value={formatCurrency(property.assessed_value)} />
           </dl>
