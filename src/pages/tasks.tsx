@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  addDays,
   addMonths,
   eachDayOfInterval,
   endOfMonth,
@@ -74,7 +73,8 @@ export function TasksPage() {
     toast.success('Payment marked received')
   }
 
-  // Not received yet: close this check and seed a fresh reminder 30 days out.
+  // Not received yet: close this check and immediately put next month's reminder on
+  // the calendar (a true calendar month out), so payment follow-ups are never silent.
   const markPaymentNotReceived = async (task: TaskWithContact) => {
     if (!task.pursuit_id) return
     const { error } = await supabase.from('tasks').insert({
@@ -82,7 +82,7 @@ export function TasksPage() {
       title: task.title,
       kind: 'follow_up',
       status: 'open',
-      due_date: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+      due_date: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
       pursuit_id: task.pursuit_id,
       auto_generated: true,
       source: 'payment_check',
@@ -93,7 +93,7 @@ export function TasksPage() {
     }
     toggle.mutate({ id: task.id, status: 'done' })
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    toast.success('Reminder set for 30 days')
+    toast.success('Not received — reminder set for next month')
   }
 
   const [view, setView] = useState<'list' | 'calendar'>('list')
@@ -160,7 +160,15 @@ export function TasksPage() {
       <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
         <Checkbox
           checked={task.status === 'done'}
-          onCheckedChange={(v) => toggle.mutate({ id: task.id, status: v === true ? 'done' : 'open' })}
+          onCheckedChange={(v) => {
+            // Completing an unpaid payment reminder = "not received yet": seed next
+            // month's reminder instead of silently closing it. "Received" stops it.
+            if (v === true && task.source === 'payment_check' && task.status === 'open' && task.pursuit_id) {
+              void markPaymentNotReceived(task)
+            } else {
+              toggle.mutate({ id: task.id, status: v === true ? 'done' : 'open' })
+            }
+          }}
           aria-label="Toggle complete"
         />
         <button
