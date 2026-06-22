@@ -603,7 +603,6 @@ export type Database = {
       properties: {
         Row: {
           address: string
-          all_in_monthly_rent: number | null
           asking_price: number | null
           asking_rate_psf: number | null
           broker_company: string | null
@@ -638,7 +637,6 @@ export type Database = {
           num_units: number | null
           occupancy: string | null
           on_ground_lease: boolean | null
-          opex_psf: number | null
           opportunity_zone: boolean | null
           parcel_number: string | null
           parking_ratio: string | null
@@ -701,7 +699,6 @@ export type Database = {
           num_units?: number | null
           occupancy?: string | null
           on_ground_lease?: boolean | null
-          opex_psf?: number | null
           opportunity_zone?: boolean | null
           parcel_number?: string | null
           parking_ratio?: string | null
@@ -764,7 +761,6 @@ export type Database = {
           num_units?: number | null
           occupancy?: string | null
           on_ground_lease?: boolean | null
-          opex_psf?: number | null
           opportunity_zone?: boolean | null
           parcel_number?: string | null
           parking_ratio?: string | null

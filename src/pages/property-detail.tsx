@@ -333,19 +333,12 @@ export function PropertyDetailPage() {
       <PropertyComps propertyId={property.id} />
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Building, size &amp; economics</h2>
-        <p className="text-xs text-muted-foreground">
-          Asking price &amp; rate live in the Asking comps widget above.
-        </p>
+        <h2 className="text-sm font-medium text-muted-foreground">Building</h2>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <InlineEditField label="Building SF" value={property.building_sf} kind="sf" onSave={saveField('building_sf')} />
-          <InlineEditField label="Available SF (min)" value={property.space_sf_min} kind="sf" onSave={saveField('space_sf_min')} />
-          <InlineEditField label="Available SF (max)" value={property.space_sf_max} kind="sf" onSave={saveField('space_sf_max')} />
           <InlineEditField label="Land acres" value={property.land_acres} kind="acres" onSave={saveField('land_acres')} />
           <InlineEditField label="Year built" value={property.year_built} kind="number" onSave={saveField('year_built')} />
           <InlineEditField label="Type" value={property.property_type} kind="select" options={typeOptions} onSave={saveField('property_type')} />
-          <InlineEditField label="Opex / SF/yr" value={property.opex_psf} kind="psf" onSave={saveField('opex_psf')} />
-          <InlineEditField label="All-in rent / mo" value={property.all_in_monthly_rent} kind="currency" note="auto" />
           <InlineEditField label="Title" value={property.title} kind="text" onSave={saveField('title')} full />
           <InlineEditField label="Sub-types" value={property.property_sub_types?.join(', ') ?? null} kind="text" onSave={saveSubTypes} />
           <InlineEditField label="City" value={property.city} kind="text" onSave={saveField('city')} />
