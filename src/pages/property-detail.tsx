@@ -173,23 +173,6 @@ export function PropertyDetailPage() {
       } as TablesUpdate<'properties'> & { id: string })
     }
   const typeOptions = Object.entries(propertyKindLabels).map(([value, label]) => ({ value, label }))
-  // Price / SF is derived from price ÷ building SF; editing it sets the price.
-  const pricePerSf =
-    property.asking_price != null && property.building_sf
-      ? property.asking_price / property.building_sf
-      : null
-  const savePricePerSf = async (value: FieldVal) => {
-    const n = value == null || value === '' ? null : Number(value)
-    if (n == null) {
-      await updateProperty.mutateAsync({ id: propertyId, asking_price: null })
-      return
-    }
-    if (!property.building_sf) {
-      toast.error('Add building SF first to set a price per SF')
-      return
-    }
-    await updateProperty.mutateAsync({ id: propertyId, asking_price: Math.round(n * property.building_sf) })
-  }
   const saveSubTypes = async (value: FieldVal) => {
     const arr = String(value ?? '')
       .split(',')
@@ -350,26 +333,19 @@ export function PropertyDetailPage() {
       <PropertyComps propertyId={property.id} />
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Pricing &amp; size</h2>
+        <h2 className="text-sm font-medium text-muted-foreground">Building, size &amp; economics</h2>
+        <p className="text-xs text-muted-foreground">
+          Asking price &amp; rate live in the Asking comps widget above.
+        </p>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <InlineEditField label="Asking price" value={property.asking_price} kind="currency" onSave={saveField('asking_price')} />
-          <InlineEditField label="Price / SF" value={pricePerSf} kind="psf" onSave={savePricePerSf} note="auto" />
-          <InlineEditField label="Base rate / SF/yr" value={property.asking_rate_psf} kind="psf" onSave={saveField('asking_rate_psf')} />
-          <InlineEditField label="Opex / SF/yr" value={property.opex_psf} kind="psf" onSave={saveField('opex_psf')} />
-          <InlineEditField label="All-in rent / mo" value={property.all_in_monthly_rent} kind="currency" note="auto" />
-          <InlineEditField label="Cap rate" value={property.cap_rate_pct} kind="percent" onSave={saveField('cap_rate_pct')} />
           <InlineEditField label="Building SF" value={property.building_sf} kind="sf" onSave={saveField('building_sf')} />
           <InlineEditField label="Available SF (min)" value={property.space_sf_min} kind="sf" onSave={saveField('space_sf_min')} />
           <InlineEditField label="Available SF (max)" value={property.space_sf_max} kind="sf" onSave={saveField('space_sf_max')} />
           <InlineEditField label="Land acres" value={property.land_acres} kind="acres" onSave={saveField('land_acres')} />
           <InlineEditField label="Year built" value={property.year_built} kind="number" onSave={saveField('year_built')} />
           <InlineEditField label="Type" value={property.property_type} kind="select" options={typeOptions} onSave={saveField('property_type')} />
-        </dl>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Building &amp; location</h2>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <InlineEditField label="Opex / SF/yr" value={property.opex_psf} kind="psf" onSave={saveField('opex_psf')} />
+          <InlineEditField label="All-in rent / mo" value={property.all_in_monthly_rent} kind="currency" note="auto" />
           <InlineEditField label="Title" value={property.title} kind="text" onSave={saveField('title')} full />
           <InlineEditField label="Sub-types" value={property.property_sub_types?.join(', ') ?? null} kind="text" onSave={saveSubTypes} />
           <InlineEditField label="City" value={property.city} kind="text" onSave={saveField('city')} />

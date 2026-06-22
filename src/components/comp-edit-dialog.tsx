@@ -152,8 +152,13 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
               </div>
             )}
             <div className="space-y-2">
-              <Label>Building SF</Label>
-              <Input type="number" value={sf} onChange={(e) => setSf(e.target.value)} />
+              <Label>Space SF{!isSale && ' (this deal)'}</Label>
+              <Input
+                type="number"
+                value={sf}
+                onChange={(e) => setSf(e.target.value)}
+                placeholder={isSale ? 'building SF' : 'leased area'}
+              />
             </div>
             <div className="space-y-2">
               <Label>Cap rate %</Label>
