@@ -1,78 +1,129 @@
+import { useState } from 'react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { usePropertyComps } from '@/hooks/use-comps'
+import { Button } from '@/components/ui/button'
+import { CompEditDialog } from '@/components/comp-edit-dialog'
+import { usePropertyComps, useDeleteComp, type PropertyComp } from '@/hooks/use-comps'
 import { clientLabel } from '@/hooks/use-suggestions'
-import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
+import { formatCurrency, formatPsf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 
-function Cell({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null
+/** One-line summary of a comp's economics. */
+function compMetrics(c: PropertyComp): string {
+  const parts: (string | null)[] = []
+  if (c.deal_type === 'sale') {
+    parts.push(formatCurrency(c.sale_price))
+    if (c.cap_rate_pct != null) parts.push(`${c.cap_rate_pct}% cap`)
+  } else {
+    parts.push(formatPsf(c.kind === 'asking' ? c.asking_lease_rate_psf : c.executed_lease_rate_psf))
+    if (c.lease_structure) parts.push(c.lease_structure)
+    if (c.term_months != null) parts.push(`${c.term_months} mo`)
+    if (c.free_rent_months != null) parts.push(`${c.free_rent_months} mo free`)
+    if (c.ti_psf != null) parts.push(`$${c.ti_psf} TI`)
+  }
+  if (c.commission_fee != null) parts.push(`${formatCurrency(c.commission_fee)} fee`)
+  return parts.filter(Boolean).join(' · ')
+}
+
+function CompList({
+  propertyId,
+  kind,
+  comps,
+}: {
+  propertyId: string
+  kind: 'asking' | 'executed'
+  comps: PropertyComp[]
+}) {
+  const del = useDeleteComp()
+  const [editing, setEditing] = useState<PropertyComp | null>(null)
+  const [adding, setAdding] = useState(false)
+  const title = kind === 'asking' ? 'Asking comps' : 'Executed comps'
+
   return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm">{value}</dd>
-    </div>
+    <section className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          {title} {comps.length > 0 && `(${comps.length})`}
+        </h2>
+        <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+          <Plus className="size-4" />
+          Add
+        </Button>
+      </div>
+      {comps.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">No {kind} comps yet.</p>
+      ) : (
+        <ul className="divide-y rounded-lg border">
+          {comps.map((c) => (
+            <li key={c.id} className="flex items-start justify-between gap-3 p-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <Badge
+                    variant="outline"
+                    className={
+                      kind === 'executed'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-blue-200 bg-blue-50 text-blue-700'
+                    }
+                  >
+                    {c.deal_type === 'sale' ? 'Sale' : 'Lease'}
+                  </Badge>
+                  <span className="font-medium">{compMetrics(c) || '—'}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatDate(c.as_of_date ?? c.executed_at) ?? 'No date'}
+                  {kind === 'executed' && c.pursuit?.client ? ` · ${clientLabel(c.pursuit.client)}` : ''}
+                  {c.source === 'scrape' ? ' · scraped' : ''}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => setEditing(c)}
+                  title="Edit"
+                >
+                  <Pencil className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => del.mutate(c.id)}
+                  title="Delete"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <CompEditDialog open={adding} onOpenChange={setAdding} propertyId={propertyId} kind={kind} />
+      <CompEditDialog
+        open={!!editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+        propertyId={propertyId}
+        kind={kind}
+        comp={editing}
+      />
+    </section>
   )
 }
 
 /**
- * Executed comps for a property — the ACTUAL closed-deal lease/sale terms + booked
- * commission, distinct from the asking figures shown in "Pricing & size". Hidden when
- * the property has no closed deals.
+ * Two property widgets: Asking comps + Executed comps, each a dated history with
+ * add/edit/delete. Asking = market history; executed = closed-deal terms + commission.
  */
 export function PropertyComps({ propertyId }: { propertyId: string }) {
   const { data: comps = [] } = usePropertyComps(propertyId)
-  if (comps.length === 0) return null
-
+  const asking = comps.filter((c) => c.kind === 'asking')
+  const executed = comps.filter((c) => c.kind === 'executed')
   return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-medium text-muted-foreground">Closed deals (executed comps)</h2>
-      <div className="space-y-2">
-        {comps.map((c) => {
-          const isSale = c.deal_type === 'sale'
-          const who = clientLabel(c.pursuit?.client ?? null)
-          return (
-            <div key={c.id} className="rounded-lg border bg-card p-4">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700">
-                  Executed {isSale ? 'sale' : 'lease'}
-                </Badge>
-                <span className="text-sm font-medium">{who}</span>
-                {c.executed_at && (
-                  <span className="text-xs text-muted-foreground">· {formatDate(c.executed_at)}</span>
-                )}
-              </div>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-                {isSale ? (
-                  <>
-                    <Cell label="Sale price" value={formatCurrency(c.sale_price)} />
-                    <Cell label="Cap rate" value={c.cap_rate_pct != null ? `${c.cap_rate_pct}%` : null} />
-                    <Cell
-                      label="Price / SF"
-                      value={c.sale_price && c.sf ? formatPsf(c.sale_price / c.sf) : null}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Cell label="Executed rate" value={formatPsf(c.executed_lease_rate_psf)} />
-                    <Cell label="Structure" value={c.lease_structure} />
-                    <Cell label="Term" value={c.term_months != null ? `${c.term_months} mo` : null} />
-                    <Cell
-                      label="Free rent"
-                      value={c.free_rent_months != null ? `${c.free_rent_months} mo` : null}
-                    />
-                    <Cell label="TI / SF" value={formatPsf(c.ti_psf)} />
-                    <Cell label="Escalations" value={c.escalations} />
-                    <Cell label="Commencement" value={formatDate(c.commencement_date)} />
-                    <Cell label="Expiration" value={formatDate(c.expiration_date)} />
-                  </>
-                )}
-                <Cell label="Commission booked" value={formatCurrency(c.pursuit?.actual_fee)} />
-                <Cell label="SF" value={formatSf(c.sf)} />
-              </dl>
-            </div>
-          )
-        })}
-      </div>
-    </section>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <CompList propertyId={propertyId} kind="asking" comps={asking} />
+      <CompList propertyId={propertyId} kind="executed" comps={executed} />
+    </div>
   )
 }

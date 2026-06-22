@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { TablesInsert, TablesUpdate } from '@/lib/database.types'
 
 export interface CompTrendBucket {
   label: string
@@ -99,7 +100,10 @@ function bucketTrend(rows: CompRow[], years: number): { buckets: CompTrendBucket
 
 export type PropertyComp = {
   id: string
+  kind: string | null
   deal_type: string | null
+  as_of_date: string | null
+  asking_lease_rate_psf: number | null
   executed_lease_rate_psf: number | null
   lease_structure: string | null
   term_months: number | null
@@ -112,6 +116,9 @@ export type PropertyComp = {
   cap_rate_pct: number | null
   sf: number | null
   executed_at: string | null
+  commission_fee: number | null
+  source: string | null
+  pursuit_id: string | null
   pursuit: {
     actual_fee: number | null
     client: {
@@ -121,7 +128,7 @@ export type PropertyComp = {
   } | null
 }
 
-/** Executed (closed-deal) comps recorded on a property — the actual lease/sale terms + booked fee. */
+/** Every comp on a property — asking + executed history — newest first. */
 export function usePropertyComps(propertyId: string | undefined) {
   return useQuery({
     queryKey: ['property-comps', propertyId],
@@ -130,14 +137,64 @@ export function usePropertyComps(propertyId: string | undefined) {
       const { data, error } = await supabase
         .from('comps')
         .select(
-          'id, deal_type, executed_lease_rate_psf, lease_structure, term_months, free_rent_months, ti_psf, escalations, commencement_date, expiration_date, sale_price, cap_rate_pct, sf, executed_at, pursuit:pursuits!comps_pursuit_id_fkey(actual_fee, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))',
+          'id, kind, deal_type, as_of_date, asking_lease_rate_psf, executed_lease_rate_psf, lease_structure, term_months, free_rent_months, ti_psf, escalations, commencement_date, expiration_date, sale_price, cap_rate_pct, sf, executed_at, commission_fee, source, pursuit_id, pursuit:pursuits!comps_pursuit_id_fkey(actual_fee, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))',
         )
         .eq('property_id', propertyId!)
-        .eq('kind', 'executed')
-        .order('executed_at', { ascending: false })
+        .order('as_of_date', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as unknown as PropertyComp[]
     },
+  })
+}
+
+function invalidateComps(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['property-comps'] })
+  qc.invalidateQueries({ queryKey: ['county-comp-trend'] })
+  qc.invalidateQueries({ queryKey: ['matches'] })
+}
+
+/** Create or update a comp on a property; mirrors the fee to the linked pursuit if any. */
+export function useUpsertComp() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (comp: TablesUpdate<'comps'> & { property_id: string }) => {
+      let saved: { pursuit_id: string | null; commission_fee: number | null } | null = null
+      if (comp.id) {
+        const { id, ...rest } = comp
+        const { data, error } = await supabase
+          .from('comps')
+          .update({ ...rest, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select('pursuit_id, commission_fee')
+          .single()
+        if (error) throw error
+        saved = data
+      } else {
+        const { data, error } = await supabase
+          .from('comps')
+          .insert(comp as TablesInsert<'comps'>)
+          .select('pursuit_id, commission_fee')
+          .single()
+        if (error) throw error
+        saved = data
+      }
+      if (saved?.pursuit_id) {
+        await supabase.from('pursuits').update({ actual_fee: saved.commission_fee ?? null }).eq('id', saved.pursuit_id)
+      }
+    },
+    onSuccess: () => invalidateComps(qc),
+  })
+}
+
+export function useDeleteComp() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('comps').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateComps(qc),
   })
 }
 

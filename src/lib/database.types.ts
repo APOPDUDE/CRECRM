@@ -167,6 +167,7 @@ export type Database = {
           asking_lease_rate_psf: number | null
           cap_rate_pct: number | null
           as_of_date: string | null
+          commission_fee: number | null
           commencement_date: string | null
           created_at: string
           deal_type: Database["public"]["Enums"]["deal_type"]
@@ -198,6 +199,7 @@ export type Database = {
           asking_lease_rate_psf?: number | null
           cap_rate_pct?: number | null
           as_of_date?: string | null
+          commission_fee?: number | null
           commencement_date?: string | null
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
@@ -231,6 +233,7 @@ export type Database = {
           asking_lease_rate_psf?: number | null
           cap_rate_pct?: number | null
           as_of_date?: string | null
+          commission_fee?: number | null
           commencement_date?: string | null
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
