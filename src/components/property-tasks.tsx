@@ -22,16 +22,21 @@ function TaskRow({ task }: { task: PropertyTask }) {
   const toggle = useToggleTask()
   const del = useDeleteTask()
 
-  const initial = timeOf(task.due_at)
-  const [time, setTime] = useState(initial)
-  useEffect(() => setTime(initial), [initial])
+  const initialTime = timeOf(task.due_at)
+  const initialDate = task.due_date ?? ''
+  const [time, setTime] = useState(initialTime)
+  const [date, setDate] = useState(initialDate)
+  useEffect(() => {
+    setTime(initialTime)
+    setDate(initialDate)
+  }, [initialTime, initialDate])
 
   const commit = () => {
-    if (time === initial) return
+    if (time === initialTime && date === initialDate) return
     updateTime.mutate({
       taskId: task.id,
       pursuitId: task.pursuit_id,
-      dueDate: task.due_date,
+      date: date || null,
       time: time || null,
     })
   }
@@ -49,6 +54,14 @@ function TaskRow({ task }: { task: PropertyTask }) {
         <div className="text-xs text-muted-foreground">{formatDate(task.due_date) ?? 'No date'}</div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        <Input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          onBlur={commit}
+          className="w-36"
+          aria-label="Tour date"
+        />
         <Input
           type="time"
           value={time}

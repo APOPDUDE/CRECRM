@@ -106,8 +106,9 @@ export function usePropertyTasks(propertyId: string | undefined) {
 }
 
 /**
- * Edit a tour's exact time from the property page. Updates the task's due_at AND the
- * linked pursuit's tour_time so the board card and slide-over stay in sync.
+ * Edit a tour's date and/or time from the property page. Updates the task's due_date +
+ * due_at AND the linked pursuit's tour_date + tour_time so the board card, slide-over,
+ * and property page stay in sync.
  */
 export function useUpdateTourTime() {
   const queryClient = useQueryClient()
@@ -115,21 +116,24 @@ export function useUpdateTourTime() {
     mutationFn: async ({
       taskId,
       pursuitId,
-      dueDate,
+      date,
       time,
     }: {
       taskId: string
       pursuitId: string | null
-      dueDate: string | null
+      date: string | null
       time: string | null
     }) => {
-      const dueAt = dueDate && time ? new Date(`${dueDate}T${time}`).toISOString() : null
-      const { error } = await supabase.from('tasks').update({ due_at: dueAt }).eq('id', taskId)
+      const dueAt = date && time ? new Date(`${date}T${time}`).toISOString() : null
+      const { error } = await supabase
+        .from('tasks')
+        .update({ due_date: date || null, due_at: dueAt })
+        .eq('id', taskId)
       if (error) throw error
       if (pursuitId) {
         const { error: e2 } = await supabase
           .from('pursuits')
-          .update({ tour_time: time })
+          .update({ tour_date: date || null, tour_time: time || null })
           .eq('id', pursuitId)
         if (e2) throw e2
       }

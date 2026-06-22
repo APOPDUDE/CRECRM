@@ -291,7 +291,7 @@ export function PropertyDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
         <PropertyMiniMap
           lat={property.lat}
           lng={property.lng}
@@ -299,8 +299,51 @@ export function PropertyDetailPage() {
           city={property.city}
           state={property.state}
           zip={property.zip}
+          className="h-full min-h-[16rem]"
         />
         <MarketPositionCard propertyId={property.id} county={property.county} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Files</h2>
+          <FileSection parentType="property" parentId={property.id} />
+        </section>
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Tours &amp; tasks</h2>
+          <PropertyTasks propertyId={property.id} />
+        </section>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Listings {listings.length > 0 && `(${listings.length})`}
+          </h2>
+          {listings.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No landlord listings on this property.</p>
+          ) : (
+            <div className="space-y-2">
+              {listings.map((l) => (
+                <ListingDealRow key={l.id} listing={l} />
+              ))}
+            </div>
+          )}
+        </section>
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Tenant deals {matches.length > 0 && `(${matches.length})`}
+          </h2>
+          {matches.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No tenant matches on this property yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {matches.map((m) => (
+                <MatchDealRow key={m.id} match={m} />
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
       <section className="space-y-2">
@@ -376,16 +419,6 @@ export function PropertyDetailPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Files</h2>
-        <FileSection parentType="property" parentId={property.id} />
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Tours &amp; tasks</h2>
-        <PropertyTasks propertyId={property.id} />
-      </section>
-
-      <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-medium text-muted-foreground">County appraiser</h2>
           <Button
@@ -433,38 +466,6 @@ export function PropertyDetailPage() {
           </p>
         )}
       </section>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">
-            Listings {listings.length > 0 && `(${listings.length})`}
-          </h2>
-          {listings.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No landlord listings on this property.</p>
-          ) : (
-            <div className="space-y-2">
-              {listings.map((l) => (
-                <ListingDealRow key={l.id} listing={l} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">
-            Tenant deals {matches.length > 0 && `(${matches.length})`}
-          </h2>
-          {matches.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No tenant matches on this property yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {matches.map((m) => (
-                <MatchDealRow key={m.id} match={m} />
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
 
       <PropertyFormDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
     </div>
