@@ -11,6 +11,7 @@ import { MarketPositionCard } from '@/components/market-position-card'
 import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
 import { PropertyTasks } from '@/components/property-tasks'
+import { PropertyComps } from '@/components/property-comps'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
@@ -345,6 +346,8 @@ export function PropertyDetailPage() {
           )}
         </section>
       </div>
+
+      <PropertyComps propertyId={property.id} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Pricing &amp; size</h2>

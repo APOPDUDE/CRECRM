@@ -97,6 +97,50 @@ function bucketTrend(rows: CompRow[], years: number): { buckets: CompTrendBucket
   return { buckets, granularity }
 }
 
+export type PropertyComp = {
+  id: string
+  deal_type: string | null
+  executed_lease_rate_psf: number | null
+  lease_structure: string | null
+  term_months: number | null
+  free_rent_months: number | null
+  ti_psf: number | null
+  escalations: string | null
+  commencement_date: string | null
+  expiration_date: string | null
+  sale_price: number | null
+  cap_rate_pct: number | null
+  sf: number | null
+  executed_at: string | null
+  pursuit: {
+    actual_fee: number | null
+    client: {
+      company: { name: string } | null
+      contact: { first_name: string; last_name: string | null } | null
+    } | null
+  } | null
+}
+
+/** Executed (closed-deal) comps recorded on a property — the actual lease/sale terms + booked fee. */
+export function usePropertyComps(propertyId: string | undefined) {
+  return useQuery({
+    queryKey: ['property-comps', propertyId],
+    enabled: !!propertyId,
+    queryFn: async (): Promise<PropertyComp[]> => {
+      const { data, error } = await supabase
+        .from('comps')
+        .select(
+          'id, deal_type, executed_lease_rate_psf, lease_structure, term_months, free_rent_months, ti_psf, escalations, commencement_date, expiration_date, sale_price, cap_rate_pct, sf, executed_at, pursuit:pursuits!comps_pursuit_id_fkey(actual_fee, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))',
+        )
+        .eq('property_id', propertyId!)
+        .eq('kind', 'executed')
+        .order('executed_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as unknown as PropertyComp[]
+    },
+  })
+}
+
 /** Lease $/SF and sale $/SF comp trend for a county over the last `years` years. */
 export function useCountyCompTrend(county: string | null, years: number) {
   return useQuery({
