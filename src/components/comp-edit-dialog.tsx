@@ -49,6 +49,7 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
   const [cap, setCap] = useState('')
   const [rate, setRate] = useState('')
   const [price, setPrice] = useState('')
+  const [opex, setOpex] = useState('')
   const [structure, setStructure] = useState(NO_STRUCT)
   const [term, setTerm] = useState('')
   const [freeRent, setFreeRent] = useState('')
@@ -66,6 +67,7 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
     setCap(comp?.cap_rate_pct?.toString() ?? '')
     setRate(((k === 'asking' ? comp?.asking_lease_rate_psf : comp?.executed_lease_rate_psf) ?? '').toString())
     setPrice(comp?.sale_price?.toString() ?? '')
+    setOpex(comp?.opex_psf?.toString() ?? '')
     setStructure(comp?.lease_structure ?? NO_STRUCT)
     setTerm(comp?.term_months?.toString() ?? '')
     setFreeRent(comp?.free_rent_months?.toString() ?? '')
@@ -90,6 +92,7 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
       sale_price: isSale ? numOrNull(price) : null,
       asking_lease_rate_psf: !isSale && k === 'asking' ? numOrNull(rate) : null,
       executed_lease_rate_psf: !isSale && isExecuted ? numOrNull(rate) : null,
+      opex_psf: !isSale ? numOrNull(opex) : null,
     }
     if (isExecuted) {
       payload.owner_id = session?.user.id ?? null // executed comps require an owner (CHECK constraint)
@@ -149,6 +152,12 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
               <div className="space-y-2">
                 <Label>{isExecuted ? 'Executed' : 'Asking'} rate $/SF/yr</Label>
                 <Input type="number" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} />
+              </div>
+            )}
+            {!isSale && (
+              <div className="space-y-2">
+                <Label>Opex / SF/yr</Label>
+                <Input type="number" step="0.01" value={opex} onChange={(e) => setOpex(e.target.value)} />
               </div>
             )}
             <div className="space-y-2">

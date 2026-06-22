@@ -109,6 +109,7 @@ export type PropertyComp = {
   term_months: number | null
   free_rent_months: number | null
   ti_psf: number | null
+  opex_psf: number | null
   escalations: string | null
   commencement_date: string | null
   expiration_date: string | null
@@ -137,7 +138,7 @@ export function usePropertyComps(propertyId: string | undefined) {
       const { data, error } = await supabase
         .from('comps')
         .select(
-          'id, kind, deal_type, as_of_date, asking_lease_rate_psf, executed_lease_rate_psf, lease_structure, term_months, free_rent_months, ti_psf, escalations, commencement_date, expiration_date, sale_price, cap_rate_pct, sf, executed_at, commission_fee, source, pursuit_id, pursuit:pursuits!comps_pursuit_id_fkey(actual_fee, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))',
+          'id, kind, deal_type, as_of_date, asking_lease_rate_psf, executed_lease_rate_psf, lease_structure, term_months, free_rent_months, ti_psf, opex_psf, escalations, commencement_date, expiration_date, sale_price, cap_rate_pct, sf, executed_at, commission_fee, source, pursuit_id, pursuit:pursuits!comps_pursuit_id_fkey(actual_fee, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))',
         )
         .eq('property_id', propertyId!)
         .order('as_of_date', { ascending: false, nullsFirst: false })

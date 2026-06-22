@@ -168,6 +168,7 @@ export type Database = {
           cap_rate_pct: number | null
           as_of_date: string | null
           commission_fee: number | null
+          opex_psf: number | null
           commencement_date: string | null
           created_at: string
           deal_type: Database["public"]["Enums"]["deal_type"]
@@ -200,6 +201,7 @@ export type Database = {
           cap_rate_pct?: number | null
           as_of_date?: string | null
           commission_fee?: number | null
+          opex_psf?: number | null
           commencement_date?: string | null
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
@@ -234,6 +236,7 @@ export type Database = {
           cap_rate_pct?: number | null
           as_of_date?: string | null
           commission_fee?: number | null
+          opex_psf?: number | null
           commencement_date?: string | null
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]

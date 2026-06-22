@@ -8,14 +8,21 @@ import { clientLabel } from '@/hooks/use-suggestions'
 import { formatCurrency, formatPsf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 
-/** One-line summary of a comp's economics. */
+/** One-line summary: leases show base -> opex -> all-in/mo; sales show price -> $/SF. */
 function compMetrics(c: PropertyComp): string {
   const parts: (string | null)[] = []
   if (c.deal_type === 'sale') {
     parts.push(formatCurrency(c.sale_price))
+    if (c.sale_price != null && c.sf) parts.push(`${formatPsf(c.sale_price / c.sf)} /SF`)
     if (c.cap_rate_pct != null) parts.push(`${c.cap_rate_pct}% cap`)
   } else {
-    parts.push(formatPsf(c.kind === 'asking' ? c.asking_lease_rate_psf : c.executed_lease_rate_psf))
+    const rate = c.kind === 'asking' ? c.asking_lease_rate_psf : c.executed_lease_rate_psf
+    if (rate != null) parts.push(`${formatPsf(rate)} base`)
+    if (c.opex_psf != null) parts.push(`+${formatPsf(c.opex_psf)} opex`)
+    if (rate != null && c.sf) {
+      const allIn = ((rate + (c.opex_psf ?? 0)) * c.sf) / 12
+      parts.push(`${formatCurrency(allIn)}/mo all-in`)
+    }
     if (c.lease_structure) parts.push(c.lease_structure)
     if (c.term_months != null) parts.push(`${c.term_months} mo`)
     if (c.free_rent_months != null) parts.push(`${c.free_rent_months} mo free`)
