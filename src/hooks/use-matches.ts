@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { fetchCurrentAsking } from '@/hooks/use-comps'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
 
 type Contact = Tables<'contacts'>
@@ -11,21 +12,25 @@ type Company = Tables<'companies'>
  * convenience aliases derived from the client so existing card/panel code reads naturally.
  */
 export type MatchWithRelations = Tables<'pursuits'> & {
-  property: Pick<
-    Tables<'properties'>,
-    | 'id'
-    | 'address'
-    | 'city'
-    | 'state'
-    | 'building_sf'
-    | 'source'
-    | 'source_key'
-    | 'listing_url'
-    | 'photo_urls'
-    | 'asking_rate_psf'
-    | 'asking_price'
-    | 'specs'
-  > | null
+  property:
+    | (Pick<
+        Tables<'properties'>,
+        | 'id'
+        | 'address'
+        | 'city'
+        | 'state'
+        | 'building_sf'
+        | 'source'
+        | 'source_key'
+        | 'listing_url'
+        | 'photo_urls'
+        | 'specs'
+      > & {
+        // current asking, merged from the comps time-series (not columns on properties)
+        asking_rate_psf: number | null
+        asking_price: number | null
+      })
+    | null
   client:
     | (Pick<
         Tables<'clients'>,
@@ -47,7 +52,7 @@ export type MatchWithRelations = Tables<'pursuits'> & {
 
 const MATCH_SELECT = `
   *,
-  property:properties!pursuits_property_id_fkey(id, address, city, state, building_sf, source, source_key, listing_url, photo_urls, asking_rate_psf, asking_price, specs),
+  property:properties!pursuits_property_id_fkey(id, address, city, state, building_sf, source, source_key, listing_url, photo_urls, specs),
   client:clients!pursuits_client_id_fkey(
     id, status, deal_type, source, commission_pct, company_id, contact_id,
     company:companies!clients_company_id_fkey(id, name),
@@ -73,6 +78,29 @@ function decorate(row: PursuitRow): MatchWithRelations {
   }
 }
 
+/**
+ * Merge each match's current asking (from the comps time-series) onto its property.
+ * Pricing no longer lives on `properties`, so the embed can't carry it — one extra
+ * query per board folds it back in by property_id.
+ */
+async function withAsking(rows: MatchWithRelations[]): Promise<MatchWithRelations[]> {
+  const ids = rows.map((r) => r.property?.id).filter((x): x is string => !!x)
+  if (ids.length === 0) return rows
+  const asking = await fetchCurrentAsking(ids)
+  return rows.map((r) =>
+    r.property
+      ? {
+          ...r,
+          property: {
+            ...r.property,
+            asking_rate_psf: asking.get(r.property.id)?.rate ?? null,
+            asking_price: asking.get(r.property.id)?.price ?? null,
+          },
+        }
+      : r,
+  )
+}
+
 export const listingMatchesKey = (listingId: string) => ['matches', 'listing', listingId]
 export const tenantRepMatchesKey = (tenantRepId: string) => ['matches', 'tenant_rep', tenantRepId]
 export const propertyMatchesKey = (propertyId: string) => ['matches', 'property', propertyId]
@@ -89,7 +117,7 @@ export function usePropertyMatches(propertyId: string | undefined) {
         .eq('property_id', propertyId!)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data as unknown as PursuitRow[]).map(decorate)
+      return withAsking((data as unknown as PursuitRow[]).map(decorate))
     },
   })
 }
@@ -106,7 +134,7 @@ export function useTenantRepMatches(clientId: string | undefined) {
         .eq('client_id', clientId!)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data as unknown as PursuitRow[]).map(decorate)
+      return withAsking((data as unknown as PursuitRow[]).map(decorate))
     },
   })
 }
@@ -122,7 +150,7 @@ export function useMatch(id: string | undefined) {
         .eq('id', id!)
         .single()
       if (error) throw error
-      return decorate(data as unknown as PursuitRow)
+      return (await withAsking([decorate(data as unknown as PursuitRow)]))[0]
     },
   })
 }

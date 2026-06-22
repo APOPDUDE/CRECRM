@@ -35,12 +35,13 @@ import { ListErrorState } from '@/components/list-error-state'
 import { dealCount, useDeleteProperty, useProperties } from '@/hooks/use-properties'
 import type { Property } from '@/hooks/use-properties'
 import { useGoodDealIds } from '@/hooks/use-market'
+import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
-/** $14.50 PSF (lease) or $5,200,000 (sale) — whichever the property carries. */
-function askingLabel(p: Pick<Property, 'asking_rate_psf' | 'asking_price'>): string | null {
-  return formatPsf(p.asking_rate_psf) ?? formatCurrency(p.asking_price)
+/** $14.50 PSF (lease) or $5,200,000 (sale) — from the property's current asking comp. */
+function askingLabel(a: CurrentAsking | undefined): string | null {
+  return formatPsf(a?.rate) ?? formatCurrency(a?.price)
 }
 
 /** Building SF, falling back to land acres. */
@@ -65,6 +66,7 @@ export function PropertiesPage() {
   const navigate = useNavigate()
   const { data: properties, isLoading, isError, refetch } = useProperties()
   const { data: goodDealIds } = useGoodDealIds()
+  const { data: askingMap } = useCurrentAsking()
   const deleteProperty = useDeleteProperty()
 
   const [search, setSearch] = useState('')
@@ -112,11 +114,14 @@ export function PropertiesPage() {
       if (sfHi != null && (p.building_sf == null || p.building_sf > sfHi)) return false
       if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) return false
       if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) return false
-      if (prLo != null && (p.asking_price == null || p.asking_price < prLo)) return false
-      if (prHi != null && (p.asking_price == null || p.asking_price > prHi)) return false
+      if (prLo != null || prHi != null) {
+        const price = askingMap?.get(p.id)?.price ?? null
+        if (prLo != null && (price == null || price < prLo)) return false
+        if (prHi != null && (price == null || price > prHi)) return false
+      }
       return true
     })
-  }, [properties, search, status, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+  }, [properties, askingMap, search, status, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
 
   const activeFilterCount =
     (status !== 'all' ? 1 : 0) +
@@ -378,7 +383,7 @@ export function PropertiesPage() {
                       {formatLocation(property)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{sizeLabel(property) ?? ''}</TableCell>
-                    <TableCell className="text-muted-foreground">{askingLabel(property) ?? ''}</TableCell>
+                    <TableCell className="text-muted-foreground">{askingLabel(askingMap?.get(property.id)) ?? ''}</TableCell>
                     <TableCell>
                       {dealCount(property) > 0 ? (
                         <Badge variant="secondary" className="font-normal">
@@ -410,7 +415,9 @@ export function PropertiesPage() {
                     </span>
                   )}
                   <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                    {askingLabel(property) && <span>{askingLabel(property)}</span>}
+                    {askingLabel(askingMap?.get(property.id)) && (
+                      <span>{askingLabel(askingMap?.get(property.id))}</span>
+                    )}
                     {sizeLabel(property) && <span>{sizeLabel(property)}</span>}
                     {dealCount(property) > 0 && (
                       <span>

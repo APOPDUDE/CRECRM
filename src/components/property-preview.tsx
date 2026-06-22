@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/sheet'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { useProperty } from '@/hooks/use-properties'
+import { useCurrentAsking } from '@/hooks/use-comps'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 
@@ -35,6 +36,8 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPreviewProps) {
   const navigate = useNavigate()
   const { data: p, isLoading } = useProperty(propertyId ?? undefined)
+  const { data: askingMap } = useCurrentAsking(propertyId ? [propertyId] : [])
+  const asking = propertyId ? askingMap?.get(propertyId) : undefined
   const listingUrl = p?.listing_url
 
   return (
@@ -110,8 +113,8 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
               )}
 
               <div className="space-y-1.5 rounded-lg border p-3">
-                <Row label="Asking rate" value={formatPsf(p.asking_rate_psf)} />
-                <Row label="Asking price" value={formatCurrency(p.asking_price)} />
+                <Row label="Asking rate" value={formatPsf(asking?.rate)} />
+                <Row label="Asking price" value={formatCurrency(asking?.price)} />
                 <Row label="Building SF" value={formatSf(p.building_sf)} />
                 <Row label="Land acres" value={p.land_acres != null ? `${p.land_acres} AC` : null} />
                 <Row

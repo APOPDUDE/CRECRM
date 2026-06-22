@@ -138,14 +138,6 @@ export function usePropertyDeals(propertyId: string | undefined) {
   })
 }
 
-/** The asking figure to show for a property: PSF rate (lease) or total price (sale). */
-export function propertyAsking(p: Pick<Property, 'asking_rate_psf' | 'asking_price'>): {
-  rate: number | null
-  price: number | null
-} {
-  return { rate: p.asking_rate_psf, price: p.asking_price }
-}
-
 export type MatchStage = Enums<'pursuit_stage'>
 
 export function useProperty(id: string | undefined) {

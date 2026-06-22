@@ -154,8 +154,6 @@ export function AddListingDialog({
                 if (p.city) setCity(p.city)
                 if (p.state) setState(p.state)
                 if (p.property_type) setPropertyType(p.property_type)
-                if (p.asking_rate_psf != null) setRate(String(p.asking_rate_psf))
-                if (p.asking_price != null) setPrice(String(p.asking_price))
               }}
             />
             <p className="text-xs text-muted-foreground">

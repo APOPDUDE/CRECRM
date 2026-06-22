@@ -24,6 +24,7 @@ import {
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import { useCreateMatch } from '@/hooks/use-matches'
 import { useCreateProperty } from '@/hooks/use-properties'
+import { useUpsertComp } from '@/hooks/use-comps'
 import { useScrapePropertyByUrl } from '@/hooks/use-automation'
 import type { TenantRepDetail } from '@/hooks/use-tenant-reps'
 import type { Enums } from '@/lib/database.types'
@@ -108,6 +109,7 @@ export function AddPropertyMatchDialog({
   const scrape = useScrapePropertyByUrl()
   const createProperty = useCreateProperty()
   const createMatch = useCreateMatch()
+  const upsertComp = useUpsertComp()
   const showPaste = automationEnabled()
 
   const [mode, setMode] = useState<Mode>('manual')
@@ -174,25 +176,50 @@ export function AddPropertyMatchDialog({
     onOpenChange(false)
   }
 
-  const pending = createProperty.isPending || createMatch.isPending
+  const pending = createProperty.isPending || createMatch.isPending || upsertComp.isPending
 
   const handleManual = async (e: FormEvent) => {
     e.preventDefault()
     if (!m.address?.trim()) return
     try {
+      const buildingSf = intOrNull(m.building_sf)
+      const rate = numOrNull(m.asking_rate_psf)
+      const price = numOrNull(m.asking_price)
       const prop = await createProperty.mutateAsync({
         address: m.address.trim(),
         city: m.city?.trim() || null,
         state: m.state?.trim() || null,
         zip: m.zip?.trim() || null,
         property_type: m.property_type === NONE ? null : (m.property_type as Enums<'property_kind'>),
-        building_sf: intOrNull(m.building_sf),
+        building_sf: buildingSf,
         land_acres: numOrNull(m.land_acres),
-        asking_rate_psf: numOrNull(m.asking_rate_psf),
-        asking_price: numOrNull(m.asking_price),
         specs: m.specs?.trim() || null,
         source: 'manual',
       })
+      // Asking now lives on the comps time-series (keyed by property_id), not on properties.
+      const asOf = format(new Date(), 'yyyy-MM-dd')
+      if (rate != null) {
+        await upsertComp.mutateAsync({
+          property_id: prop.id,
+          kind: 'asking',
+          deal_type: 'lease',
+          asking_lease_rate_psf: rate,
+          sf: buildingSf,
+          as_of_date: asOf,
+          source: 'manual',
+        })
+      }
+      if (price != null) {
+        await upsertComp.mutateAsync({
+          property_id: prop.id,
+          kind: 'asking',
+          deal_type: 'sale',
+          sale_price: price,
+          sf: buildingSf,
+          as_of_date: asOf,
+          source: 'manual',
+        })
+      }
       await createMatch.mutateAsync({
         property_id: prop.id,
         client_id: tenantRep.id,

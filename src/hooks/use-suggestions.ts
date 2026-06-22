@@ -12,8 +12,6 @@ export type Suggestion = {
         state: string | null
         property_type: string | null
         building_sf: number | null
-        asking_rate_psf: number | null
-        asking_price: number | null
         listing_url: string | null
       }
     | null
@@ -31,7 +29,7 @@ export type Suggestion = {
 // (alias kept as `tenant_rep` for the widget.)
 const SUGGESTION_SELECT = `
   id, created_at,
-  property:properties!suggestions_property_id_fkey(id, address, city, state, property_type, building_sf, asking_rate_psf, asking_price, listing_url),
+  property:properties!suggestions_property_id_fkey(id, address, city, state, property_type, building_sf, listing_url),
   tenant_rep:clients!suggestions_client_id_fkey!inner(
     id,
     company:companies!clients_company_id_fkey(name),

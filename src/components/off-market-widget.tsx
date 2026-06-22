@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CircleSlash, ExternalLink } from 'lucide-react'
 import { PropertyPreview } from '@/components/property-preview'
 import { useRecentlyOffMarket } from '@/hooks/use-dashboard'
+import { useCurrentAsking } from '@/hooks/use-comps'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
 /**
@@ -10,6 +11,7 @@ import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
  */
 export function OffMarketWidget() {
   const { data: items = [] } = useRecentlyOffMarket()
+  const { data: askingMap } = useCurrentAsking(items.map((p) => p.id))
   const [previewId, setPreviewId] = useState<string | null>(null)
 
   if (items.length === 0) return null
@@ -26,9 +28,10 @@ export function OffMarketWidget() {
         </div>
         <ul className="divide-y">
           {items.map((p) => {
+            const asking = askingMap?.get(p.id)
             const metrics = [
-              formatPsf(p.asking_rate_psf),
-              formatCurrency(p.asking_price),
+              formatPsf(asking?.rate),
+              formatCurrency(asking?.price),
               formatSf(p.building_sf),
               p.property_type,
             ].filter(Boolean)

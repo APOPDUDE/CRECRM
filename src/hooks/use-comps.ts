@@ -199,6 +199,71 @@ export function useDeleteComp() {
   })
 }
 
+/**
+ * A property's current asking, pivoted from the latest asking comp per deal_type:
+ * `rate` (lease $/SF), `price` (sale total), `cap` (%), `sf` (available space on the
+ * current lease asking). This replaces the dropped `properties.asking_*` cache —
+ * pricing/space now live only on the comps time-series, keyed by property_id.
+ */
+export type CurrentAsking = {
+  rate: number | null
+  price: number | null
+  cap: number | null
+  sf: number | null
+}
+
+type CurrentAskingRow = {
+  property_id: string
+  deal_type: string | null
+  asking_lease_rate_psf: number | null
+  sale_price: number | null
+  cap_rate_pct: number | null
+  sf: number | null
+}
+
+/**
+ * Latest asking per property (Map keyed by property_id). Pass property ids to scope
+ * the query; omit to fetch the whole table (the Properties list). Plain async fn so
+ * data hooks (e.g. use-matches) can merge it into embedded property rows.
+ */
+export async function fetchCurrentAsking(
+  propertyIds?: string[],
+): Promise<Map<string, CurrentAsking>> {
+  const map = new Map<string, CurrentAsking>()
+  const ids = propertyIds ? Array.from(new Set(propertyIds.filter(Boolean))) : undefined
+  if (ids && ids.length === 0) return map
+  let q = supabase
+    .from('v_property_current_asking')
+    .select('property_id, deal_type, asking_lease_rate_psf, sale_price, cap_rate_pct, sf')
+  if (ids) q = q.in('property_id', ids)
+  const { data, error } = await q
+  if (error) throw error
+  for (const r of (data ?? []) as CurrentAskingRow[]) {
+    const cur = map.get(r.property_id) ?? { rate: null, price: null, cap: null, sf: null }
+    if (r.deal_type === 'lease') {
+      if (r.asking_lease_rate_psf != null) cur.rate = r.asking_lease_rate_psf
+      if (r.sf != null) cur.sf = r.sf
+    } else if (r.deal_type === 'sale') {
+      if (r.sale_price != null) cur.price = r.sale_price
+    }
+    if (r.cap_rate_pct != null && cur.cap == null) cur.cap = r.cap_rate_pct
+    map.set(r.property_id, cur)
+  }
+  return map
+}
+
+/** React-Query wrapper around {@link fetchCurrentAsking} for components. */
+export function useCurrentAsking(propertyIds?: string[]) {
+  const ids = propertyIds
+    ? Array.from(new Set(propertyIds.filter(Boolean))).sort()
+    : undefined
+  return useQuery({
+    queryKey: ['current-asking', ids ?? 'all'],
+    enabled: ids ? ids.length > 0 : true,
+    queryFn: () => fetchCurrentAsking(ids),
+  })
+}
+
 /** Lease $/SF and sale $/SF comp trend for a county over the last `years` years. */
 export function useCountyCompTrend(county: string | null, years: number) {
   return useQuery({

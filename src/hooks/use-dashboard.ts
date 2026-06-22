@@ -75,8 +75,6 @@ export type OffMarketProperty = {
   city: string | null
   state: string | null
   listing_url: string | null
-  asking_rate_psf: number | null
-  asking_price: number | null
   building_sf: number | null
   property_type: Enums<'property_kind'> | null
   updated_at: string
@@ -93,7 +91,7 @@ export function useRecentlyOffMarket() {
       const { data, error } = await supabase
         .from('properties')
         .select(
-          'id, address, city, state, listing_url, asking_rate_psf, asking_price, building_sf, property_type, updated_at',
+          'id, address, city, state, listing_url, building_sf, property_type, updated_at',
         )
         .eq('listing_status', 'off_market')
         .order('updated_at', { ascending: false })

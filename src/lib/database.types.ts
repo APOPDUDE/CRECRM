@@ -603,8 +603,6 @@ export type Database = {
       properties: {
         Row: {
           address: string
-          asking_price: number | null
-          asking_rate_psf: number | null
           broker_company: string | null
           broker_email: string | null
           broker_name: string | null
@@ -612,7 +610,6 @@ export type Database = {
           building_class: string | null
           building_far: string | null
           building_sf: number | null
-          cap_rate_pct: number | null
           city: string | null
           construction_status: string | null
           county: string | null
@@ -650,8 +647,6 @@ export type Database = {
           source: string | null
           source_key: string | null
           source_last_updated: string | null
-          space_sf_max: number | null
-          space_sf_min: number | null
           specs: string | null
           state: string | null
           stories: number | null
@@ -665,8 +660,6 @@ export type Database = {
         }
         Insert: {
           address: string
-          asking_price?: number | null
-          asking_rate_psf?: number | null
           broker_company?: string | null
           broker_email?: string | null
           broker_name?: string | null
@@ -674,7 +667,6 @@ export type Database = {
           building_class?: string | null
           building_far?: string | null
           building_sf?: number | null
-          cap_rate_pct?: number | null
           city?: string | null
           construction_status?: string | null
           county?: string | null
@@ -712,8 +704,6 @@ export type Database = {
           source?: string | null
           source_key?: string | null
           source_last_updated?: string | null
-          space_sf_max?: number | null
-          space_sf_min?: number | null
           specs?: string | null
           state?: string | null
           stories?: number | null
@@ -727,8 +717,6 @@ export type Database = {
         }
         Update: {
           address?: string
-          asking_price?: number | null
-          asking_rate_psf?: number | null
           broker_company?: string | null
           broker_email?: string | null
           broker_name?: string | null
@@ -736,7 +724,6 @@ export type Database = {
           building_class?: string | null
           building_far?: string | null
           building_sf?: number | null
-          cap_rate_pct?: number | null
           city?: string | null
           construction_status?: string | null
           county?: string | null
@@ -774,8 +761,6 @@ export type Database = {
           source?: string | null
           source_key?: string | null
           source_last_updated?: string | null
-          space_sf_max?: number | null
-          space_sf_min?: number | null
           specs?: string | null
           state?: string | null
           stories?: number | null
@@ -1032,6 +1017,19 @@ export type Database = {
           land_baseline_n: number | null
           land_vs_market_pct: number | null
           good_land_deal: boolean | null
+        }
+        Relationships: []
+      }
+      v_property_current_asking: {
+        Row: {
+          property_id: string | null
+          deal_type: Database["public"]["Enums"]["deal_type"] | null
+          asking_lease_rate_psf: number | null
+          sale_price: number | null
+          cap_rate_pct: number | null
+          sf: number | null
+          as_of_date: string | null
+          comp_id: string | null
         }
         Relationships: []
       }

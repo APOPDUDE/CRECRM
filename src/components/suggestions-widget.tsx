@@ -9,6 +9,7 @@ import {
   useDismissSuggestion,
   type Suggestion,
 } from '@/hooks/use-suggestions'
+import { useCurrentAsking } from '@/hooks/use-comps'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
 function tenantName(s: Suggestion): string {
@@ -29,6 +30,9 @@ function tenantName(s: Suggestion): string {
 export function SuggestionsWidget() {
   const { data: suggestions = [] } = usePendingSuggestions()
   const dismiss = useDismissSuggestion()
+  const { data: askingMap } = useCurrentAsking(
+    suggestions.map((s) => s.property?.id).filter((x): x is string => !!x),
+  )
   const [previewId, setPreviewId] = useState<string | null>(null)
   const [approving, setApproving] = useState<Suggestion | null>(null)
 
@@ -51,9 +55,10 @@ export function SuggestionsWidget() {
         {suggestions.map((s) => {
           const p = s.property
           const url = p?.listing_url
+          const asking = p ? askingMap?.get(p.id) : undefined
           const metrics = [
-            formatPsf(p?.asking_rate_psf),
-            formatCurrency(p?.asking_price),
+            formatPsf(asking?.rate),
+            formatCurrency(asking?.price),
             formatSf(p?.building_sf),
             p?.property_type,
           ].filter(Boolean)
