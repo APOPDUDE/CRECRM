@@ -166,6 +166,21 @@ function invalidatePropertyViews(queryClient: ReturnType<typeof useQueryClient>)
   queryClient.invalidateQueries({ queryKey: ['deal-map'] })
 }
 
+/** On-demand county-appraiser enrichment for one property (via the edge function). */
+export function useEnrichProperty() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (propertyId: string) => {
+      const { data, error } = await supabase.functions.invoke('enrich-appraiser', {
+        body: { property_ids: [propertyId] },
+      })
+      if (error) throw error
+      return data as { tally?: Record<string, number>; results?: { status: string }[] }
+    },
+    onSuccess: () => invalidatePropertyViews(queryClient),
+  })
+}
+
 export function useCreateProperty() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -617,6 +617,13 @@ export type Database = {
           lat: number | null
           listed_at: string | null
           listing_status: Database["public"]["Enums"]["listing_market_status"]
+          owner_name: string | null
+          owner_mailing_address: string | null
+          just_value: number | null
+          assessed_value: number | null
+          dor_use_code: string | null
+          appraiser_data: Json | null
+          appraiser_updated_at: string | null
           listing_url: string | null
           lng: number | null
           num_units: number | null
@@ -673,6 +680,13 @@ export type Database = {
           lat?: number | null
           listed_at?: string | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
+          owner_name?: string | null
+          owner_mailing_address?: string | null
+          just_value?: number | null
+          assessed_value?: number | null
+          dor_use_code?: string | null
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
           listing_url?: string | null
           lng?: number | null
           num_units?: number | null
@@ -729,6 +743,13 @@ export type Database = {
           lat?: number | null
           listed_at?: string | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
+          owner_name?: string | null
+          owner_mailing_address?: string | null
+          just_value?: number | null
+          assessed_value?: number | null
+          dor_use_code?: string | null
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
           listing_url?: string | null
           lng?: number | null
           num_units?: number | null

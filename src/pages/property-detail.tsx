@@ -17,14 +17,24 @@ import {
   useProperty,
   useUpdateProperty,
   usePropertyDeals,
+  useEnrichProperty,
   type PropertyListing,
   type PropertyMatch,
 } from '@/hooks/use-properties'
 import type { TablesUpdate } from '@/lib/database.types'
 import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
-import { formatListingPrice } from '@/lib/format'
+import { formatCurrency, formatListingPrice } from '@/lib/format'
 import { pursuitStageLabels } from '@/lib/stages'
+
+function AppraiserField({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="text-sm">{value || '—'}</dd>
+    </div>
+  )
+}
 
 const listingStageLabels: Record<string, string> = {
   proposal: 'Proposal',
@@ -110,6 +120,7 @@ export function PropertyDetailPage() {
   const { data: property, isLoading, isError } = useProperty(id)
   const { data: deals } = usePropertyDeals(id)
   const { data: marketPos } = usePropertyMarketPosition(id)
+  const enrich = useEnrichProperty()
   const updateProperty = useUpdateProperty()
   const [editOpen, setEditOpen] = useState(false)
 
@@ -144,6 +155,9 @@ export function PropertyDetailPage() {
   const sourceLabel =
     property.source === 'scrape' ? 'Scraped' : property.source === 'landlord_rep' ? 'My listing' : null
   const photos = property.photo_urls ?? []
+  const appraiser = (property.appraiser_data ?? null) as
+    | { status?: string; tried?: { field?: string; value?: string } }
+    | null
   const listings = deals?.listings ?? []
   const matches = deals?.matches ?? []
 
@@ -368,6 +382,48 @@ export function PropertyDetailPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Tours &amp; tasks</h2>
         <PropertyTasks propertyId={property.id} />
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-medium text-muted-foreground">County appraiser</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={enrich.isPending}
+            onClick={() =>
+              enrich.mutate(property.id, {
+                onSuccess: (d) => {
+                  const s = d?.results?.[0]?.status
+                  if (s === 'ok') toast.success('Enriched from county appraiser')
+                  else if (s === 'not_found') toast.error('No matching parcel at the appraiser')
+                  else toast.error('Could not enrich')
+                },
+                onError: () => toast.error('Could not enrich'),
+              })
+            }
+          >
+            {enrich.isPending ? 'Enriching…' : property.appraiser_updated_at ? 'Refresh' : 'Enrich'}
+          </Button>
+        </div>
+        {appraiser?.status === 'ok' ? (
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <AppraiserField label="Owner" value={property.owner_name} />
+            <AppraiserField label="Owner mailing" value={property.owner_mailing_address} />
+            <AppraiserField label="DOR use code" value={property.dor_use_code} />
+            <AppraiserField label="Just value" value={formatCurrency(property.just_value)} />
+            <AppraiserField label="Assessed value" value={formatCurrency(property.assessed_value)} />
+          </dl>
+        ) : property.appraiser_updated_at ? (
+          <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            No matching parcel found at the county appraiser
+            {appraiser?.tried ? ` (tried ${appraiser.tried.field}=${appraiser.tried.value})` : ''}.
+          </p>
+        ) : (
+          <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            Not yet pulled. Enrich fetches owner, value, DOR use code, zoning &amp; coordinates by parcel ID.
+          </p>
+        )}
       </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
