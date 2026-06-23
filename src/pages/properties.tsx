@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Columns3, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { Columns3, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,7 @@ import {
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
+import { PropertiesMap } from '@/components/properties-map'
 import { dealCount, useDeleteProperty, useProperties } from '@/hooks/use-properties'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import { useGoodDealIds } from '@/hooks/use-market'
@@ -135,6 +136,7 @@ export function PropertiesPage() {
   const [priceMin, setPriceMin] = usePersistentState('properties:priceMin', '')
   const [priceMax, setPriceMax] = usePersistentState('properties:priceMax', '')
   const [columns, setColumns] = usePersistentState<ColumnId[]>('properties:columns', DEFAULT_COLUMNS)
+  const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
@@ -277,6 +279,28 @@ export function PropertiesPage() {
               className="pl-9"
             />
           </div>
+          <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
+            <Button
+              variant={view === 'table' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setView('table')}
+              title="Table view"
+            >
+              <List className="size-4" />
+              <span className="hidden lg:inline">Table</span>
+            </Button>
+            <Button
+              variant={view === 'map' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-none border-l"
+              onClick={() => setView('map')}
+              title="Map view"
+            >
+              <MapIcon className="size-4" />
+              <span className="hidden lg:inline">Map</span>
+            </Button>
+          </div>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline">
@@ -366,6 +390,7 @@ export function PropertiesPage() {
               </div>
             </PopoverContent>
           </Popover>
+          {view === 'table' && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="hidden md:inline-flex">
@@ -392,6 +417,7 @@ export function PropertiesPage() {
               })}
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
           <Button onClick={openCreate}>
             <Plus className="size-4" />
             <span className="hidden sm:inline">Add property</span>
@@ -428,6 +454,8 @@ export function PropertiesPage() {
         <div className="rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">No properties match “{search.trim()}”</p>
         </div>
+      ) : view === 'map' ? (
+        <PropertiesMap properties={filtered} goodDealIds={goodDealIds} />
       ) : (
         <>
           {/* Desktop table */}
