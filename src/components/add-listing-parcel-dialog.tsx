@@ -24,6 +24,7 @@ import {
   type ParcelSearchResult,
 } from '@/hooks/use-listing-parcels'
 import { useCreateProperty, useEnrichProperty } from '@/hooks/use-properties'
+import { formatParcelId } from '@/lib/parcel'
 import { friendlyDbError } from '@/lib/db-errors'
 
 // Counties with a county-appraiser adapter (so a parcel-only add can auto-enrich).
@@ -87,9 +88,10 @@ export function AddListingParcelDialog({
   const createAndAttach = async () => {
     if (!canCreate) return
     try {
+      const formattedParcel = formatParcelId(parcel, county)
       const prop = await createProperty.mutateAsync({
-        address: address.trim() || `Parcel ${parcel.trim()}`,
-        parcel_number: parcel.trim(),
+        address: address.trim() || `Parcel ${formattedParcel}`,
+        parcel_number: formattedParcel,
         county,
         source: 'manual',
       })
@@ -121,13 +123,20 @@ export function AddListingParcelDialog({
                 id="parcel-id"
                 value={parcel}
                 onChange={(e) => setParcel(e.target.value)}
-                placeholder="county folio / strap"
+                onBlur={() => setParcel((p) => formatParcelId(p, county))}
+                placeholder="paste raw — we format it"
                 autoFocus
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="parcel-county">County</Label>
-              <Select value={county} onValueChange={setCounty}>
+              <Select
+                value={county}
+                onValueChange={(v) => {
+                  setCounty(v)
+                  setParcel((p) => formatParcelId(p, v))
+                }}
+              >
                 <SelectTrigger id="parcel-county" className="w-full">
                   <SelectValue placeholder="Select county" />
                 </SelectTrigger>
