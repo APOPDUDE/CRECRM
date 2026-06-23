@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, MapPin, Pencil } from 'lucide-react'
+import { ArrowLeft, ExternalLink, MapPin, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
 import { PropertyTasks } from '@/components/property-tasks'
 import { PropertyComps } from '@/components/property-comps'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
@@ -19,10 +20,12 @@ import {
   useUpdateProperty,
   usePropertyDeals,
   useEnrichProperty,
+  useDeleteProperty,
   type PropertyListing,
   type PropertyMatch,
 } from '@/hooks/use-properties'
 import type { TablesUpdate } from '@/lib/database.types'
+import { friendlyDbError } from '@/lib/db-errors'
 import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { formatCurrency, formatListingPrice } from '@/lib/format'
@@ -124,7 +127,9 @@ export function PropertyDetailPage() {
   const { data: marketPos } = usePropertyMarketPosition(id)
   const enrich = useEnrichProperty()
   const updateProperty = useUpdateProperty()
+  const deleteProperty = useDeleteProperty()
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   useSetBreadcrumb(property?.address)
 
@@ -442,7 +447,40 @@ export function PropertyDetailPage() {
         )}
       </section>
 
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Danger zone</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Delete this property</div>
+            <p className="text-xs text-muted-foreground">
+              Permanently removes the record from the database. Blocked if it's still linked to a
+              listing or tenant deal.
+            </p>
+          </div>
+          <Button variant="destructive" className="shrink-0" onClick={() => setDeleteOpen(true)}>
+            <Trash2 className="size-4" />
+            Delete property
+          </Button>
+        </div>
+      </section>
+
       <PropertyFormDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete property?"
+        description={`“${property.address}” will be permanently deleted from the database. If it's linked to a listing or tenant deal, deletion will be blocked.`}
+        pending={deleteProperty.isPending}
+        onConfirm={() =>
+          deleteProperty.mutate(property.id, {
+            onSuccess: () => {
+              toast.success('Property deleted')
+              navigate('/properties')
+            },
+            onError: (error) => toast.error(friendlyDbError(error, 'Could not delete property')),
+          })
+        }
+      />
     </div>
   )
 }

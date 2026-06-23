@@ -60,12 +60,24 @@ export function useProperties() {
   return useQuery({
     queryKey: ['properties'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('properties')
-        .select('*, listings(count), matches:pursuits(count)')
-        .order('address')
-      if (error) throw error
-      return data as unknown as PropertyWithCounts[]
+      // PostgREST caps a single response at 1000 rows, so page through all of them
+      // (there are ~2,300+). Order by (address, id) — id is the unique tiebreaker that
+      // keeps offset paging stable across pages when addresses collide.
+      const PAGE = 1000
+      const all: PropertyWithCounts[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*, listings(count), matches:pursuits(count)')
+          .order('address')
+          .order('id')
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        const rows = (data ?? []) as unknown as PropertyWithCounts[]
+        all.push(...rows)
+        if (rows.length < PAGE) break
+      }
+      return all
     },
   })
 }
