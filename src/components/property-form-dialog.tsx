@@ -230,28 +230,37 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="property-building-sf">Building SF</Label>
-              <Input
-                id="property-building-sf"
-                type="number"
-                inputMode="numeric"
-                value={buildingSf}
-                onChange={(e) => setBuildingSf(e.target.value)}
-              />
+          {/* Size fills in from the county appraiser (by parcel) on create, so only
+              expose the fields when editing an existing property to correct them. */}
+          {property ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="property-building-sf">Building SF</Label>
+                <Input
+                  id="property-building-sf"
+                  type="number"
+                  inputMode="numeric"
+                  value={buildingSf}
+                  onChange={(e) => setBuildingSf(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="property-land-acres">Land acres</Label>
+                <Input
+                  id="property-land-acres"
+                  type="number"
+                  step="0.01"
+                  value={landAcres}
+                  onChange={(e) => setLandAcres(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="property-land-acres">Land acres</Label>
-              <Input
-                id="property-land-acres"
-                type="number"
-                step="0.01"
-                value={landAcres}
-                onChange={(e) => setLandAcres(e.target.value)}
-              />
-            </div>
-          </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Size (building SF / acres) and owner data fill in automatically from the county
+              appraiser using the parcel ID.
+            </p>
+          )}
           <div className="space-y-2">
             <Label htmlFor="property-specs">Specs</Label>
             <Textarea

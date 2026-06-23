@@ -43,7 +43,6 @@ interface AddPropertyMatchDialogProps {
 }
 
 const numOrNull = (v: string | undefined) => (v && v.trim() ? Number(v) : null)
-const intOrNull = (v: string | undefined) => (v && v.trim() ? Math.round(Number(v)) : null)
 
 /** One URL per box, no spaces, with an "add another" button below. */
 function UrlInputList({
@@ -183,7 +182,6 @@ export function AddPropertyMatchDialog({
     e.preventDefault()
     if (!m.address?.trim() || !m.parcel_number?.trim()) return
     try {
-      const buildingSf = intOrNull(m.building_sf)
       const rate = numOrNull(m.asking_rate_psf)
       const price = numOrNull(m.asking_price)
       const prop = await createProperty.mutateAsync({
@@ -192,13 +190,12 @@ export function AddPropertyMatchDialog({
         state: m.state?.trim() || null,
         zip: m.zip?.trim() || null,
         property_type: m.property_type === NONE ? null : (m.property_type as Enums<'property_kind'>),
-        building_sf: buildingSf,
-        land_acres: numOrNull(m.land_acres),
         parcel_number: m.parcel_number?.trim() || null,
         specs: m.specs?.trim() || null,
         source: 'manual',
       })
-      // Asking now lives on the comps time-series (keyed by property_id), not on properties.
+      // Asking lives on the comps time-series (keyed by property_id), not on properties.
+      // sqft/acres are filled by the county-appraiser enrichment from the parcel.
       const asOf = format(new Date(), 'yyyy-MM-dd')
       if (rate != null) {
         await upsertComp.mutateAsync({
@@ -206,7 +203,6 @@ export function AddPropertyMatchDialog({
           kind: 'asking',
           deal_type: 'lease',
           asking_lease_rate_psf: rate,
-          sf: buildingSf,
           as_of_date: asOf,
           source: 'manual',
         })
@@ -217,7 +213,6 @@ export function AddPropertyMatchDialog({
           kind: 'asking',
           deal_type: 'sale',
           sale_price: price,
-          sf: buildingSf,
           as_of_date: asOf,
           source: 'manual',
         })
@@ -322,15 +317,11 @@ export function AddPropertyMatchDialog({
                 </SelectContent>
               </Select>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Size (building SF / acres) and owner data fill in automatically from the county
+              appraiser using the parcel ID.
+            </p>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="man-sf">Building SF</Label>
-                <Input id="man-sf" type="number" inputMode="numeric" value={m.building_sf ?? ''} onChange={setF('building_sf')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="man-ac">Land acres</Label>
-                <Input id="man-ac" type="number" inputMode="decimal" step="0.01" value={m.land_acres ?? ''} onChange={setF('land_acres')} />
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="man-rate">Asking rate ($/SF)</Label>
                 <Input id="man-rate" type="number" inputMode="decimal" step="0.01" value={m.asking_rate_psf ?? ''} onChange={setF('asking_rate_psf')} />
