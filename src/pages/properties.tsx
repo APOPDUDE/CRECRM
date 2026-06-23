@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Columns3, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Columns3, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -115,6 +115,8 @@ const COLUMN_DEFS: ColumnDef[] = [
 const DEFAULT_COLUMNS: ColumnId[] = ['type', 'location', 'size', 'asking', 'deals']
 /** Address is fixed, so 6 here = 7 visible columns total. */
 const MAX_COLUMNS = 6
+/** Rows per page in the table — keeps the DOM light even with thousands of properties. */
+const PAGE_SIZE = 100
 
 export function PropertiesPage() {
   const navigate = useNavigate()
@@ -137,6 +139,7 @@ export function PropertiesPage() {
   const [priceMax, setPriceMax] = usePersistentState('properties:priceMax', '')
   const [columns, setColumns] = usePersistentState<ColumnId[]>('properties:columns', DEFAULT_COLUMNS)
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
+  const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
@@ -194,6 +197,16 @@ export function PropertiesPage() {
       return true
     })
   }, [properties, askingMap, search, status, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+
+  // Reset to the first page whenever a filter/search edit changes the result set.
+  useEffect(() => {
+    setPage(0)
+  }, [search, status, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+
+  // Paginate the table display (data is fully loaded; this just bounds the DOM).
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount - 1)
+  const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
 
   const activeFilterCount =
     (status !== 'all' ? 1 : 0) +
@@ -471,7 +484,7 @@ export function PropertiesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((property) => (
+                {paged.map((property) => (
                   <TableRow
                     key={property.id}
                     className="cursor-pointer"
@@ -512,7 +525,7 @@ export function PropertiesPage() {
 
           {/* Mobile cards */}
           <div className="space-y-2 md:hidden">
-            {filtered.map((property) => (
+            {paged.map((property) => (
               <div
                 key={property.id}
                 className="flex items-center justify-between gap-2 rounded-lg border bg-card"
@@ -559,6 +572,38 @@ export function PropertiesPage() {
               </div>
             ))}
           </div>
+
+          {pageCount > 1 && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of{' '}
+                {filtered.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safePage === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                >
+                  <ChevronLeft className="size-4" />
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  Page {safePage + 1} of {pageCount}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safePage >= pageCount - 1}
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                >
+                  Next
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
