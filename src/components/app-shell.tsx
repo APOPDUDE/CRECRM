@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { ErrorBoundary } from '@/components/error-boundary'
 import {
   Building,
   Building2,
@@ -156,7 +157,9 @@ export function AppShell() {
         </header>
 
         <main className="flex-1 p-4 md:p-6">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

@@ -54,6 +54,24 @@ export function useDeleteUnit() {
   })
 }
 
+/** The unit(s) a prospect inquired on — shown on the match slide-over. */
+export function usePursuitUnits(pursuitId: string | undefined) {
+  return useQuery({
+    queryKey: ['pursuit-units', pursuitId],
+    enabled: !!pursuitId,
+    queryFn: async (): Promise<Unit[]> => {
+      const { data, error } = await supabase
+        .from('pursuit_units')
+        .select('unit:units!pursuit_units_unit_id_fkey(*)')
+        .eq('pursuit_id', pursuitId!)
+      if (error) throw error
+      return ((data ?? []) as unknown as { unit: Unit | null }[])
+        .map((r) => r.unit)
+        .filter((u): u is Unit => !!u)
+    },
+  })
+}
+
 /** Replace the set of units a pursuit is tied to (used by the add-prospect form). */
 export function useSetPursuitUnits() {
   const qc = useQueryClient()

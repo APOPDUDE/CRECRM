@@ -21,8 +21,9 @@ import { SourceBadge } from '@/components/source-badge'
 import { ContactActions } from '@/components/contact-actions'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useDeleteMatch, useMatch, usePromoteToTenantRep } from '@/hooks/use-matches'
+import { usePursuitUnits, unitSizeLabel } from '@/hooks/use-units'
 import { pursuitStageLabels } from '@/lib/stages'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, formatPsf } from '@/lib/format'
 import { formatDate, formatTimeOfDay } from '@/lib/dates'
 
 interface MatchSlideOverProps {
@@ -44,6 +45,7 @@ function DateRow({ label, value }: { label: string; value: string | null }) {
 export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverProps) {
   const navigate = useNavigate()
   const { data: match, isLoading } = useMatch(matchId ?? undefined)
+  const { data: pursuitUnits = [] } = usePursuitUnits(matchId ?? undefined)
   const promote = usePromoteToTenantRep()
   const deleteMatch = useDeleteMatch()
   const [leaseOpen, setLeaseOpen] = useState(false)
@@ -152,6 +154,25 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                       </div>
                     )}
                   </div>
+
+                  {pursuitUnits.length > 0 && (
+                    <div className="space-y-1.5 rounded-lg border p-3">
+                      <p className="text-xs font-medium text-muted-foreground">Units inquired on</p>
+                      {pursuitUnits.map((u) => (
+                        <div key={u.id} className="flex justify-between gap-3 text-sm">
+                          <span className="truncate">{u.label || unitSizeLabel(u)}</span>
+                          <span className="shrink-0 text-muted-foreground">
+                            {[
+                              u.label ? unitSizeLabel(u) : null,
+                              u.asking_rate_psf != null ? formatPsf(u.asking_rate_psf) : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground">Boards</p>
