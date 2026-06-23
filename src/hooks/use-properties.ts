@@ -68,7 +68,9 @@ export function useProperties() {
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from('properties')
-          .select('*, listings(count), matches:pursuits(count)')
+          // explicit FK hints: listing_parcels adds a 2nd properties<->listings relationship,
+          // so a bare listings(count) is now ambiguous (PGRST201) and 300s the whole query.
+          .select('*, listings!listings_property_id_fkey(count), matches:pursuits!pursuits_property_id_fkey(count)')
           .order('address')
           .order('id')
           .range(from, from + PAGE - 1)
