@@ -12,12 +12,22 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   useAddParcelToListing,
   usePropertySearch,
   type ParcelSearchResult,
 } from '@/hooks/use-listing-parcels'
 import { useCreateProperty, useEnrichProperty } from '@/hooks/use-properties'
 import { friendlyDbError } from '@/lib/db-errors'
+
+// Counties with a county-appraiser adapter (so a parcel-only add can auto-enrich).
+const ENRICHABLE_COUNTIES = ['Hillsborough', 'Pinellas', 'Pasco', 'Polk', 'Manatee', 'Sarasota']
 
 interface AddListingParcelDialogProps {
   listingId: string
@@ -40,6 +50,7 @@ export function AddListingParcelDialog({
 }: AddListingParcelDialogProps) {
   const [address, setAddress] = useState('')
   const [parcel, setParcel] = useState('')
+  const [county, setCounty] = useState('')
   const { data: results = [], isFetching } = usePropertySearch(address, parcel)
   const addParcel = useAddParcelToListing()
   const createProperty = useCreateProperty()
@@ -49,6 +60,7 @@ export function AddListingParcelDialog({
     if (open) {
       setAddress('')
       setParcel('')
+      setCounty('')
     }
   }, [open])
 
@@ -69,12 +81,16 @@ export function AddListingParcelDialog({
     )
   }
 
+  // Parcel + county is all that's needed — the enricher fills address/size/owner. Address
+  // is optional; when blank we stash a parcel placeholder (properties.address is NOT NULL).
+  const canCreate = !!parcel.trim() && !!county
   const createAndAttach = async () => {
-    if (!address.trim()) return
+    if (!canCreate) return
     try {
       const prop = await createProperty.mutateAsync({
-        address: address.trim(),
-        parcel_number: parcel.trim() || null,
+        address: address.trim() || `Parcel ${parcel.trim()}`,
+        parcel_number: parcel.trim(),
+        county,
         source: 'manual',
       })
       await addParcel.mutateAsync({ listingId, propertyId: prop.id, isPrimary: false })
@@ -100,24 +116,39 @@ export function AddListingParcelDialog({
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="parcel-address">Address</Label>
-              <Input
-                id="parcel-address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="123 Main St"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="parcel-id">Parcel ID</Label>
               <Input
                 id="parcel-id"
                 value={parcel}
                 onChange={(e) => setParcel(e.target.value)}
                 placeholder="county folio / strap"
+                autoFocus
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="parcel-county">County</Label>
+              <Select value={county} onValueChange={setCounty}>
+                <SelectTrigger id="parcel-county" className="w-full">
+                  <SelectValue placeholder="Select county" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ENRICHABLE_COUNTIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="parcel-address">Address (optional)</Label>
+            <Input
+              id="parcel-address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="The county appraiser fills this in"
+            />
           </div>
 
           {/* Existing matches — click to attach */}
@@ -162,8 +193,8 @@ export function AddListingParcelDialog({
           )}
 
           <p className="text-xs text-muted-foreground">
-            Not in the list? Create it as a new property — size and owner data fill in from the
-            county appraiser using the parcel ID.
+            Not in the list? Enter the parcel ID + county and create it — the county appraiser
+            fills in the address, size and owner automatically.
           </p>
         </div>
 
@@ -171,7 +202,7 @@ export function AddListingParcelDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={createAndAttach} disabled={pending || !address.trim()}>
+          <Button onClick={createAndAttach} disabled={pending || !canCreate}>
             {pending ? 'Adding…' : 'Create & add'}
           </Button>
         </DialogFooter>

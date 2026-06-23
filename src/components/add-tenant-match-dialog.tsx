@@ -22,9 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
 import { leadSourceLabels } from '@/components/source-badge'
+import { useUnits, useSetPursuitUnits, unitSizeLabel } from '@/hooks/use-units'
+import { formatPsf } from '@/lib/format'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase'
 import type { Enums } from '@/lib/database.types'
@@ -46,7 +49,11 @@ export function AddTenantMatchDialog({
 }: AddTenantMatchDialogProps) {
   const { session } = useAuth()
   const queryClient = useQueryClient()
+  const setPursuitUnits = useSetPursuitUnits()
+  const { data: allUnits = [] } = useUnits([propertyId])
+  const availableUnits = allUnits.filter((u) => u.status === 'available')
   const [pending, setPending] = useState(false)
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
 
   // company
   const [companyId, setCompanyId] = useState<string | null>(null)
@@ -73,7 +80,11 @@ export function AddTenantMatchDialog({
     setTargetArea('')
     setBudget('')
     setMustHaves('')
+    setSelectedUnitIds([])
   }, [open])
+
+  const toggleUnit = (id: string) =>
+    setSelectedUnitIds((cur) => (cur.includes(id) ? cur.filter((u) => u !== id) : [...cur, id]))
 
   const isBroker = source === 'broker'
   const sourceVal = source === NONE ? null : (source as Enums<'lead_source'>)
@@ -129,13 +140,22 @@ export function AddTenantMatchDialog({
       }
 
       // open the pursuit on this property (links to the landlord board via property_id)
-      const { error: mErr } = await supabase.from('pursuits').insert({
-        property_id: propertyId,
-        client_id: clientId,
-        owner_id: session.user.id,
-        inquiry_date: inquiryDate || undefined,
-      })
+      const { data: pursuit, error: mErr } = await supabase
+        .from('pursuits')
+        .insert({
+          property_id: propertyId,
+          client_id: clientId,
+          owner_id: session.user.id,
+          inquiry_date: inquiryDate || undefined,
+        })
+        .select('id')
+        .single()
       if (mErr) throw mErr
+
+      // record which available unit(s) they inquired on
+      if (pursuit && selectedUnitIds.length > 0) {
+        await setPursuitUnits.mutateAsync({ pursuitId: pursuit.id, unitIds: selectedUnitIds })
+      }
 
       for (const key of ['matches', 'listings', 'tenant_reps', 'companies', 'contacts']) {
         queryClient.invalidateQueries({ queryKey: [key] })
@@ -177,6 +197,43 @@ export function AddTenantMatchDialog({
               placeholder="Select or create contact"
             />
           </div>
+
+          {/* Units they inquired on (multi-tenant properties) */}
+          {availableUnits.length > 0 && (
+            <div className="space-y-2">
+              <Label>Units inquired on</Label>
+              <div className="space-y-0.5 rounded-lg border p-2">
+                {availableUnits.map((u) => (
+                  <label
+                    key={u.id}
+                    className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-sm hover:bg-accent/50"
+                  >
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={selectedUnitIds.includes(u.id)}
+                      onCheckedChange={() => toggleUnit(u.id)}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium">{u.label || unitSizeLabel(u)}</span>
+                      {(u.label || u.asking_rate_psf != null) && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {[
+                            u.label ? unitSizeLabel(u) : null,
+                            u.asking_rate_psf != null ? formatPsf(u.asking_rate_psf) : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Pick the unit(s) they're interested in — choose multiple for land or several spaces.
+              </p>
+            </div>
+          )}
 
           {/* Match basics */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

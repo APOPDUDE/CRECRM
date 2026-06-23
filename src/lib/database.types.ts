@@ -574,6 +574,80 @@ export type Database = {
           },
         ]
       }
+      units: {
+        Row: {
+          id: string
+          property_id: string
+          label: string | null
+          size_sf: number | null
+          size_acres: number | null
+          asking_rate_psf: number | null
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          property_id: string
+          label?: string | null
+          size_sf?: number | null
+          size_acres?: number | null
+          asking_rate_psf?: number | null
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          property_id?: string
+          label?: string | null
+          size_sf?: number | null
+          size_acres?: number | null
+          asking_rate_psf?: number | null
+          status?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pursuit_units: {
+        Row: {
+          pursuit_id: string
+          unit_id: string
+          created_at: string
+        }
+        Insert: {
+          pursuit_id: string
+          unit_id: string
+          created_at?: string
+        }
+        Update: {
+          pursuit_id?: string
+          unit_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pursuit_units_pursuit_id_fkey"
+            columns: ["pursuit_id"]
+            isOneToOne: false
+            referencedRelation: "pursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pursuit_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           body: string

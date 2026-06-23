@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { Enums } from '@/lib/database.types'
 
 /** A parcel attached to a landlord listing (the assemblage), with its property facts. */
 export type ListingParcel = {
@@ -16,6 +17,9 @@ export type ListingParcel = {
         building_sf: number | null
         land_acres: number | null
         parcel_number: string | null
+        property_type: Enums<'property_kind'> | null
+        year_built: number | null
+        zoning_description: string | null
       }
     | null
 }
@@ -31,7 +35,7 @@ export function useListingParcels(listingId: string | undefined) {
       const { data, error } = await supabase
         .from('listing_parcels')
         .select(
-          'listing_id, property_id, is_primary, created_at, property:properties!listing_parcels_property_id_fkey(id, address, city, state, building_sf, land_acres, parcel_number)',
+          'listing_id, property_id, is_primary, created_at, property:properties!listing_parcels_property_id_fkey(id, address, city, state, building_sf, land_acres, parcel_number, property_type, year_built, zoning_description)',
         )
         .eq('listing_id', listingId!)
         .order('is_primary', { ascending: false })

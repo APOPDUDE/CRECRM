@@ -178,6 +178,10 @@ export function PropertyDetailPage() {
       } as TablesUpdate<'properties'> & { id: string })
     }
   const typeOptions = Object.entries(propertyKindLabels).map(([value, label]) => ({ value, label }))
+  // Counties with an appraiser adapter — setting one lets a parcel-only property enrich.
+  const countyOptions = ['Hillsborough', 'Pinellas', 'Pasco', 'Polk', 'Manatee', 'Sarasota'].map(
+    (c) => ({ value: c, label: c }),
+  )
   const saveSubTypes = async (value: FieldVal) => {
     const arr = String(value ?? '')
       .split(',')
@@ -352,7 +356,7 @@ export function PropertyDetailPage() {
           <InlineEditField label="City" value={property.city} kind="text" onSave={saveField('city')} />
           <InlineEditField label="State" value={property.state} kind="text" onSave={saveField('state')} />
           <InlineEditField label="Zip" value={property.zip} kind="text" onSave={saveField('zip')} />
-          <InlineEditField label="County" value={property.county} kind="text" note="auto" />
+          <InlineEditField label="County" value={property.county} kind="select" options={countyOptions} onSave={saveField('county')} />
           <InlineEditField label="Building class" value={property.building_class} kind="text" onSave={saveField('building_class')} />
           <InlineEditField label="Construction status" value={property.construction_status} kind="text" onSave={saveField('construction_status')} />
           <InlineEditField label="Stories" value={property.stories} kind="number" onSave={saveField('stories')} />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { MatchCard } from '@/components/match-card'
 import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
 import { AddListingParcelDialog } from '@/components/add-listing-parcel-dialog'
+import { propertyKindLabels } from '@/components/property-form-dialog'
 import { ContactActions } from '@/components/contact-actions'
 import { PropertyMiniMap } from '@/components/property-mini-map'
 import { ListErrorState } from '@/components/list-error-state'
@@ -22,6 +23,8 @@ import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useListingDetail } from '@/hooks/use-listings'
 import { useListingParcels } from '@/hooks/use-listing-parcels'
+import { useUnits, useDeleteUnit, unitSizeLabel } from '@/hooks/use-units'
+import { AddUnitDialog } from '@/components/add-unit-dialog'
 import {
   propertyMatchesKey,
   useDeleteMatch,
@@ -50,13 +53,16 @@ export function PropertyBoardPage() {
   const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
     usePropertyMatches(propertyId)
   const { data: parcels = [] } = useListingParcels(listingId)
+  const { data: units = [] } = useUnits(parcels.map((p) => p.property_id))
   const updateStage = useUpdateMatchStage(propertyMatchesKey(propertyId ?? ''))
   const createTask = useCreateTask()
   const executePursuit = useExecutePursuit()
   const deleteMatch = useDeleteMatch()
+  const deleteUnit = useDeleteUnit()
 
   const [addOpen, setAddOpen] = useState(false)
   const [addParcelOpen, setAddParcelOpen] = useState(false)
+  const [addUnitOpen, setAddUnitOpen] = useState(false)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
   const [dateMove, setDateMove] = useState<{ match: MatchWithRelations; stage: DatedStage } | null>(
     null,
@@ -100,6 +106,13 @@ export function PropertyBoardPage() {
 
   const columns = propertyBoardStages(listing.deal_type)
   const landlordContact = listing.landlord_contact
+  const parcelOptions = parcels.map((p) => ({
+    id: p.property_id,
+    address: p.property?.address ?? 'Property',
+  }))
+  const totalSf = parcels.reduce((s, p) => s + (p.property?.building_sf ?? 0), 0)
+  const totalAcres = parcels.reduce((s, p) => s + (p.property?.land_acres ?? 0), 0)
+  const primaryProperty = parcels.find((p) => p.is_primary)?.property ?? parcels[0]?.property ?? null
 
   const plainMove = (match: MatchWithRelations, toStage: Enums<'pursuit_stage'>) => {
     const fromStage = match.stage
@@ -278,6 +291,85 @@ export function PropertyBoardPage() {
             collapsed={infoCollapsed}
             onToggle={toggleInfo}
           >
+            {landlordContact && (
+              <SidebarSection title="Landlord contact">
+                <div className="rounded-lg border bg-card p-3 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/contacts/${landlordContact.id}`)}
+                    className="text-left"
+                  >
+                    <div className="font-medium hover:underline">
+                      {contactNameOf(landlordContact)}
+                    </div>
+                    {landlordContact.title && (
+                      <div className="text-xs text-muted-foreground">{landlordContact.title}</div>
+                    )}
+                  </button>
+                  <ContactActions phone={landlordContact.phone} email={landlordContact.email} />
+                </div>
+              </SidebarSection>
+            )}
+
+            <SidebarSection title={`Available units${units.length > 0 ? ` (${units.length})` : ''}`}>
+              <div className="space-y-2">
+                {units.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No units yet — add the spaces available for lease.
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {units.map((u) => {
+                      const sub = [
+                        u.label ? unitSizeLabel(u) : null,
+                        u.asking_rate_psf != null ? formatPsf(u.asking_rate_psf) : null,
+                        parcels.length > 1
+                          ? parcels.find((p) => p.property_id === u.property_id)?.property?.address
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                      return (
+                        <li
+                          key={u.id}
+                          className="flex items-start justify-between gap-2 rounded-lg border bg-card p-2.5 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate font-medium">{u.label || unitSizeLabel(u)}</div>
+                            {sub && <div className="truncate text-xs text-muted-foreground">{sub}</div>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteUnit.mutate(u.id, {
+                                onSuccess: () => toast.success('Unit removed'),
+                                onError: () => toast.error('Could not remove the unit'),
+                              })
+                            }
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            title="Remove unit"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setAddUnitOpen(true)}
+                  disabled={parcels.length === 0}
+                >
+                  <Plus className="size-4" />
+                  Add unit
+                </Button>
+              </div>
+            </SidebarSection>
+
             <SidebarSection title={`Parcels${parcels.length > 1 ? ` (${parcels.length})` : ''}`}>
               <div className="space-y-2">
                 {parcels.length === 0 ? (
@@ -323,6 +415,19 @@ export function PropertyBoardPage() {
                     })}
                   </ul>
                 )}
+                {(totalSf > 0 || totalAcres > 0) && (
+                  <div className="flex justify-between rounded-lg border bg-muted/40 px-2.5 py-2 text-xs">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="font-medium tabular-nums">
+                      {[
+                        totalSf > 0 ? formatSf(totalSf) : null,
+                        totalAcres > 0 ? `${Math.round(totalAcres * 100) / 100} AC` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </div>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -334,6 +439,52 @@ export function PropertyBoardPage() {
                   Add parcel
                 </Button>
               </div>
+            </SidebarSection>
+
+            <SidebarSection title="Property information">
+              {primaryProperty ? (
+                <div className="space-y-1 rounded-lg border bg-card p-3 text-sm">
+                  {primaryProperty.building_sf != null && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Building SF</span>
+                      <span className="tabular-nums">{formatSf(primaryProperty.building_sf)}</span>
+                    </div>
+                  )}
+                  {primaryProperty.land_acres != null && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Land acres</span>
+                      <span className="tabular-nums">{primaryProperty.land_acres} AC</span>
+                    </div>
+                  )}
+                  {primaryProperty.property_type && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Type</span>
+                      <span>{propertyKindLabels[primaryProperty.property_type]}</span>
+                    </div>
+                  )}
+                  {primaryProperty.year_built != null && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Year built</span>
+                      <span className="tabular-nums">{primaryProperty.year_built}</span>
+                    </div>
+                  )}
+                  {primaryProperty.zoning_description && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Zoning</span>
+                      <span className="truncate text-right">{primaryProperty.zoning_description}</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/properties/${listing.property_id}`)}
+                    className="mt-1 w-full border-t pt-1.5 text-left text-xs text-primary hover:underline"
+                  >
+                    View full property →
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No property details yet.</p>
+              )}
             </SidebarSection>
 
             {liveProspects.length > 0 && (
@@ -352,26 +503,6 @@ export function PropertyBoardPage() {
                       Oldest {oldestDays}d
                     </Badge>
                   )}
-                </div>
-              </SidebarSection>
-            )}
-
-            {landlordContact && (
-              <SidebarSection title="Landlord contact">
-                <div className="rounded-lg border bg-card p-3 text-sm">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/contacts/${landlordContact.id}`)}
-                    className="text-left"
-                  >
-                    <div className="font-medium hover:underline">
-                      {contactNameOf(landlordContact)}
-                    </div>
-                    {landlordContact.title && (
-                      <div className="text-xs text-muted-foreground">{landlordContact.title}</div>
-                    )}
-                  </button>
-                  <ContactActions phone={landlordContact.phone} email={landlordContact.email} />
                 </div>
               </SidebarSection>
             )}
@@ -496,6 +627,12 @@ export function PropertyBoardPage() {
         existingPropertyIds={parcels.map((p) => p.property_id)}
         open={addParcelOpen}
         onOpenChange={setAddParcelOpen}
+      />
+      <AddUnitDialog
+        parcels={parcelOptions}
+        defaultPropertyId={listing.property_id}
+        open={addUnitOpen}
+        onOpenChange={setAddUnitOpen}
       />
       <MatchSlideOver
         matchId={openMatchId}
