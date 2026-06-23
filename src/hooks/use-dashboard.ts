@@ -69,6 +69,9 @@ export function matchFee(m: DashMatch): number {
   return m.actual_fee ?? 0
 }
 
+/** ISO timestamp 7 days ago — the trailing window for the weekly dashboard feeds. */
+const sevenDaysAgoIso = () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
 export type OffMarketProperty = {
   id: string
   address: string
@@ -81,8 +84,8 @@ export type OffMarketProperty = {
 }
 
 /**
- * Properties the weekly sweep flipped to off_market (present last sweep, gone this
- * one), most recently first. Powers the dashboard "Recently off-market" widget.
+ * Properties flipped to off_market in the last 7 days (present last sweep, gone this
+ * one), most recently first. Powers the dashboard "New off-market" widget.
  */
 export function useRecentlyOffMarket() {
   return useQuery({
@@ -94,10 +97,53 @@ export function useRecentlyOffMarket() {
           'id, address, city, state, listing_url, building_sf, property_type, updated_at',
         )
         .eq('listing_status', 'off_market')
+        .gte('updated_at', sevenDaysAgoIso())
         .order('updated_at', { ascending: false })
-        .limit(12)
+        .limit(100)
       if (error) throw error
       return (data ?? []) as OffMarketProperty[]
+    },
+  })
+}
+
+export type NewListing = {
+  id: string
+  address: string
+  city: string | null
+  state: string | null
+  listing_url: string | null
+  building_sf: number | null
+  property_type: Enums<'property_kind'> | null
+  created_at: string
+}
+
+/** Most rows we'll render in the widget; the badge still reports the true total. */
+const NEW_LISTINGS_RENDER_CAP = 100
+
+/**
+ * Scraped properties first imported in the last 7 days — the weekly "new listings"
+ * feed that replaced the auto-matching suggestions. Each can be added to a client.
+ * Returns the capped rows to render plus the true total (a bulk sweep can import
+ * thousands at once, so the badge must not under-report at the render cap).
+ */
+export function useNewListings() {
+  return useQuery({
+    queryKey: ['new-listings'],
+    queryFn: async (): Promise<{ items: NewListing[]; total: number }> => {
+      const { data, error, count } = await supabase
+        .from('properties')
+        .select(
+          'id, address, city, state, listing_url, building_sf, property_type, created_at',
+          { count: 'exact' },
+        )
+        .eq('source', 'scrape')
+        .eq('listing_status', 'on_market')
+        .gte('created_at', sevenDaysAgoIso())
+        .order('created_at', { ascending: false })
+        .limit(NEW_LISTINGS_RENDER_CAP)
+      if (error) throw error
+      const items = (data ?? []) as NewListing[]
+      return { items, total: count ?? items.length }
     },
   })
 }

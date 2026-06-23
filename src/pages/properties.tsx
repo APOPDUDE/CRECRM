@@ -1,13 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { Columns3, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -33,9 +36,10 @@ import { PropertyFormDialog, propertyKindLabels } from '@/components/property-fo
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { dealCount, useDeleteProperty, useProperties } from '@/hooks/use-properties'
-import type { Property } from '@/hooks/use-properties'
+import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import { useGoodDealIds } from '@/hooks/use-market'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
+import { usePersistentState } from '@/hooks/use-persistent-state'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
@@ -62,6 +66,55 @@ function formatLocation(property: Property) {
   return [property.city, property.state].filter(Boolean).join(', ')
 }
 
+// --- Configurable list columns -------------------------------------------------
+// Address is always shown (the row's identity). Everything below is opt-in, capped
+// at MAX_COLUMNS so the table stays readable; the choice is persisted per-browser.
+type ColumnId =
+  | 'type' | 'location' | 'city' | 'county' | 'size' | 'building_sf'
+  | 'land_acres' | 'asking' | 'deals' | 'market_status' | 'days_on_market'
+  | 'year_built' | 'zoning' | 'occupancy'
+
+type ColumnDef = {
+  id: ColumnId
+  label: string
+  className?: string
+  cell: (p: PropertyWithCounts, asking: CurrentAsking | undefined) => ReactNode
+}
+
+const MUTED = 'text-muted-foreground'
+
+const COLUMN_DEFS: ColumnDef[] = [
+  { id: 'type', label: 'Type', cell: (p) => <PropertyTypeBadge type={p.property_type} /> },
+  { id: 'location', label: 'Location', className: MUTED, cell: (p) => formatLocation(p) },
+  { id: 'city', label: 'City', className: MUTED, cell: (p) => p.city ?? '' },
+  { id: 'county', label: 'County', className: MUTED, cell: (p) => p.county ?? '' },
+  { id: 'size', label: 'Size', className: MUTED, cell: (p) => sizeLabel(p) ?? '' },
+  { id: 'building_sf', label: 'Building SF', className: MUTED, cell: (p) => formatSf(p.building_sf) ?? '' },
+  { id: 'land_acres', label: 'Acres', className: MUTED, cell: (p) => (p.land_acres != null ? `${p.land_acres} AC` : '') },
+  { id: 'asking', label: 'Asking', className: MUTED, cell: (_p, asking) => askingLabel(asking) ?? '' },
+  {
+    id: 'deals',
+    label: 'Deals',
+    cell: (p) =>
+      dealCount(p) > 0 ? (
+        <Badge variant="secondary" className="font-normal">
+          {dealCount(p)}
+        </Badge>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      ),
+  },
+  { id: 'market_status', label: 'Market status', className: MUTED, cell: (p) => (p.listing_status === 'off_market' ? 'Off market' : 'On market') },
+  { id: 'days_on_market', label: 'Days on market', className: MUTED, cell: (p) => (p.days_on_market != null ? String(p.days_on_market) : '') },
+  { id: 'year_built', label: 'Year built', className: MUTED, cell: (p) => (p.year_built != null ? String(p.year_built) : '') },
+  { id: 'zoning', label: 'Zoning', className: MUTED, cell: (p) => p.zoning_description ?? p.zoning_district ?? '' },
+  { id: 'occupancy', label: 'Occupancy', className: MUTED, cell: (p) => p.occupancy ?? '' },
+]
+
+const DEFAULT_COLUMNS: ColumnId[] = ['type', 'location', 'size', 'asking', 'deals']
+/** Address is fixed, so 6 here = 7 visible columns total. */
+const MAX_COLUMNS = 6
+
 export function PropertiesPage() {
   const navigate = useNavigate()
   const { data: properties, isLoading, isError, refetch } = useProperties()
@@ -70,18 +123,35 @@ export function PropertiesPage() {
   const deleteProperty = useDeleteProperty()
 
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
-  const [ptype, setPtype] = useState('all')
-  const [county, setCounty] = useState('all')
-  const [sfMin, setSfMin] = useState('')
-  const [sfMax, setSfMax] = useState('')
-  const [acMin, setAcMin] = useState('')
-  const [acMax, setAcMax] = useState('')
-  const [priceMin, setPriceMin] = useState('')
-  const [priceMax, setPriceMax] = useState('')
+  // Filters + column choice persist across navigation (sticky) so returning from a
+  // property detail keeps the list exactly as it was.
+  const [status, setStatus] = usePersistentState('properties:status', 'all')
+  const [ptype, setPtype] = usePersistentState('properties:ptype', 'all')
+  const [county, setCounty] = usePersistentState('properties:county', 'all')
+  const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
+  const [sfMax, setSfMax] = usePersistentState('properties:sfMax', '')
+  const [acMin, setAcMin] = usePersistentState('properties:acMin', '')
+  const [acMax, setAcMax] = usePersistentState('properties:acMax', '')
+  const [priceMin, setPriceMin] = usePersistentState('properties:priceMin', '')
+  const [priceMax, setPriceMax] = usePersistentState('properties:priceMax', '')
+  const [columns, setColumns] = usePersistentState<ColumnId[]>('properties:columns', DEFAULT_COLUMNS)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
+
+  // Guard against a tampered/legacy localStorage value that isn't an array.
+  const safeColumns = Array.isArray(columns) ? columns : DEFAULT_COLUMNS
+  // Render in registry order, filtered to the chosen set (so 'size'->'acres' is just a swap).
+  const visibleColumns = COLUMN_DEFS.filter((c) => safeColumns.includes(c.id))
+  const toggleColumn = (id: ColumnId) =>
+    setColumns((cur) => {
+      const arr = Array.isArray(cur) ? cur : DEFAULT_COLUMNS
+      return arr.includes(id)
+        ? arr.filter((c) => c !== id)
+        : arr.length >= MAX_COLUMNS
+          ? arr
+          : [...arr, id]
+    })
 
   // The county list is derived from the data (98% populated) so it only offers real values.
   const counties = useMemo(() => {
@@ -296,6 +366,32 @@ export function PropertiesPage() {
               </div>
             </PopoverContent>
           </Popover>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="hidden md:inline-flex">
+                <Columns3 className="size-4" />
+                <span className="hidden lg:inline">Columns</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel>Columns (up to {MAX_COLUMNS})</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {COLUMN_DEFS.map((c) => {
+                const checked = safeColumns.includes(c.id)
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={c.id}
+                    checked={checked}
+                    disabled={!checked && safeColumns.length >= MAX_COLUMNS}
+                    onSelect={(e) => e.preventDefault()}
+                    onCheckedChange={() => toggleColumn(c.id)}
+                  >
+                    {c.label}
+                  </DropdownMenuCheckboxItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={openCreate}>
             <Plus className="size-4" />
             <span className="hidden sm:inline">Add property</span>
@@ -340,11 +436,9 @@ export function PropertiesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Address</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Asking</TableHead>
-                  <TableHead>Deals</TableHead>
+                  {visibleColumns.map((c) => (
+                    <TableHead key={c.id}>{c.label}</TableHead>
+                  ))}
                   <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
@@ -376,23 +470,11 @@ export function PropertiesPage() {
                         )}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <PropertyTypeBadge type={property.property_type} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatLocation(property)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{sizeLabel(property) ?? ''}</TableCell>
-                    <TableCell className="text-muted-foreground">{askingLabel(askingMap?.get(property.id)) ?? ''}</TableCell>
-                    <TableCell>
-                      {dealCount(property) > 0 ? (
-                        <Badge variant="secondary" className="font-normal">
-                          {dealCount(property)}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
+                    {visibleColumns.map((c) => (
+                      <TableCell key={c.id} className={c.className}>
+                        {c.cell(property, askingMap?.get(property.id))}
+                      </TableCell>
+                    ))}
                     <TableCell>{rowMenu(property)}</TableCell>
                   </TableRow>
                 ))}

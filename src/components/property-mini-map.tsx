@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MapPin } from 'lucide-react'
 import { CircleMarker, MapContainer, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
@@ -44,19 +45,42 @@ export function PropertyMiniMap({ lat, lng, address, city, state, zip, className
     }
   }, [lat, lng, address, city, state, zip])
 
-  if (!coords) return null
-
   const query = address
     ? [address, city, state, zip].filter(Boolean).join(', ')
-    : `${coords.lat},${coords.lng}`
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+    : coords
+      ? `${coords.lat},${coords.lng}`
+      : ''
+  const mapsUrl = query
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+    : null
+
+  // No stored coords and geocoding hasn't resolved (or there's nothing to geocode):
+  // keep the slot visible with a link out instead of vanishing.
+  if (!coords) {
+    if (!mapsUrl) return null
+    return (
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open in Google Maps"
+        className={cn(
+          'flex h-48 w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed bg-muted/30 text-muted-foreground',
+          className,
+        )}
+      >
+        <MapPin className="size-5" />
+        <span className="text-xs">Open in Google Maps</span>
+      </a>
+    )
+  }
 
   return (
     // `isolate z-0` confines Leaflet's high internal z-indexes (panes 200-700,
     // controls up to 1000) to this stacking context so dialogs/popovers (Radix
     // portals at z-50) always render above the map instead of behind it.
     <a
-      href={mapsUrl}
+      href={mapsUrl ?? undefined}
       target="_blank"
       rel="noopener noreferrer"
       title="Open in Google Maps"

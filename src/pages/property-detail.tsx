@@ -149,10 +149,10 @@ export function PropertyDetailPage() {
     )
   }
 
-  const mapsQuery = encodeURIComponent(
-    [property.address, property.city, property.state, property.zip].filter(Boolean).join(', '),
-  )
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`
+  const fullAddress = [property.address, property.city, property.state, property.zip]
+    .filter(Boolean)
+    .join(', ')
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
   const listingUrl = property.listing_url
   const sourceLabel =
     property.source === 'scrape' ? 'Scraped' : property.source === 'landlord_rep' ? 'My listing' : null
@@ -276,15 +276,18 @@ export function PropertyDetailPage() {
       )}
 
       <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
-        <PropertyMiniMap
-          lat={property.lat}
-          lng={property.lng}
-          address={property.address}
-          city={property.city}
-          state={property.state}
-          zip={property.zip}
-          className="h-full min-h-[16rem]"
-        />
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs text-muted-foreground">{fullAddress}</p>
+          <PropertyMiniMap
+            lat={property.lat}
+            lng={property.lng}
+            address={property.address}
+            city={property.city}
+            state={property.state}
+            zip={property.zip}
+            className="min-h-[16rem] flex-1"
+          />
+        </div>
         <MarketPositionCard propertyId={property.id} county={property.county} />
       </div>
 
