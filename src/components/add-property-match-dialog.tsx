@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import { useCreateMatch } from '@/hooks/use-matches'
-import { useCreateProperty } from '@/hooks/use-properties'
+import { useCreateProperty, useEnrichProperty } from '@/hooks/use-properties'
 import { useUpsertComp } from '@/hooks/use-comps'
 import { useScrapePropertyByUrl } from '@/hooks/use-automation'
 import type { TenantRepDetail } from '@/hooks/use-tenant-reps'
@@ -110,6 +110,7 @@ export function AddPropertyMatchDialog({
   const createProperty = useCreateProperty()
   const createMatch = useCreateMatch()
   const upsertComp = useUpsertComp()
+  const enrich = useEnrichProperty()
   const showPaste = automationEnabled()
 
   const [mode, setMode] = useState<Mode>('manual')
@@ -180,7 +181,7 @@ export function AddPropertyMatchDialog({
 
   const handleManual = async (e: FormEvent) => {
     e.preventDefault()
-    if (!m.address?.trim()) return
+    if (!m.address?.trim() || !m.parcel_number?.trim()) return
     try {
       const buildingSf = intOrNull(m.building_sf)
       const rate = numOrNull(m.asking_rate_psf)
@@ -193,6 +194,7 @@ export function AddPropertyMatchDialog({
         property_type: m.property_type === NONE ? null : (m.property_type as Enums<'property_kind'>),
         building_sf: buildingSf,
         land_acres: numOrNull(m.land_acres),
+        parcel_number: m.parcel_number?.trim() || null,
         specs: m.specs?.trim() || null,
         source: 'manual',
       })
@@ -226,6 +228,12 @@ export function AddPropertyMatchDialog({
         owner_id: tenantRep.owner_id,
         inquiry_date: format(new Date(), 'yyyy-MM-dd'),
       })
+      // Auto-enrich from the county appraiser when we have a parcel + (trigger-derived) county.
+      if (prop.parcel_number && prop.county) {
+        enrich.mutate(prop.id, {
+          onSuccess: () => toast.success('Enriching from county appraiser…'),
+        })
+      }
       toast.success('Property added')
       onOpenChange(false)
     } catch (err) {
@@ -271,6 +279,15 @@ export function AddPropertyMatchDialog({
             <div className="space-y-2">
               <Label htmlFor="man-address">Address *</Label>
               <Input id="man-address" value={m.address ?? ''} onChange={setF('address')} autoFocus />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="man-parcel">Parcel ID *</Label>
+              <Input
+                id="man-parcel"
+                value={m.parcel_number ?? ''}
+                onChange={setF('parcel_number')}
+                placeholder="county folio / strap — enables county-appraiser enrichment"
+              />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="space-y-2 sm:col-span-1">
@@ -333,7 +350,10 @@ export function AddPropertyMatchDialog({
                   Paste a listing link instead
                 </Button>
               )}
-              <Button type="submit" disabled={pending || !m.address?.trim()}>
+              <Button
+                type="submit"
+                disabled={pending || !m.address?.trim() || !m.parcel_number?.trim()}
+              >
                 {pending ? 'Adding…' : 'Add property'}
               </Button>
             </DialogFooter>
