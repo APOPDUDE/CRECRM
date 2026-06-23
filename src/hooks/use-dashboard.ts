@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Enums } from '@/lib/database.types'
 
@@ -113,18 +113,36 @@ export type NewListing = {
   state: string | null
   listing_url: string | null
   building_sf: number | null
+  land_acres: number | null
   property_type: Enums<'property_kind'> | null
   created_at: string
 }
 
 /** Most rows we'll render in the widget; the badge still reports the true total. */
 const NEW_LISTINGS_RENDER_CAP = 100
+const NEW_LISTINGS_CLEARED_KEY = 'new-listings:cleared-at'
 
 /**
- * Scraped properties first imported in the last 7 days — the weekly "new listings"
- * feed that replaced the auto-matching suggestions. Each can be added to a client.
- * Returns the capped rows to render plus the true total (a bulk sweep can import
- * thousands at once, so the badge must not under-report at the render cap).
+ * Floor for the "new listings" feed: the last 7 days, or — if the broker has cleared the
+ * feed more recently — everything imported since that clear. Clearing zeroes the widget
+ * until the next sweep brings genuinely new listings.
+ */
+function newListingsFloorIso(): string {
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  let cleared: string | null = null
+  try {
+    cleared = window.localStorage.getItem(NEW_LISTINGS_CLEARED_KEY)
+  } catch {
+    cleared = null
+  }
+  return cleared && cleared > weekAgo ? cleared : weekAgo
+}
+
+/**
+ * Scraped properties imported since the feed's floor (7 days, or the last "clear") — the
+ * weekly "new listings" feed that replaced the auto-matching suggestions. Each can be added
+ * to a client. Returns the capped rows to render plus the true total (a bulk sweep can
+ * import thousands at once, so the badge must not under-report at the render cap).
  */
 export function useNewListings() {
   return useQuery({
@@ -133,12 +151,12 @@ export function useNewListings() {
       const { data, error, count } = await supabase
         .from('properties')
         .select(
-          'id, address, city, state, listing_url, building_sf, property_type, created_at',
+          'id, address, city, state, listing_url, building_sf, land_acres, property_type, created_at',
           { count: 'exact' },
         )
         .eq('source', 'scrape')
         .eq('listing_status', 'on_market')
-        .gte('created_at', sevenDaysAgoIso())
+        .gte('created_at', newListingsFloorIso())
         .order('created_at', { ascending: false })
         .limit(NEW_LISTINGS_RENDER_CAP)
       if (error) throw error
@@ -146,4 +164,20 @@ export function useNewListings() {
       return { items, total: count ?? items.length }
     },
   })
+}
+
+/**
+ * Clear the "new listings this week" feed: stamps now as the floor so the widget reads zero
+ * until the next sweep imports new listings. (Per-browser via localStorage.)
+ */
+export function useClearNewListings() {
+  const qc = useQueryClient()
+  return () => {
+    try {
+      window.localStorage.setItem(NEW_LISTINGS_CLEARED_KEY, new Date().toISOString())
+    } catch {
+      // ignore storage errors — clearing is best-effort
+    }
+    qc.invalidateQueries({ queryKey: ['new-listings'] })
+  }
 }

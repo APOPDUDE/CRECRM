@@ -12,7 +12,7 @@ import { ListingTermsDialog } from '@/components/listing-terms-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { MatchCard } from '@/components/match-card'
 import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
-import { NextActionCard } from '@/components/next-action-card'
+import { AddListingParcelDialog } from '@/components/add-listing-parcel-dialog'
 import { ContactActions } from '@/components/contact-actions'
 import { PropertyMiniMap } from '@/components/property-mini-map'
 import { ListErrorState } from '@/components/list-error-state'
@@ -20,7 +20,8 @@ import { MatchSlideOver } from '@/components/match-slide-over'
 import { StageDateDialog } from '@/components/stage-date-dialog'
 import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
-import { useListingDetail, useUpdateListing } from '@/hooks/use-listings'
+import { useListingDetail } from '@/hooks/use-listings'
+import { useListingParcels } from '@/hooks/use-listing-parcels'
 import {
   propertyMatchesKey,
   useDeleteMatch,
@@ -48,13 +49,14 @@ export function PropertyBoardPage() {
   const propertyId = listing?.property_id
   const { data: matches = [], isError: matchesError, refetch: refetchMatches } =
     usePropertyMatches(propertyId)
+  const { data: parcels = [] } = useListingParcels(listingId)
   const updateStage = useUpdateMatchStage(propertyMatchesKey(propertyId ?? ''))
   const createTask = useCreateTask()
-  const updateListing = useUpdateListing()
   const executePursuit = useExecutePursuit()
   const deleteMatch = useDeleteMatch()
 
   const [addOpen, setAddOpen] = useState(false)
+  const [addParcelOpen, setAddParcelOpen] = useState(false)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
   const [dateMove, setDateMove] = useState<{ match: MatchWithRelations; stage: DatedStage } | null>(
     null,
@@ -178,13 +180,6 @@ export function PropertyBoardPage() {
     }
   }
 
-  const saveNextAction = (description: string | null, nextActionDate: string | null) =>
-    updateListing.mutate({
-      id: listing.id,
-      next_action_description: description,
-      next_action_date: nextActionDate,
-    })
-
   // Pipeline snapshot from the pursuits already loaded for the board.
   const liveProspects = matches.filter((m) => m.stage !== 'passed')
   const pastLoi = liveProspects.filter((m) =>
@@ -225,7 +220,12 @@ export function PropertyBoardPage() {
             <span className="sr-only">Back to Landlord Rep</span>
           </Button>
           <div>
-            <h1 className="text-xl font-semibold">{listing.property?.address}</h1>
+            <h1 className="text-xl font-semibold">
+              {listing.property?.address}
+              {listing.landlord_contact?.first_name && (
+                <span className="text-muted-foreground"> — {listing.landlord_contact.first_name}</span>
+              )}
+            </h1>
             {listing.landlord && (
               <p className="text-sm text-muted-foreground">{listing.landlord.name}</p>
             )}
@@ -278,12 +278,63 @@ export function PropertyBoardPage() {
             collapsed={infoCollapsed}
             onToggle={toggleInfo}
           >
-            <NextActionCard
-              description={listing.next_action_description}
-              dueDate={listing.next_action_date}
-              pending={updateListing.isPending}
-              onSave={saveNextAction}
-            />
+            <SidebarSection title={`Parcels${parcels.length > 1 ? ` (${parcels.length})` : ''}`}>
+              <div className="space-y-2">
+                {parcels.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No parcels linked yet.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {parcels.map((lp) => {
+                      const size =
+                        lp.property?.building_sf != null
+                          ? formatSf(lp.property.building_sf)
+                          : lp.property?.land_acres != null
+                            ? `${lp.property.land_acres} AC`
+                            : null
+                      return (
+                        <li key={lp.property_id} className="rounded-lg border bg-card p-2.5 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/properties/${lp.property_id}`)}
+                              className="min-w-0 flex-1 truncate text-left font-medium hover:underline"
+                            >
+                              {lp.property?.address ?? 'Property'}
+                            </button>
+                            {lp.is_primary && (
+                              <Badge variant="secondary" className="shrink-0 font-normal">
+                                Primary
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {[
+                              [lp.property?.city, lp.property?.state].filter(Boolean).join(', '),
+                              lp.property?.parcel_number
+                                ? `Parcel ${lp.property.parcel_number}`
+                                : null,
+                              size,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setAddParcelOpen(true)}
+                >
+                  <Plus className="size-4" />
+                  Add parcel
+                </Button>
+              </div>
+            </SidebarSection>
 
             {liveProspects.length > 0 && (
               <SidebarSection title="Pipeline">
@@ -439,6 +490,12 @@ export function PropertyBoardPage() {
         open={addOpen}
         onOpenChange={setAddOpen}
         propertyId={listing.property_id}
+      />
+      <AddListingParcelDialog
+        listingId={listing.id}
+        existingPropertyIds={parcels.map((p) => p.property_id)}
+        open={addParcelOpen}
+        onOpenChange={setAddParcelOpen}
       />
       <MatchSlideOver
         matchId={openMatchId}

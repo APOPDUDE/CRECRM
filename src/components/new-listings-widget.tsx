@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, ExternalLink, Plus, Sparkles } from 'lucide-
 import { Button } from '@/components/ui/button'
 import { AddToClientDialog, type AddToClientProperty } from '@/components/add-to-client-dialog'
 import { propertyKindLabels } from '@/components/property-form-dialog'
-import { useNewListings } from '@/hooks/use-dashboard'
+import { useNewListings, useClearNewListings } from '@/hooks/use-dashboard'
 import { useCurrentAsking } from '@/hooks/use-comps'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
@@ -17,6 +17,7 @@ export function NewListingsWidget() {
   const items = data?.items ?? []
   const total = data?.total ?? 0
   const { data: askingMap } = useCurrentAsking(items.map((p) => p.id))
+  const clearNewListings = useClearNewListings()
   const [expanded, setExpanded] = useState(false)
   const [adding, setAdding] = useState<AddToClientProperty | null>(null)
 
@@ -25,22 +26,33 @@ export function NewListingsWidget() {
   return (
     <>
       <div className="overflow-hidden rounded-lg border bg-card">
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="flex w-full items-center gap-2 p-3 text-left hover:bg-accent/50"
-        >
-          {expanded ? (
-            <ChevronDown className="size-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="size-4 text-muted-foreground" />
-          )}
-          <Sparkles className="size-4 text-primary" />
-          <h2 className="text-sm font-medium">New listings this week</h2>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary tabular-nums">
-            {total}
-          </span>
-        </button>
+        <div className="flex items-center gap-1 pr-2">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="flex flex-1 items-center gap-2 p-3 text-left hover:bg-accent/50"
+          >
+            {expanded ? (
+              <ChevronDown className="size-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-4 text-muted-foreground" />
+            )}
+            <Sparkles className="size-4 text-primary" />
+            <h2 className="text-sm font-medium">New listings this week</h2>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary tabular-nums">
+              {total}
+            </span>
+          </button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-muted-foreground"
+            onClick={clearNewListings}
+            title="Mark all reviewed — clears the count until the next sweep"
+          >
+            Clear
+          </Button>
+        </div>
         {expanded && (
           <ul className="divide-y border-t">
             {items.map((p) => {
@@ -49,6 +61,7 @@ export function NewListingsWidget() {
                 formatPsf(asking?.rate),
                 formatCurrency(asking?.price),
                 formatSf(p.building_sf),
+                p.land_acres != null ? `${p.land_acres} AC` : null,
                 p.property_type ? propertyKindLabels[p.property_type] : null,
               ].filter(Boolean)
               return (
