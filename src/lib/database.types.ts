@@ -538,6 +538,42 @@ export type Database = {
           },
         ]
       }
+      listing_parcels: {
+        Row: {
+          created_at: string
+          is_primary: boolean
+          listing_id: string
+          property_id: string
+        }
+        Insert: {
+          created_at?: string
+          is_primary?: boolean
+          listing_id: string
+          property_id: string
+        }
+        Update: {
+          created_at?: string
+          is_primary?: boolean
+          listing_id?: string
+          property_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_parcels_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_parcels_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           body: string
@@ -1035,6 +1071,14 @@ export type Database = {
       }
     }
     Functions: {
+      add_parcel_to_listing: {
+        Args: {
+          p_listing_id: string
+          p_property_id: string
+          p_is_primary?: boolean
+        }
+        Returns: Database["public"]["Tables"]["listing_parcels"]["Row"]
+      }
       approve_suggestion: {
         Args: { p_suggestion_id: string; p_client_id?: string | null }
         Returns: string
