@@ -37,14 +37,13 @@ import {
   useDeleteMatch,
   useExecutePursuit,
   useTenantRepMatches,
-  useUpdateMatch,
   useUpdateMatchStage,
 } from '@/hooks/use-matches'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail } from '@/hooks/use-tenant-reps'
-import { useCreateTask } from '@/hooks/use-tasks'
+import { useCreateTask, usePaymentReceivedToggle } from '@/hooks/use-tasks'
 import { useClearFlaggedNew } from '@/hooks/use-automation'
 import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
@@ -66,7 +65,7 @@ export function TenantBoardPage() {
   const updateStage = useUpdateMatchStage(tenantRepMatchesKey(tenantRepId ?? ''))
   const createTask = useCreateTask()
   const executePursuit = useExecutePursuit()
-  const updateMatch = useUpdateMatch()
+  const paymentToggle = usePaymentReceivedToggle()
   const deleteMatch = useDeleteMatch()
   const clearFlagged = useClearFlaggedNew()
 
@@ -214,6 +213,14 @@ export function TenantBoardPage() {
           close_listing: result.closeListing,
         },
       })
+      // Seed the first "payment received?" reminder right away so the follow-up is
+      // visible on the task list immediately (not waiting on the nightly sweep).
+      paymentToggle.mutate({
+        pursuitId: match.id,
+        received: false,
+        ownerId: match.owner_id,
+        title: `Payment received? — ${match.property?.address ?? 'deal'}`,
+      })
       toast.success('Deal executed')
       setExecutedMove(null)
     } catch {
@@ -339,15 +346,24 @@ export function TenantBoardPage() {
                   <label className="mt-2 flex items-center gap-2 text-sm">
                     <Checkbox
                       checked={executedPursuit.payment_received}
-                      onCheckedChange={(v) =>
-                        updateMatch.mutate(
-                          { id: executedPursuit.id, payment_received: v === true },
+                      onCheckedChange={(v) => {
+                        const received = v === true
+                        paymentToggle.mutate(
+                          {
+                            pursuitId: executedPursuit.id,
+                            received,
+                            ownerId: executedPursuit.owner_id,
+                            title: `Payment received? — ${executedPursuit.property?.address ?? 'deal'}`,
+                          },
                           {
                             onSuccess: () =>
-                              toast.success(v === true ? 'Payment marked received' : 'Payment reminders resumed'),
+                              toast.success(
+                                received ? 'Payment marked received' : 'Not received — reminder set',
+                              ),
+                            onError: () => toast.error('Could not update payment'),
                           },
                         )
-                      }
+                      }}
                     />
                     Payment received
                     {!executedPursuit.payment_received && (

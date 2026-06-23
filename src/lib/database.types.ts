@@ -1005,6 +1005,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["task_kind"]
           listing_id: string | null
+          note_id: string | null
           owner_id: string
           pursuit_id: string | null
           source: string | null
@@ -1024,6 +1025,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
           listing_id?: string | null
+          note_id?: string | null
           owner_id: string
           pursuit_id?: string | null
           source?: string | null
@@ -1043,6 +1045,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
           listing_id?: string | null
+          note_id?: string | null
           owner_id?: string
           pursuit_id?: string | null
           source?: string | null
@@ -1070,6 +1073,13 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
             referencedColumns: ["id"]
           },
           {

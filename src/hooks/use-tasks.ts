@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { addMonths, format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
 import type { ParentType } from '@/hooks/use-notes'
@@ -208,6 +209,72 @@ export function useUpsertRenewalTask() {
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+/**
+ * Resolve a pursuit's monthly "payment received?" check from the board, immediately (no
+ * waiting on the daily sweep): marking received closes any open payment reminders; marking
+ * NOT received sets the next reminder a month out so it's visible on the task list right away.
+ */
+export function usePaymentReceivedToggle() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      pursuitId,
+      received,
+      ownerId,
+      title,
+    }: {
+      pursuitId: string
+      received: boolean
+      ownerId: string
+      title: string
+    }) => {
+      const { error: pErr } = await supabase
+        .from('pursuits')
+        .update({ payment_received: received })
+        .eq('id', pursuitId)
+      if (pErr) throw pErr
+
+      if (received) {
+        // stop reminding — close any open payment checks for this deal
+        await supabase
+          .from('tasks')
+          .update({ status: 'done', completed_at: new Date().toISOString() })
+          .eq('pursuit_id', pursuitId)
+          .eq('source', 'payment_check')
+          .eq('status', 'open')
+      } else {
+        // not received — make sure exactly one open reminder exists, a month out
+        const { data: openChecks } = await supabase
+          .from('tasks')
+          .select('id')
+          .eq('pursuit_id', pursuitId)
+          .eq('source', 'payment_check')
+          .eq('status', 'open')
+          .limit(1)
+        if (!openChecks || openChecks.length === 0) {
+          const { error: tErr } = await supabase.from('tasks').insert({
+            owner_id: ownerId,
+            title,
+            kind: 'follow_up',
+            status: 'open',
+            due_date: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
+            pursuit_id: pursuitId,
+            auto_generated: true,
+            source: 'payment_check',
+          })
+          if (tErr) throw tErr
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['matches'] })
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-matches'] })
+    },
   })
 }
 

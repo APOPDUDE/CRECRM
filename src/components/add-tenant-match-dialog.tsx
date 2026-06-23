@@ -152,9 +152,14 @@ export function AddTenantMatchDialog({
         .single()
       if (mErr) throw mErr
 
-      // record which available unit(s) they inquired on
+      // record which available unit(s) they inquired on — the link is non-critical, so a
+      // failure here shouldn't read as a failed tenant-add (the pursuit is already created).
       if (pursuit && selectedUnitIds.length > 0) {
-        await setPursuitUnits.mutateAsync({ pursuitId: pursuit.id, unitIds: selectedUnitIds })
+        try {
+          await setPursuitUnits.mutateAsync({ pursuitId: pursuit.id, unitIds: selectedUnitIds })
+        } catch {
+          toast.warning('Tenant added, but the unit selection could not be saved')
+        }
       }
 
       for (const key of ['matches', 'listings', 'tenant_reps', 'companies', 'contacts']) {

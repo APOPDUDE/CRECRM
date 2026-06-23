@@ -3,21 +3,15 @@ import type { FormEvent } from 'react'
 import { CheckSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/use-auth'
 import { useCreateTask } from '@/hooks/use-tasks'
+import { useCreateNote } from '@/hooks/use-notes'
 import type { ParentType } from '@/hooks/use-notes'
-import type { Enums } from '@/lib/database.types'
 
 const parentColumn = (t: ParentType) =>
   t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
@@ -27,47 +21,56 @@ interface CreateTaskPopoverProps {
   parentId: string
 }
 
-/** Quick "add task" popover for the board info panel — sits next to Upload file / Log note. */
+/**
+ * Quick "add task" popover for the board info panel. Just a title + date — optionally
+ * tick "Add note?" to log a note saved alongside (and linked to) the task.
+ */
 export function CreateTaskPopover({ parentType, parentId }: CreateTaskPopoverProps) {
   const { session } = useAuth()
   const createTask = useCreateTask()
+  const createNote = useCreateNote()
 
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
-  const [kind, setKind] = useState<Enums<'task_kind'>>('general')
   const [dueDate, setDueDate] = useState('')
-  const [details, setDetails] = useState('')
+  const [withNote, setWithNote] = useState(false)
+  const [note, setNote] = useState('')
 
   const reset = () => {
     setTitle('')
-    setKind('general')
     setDueDate('')
-    setDetails('')
+    setWithNote(false)
+    setNote('')
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const pending = createTask.isPending || createNote.isPending
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!session?.user.id || !title.trim()) return
-    createTask.mutate(
-      {
+    try {
+      // create the note first so the task can link to it
+      let noteId: string | null = null
+      if (withNote && note.trim()) {
+        const n = await createNote.mutateAsync({ parentType, parentId, body: note.trim() })
+        noteId = n.id
+      }
+      await createTask.mutateAsync({
         owner_id: session.user.id,
         title: title.trim(),
-        kind,
+        kind: 'general',
         due_date: dueDate || null,
-        details: details.trim() || null,
+        note_id: noteId,
         [parentColumn(parentType)]: parentId,
         status: 'open',
         auto_generated: false,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Task added')
-          reset()
-          setOpen(false)
-        },
-        onError: () => toast.error('Could not add task'),
-      },
-    )
+      })
+      toast.success(noteId ? 'Task + note added' : 'Task added')
+      reset()
+      setOpen(false)
+    } catch {
+      toast.error('Could not add task')
+    }
   }
 
   return (
@@ -96,42 +99,30 @@ export function CreateTaskPopover({ parentType, parentId }: CreateTaskPopoverPro
               autoFocus
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="new-task-kind">Type</Label>
-              <Select value={kind} onValueChange={(v) => setKind(v as Enums<'task_kind'>)}>
-                <SelectTrigger id="new-task-kind" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">Task</SelectItem>
-                  <SelectItem value="follow_up">Follow-up</SelectItem>
-                  <SelectItem value="renewal">Renewal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-task-due">Due date</Label>
-              <Input
-                id="new-task-due"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
-          </div>
           <div className="space-y-2">
-            <Label htmlFor="new-task-details">Details</Label>
-            <Textarea
-              id="new-task-details"
-              rows={2}
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
+            <Label htmlFor="new-task-due">Date</Label>
+            <Input
+              id="new-task-due"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
             />
           </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <Checkbox checked={withNote} onCheckedChange={(v) => setWithNote(v === true)} />
+            Add note?
+          </label>
+          {withNote && (
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              placeholder="Note saved with this task…"
+            />
+          )}
           <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={createTask.isPending || !title.trim()}>
-              {createTask.isPending ? 'Saving…' : 'Add task'}
+            <Button type="submit" size="sm" disabled={pending || !title.trim()}>
+              {pending ? 'Saving…' : 'Add task'}
             </Button>
           </div>
         </form>

@@ -3,10 +3,17 @@ import type { FormEvent } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateNote, useDeleteNote, useNotes, useUpdateNote } from '@/hooks/use-notes'
 import type { ParentType } from '@/hooks/use-notes'
+import { useCreateTask } from '@/hooks/use-tasks'
+import { useAuth } from '@/hooks/use-auth'
 import { formatDate } from '@/lib/dates'
+
+const parentColumn = (t: ParentType) =>
+  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
 
 interface NotesLogProps {
   parentType: ParentType
@@ -17,26 +24,50 @@ interface NotesLogProps {
 
 /** A simple dated notes log — one timestamped note per entry, with inline edit + delete. */
 export function NotesLog({ parentType, parentId, showComposer = true }: NotesLogProps) {
+  const { session } = useAuth()
   const { data: notes = [], isLoading } = useNotes(parentType, parentId)
   const createNote = useCreateNote()
   const updateNote = useUpdateNote()
   const deleteNote = useDeleteNote()
+  const createTask = useCreateTask()
 
   const [body, setBody] = useState('')
+  const [withTask, setWithTask] = useState(false)
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDate, setTaskDate] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editBody, setEditBody] = useState('')
 
-  const handleSubmit = (e: FormEvent) => {
+  const resetComposer = () => {
+    setBody('')
+    setWithTask(false)
+    setTaskTitle('')
+    setTaskDate('')
+  }
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     const text = body.trim()
     if (!text) return
-    createNote.mutate(
-      { parentType, parentId, body: text },
-      {
-        onSuccess: () => setBody(''),
-        onError: () => toast.error('Could not save note'),
-      },
-    )
+    try {
+      // note first so the task can link to it
+      const n = await createNote.mutateAsync({ parentType, parentId, body: text })
+      if (withTask && taskTitle.trim() && session?.user.id) {
+        await createTask.mutateAsync({
+          owner_id: session.user.id,
+          title: taskTitle.trim(),
+          kind: 'general',
+          due_date: taskDate || null,
+          note_id: n.id,
+          [parentColumn(parentType)]: parentId,
+          status: 'open',
+          auto_generated: false,
+        })
+      }
+      resetComposer()
+    } catch {
+      toast.error('Could not save note')
+    }
   }
 
   const startEdit = (note: { id: string; body: string }) => {
@@ -77,13 +108,27 @@ export function NotesLog({ parentType, parentId, showComposer = true }: NotesLog
             placeholder="Add a note…"
             rows={2}
           />
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <Checkbox checked={withTask} onCheckedChange={(v) => setWithTask(v === true)} />
+            Add a task?
+          </label>
+          {withTask && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Input
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                placeholder="Task title"
+              />
+              <Input type="date" value={taskDate} onChange={(e) => setTaskDate(e.target.value)} />
+            </div>
+          )}
           <Button
             type="submit"
             size="sm"
             className="w-full"
-            disabled={!body.trim() || createNote.isPending}
+            disabled={!body.trim() || createNote.isPending || createTask.isPending}
           >
-            {createNote.isPending ? 'Saving…' : 'Log note'}
+            {createNote.isPending || createTask.isPending ? 'Saving…' : 'Log note'}
           </Button>
         </form>
       )}
