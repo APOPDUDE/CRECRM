@@ -116,7 +116,19 @@ export function useUpdateContact() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      // the contact name shows as tenant/landlord/broker contact across many joined
+      // queries — refresh those so a rename shows immediately everywhere it appears
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
+      queryClient.invalidateQueries({ queryKey: ['tenant_rep'] })
+      queryClient.invalidateQueries({ queryKey: ['listings'] })
+      queryClient.invalidateQueries({ queryKey: ['listing'] })
+      queryClient.invalidateQueries({ queryKey: ['matches'] })
+      queryClient.invalidateQueries({ queryKey: ['match'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-matches'] })
+      queryClient.invalidateQueries({ queryKey: ['property-deals'] })
+    },
   })
 }
 

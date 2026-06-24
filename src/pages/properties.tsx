@@ -36,7 +36,7 @@ import { PropertyFormDialog, propertyKindLabels } from '@/components/property-fo
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { PropertiesMap } from '@/components/properties-map'
-import { dealCount, useDeleteProperty, useProperties } from '@/hooks/use-properties'
+import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import { useGoodDealIds } from '@/hooks/use-market'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
@@ -124,6 +124,9 @@ export function PropertiesPage() {
   const { data: goodDealIds } = useGoodDealIds()
   const { data: askingMap } = useCurrentAsking()
   const deleteProperty = useDeleteProperty()
+  // background-drain the lat/lng backfill (25/visit, Nominatim-throttled) so scrape rows
+  // without coordinates progressively gain map pins. No-op once everything is geocoded.
+  useGeocodeMissing()
 
   const [search, setSearch] = useState('')
   // Filters + column choice persist across navigation (sticky) so returning from a

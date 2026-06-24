@@ -337,6 +337,21 @@ export type Database = {
           },
         ]
       }
+      county_lookup: {
+        Row: {
+          city_key: string
+          county: string
+        }
+        Insert: {
+          city_key: string
+          county: string
+        }
+        Update: {
+          city_key?: string
+          county?: string
+        }
+        Relationships: []
+      }
       files: {
         Row: {
           category: Database["public"]["Enums"]["file_category"]
@@ -732,6 +747,7 @@ export type Database = {
           lat: number | null
           listed_at: string | null
           listing_status: Database["public"]["Enums"]["listing_market_status"]
+          last_seen_in_sweep: string | null
           owner_name: string | null
           owner_mailing_address: string | null
           just_value: number | null
@@ -789,6 +805,7 @@ export type Database = {
           lat?: number | null
           listed_at?: string | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
+          last_seen_in_sweep?: string | null
           owner_name?: string | null
           owner_mailing_address?: string | null
           just_value?: number | null
@@ -846,6 +863,7 @@ export type Database = {
           lat?: number | null
           listed_at?: string | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
+          last_seen_in_sweep?: string | null
           owner_name?: string | null
           owner_mailing_address?: string | null
           just_value?: number | null
@@ -1091,6 +1109,24 @@ export type Database = {
           },
         ]
       }
+      sweep_meta: {
+        Row: {
+          id: boolean
+          last_run_at: string | null
+          last_seen_count: number | null
+        }
+        Insert: {
+          id?: boolean
+          last_run_at?: string | null
+          last_seen_count?: number | null
+        }
+        Update: {
+          id?: boolean
+          last_run_at?: string | null
+          last_seen_count?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       v_county_market_stats: {
@@ -1184,6 +1220,7 @@ export type Database = {
         Returns: Database["public"]["Tables"]["listings"]["Row"]
       }
       cross_reference: { Args: { p_property_ids: string[] }; Returns: Json }
+      ensure_payment_checks: { Args: Record<PropertyKey, never>; Returns: Json }
       execute_pursuit: {
         Args: { p?: Json; p_pursuit_id: string }
         Returns: Json
@@ -1200,6 +1237,10 @@ export type Database = {
       promote_client: {
         Args: { p_client_id: string }
         Returns: Database["public"]["Tables"]["clients"]["Row"]
+      }
+      sweep_mark_off_market: {
+        Args: { p_seen_property_ids: string[] }
+        Returns: Json
       }
     }
     Enums: {

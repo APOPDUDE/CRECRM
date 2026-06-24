@@ -20,6 +20,10 @@ export function useGeocodeMissing(enabled = true) {
         .select('id, address, city, state, zip')
         .is('lat', null)
         .not('address', 'is', null)
+        // skip scrape placeholders ("Address unavailable", "Portfolio of N...") that can never
+        // geocode — otherwise they sit in the lat-null set forever and clog the batch.
+        .not('address', 'ilike', '%unavailable%')
+        .not('address', 'ilike', 'Portfolio of %')
         .limit(25)
       if (!data || cancelled) return
       let any = false
@@ -33,7 +37,6 @@ export function useGeocodeMissing(enabled = true) {
         await new Promise((r) => setTimeout(r, 1100))
       }
       if (any && !cancelled) {
-        queryClient.invalidateQueries({ queryKey: ['deal-map'] })
         queryClient.invalidateQueries({ queryKey: ['properties'] })
       }
     })()
@@ -71,6 +74,10 @@ export function useProperties() {
           // explicit FK hints: listing_parcels adds a 2nd properties<->listings relationship,
           // so a bare listings(count) is now ambiguous (PGRST201) and 300s the whole query.
           .select('*, listings!listings_property_id_fkey(count), matches:pursuits!pursuits_property_id_fkey(count)')
+          // hide LoopNet scrape placeholders that aren't real addresses ("Address unavailable",
+          // "Portfolio of N properties...") — they have no coords/parcel/deals and only clutter the list.
+          .not('address', 'ilike', '%unavailable%')
+          .not('address', 'ilike', 'Portfolio of %')
           .order('address')
           .order('id')
           .range(from, from + PAGE - 1)
@@ -169,7 +176,6 @@ export function useProperty(id: string | undefined) {
 function invalidatePropertyViews(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['properties'] })
   queryClient.invalidateQueries({ queryKey: ['property-deals'] })
-  queryClient.invalidateQueries({ queryKey: ['deal-map'] })
 }
 
 /** On-demand county-appraiser enrichment for one property (via the edge function). */

@@ -49,12 +49,17 @@ export function useUpdateCompany() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] })
-      // the company is embedded in several joined queries — refresh those too
+      // the company name is embedded in many joined queries — refresh those too so a
+      // rename shows immediately on open boards, the dashboard, and property detail
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
       queryClient.invalidateQueries({ queryKey: ['tenant_rep'] })
       queryClient.invalidateQueries({ queryKey: ['listings'] })
       queryClient.invalidateQueries({ queryKey: ['listing'] })
+      queryClient.invalidateQueries({ queryKey: ['matches'] })
+      queryClient.invalidateQueries({ queryKey: ['match'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-matches'] })
+      queryClient.invalidateQueries({ queryKey: ['property-deals'] })
     },
   })
 }
