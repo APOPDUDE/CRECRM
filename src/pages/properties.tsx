@@ -454,14 +454,10 @@ export function PropertiesPage() {
       ) : isError ? (
         <ListErrorState message="Could not load properties." onRetry={() => refetch()} />
       ) : (properties ?? []).length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
+        <div className="rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
-            No properties yet — add the buildings and land you're working.
+            No properties yet — use “Add property” above to add the buildings and land you're working.
           </p>
-          <Button onClick={openCreate}>
-            <Plus className="size-4" />
-            Add property
-          </Button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
