@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
-import { Plus, X } from 'lucide-react'
+import { Building2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -21,19 +20,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { propertyKindLabels } from '@/components/property-form-dialog'
 import { useCreateMatch } from '@/hooks/use-matches'
 import { useCreateProperty, useEnrichProperty } from '@/hooks/use-properties'
-import { useUpsertComp } from '@/hooks/use-comps'
+import { usePropertySearch, type ParcelSearchResult } from '@/hooks/use-listing-parcels'
 import { useScrapePropertyByUrl } from '@/hooks/use-automation'
 import type { TenantRepDetail } from '@/hooks/use-tenant-reps'
-import type { Enums } from '@/lib/database.types'
+import { formatParcelId } from '@/lib/parcel'
 import { friendlyDbError } from '@/lib/db-errors'
 import { automationEnabled } from '@/lib/n8n'
 import { normalizeListingUrl } from '@/lib/listing-url'
 
-const NONE = '__none__'
 type Mode = 'paste' | 'manual'
+
+// Counties with an appraiser adapter (so a parcel-only add can auto-enrich).
+const ENRICHABLE_COUNTIES = ['Hillsborough', 'Pinellas', 'Pasco', 'Polk', 'Manatee', 'Sarasota']
 
 interface AddPropertyMatchDialogProps {
   open: boolean
@@ -41,8 +41,6 @@ interface AddPropertyMatchDialogProps {
   tenantRep: TenantRepDetail
   initialMode?: Mode
 }
-
-const numOrNull = (v: string | undefined) => (v && v.trim() ? Number(v) : null)
 
 /** One URL per box, no spaces, with an "add another" button below. */
 function UrlInputList({
@@ -108,26 +106,29 @@ export function AddPropertyMatchDialog({
   const scrape = useScrapePropertyByUrl()
   const createProperty = useCreateProperty()
   const createMatch = useCreateMatch()
-  const upsertComp = useUpsertComp()
   const enrich = useEnrichProperty()
   const showPaste = automationEnabled()
 
   const [mode, setMode] = useState<Mode>('manual')
   const [loopnetUrls, setLoopnetUrls] = useState<string[]>([''])
   const [crexiUrls, setCrexiUrls] = useState<string[]>([''])
-  const [m, setM] = useState<Record<string, string>>({ property_type: NONE })
+  // Manual mode mirrors the add-parcel-to-listing flow: parcel ID + county (+ optional
+  // address), with autofill of existing properties; the appraiser fills the rest.
+  const [parcel, setParcel] = useState('')
+  const [county, setCounty] = useState('')
+  const [address, setAddress] = useState('')
+  const { data: results = [], isFetching } = usePropertySearch(address, parcel)
 
   useEffect(() => {
     if (open) {
       setMode(showPaste ? initialMode : 'manual')
       setLoopnetUrls([''])
       setCrexiUrls([''])
-      setM({ property_type: NONE })
+      setParcel('')
+      setCounty('')
+      setAddress('')
     }
   }, [open, initialMode, showPaste])
-
-  const setF = (k: string) => (e: { target: { value: string } }) =>
-    setM((prev) => ({ ...prev, [k]: e.target.value }))
 
   // Paste a mix of LoopNet + Crexi links; we detect the source per URL (so a link
   // in the "wrong" box still works) and run both scrapers at the same time. The
@@ -176,54 +177,43 @@ export function AddPropertyMatchDialog({
     onOpenChange(false)
   }
 
-  const pending = createProperty.isPending || createMatch.isPending || upsertComp.isPending
+  const pending = createProperty.isPending || createMatch.isPending
+  const matches = results // existing properties matching the typed address/parcel
+  const canCreate = !!parcel.trim() && !!county
 
+  const addPursuit = (propertyId: string) =>
+    createMatch.mutateAsync({
+      property_id: propertyId,
+      client_id: tenantRep.id,
+      owner_id: tenantRep.owner_id,
+      inquiry_date: format(new Date(), 'yyyy-MM-dd'),
+    })
+
+  // Attach an existing property to this tenant (creates the pursuit).
+  const attachExisting = async (p: ParcelSearchResult) => {
+    try {
+      await addPursuit(p.id)
+      toast.success(`Added ${p.address}`)
+      onOpenChange(false)
+    } catch (err) {
+      toast.error(friendlyDbError(err, 'Could not add property'))
+    }
+  }
+
+  // Create a new property from parcel + county (appraiser fills address/size/owner), then
+  // add it to this tenant's board.
   const handleManual = async (e: FormEvent) => {
     e.preventDefault()
-    if (!m.address?.trim() || !m.parcel_number?.trim()) return
+    if (!canCreate) return
     try {
-      const rate = numOrNull(m.asking_rate_psf)
-      const price = numOrNull(m.asking_price)
+      const formattedParcel = formatParcelId(parcel, county)
       const prop = await createProperty.mutateAsync({
-        address: m.address.trim(),
-        city: m.city?.trim() || null,
-        state: m.state?.trim() || null,
-        zip: m.zip?.trim() || null,
-        property_type: m.property_type === NONE ? null : (m.property_type as Enums<'property_kind'>),
-        parcel_number: m.parcel_number?.trim() || null,
-        specs: m.specs?.trim() || null,
+        address: address.trim() || `Parcel ${formattedParcel}`,
+        parcel_number: formattedParcel,
+        county,
         source: 'manual',
       })
-      // Asking lives on the comps time-series (keyed by property_id), not on properties.
-      // sqft/acres are filled by the county-appraiser enrichment from the parcel.
-      const asOf = format(new Date(), 'yyyy-MM-dd')
-      if (rate != null) {
-        await upsertComp.mutateAsync({
-          property_id: prop.id,
-          kind: 'asking',
-          deal_type: 'lease',
-          asking_lease_rate_psf: rate,
-          as_of_date: asOf,
-          source: 'manual',
-        })
-      }
-      if (price != null) {
-        await upsertComp.mutateAsync({
-          property_id: prop.id,
-          kind: 'asking',
-          deal_type: 'sale',
-          sale_price: price,
-          as_of_date: asOf,
-          source: 'manual',
-        })
-      }
-      await createMatch.mutateAsync({
-        property_id: prop.id,
-        client_id: tenantRep.id,
-        owner_id: tenantRep.owner_id,
-        inquiry_date: format(new Date(), 'yyyy-MM-dd'),
-      })
-      // Auto-enrich from the county appraiser when we have a parcel + (trigger-derived) county.
+      await addPursuit(prop.id)
       if (prop.parcel_number && prop.county) {
         enrich.mutate(prop.id, {
           onSuccess: () => toast.success('Enriching from county appraiser…'),
@@ -271,81 +261,102 @@ export function AddPropertyMatchDialog({
           </form>
         ) : (
           <form onSubmit={handleManual} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="man-address">Address *</Label>
-              <Input id="man-address" value={m.address ?? ''} onChange={setF('address')} autoFocus />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="man-parcel">Parcel ID</Label>
+                <Input
+                  id="man-parcel"
+                  value={parcel}
+                  onChange={(e) => setParcel(e.target.value)}
+                  onBlur={() => setParcel((p) => formatParcelId(p, county))}
+                  placeholder="paste raw — we format it"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="man-county">County</Label>
+                <Select
+                  value={county}
+                  onValueChange={(v) => {
+                    setCounty(v)
+                    setParcel((p) => formatParcelId(p, v))
+                  }}
+                >
+                  <SelectTrigger id="man-county" className="w-full">
+                    <SelectValue placeholder="Select county" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENRICHABLE_COUNTIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="man-parcel">Parcel ID *</Label>
+              <Label htmlFor="man-address">Address (optional)</Label>
               <Input
-                id="man-parcel"
-                value={m.parcel_number ?? ''}
-                onChange={setF('parcel_number')}
-                placeholder="county folio / strap — enables county-appraiser enrichment"
+                id="man-address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="The county appraiser fills this in"
               />
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="space-y-2 sm:col-span-1">
-                <Label htmlFor="man-city">City</Label>
-                <Input id="man-city" value={m.city ?? ''} onChange={setF('city')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="man-state">State</Label>
-                <Input id="man-state" value={m.state ?? ''} onChange={setF('state')} placeholder="FL" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="man-zip">Zip</Label>
-                <Input id="man-zip" value={m.zip ?? ''} onChange={setF('zip')} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="man-type">Property type</Label>
-              <Select
-                value={m.property_type ?? NONE}
-                onValueChange={(v) => setM((p) => ({ ...p, property_type: v }))}
-              >
-                <SelectTrigger id="man-type" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>No type</SelectItem>
-                  {Object.entries(propertyKindLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
+
+            {matches.length > 0 && (
+              <div className="overflow-hidden rounded-lg border">
+                <div className="border-b bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  Existing properties — click to add
+                </div>
+                <ul className="divide-y">
+                  {matches.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => attachExisting(p)}
+                        className="flex w-full items-center gap-2 p-2.5 text-left text-sm hover:bg-accent/50 disabled:opacity-50"
+                      >
+                        <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{p.address}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {[
+                              [p.city, p.state].filter(Boolean).join(', '),
+                              p.parcel_number ? `Parcel ${p.parcel_number}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </span>
+                        <Plus className="size-4 shrink-0 text-muted-foreground" />
+                      </button>
+                    </li>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </ul>
+              </div>
+            )}
+
+            {(address.trim() || parcel.trim()) && matches.length === 0 && !isFetching && (
+              <p className="text-xs text-muted-foreground">
+                No existing property matches — create a new one.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
-              Size (building SF / acres) and owner data fill in automatically from the county
-              appraiser using the parcel ID.
+              Not in the list? Enter the parcel ID + county and create it — the county appraiser
+              fills in the address, size and owner automatically.
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="man-rate">Asking rate ($/SF)</Label>
-                <Input id="man-rate" type="number" inputMode="decimal" step="0.01" value={m.asking_rate_psf ?? ''} onChange={setF('asking_rate_psf')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="man-price">Asking price ($)</Label>
-                <Input id="man-price" type="number" inputMode="numeric" value={m.asking_price ?? ''} onChange={setF('asking_price')} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="man-specs">Specs / notes</Label>
-              <Textarea id="man-specs" rows={2} value={m.specs ?? ''} onChange={setF('specs')} />
-            </div>
+
             <DialogFooter>
               {showPaste && (
                 <Button type="button" variant="ghost" onClick={() => setMode('paste')}>
                   Paste a listing link instead
                 </Button>
               )}
-              <Button
-                type="submit"
-                disabled={pending || !m.address?.trim() || !m.parcel_number?.trim()}
-              >
-                {pending ? 'Adding…' : 'Add property'}
+              <Button type="submit" disabled={pending || !canCreate}>
+                {pending ? 'Adding…' : 'Create & add'}
               </Button>
             </DialogFooter>
           </form>
