@@ -60,6 +60,7 @@ const COUNTIES: Record<string, Adapter> = {
     map: (a) => ({
       owner_name: str(a.NAME),
       owner_mailing_address: joinAddr(a.MAIL_ADDR_1, a.MAIL_ADDR_2, a.MAIL_ADDR_3, a.MAIL_ZIP),
+      // Polk's layer exposes no situs/physical address — leave address as-is.
       dor_use_code: str(a.DOR_CD),
       just_value: num(a.TOTALVAL),
       assessed_value: num(a.ASSESSVAL),
@@ -74,6 +75,7 @@ const COUNTIES: Record<string, Adapter> = {
     map: (a) => ({
       owner_name: str(a.OWNER1),
       owner_mailing_address: str(a.ADDRESS_ZIP_CITY),
+      site_address: str(a.SITE_ADDR),
       dor_use_code: str(a.PROPERTY_USE_CODE),
       just_value: num(a.TOTAL_JST_VALUE),
       assessed_value: num(a.TOTAL_ASD_VALUE),
@@ -91,6 +93,7 @@ const COUNTIES: Record<string, Adapter> = {
     map: (a) => ({
       owner_name: str(a.NAME1),
       owner_mailing_address: joinAddr(a.NAME_ADD2, a.CITY, a.STATE, a.ZIP),
+      site_address: str(a.FULLADDRESS),
       dor_use_code: str(a.STCD),
       just_value: num(a.JUST),
       assessed_value: num(a.ASSD),
@@ -107,6 +110,7 @@ const COUNTIES: Record<string, Adapter> = {
     map: (a) => ({
       owner_name: str(a.OWNER_NAME_1),
       owner_mailing_address: joinAddr(a.MAILING_ADDRESS_1, a.MAILING_ADDRESS_2, a.MAILING_CITY, a.MAILING_STATE, a.MAILING_ZIP),
+      site_address: str(a.SITE_ADDRESS),
       dor_use_code: str(a.LAND_USE_CODE),
       just_value: num(a.JUST_VALUE),
       assessed_value: num(a.ASSD_VAL_COUNTY),
@@ -123,6 +127,7 @@ const COUNTIES: Record<string, Adapter> = {
     map: (a) => ({
       owner_name: str(a.PAR_OWNER_NAME1),
       owner_mailing_address: joinAddr(a.PAR_MAIL_ADDR1, a.PAR_MAIL_CITY, a.PAR_MAIL_POSTALCD),
+      site_address: str(a.SITUS_ADDRESS),
       dor_use_code: str(a.CAD_DOR_LUC_CODE),
       just_value: num(a.CAD_JUST_VALUE),
       assessed_value: num(a.CAD_ASSESSED_CTY),
@@ -143,6 +148,7 @@ const COUNTIES: Record<string, Adapter> = {
     map: (a) => ({
       owner_name: str(a.OWNER),
       owner_mailing_address: joinAddr(a.ADDR_1, a.ADDR_2, a.CITY, a.STATE, a.ZIP),
+      site_address: str(a.SITE_ADDR),
       dor_use_code: str(a.DOR_CODE),
       just_value: num(a.JUST),
       assessed_value: num(a.ASD_VAL),
@@ -218,6 +224,11 @@ async function enrichOne(supa: any, p: any) {
   if (p.building_sf == null && m.building_sf != null) upd.building_sf = m.building_sf;
   if (p.year_built == null && m.year_built != null) upd.year_built = m.year_built;
   if (p.land_acres == null && m.land_acres != null) upd.land_acres = m.land_acres;
+  // Fill the address from the appraiser's situs address ONLY when ours is blank or a
+  // parcel-only placeholder ("Parcel <id>" / "Address unavailable") — never clobber a real one.
+  const addr = str(p.address);
+  const isPlaceholder = !addr || /^parcel\b/i.test(addr) || addr.toLowerCase() === "address unavailable";
+  if (isPlaceholder && m.site_address) upd.address = m.site_address;
   if ((p.zoning_description == null || p.zoning_description === "") && m.zoning_description) {
     upd.zoning_description = m.zoning_description;
   }
@@ -236,7 +247,7 @@ Deno.serve(async (req) => {
     const counties = Object.keys(COUNTIES);
 
     let q = supa.from("properties")
-      .select("id, county, parcel_number, lat, lng, building_sf, year_built, land_acres, zoning_description");
+      .select("id, address, county, parcel_number, lat, lng, building_sf, year_built, land_acres, zoning_description");
     if (ids) {
       q = q.in("id", ids);
     } else {

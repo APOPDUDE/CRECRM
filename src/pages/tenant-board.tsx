@@ -242,7 +242,17 @@ export function TenantBoardPage() {
             <span className="sr-only">Back to Tenant Rep</span>
           </Button>
           <div>
-            <h1 className="text-xl font-semibold">{title}</h1>
+            <button
+              type="button"
+              onClick={() =>
+                tenantRep.company ? setCompanyEditOpen(true) : setContactEditOpen(true)
+              }
+              className="group flex items-center gap-1.5 text-left text-xl font-semibold hover:underline"
+              title="Rename"
+            >
+              {title}
+              <Pencil className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+            </button>
             {tenantRep.company && tenantRep.contact && (
               <p className="text-sm text-muted-foreground">{contactNameOf(tenantRep.contact)}</p>
             )}
