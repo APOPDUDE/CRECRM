@@ -55,6 +55,36 @@ export interface UploadResult {
   failed: string[]
 }
 
+/**
+ * The human-readable folder a file should live in (mirrors the kanban tree), resolved server-side by
+ * the fs_entity_path RPC so the app, the Mac reconciler, and any DB reader agree on one path scheme.
+ * Falls back to the legacy `<type>/<id>` prefix for entities with no folder yet (inactive/closed/unrepped).
+ */
+async function resolveFolder(parentType: FileParentType, parentId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('fs_entity_path', { p_type: parentType, p_id: parentId })
+  if (error) throw error
+  return data || `${parentType}/${parentId}`
+}
+
+/**
+ * Upload into `folder`, de-colliding same-name files the way Finder does (`name (2).pdf`) so we keep clean,
+ * UUID-free object keys. Returns the final storage path.
+ */
+async function uploadDeduped(folder: string, file: File): Promise<string> {
+  const dot = file.name.lastIndexOf('.')
+  const base = dot > 0 ? file.name.slice(0, dot) : file.name
+  const ext = dot > 0 ? file.name.slice(dot) : ''
+  for (let n = 1; n <= 50; n++) {
+    const path = `${folder}/${n === 1 ? base : `${base} (${n})`}${ext}`
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file)
+    if (!error) return path
+    const status = (error as { statusCode?: string }).statusCode
+    if (status === '409' || /exist|duplicate/i.test(error.message)) continue // name taken, try next suffix
+    throw error
+  }
+  throw new Error('Could not find a free filename')
+}
+
 export function useUploadFiles(parentType: FileParentType, parentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -68,17 +98,20 @@ export function useUploadFiles(parentType: FileParentType, parentId: string) {
       const failed: string[] = []
       for (const file of files) {
         try {
-          const path = `${parentType}/${parentId}/${crypto.randomUUID()}-${file.name}`
-          const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file)
-          if (uploadError) throw uploadError
-          const { error: insertError } = await supabase.from('files').insert({
-            [parentColumn(parentType)]: parentId,
-            category,
-            file_name: file.name,
-            storage_path: path,
-            file_size: file.size,
-            mime_type: file.type || null,
-          } as TablesInsert<'files'>)
+          const folder = await resolveFolder(parentType, parentId)
+          const path = await uploadDeduped(folder, file)
+          // Upsert (not insert) so the app and the reconciler can never collide on the storage_path unique key.
+          const { error: insertError } = await supabase.from('files').upsert(
+            {
+              [parentColumn(parentType)]: parentId,
+              category,
+              file_name: file.name,
+              storage_path: path,
+              file_size: file.size,
+              mime_type: file.type || null,
+            } as TablesInsert<'files'>,
+            { onConflict: 'storage_path' },
+          )
           if (insertError) {
             await supabase.storage.from(BUCKET).remove([path])
             throw insertError

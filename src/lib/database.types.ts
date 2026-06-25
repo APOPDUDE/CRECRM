@@ -1189,6 +1189,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_fs_entity: {
+        Row: {
+          entity_type: string | null
+          entity_id: string | null
+          prefix: string | null
+          crm_id: Json | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_parcel_to_listing: {
@@ -1225,6 +1234,11 @@ export type Database = {
         Args: { p?: Json; p_pursuit_id: string }
         Returns: Json
       }
+      fs_entity_path: {
+        Args: { p_type: string; p_id: string }
+        Returns: string
+      }
+      fs_safe_name: { Args: { p: string }; Returns: string }
       import_scraped_listings: {
         Args: { p_client_id?: string; p_flagged_new?: boolean; p_props: Json }
         Returns: Json
