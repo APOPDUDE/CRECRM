@@ -22,8 +22,8 @@ import {
 import { useUpsertComp, type PropertyComp } from '@/hooks/use-comps'
 import { useAuth } from '@/hooks/use-auth'
 import type { TablesUpdate } from '@/lib/database.types'
+import { numOrNull } from '@/lib/format'
 
-const numOrNull = (v: string): number | null => (v.trim() === '' ? null : Number(v))
 const NO_STRUCT = '__none'
 
 interface CompEditDialogProps {

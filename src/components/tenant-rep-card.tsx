@@ -22,7 +22,9 @@ interface TenantRepCardProps {
 }
 
 // stop dnd-kit's pointer sensor from treating menu interaction as a drag
-const stopDrag = (e: React.PointerEvent) => e.stopPropagation()
+// Stop the kanban Mouse/Touch sensors from treating menu interaction as a card drag —
+// covers mousedown (MouseSensor) and touchstart (TouchSensor).
+const stopDrag = (e: React.SyntheticEvent) => e.stopPropagation()
 
 /** A min–max range like "80,000–120,000 SF", "80,000 SF+", "up to 120,000 SF". */
 export function rangeSummary(
@@ -102,7 +104,8 @@ export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: Tenan
                 variant="ghost"
                 size="icon"
                 className="-mt-1 -mr-1 size-7 shrink-0"
-                onPointerDown={stopDrag}
+                onMouseDown={stopDrag}
+                onTouchStart={stopDrag}
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="size-4" />
@@ -111,7 +114,8 @@ export function TenantRepCard({ tenantRep, onOpen, onMarkLost, onReopen }: Tenan
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              onPointerDown={stopDrag}
+              onMouseDown={stopDrag}
+              onTouchStart={stopDrag}
               onClick={(e) => e.stopPropagation()}
             >
               {onMarkLost && tenantRep.status !== 'closed' && tenantRep.status !== 'lost' && (

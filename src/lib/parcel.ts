@@ -16,6 +16,12 @@ const PARCEL_PATTERNS: Record<string, number[]> = {
 }
 
 /**
+ * Counties with a working appraiser adapter (so a parcel-only add can auto-enrich). Superset
+ * of PARCEL_PATTERNS — Hillsborough enriches but its PIN/folio is left as typed.
+ */
+export const ENRICHABLE_COUNTIES = ['Hillsborough', 'Pinellas', 'Pasco', 'Polk', 'Manatee', 'Sarasota']
+
+/**
  * Format a raw parcel ID into its county's dashed format. If the county has no known
  * pattern (e.g. Hillsborough), or the digit count doesn't match (so we'd risk mangling a
  * valid-but-different ID), the input is returned trimmed but otherwise untouched.

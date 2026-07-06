@@ -87,7 +87,8 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
                     e.stopPropagation()
                     onPreview(match)
                   }}
-                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   className="flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
                 >
                   <Eye className="size-3.5" />
@@ -106,7 +107,8 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
                     e.stopPropagation()
                     onRemove(match)
                   }}
-                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   className="flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                 >
                   <Trash2 className="size-3.5" />

@@ -24,14 +24,13 @@ import { useUpdateListing } from '@/hooks/use-listings'
 import type { ListingDetail } from '@/hooks/use-listings'
 import { useUpdateProperty } from '@/hooks/use-properties'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
+import { numOrNull } from '@/lib/format'
 
 interface ListingTermsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   listing: ListingDetail
 }
-
-const numOrNull = (v: string): number | null => (v.trim() === '' ? null : Number(v))
 
 /** Edit the listing-level economics that feed the About panel and the commission calculator. */
 export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTermsDialogProps) {

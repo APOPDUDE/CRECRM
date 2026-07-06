@@ -52,6 +52,11 @@ export function formatBytes(bytes: number | null | undefined): string | null {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/** Parse a form text field into a number for a DB write: blank -> null, else Number(v). */
+export function numOrNull(v: string): number | null {
+  return v.trim() === '' ? null : Number(v)
+}
+
 /** Rate for a lease listing, price for a sale listing, both for a 'both' listing. */
 export function formatListingPrice(deal: {
   deal_type: Enums<'deal_type'>

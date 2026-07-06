@@ -25,15 +25,12 @@ import { useCreateProperty, useEnrichProperty } from '@/hooks/use-properties'
 import { usePropertySearch, type ParcelSearchResult } from '@/hooks/use-listing-parcels'
 import { useScrapePropertyByUrl } from '@/hooks/use-automation'
 import type { TenantRepDetail } from '@/hooks/use-tenant-reps'
-import { formatParcelId } from '@/lib/parcel'
+import { formatParcelId, ENRICHABLE_COUNTIES } from '@/lib/parcel'
 import { friendlyDbError } from '@/lib/db-errors'
 import { automationEnabled } from '@/lib/n8n'
 import { normalizeListingUrl } from '@/lib/listing-url'
 
 type Mode = 'paste' | 'manual'
-
-// Counties with an appraiser adapter (so a parcel-only add can auto-enrich).
-const ENRICHABLE_COUNTIES = ['Hillsborough', 'Pinellas', 'Pasco', 'Polk', 'Manatee', 'Sarasota']
 
 interface AddPropertyMatchDialogProps {
   open: boolean
@@ -256,7 +253,9 @@ export function AddPropertyMatchDialog({
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Add listings</Button>
+              <Button type="submit" disabled={scrape.isPending}>
+                {scrape.isPending ? 'Adding…' : 'Add listings'}
+              </Button>
             </DialogFooter>
           </form>
         ) : (

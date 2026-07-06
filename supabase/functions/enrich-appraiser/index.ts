@@ -166,11 +166,22 @@ async function arcgisQuery(service: string, field: string, value: string) {
   url.searchParams.set("returnGeometry", "true");
   url.searchParams.set("outSR", "4326");
   url.searchParams.set("f", "json");
-  const res = await fetch(url.toString(), { headers: { "User-Agent": "CRE-CRM enrichment" } });
-  if (!res.ok) throw new Error(`http ${res.status}`);
-  const data = await res.json();
-  if (data.error) throw new Error(`arcgis ${JSON.stringify(data.error).slice(0, 140)}`);
-  return (data.features || []) as Array<{ attributes: Attrs; geometry: unknown }>;
+  // Cap each county request at 15s so one hung appraiser server can't stall the whole run.
+  // AbortController + setTimeout (not AbortSignal.timeout) for portability across Deno versions.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { "User-Agent": "CRE-CRM enrichment" },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error(`http ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(`arcgis ${JSON.stringify(data.error).slice(0, 140)}`);
+    return (data.features || []) as Array<{ attributes: Attrs; geometry: unknown }>;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function enrichOne(supa: any, p: any) {

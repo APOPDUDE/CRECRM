@@ -20,7 +20,17 @@ import { PropertiesPage } from '@/pages/properties'
 import { PropertyDetailPage } from '@/pages/property-detail'
 import { ActivityPage } from '@/pages/activity'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Data is considered fresh for 30s, so returning to the installed PWA (window focus)
+      // doesn't refetch every query — notably the ~2,300-row properties list — on each
+      // app-switch. Mutations still call invalidateQueries, which refetches immediately
+      // regardless of staleTime, so edits stay live.
+      staleTime: 30_000,
+    },
+  },
+})
 
 export default function App() {
   return (

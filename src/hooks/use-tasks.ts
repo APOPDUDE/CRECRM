@@ -239,21 +239,23 @@ export function usePaymentReceivedToggle() {
 
       if (received) {
         // stop reminding — close any open payment checks for this deal
-        await supabase
+        const { error: closeErr } = await supabase
           .from('tasks')
           .update({ status: 'done', completed_at: new Date().toISOString() })
           .eq('pursuit_id', pursuitId)
           .eq('source', 'payment_check')
           .eq('status', 'open')
+        if (closeErr) throw closeErr
       } else {
         // not received — make sure exactly one open reminder exists, a month out
-        const { data: openChecks } = await supabase
+        const { data: openChecks, error: checkErr } = await supabase
           .from('tasks')
           .select('id')
           .eq('pursuit_id', pursuitId)
           .eq('source', 'payment_check')
           .eq('status', 'open')
           .limit(1)
+        if (checkErr) throw checkErr
         if (!openChecks || openChecks.length === 0) {
           const { error: tErr } = await supabase.from('tasks').insert({
             owner_id: ownerId,

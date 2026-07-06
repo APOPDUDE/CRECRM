@@ -16,14 +16,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import type { TenantRepDetail } from '@/hooks/use-tenant-reps'
 import { supabase } from '@/lib/supabase'
+import { numOrNull } from '@/lib/format'
 
 interface TenantCommissionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   tenantRep: TenantRepDetail
 }
-
-const numOrNull = (v: string): number | null => (v.trim() === '' ? null : Number(v))
 
 /** Edit the commission booked on an executed tenant-rep deal (shown on the About panel). */
 export function TenantCommissionDialog({ open, onOpenChange, tenantRep }: TenantCommissionDialogProps) {

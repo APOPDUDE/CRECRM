@@ -24,11 +24,8 @@ import {
   type ParcelSearchResult,
 } from '@/hooks/use-listing-parcels'
 import { useCreateProperty, useEnrichProperty } from '@/hooks/use-properties'
-import { formatParcelId } from '@/lib/parcel'
+import { formatParcelId, ENRICHABLE_COUNTIES } from '@/lib/parcel'
 import { friendlyDbError } from '@/lib/db-errors'
-
-// Counties with a county-appraiser adapter (so a parcel-only add can auto-enrich).
-const ENRICHABLE_COUNTIES = ['Hillsborough', 'Pinellas', 'Pasco', 'Polk', 'Manatee', 'Sarasota']
 
 interface AddListingParcelDialogProps {
   listingId: string

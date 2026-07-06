@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { useCreateUnit } from '@/hooks/use-units'
 import { friendlyDbError } from '@/lib/db-errors'
+import { numOrNull } from '@/lib/format'
 
 export type ParcelOption = { id: string; address: string }
 
@@ -31,7 +32,6 @@ interface AddUnitDialogProps {
 }
 
 const intOrNull = (v: string) => (v.trim() ? Math.round(Number(v)) : null)
-const numOrNull = (v: string) => (v.trim() ? Number(v) : null)
 
 /** Add one available unit (suite / pad / acreage) to a property in the assemblage. */
 export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange }: AddUnitDialogProps) {

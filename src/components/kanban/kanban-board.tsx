@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -29,8 +30,9 @@ function DraggableCard({ id, children }: { id: string; children: ReactNode }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      // touch-none lets pointer drag work on touch screens without the page scrolling
-      className={cn('touch-none outline-none', isDragging && 'opacity-40')}
+      // No touch-action:none here — a quick swipe should scroll the board on a phone.
+      // The TouchSensor uses a press-delay so a long-press (not a swipe) starts a drag.
+      className={cn('outline-none', isDragging && 'opacity-40')}
     >
       {children}
     </div>
@@ -91,8 +93,13 @@ export function KanbanBoard<TItem, TStage extends string>({
   renderCard,
 }: KanbanBoardProps<TItem, TStage>) {
   const [activeId, setActiveId] = useState<string | null>(null)
-  // a small distance threshold means a plain click still opens the card, but a drag moves it
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+  // Mouse: a 6px threshold means a plain click still opens the card, but a drag moves it.
+  // Touch: a 200ms press-delay (with an 8px tolerance) means a swipe scrolls the board and a
+  // long-press starts a drag — otherwise every card touch would hijack vertical scrolling.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  )
 
   const activeItem = activeId ? items.find((i) => getId(i) === activeId) ?? null : null
 

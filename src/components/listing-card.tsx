@@ -20,8 +20,10 @@ interface ListingCardProps {
   onReopen?: (listing: ListingWithRelations) => void
 }
 
-// stop dnd-kit's pointer sensor from treating menu interaction as a drag
-const stopDrag = (e: React.PointerEvent) => e.stopPropagation()
+// Stop the kanban Mouse/Touch sensors from treating menu interaction as a card drag.
+// Must cover both mousedown (MouseSensor) and touchstart (TouchSensor) — the events those
+// sensors activate on.
+const stopDrag = (e: React.SyntheticEvent) => e.stopPropagation()
 
 export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCardProps) {
   const prospects = livePursuits(listing.matches)
@@ -66,7 +68,8 @@ export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCa
                 variant="ghost"
                 size="icon"
                 className="-mt-1 -mr-1 size-7 shrink-0"
-                onPointerDown={stopDrag}
+                onMouseDown={stopDrag}
+                onTouchStart={stopDrag}
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="size-4" />
@@ -75,7 +78,8 @@ export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCa
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              onPointerDown={stopDrag}
+              onMouseDown={stopDrag}
+              onTouchStart={stopDrag}
               onClick={(e) => e.stopPropagation()}
             >
               {onMarkLost && listing.status === 'active' && (
