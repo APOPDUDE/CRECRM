@@ -23,8 +23,6 @@ import {
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -37,9 +35,17 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
+import { PaymentCheckActions } from '@/components/payment-check-actions'
 import { TaskFormDialog } from '@/components/task-form-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
-import { useDeleteTask, useTasks, useToggleTask, taskDealPath, taskKindLabels } from '@/hooks/use-tasks'
+import {
+  useDeleteTask,
+  usePaymentCheckAnswer,
+  useTasks,
+  useToggleTask,
+  taskDealPath,
+  taskKindLabels,
+} from '@/hooks/use-tasks'
 import type { TaskWithContact } from '@/hooks/use-tasks'
 import { formatDate, formatTimeOfDay, isOverdue } from '@/lib/dates'
 import { cn } from '@/lib/utils'
@@ -55,46 +61,7 @@ export function TasksPage() {
   const { data: tasks = [], isLoading, isError, refetch } = useTasks()
   const toggle = useToggleTask()
   const deleteTask = useDeleteTask()
-  const queryClient = useQueryClient()
-
-  const markPaymentReceived = async (task: TaskWithContact) => {
-    if (!task.pursuit_id) return
-    const { error } = await supabase
-      .from('pursuits')
-      .update({ payment_received: true })
-      .eq('id', task.pursuit_id)
-    if (error) {
-      toast.error('Could not update payment')
-      return
-    }
-    toggle.mutate({ id: task.id, status: 'done' })
-    queryClient.invalidateQueries({ queryKey: ['dashboard-matches'] })
-    queryClient.invalidateQueries({ queryKey: ['matches'] })
-    toast.success('Payment marked received')
-  }
-
-  // Not received yet: close this check and immediately put next month's reminder on
-  // the calendar (a true calendar month out), so payment follow-ups are never silent.
-  const markPaymentNotReceived = async (task: TaskWithContact) => {
-    if (!task.pursuit_id) return
-    const { error } = await supabase.from('tasks').insert({
-      owner_id: task.owner_id,
-      title: task.title,
-      kind: 'follow_up',
-      status: 'open',
-      due_date: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
-      pursuit_id: task.pursuit_id,
-      auto_generated: true,
-      source: 'payment_check',
-    })
-    if (error) {
-      toast.error('Could not set reminder')
-      return
-    }
-    toggle.mutate({ id: task.id, status: 'done' })
-    queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    toast.success('Not received — reminder set for next month')
-  }
+  const paymentAnswer = usePaymentCheckAnswer()
 
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [showDone, setShowDone] = useState(false)
@@ -161,10 +128,17 @@ export function TasksPage() {
         <Checkbox
           checked={task.status === 'done'}
           onCheckedChange={(v) => {
-            // Completing an unpaid payment reminder = "not received yet": seed next
-            // month's reminder instead of silently closing it. "Received" stops it.
+            // Completing an unanswered payment reminder = "not received yet": seed the
+            // next check (2 weeks out) instead of silently closing it. "Received" stops it.
             if (v === true && task.source === 'payment_check' && task.status === 'open' && task.pursuit_id) {
-              void markPaymentNotReceived(task)
+              if (paymentAnswer.isPending) return // a double-click must not seed two reminders
+              paymentAnswer.mutate(
+                { task, received: false },
+                {
+                  onSuccess: () => toast.success('Not received — next check in 2 weeks'),
+                  onError: () => toast.error('Could not set reminder'),
+                },
+              )
             } else {
               toggle.mutate({ id: task.id, status: v === true ? 'done' : 'open' })
             }
@@ -194,32 +168,7 @@ export function TasksPage() {
             {path && <span className="text-primary">· Open deal</span>}
           </div>
         </button>
-        {task.source === 'payment_check' && task.status === 'open' && task.pursuit_id && (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7"
-              onClick={(e) => {
-                e.stopPropagation()
-                void markPaymentReceived(task)
-              }}
-            >
-              Received
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-muted-foreground"
-              onClick={(e) => {
-                e.stopPropagation()
-                void markPaymentNotReceived(task)
-              }}
-            >
-              Not yet
-            </Button>
-          </div>
-        )}
+        <PaymentCheckActions task={task} />
         {rowMenu(task)}
       </div>
     )

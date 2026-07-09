@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { addMonths, format } from 'date-fns'
 import { ArrowLeft, ChevronDown, ExternalLink, Pencil, Plus, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -214,12 +215,15 @@ export function TenantBoardPage() {
         },
       })
       // Seed the first "payment received?" reminder right away so the follow-up is
-      // visible on the task list immediately (not waiting on the nightly sweep).
+      // visible on the task list immediately (not waiting on the nightly sweep). The
+      // FIRST check lands a month after closing; answering "not received" then follows
+      // up every two weeks.
       paymentToggle.mutate({
         pursuitId: match.id,
         received: false,
         ownerId: match.owner_id,
         title: `Payment received? — ${match.property?.address ?? 'deal'}`,
+        nextDue: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
       })
       toast.success('Deal executed')
       setExecutedMove(null)

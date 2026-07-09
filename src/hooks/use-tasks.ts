@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addMonths, format } from 'date-fns'
+import { addWeeks, format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
 import type { ParentType } from '@/hooks/use-notes'
@@ -213,9 +213,11 @@ export function useUpsertRenewalTask() {
 }
 
 /**
- * Resolve a pursuit's monthly "payment received?" check from the board, immediately (no
- * waiting on the daily sweep): marking received closes any open payment reminders; marking
- * NOT received sets the next reminder a month out so it's visible on the task list right away.
+ * Resolve a pursuit's "payment received?" check from the board, immediately (no waiting
+ * on the daily sweep): marking received closes any open payment reminders; marking NOT
+ * received makes sure the next reminder is on the task list right away — two weeks out
+ * by default (the follow-up cadence), or at `nextDue` when the caller wants a different
+ * first date (deal execution seeds the first check a month after closing).
  */
 export function usePaymentReceivedToggle() {
   const queryClient = useQueryClient()
@@ -225,11 +227,14 @@ export function usePaymentReceivedToggle() {
       received,
       ownerId,
       title,
+      nextDue,
     }: {
       pursuitId: string
       received: boolean
       ownerId: string
       title: string
+      /** yyyy-MM-dd due date for the seeded reminder; defaults to two weeks out. */
+      nextDue?: string
     }) => {
       const { error: pErr } = await supabase
         .from('pursuits')
@@ -262,13 +267,66 @@ export function usePaymentReceivedToggle() {
             title,
             kind: 'follow_up',
             status: 'open',
-            due_date: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
+            due_date: nextDue ?? format(addWeeks(new Date(), 2), 'yyyy-MM-dd'),
             pursuit_id: pursuitId,
             auto_generated: true,
             source: 'payment_check',
           })
           if (tErr) throw tErr
         }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['matches'] })
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-matches'] })
+    },
+  })
+}
+
+/**
+ * Answer an open "Payment received?" reminder from a task list (dashboard widget or
+ * Tasks page). Received flips the pursuit's payment_received and completes every open
+ * check on that deal. Not received completes THIS check and seeds the next one two
+ * weeks out (the follow-up cadence after the first post-closing month), inserting the
+ * new reminder before closing the old one so the chain can never silently end.
+ */
+export function usePaymentCheckAnswer() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ task, received }: { task: Tables<'tasks'>; received: boolean }) => {
+      if (!task.pursuit_id) throw new Error('Not a payment check task')
+      if (received) {
+        const { error: pErr } = await supabase
+          .from('pursuits')
+          .update({ payment_received: true })
+          .eq('id', task.pursuit_id)
+        if (pErr) throw pErr
+        const { error: closeErr } = await supabase
+          .from('tasks')
+          .update({ status: 'done', completed_at: new Date().toISOString() })
+          .eq('pursuit_id', task.pursuit_id)
+          .eq('source', 'payment_check')
+          .eq('status', 'open')
+        if (closeErr) throw closeErr
+      } else {
+        const { error: insErr } = await supabase.from('tasks').insert({
+          owner_id: task.owner_id,
+          title: task.title,
+          kind: 'follow_up',
+          status: 'open',
+          due_date: format(addWeeks(new Date(), 2), 'yyyy-MM-dd'),
+          pursuit_id: task.pursuit_id,
+          auto_generated: true,
+          source: 'payment_check',
+        })
+        if (insErr) throw insErr
+        const { error: doneErr } = await supabase
+          .from('tasks')
+          .update({ status: 'done', completed_at: new Date().toISOString() })
+          .eq('id', task.id)
+        if (doneErr) throw doneErr
       }
     },
     onSuccess: () => {

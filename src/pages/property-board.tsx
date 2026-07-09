@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { addMonths, format } from 'date-fns'
 import { ArrowLeft, Pencil, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -35,7 +36,7 @@ import {
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
-import { useCreateTask } from '@/hooks/use-tasks'
+import { useCreateTask, usePaymentReceivedToggle } from '@/hooks/use-tasks'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { formatDate } from '@/lib/dates'
 import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
@@ -56,6 +57,7 @@ export function PropertyBoardPage() {
   const { data: units = [] } = useUnits(parcels.map((p) => p.property_id))
   const updateStage = useUpdateMatchStage(propertyMatchesKey(propertyId ?? ''))
   const createTask = useCreateTask()
+  const paymentToggle = usePaymentReceivedToggle()
   const executePursuit = useExecutePursuit()
   const deleteMatch = useDeleteMatch()
   const deleteUnit = useDeleteUnit()
@@ -185,6 +187,15 @@ export function PropertyBoardPage() {
           close_client: result.closeClient,
           close_listing: result.closeListing,
         },
+      })
+      // Seed the first "payment received?" reminder a month out, same as executing from
+      // the tenant board — follow-ups then run every two weeks until marked received.
+      paymentToggle.mutate({
+        pursuitId: match.id,
+        received: false,
+        ownerId: match.owner_id,
+        title: `Payment received? — ${match.property?.address ?? 'deal'}`,
+        nextDue: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
       })
       toast.success('Deal executed')
       setExecutedMove(null)

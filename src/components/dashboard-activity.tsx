@@ -8,9 +8,12 @@ import { matchFee, type DashMatch } from '@/hooks/use-dashboard'
 import { daysAgoLabel, formatDate } from '@/lib/dates'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { Checkbox } from '@/components/ui/checkbox'
+import { toast } from 'sonner'
+import { PaymentCheckActions } from '@/components/payment-check-actions'
 import {
   taskDealPath,
   taskKindLabels,
+  usePaymentCheckAnswer,
   useTasks,
   useToggleTask,
   type TaskWithContact,
@@ -222,19 +225,36 @@ type TaskTone = 'overdue' | 'today' | 'upcoming'
 function TaskRow({ task, tone }: { task: TaskWithContact; tone: TaskTone }) {
   const navigate = useNavigate()
   const toggle = useToggleTask()
+  const paymentAnswer = usePaymentCheckAnswer()
   // Fall back to the Tasks page so match-attached tasks (no standalone route) never dead-end.
   const path = taskDealPath(task) ?? '/tasks'
   const who = task.contact ? contactNameOf(task.contact) : null
+  const isPaymentCheck = task.source === 'payment_check' && task.status === 'open' && !!task.pursuit_id
   return (
     <li
       className={cn(
-        'flex items-center gap-2.5 px-3 py-2',
+        'flex flex-wrap items-center gap-x-2.5 gap-y-1.5 px-3 py-2',
         tone === 'overdue' ? 'bg-red-50/60' : tone === 'today' ? 'bg-amber-50/50' : '',
       )}
     >
       <Checkbox
         checked={task.status === 'done'}
-        onCheckedChange={(v) => toggle.mutate({ id: task.id, status: v === true ? 'done' : 'open' })}
+        onCheckedChange={(v) => {
+          // Checking off an unanswered payment reminder = "not received yet": seed the
+          // next check instead of silently ending the follow-up chain.
+          if (v === true && isPaymentCheck) {
+            if (paymentAnswer.isPending) return // a double-click must not seed two reminders
+            paymentAnswer.mutate(
+              { task, received: false },
+              {
+                onSuccess: () => toast.success('Not received — next check in 2 weeks'),
+                onError: () => toast.error('Could not set reminder'),
+              },
+            )
+          } else {
+            toggle.mutate({ id: task.id, status: v === true ? 'done' : 'open' })
+          }
+        }}
         aria-label="Mark task done"
       />
       <button
@@ -260,6 +280,7 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: TaskTone }) {
       >
         {task.due_date ? formatDate(task.due_date) : ''}
       </span>
+      <PaymentCheckActions task={task} />
     </li>
   )
 }
