@@ -10,6 +10,7 @@ import {
   ListTodo,
   LogOut,
   Menu,
+  Target,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils'
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/repping', label: 'Repping', icon: Handshake },
+  { to: '/prospecting', label: 'Prospecting', icon: Target },
   { to: '/tasks', label: 'Tasks', icon: ListTodo },
   { to: '/contacts', label: 'Contacts', icon: Contact },
   { to: '/companies', label: 'Companies', icon: Users },
@@ -31,6 +33,7 @@ const navItems = [
 const sectionLabels: Record<string, string> = {
   '': 'Dashboard',
   repping: 'Repping',
+  prospecting: 'Prospecting',
   // Detail/match boards still live under these path prefixes — keep their breadcrumb labels.
   'landlord-rep': 'Landlord Rep',
   'tenant-rep': 'Tenant Rep',

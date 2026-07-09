@@ -9,6 +9,7 @@ import { BreadcrumbProvider } from '@/hooks/use-breadcrumb'
 import { LoginPage } from '@/pages/login'
 import { DashboardPage } from '@/pages/dashboard'
 import { ReppingPage } from '@/pages/repping'
+import { ProspectingPage } from '@/pages/prospecting'
 import { PropertyBoardPage } from '@/pages/property-board'
 import { TenantBoardPage } from '@/pages/tenant-board'
 import { TasksPage } from '@/pages/tasks'
@@ -51,6 +52,7 @@ export default function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/activity" element={<ActivityPage />} />
                 <Route path="/repping" element={<ReppingPage />} />
+                <Route path="/prospecting" element={<ProspectingPage />} />
                 <Route path="/landlord-rep" element={<Navigate to="/repping" replace />} />
                 <Route path="/landlord-rep/:listingId" element={<PropertyBoardPage />} />
                 <Route path="/tenant-rep" element={<Navigate to="/repping" replace />} />

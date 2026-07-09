@@ -905,6 +905,93 @@ export type Database = {
         }
         Relationships: []
       }
+      prospects: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          converted_at: string | null
+          converted_to: string | null
+          created_at: string
+          description: string | null
+          id: string
+          owner_id: string
+          status: Database["public"]["Enums"]["prospect_status"]
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          converted_at?: string | null
+          converted_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner_id: string
+          status?: Database["public"]["Enums"]["prospect_status"]
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          converted_at?: string | null
+          converted_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner_id?: string
+          status?: Database["public"]["Enums"]["prospect_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospects_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_properties: {
+        Row: {
+          created_at: string
+          property_id: string
+          prospect_id: string
+        }
+        Insert: {
+          created_at?: string
+          property_id: string
+          prospect_id: string
+        }
+        Update: {
+          created_at?: string
+          property_id?: string
+          prospect_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_properties_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_properties_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pursuits: {
         Row: {
           actual_fee: number | null
@@ -1028,6 +1115,7 @@ export type Database = {
           listing_id: string | null
           note_id: string | null
           owner_id: string
+          prospect_id: string | null
           pursuit_id: string | null
           source: string | null
           status: Database["public"]["Enums"]["task_status"]
@@ -1048,6 +1136,7 @@ export type Database = {
           listing_id?: string | null
           note_id?: string | null
           owner_id: string
+          prospect_id?: string | null
           pursuit_id?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -1068,6 +1157,7 @@ export type Database = {
           listing_id?: string | null
           note_id?: string | null
           owner_id?: string
+          prospect_id?: string | null
           pursuit_id?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -1215,6 +1305,10 @@ export type Database = {
         Args: { p_suggestion_id: string; p_client_id?: string | null }
         Returns: string
       }
+      convert_prospect: {
+        Args: { p_prospect_id: string; p_target: string; p_deal_type?: Database["public"]["Enums"]["deal_type"] }
+        Returns: Json
+      }
       create_property_and_listing: {
         Args: {
           p_address: string
@@ -1297,6 +1391,7 @@ export type Database = {
       listing_stage: "proposal" | "listed" | "closed"
       note_kind: "note" | "call" | "text" | "email" | "meeting"
       property_kind: "industrial" | "office" | "retail" | "land" | "other"
+      prospect_status: "open" | "converted" | "dead"
       pursuit_stage:
         | "inquiring"
         | "touring"
@@ -1472,6 +1567,7 @@ export const Constants = {
       listing_stage: ["proposal", "listed", "closed"],
       note_kind: ["note", "call", "text", "email", "meeting"],
       property_kind: ["industrial", "office", "retail", "land", "other"],
+      prospect_status: ["open", "converted", "dead"],
       pursuit_stage: [
         "inquiring",
         "touring",
