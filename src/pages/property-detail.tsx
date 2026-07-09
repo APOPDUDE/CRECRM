@@ -347,6 +347,16 @@ export function PropertyDetailPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Building</h2>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="sm:col-span-2 lg:col-span-3 xl:col-span-4">
+            <InlineEditField
+              label="Description"
+              note="shows on the prospect preview"
+              value={property.description}
+              kind="text"
+              multiline
+              onSave={saveField('description')}
+            />
+          </div>
           <InlineEditField label="Building SF" value={property.building_sf} kind="sf" onSave={saveField('building_sf')} />
           <InlineEditField label="Land acres" value={property.land_acres} kind="acres" onSave={saveField('land_acres')} />
           <InlineEditField label="Year built" value={property.year_built} kind="number" onSave={saveField('year_built')} />

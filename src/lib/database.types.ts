@@ -740,6 +740,7 @@ export type Database = {
           county: string | null
           created_at: string
           days_on_market: number | null
+          description: string | null
           gross_leasable_area: string | null
           id: string
           is_auction: boolean | null
@@ -798,6 +799,7 @@ export type Database = {
           county?: string | null
           created_at?: string
           days_on_market?: number | null
+          description?: string | null
           gross_leasable_area?: string | null
           id?: string
           is_auction?: boolean | null
@@ -856,6 +858,7 @@ export type Database = {
           county?: string | null
           created_at?: string
           days_on_market?: number | null
+          description?: string | null
           gross_leasable_area?: string | null
           id?: string
           is_auction?: boolean | null

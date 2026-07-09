@@ -15,12 +15,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ExecutedChecklist } from '@/components/files/executed-checklist'
 import { FileSection } from '@/components/files/file-section'
+import { InlineEditField } from '@/components/inline-edit-field'
 import { LeaseDetailsDialog } from '@/components/lease-details-dialog'
 import { NotesLog } from '@/components/notes-log'
 import { SourceBadge } from '@/components/source-badge'
 import { ContactActions } from '@/components/contact-actions'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useDeleteMatch, useMatch, usePromoteToTenantRep } from '@/hooks/use-matches'
+import { useProperty, useUpdateProperty } from '@/hooks/use-properties'
 import { usePursuitUnits, unitSizeLabel } from '@/hooks/use-units'
 import { pursuitStageLabels } from '@/lib/stages'
 import { formatCurrency, formatPsf } from '@/lib/format'
@@ -46,10 +48,26 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
   const navigate = useNavigate()
   const { data: match, isLoading } = useMatch(matchId ?? undefined)
   const { data: pursuitUnits = [] } = usePursuitUnits(matchId ?? undefined)
+  // Full property row (the embedded pick is narrow) — for the editable description.
+  const { data: property } = useProperty(match?.property_id)
+  const updateProperty = useUpdateProperty()
   const promote = usePromoteToTenantRep()
   const deleteMatch = useDeleteMatch()
   const [leaseOpen, setLeaseOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const saveDescription = async (v: string | number | boolean | null) => {
+    if (!match) return
+    try {
+      await updateProperty.mutateAsync({
+        id: match.property_id,
+        description: v == null ? null : String(v),
+      })
+      toast.success('Description saved')
+    } catch {
+      toast.error('Could not save description')
+    }
+  }
 
   const handleDelete = () => {
     if (!match) return
@@ -153,6 +171,18 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                         <span className="tabular-nums">{formatCurrency(match.actual_fee)}</span>
                       </div>
                     )}
+                  </div>
+
+                  {/* Property description — jot the broker call notes here; the same text
+                      shows on the prospect preview and the property page. */}
+                  <div className="rounded-lg border p-3">
+                    <InlineEditField
+                      label="Property description"
+                      value={property?.description ?? null}
+                      kind="text"
+                      multiline
+                      onSave={saveDescription}
+                    />
                   </div>
 
                   {pursuitUnits.length > 0 && (

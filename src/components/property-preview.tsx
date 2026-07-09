@@ -10,8 +10,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { toast } from 'sonner'
+import { InlineEditField } from '@/components/inline-edit-field'
 import { PropertyTypeBadge } from '@/pages/properties'
-import { useProperty } from '@/hooks/use-properties'
+import { useProperty, useUpdateProperty } from '@/hooks/use-properties'
 import { useCurrentAsking } from '@/hooks/use-comps'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
@@ -37,8 +39,19 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
   const navigate = useNavigate()
   const { data: p, isLoading } = useProperty(propertyId ?? undefined)
   const { data: askingMap } = useCurrentAsking(propertyId ? [propertyId] : [])
+  const updateProperty = useUpdateProperty()
   const asking = propertyId ? askingMap?.get(propertyId) : undefined
   const listingUrl = p?.listing_url
+
+  const saveDescription = async (v: string | number | boolean | null) => {
+    if (!p) return
+    try {
+      await updateProperty.mutateAsync({ id: p.id, description: v == null ? null : String(v) })
+      toast.success('Description saved')
+    } catch {
+      toast.error('Could not save description')
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -111,6 +124,18 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
                   })}
                 </div>
               )}
+
+              {/* Broker-facing description — click to edit right here after talking to the
+                  listing broker; the same text shows on the property page. */}
+              <div className="rounded-lg border p-3">
+                <InlineEditField
+                  label="Description"
+                  value={p.description}
+                  kind="text"
+                  multiline
+                  onSave={saveDescription}
+                />
+              </div>
 
               <div className="space-y-1.5 rounded-lg border p-3">
                 <Row label="Asking rate" value={formatPsf(asking?.rate)} />

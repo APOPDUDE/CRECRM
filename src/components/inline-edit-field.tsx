@@ -99,10 +99,12 @@ interface InlineEditFieldProps {
   full?: boolean
   /** Small muted note after the label, e.g. "auto". */
   note?: string
+  /** kind="text" only: edit in a textarea and render line breaks (descriptions). */
+  multiline?: boolean
 }
 
 /** A property-grid field you can click to edit in place (any value type). */
-export function InlineEditField({ label, value, kind, options, onSave, full, note }: InlineEditFieldProps) {
+export function InlineEditField({ label, value, kind, options, onSave, full, note, multiline }: InlineEditFieldProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [saving, setSaving] = useState(false)
@@ -165,6 +167,24 @@ export function InlineEditField({ label, value, kind, options, onSave, full, not
                 </option>
               ))}
             </select>
+          ) : multiline && kind === 'text' ? (
+            <textarea
+              autoFocus
+              rows={4}
+              className={`${inputCls} resize-y`}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => void commit()}
+              onKeyDown={(e) => {
+                // Enter makes a new line; Cmd/Ctrl+Enter saves, Escape cancels.
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault()
+                  void commit()
+                } else if (e.key === 'Escape') {
+                  setEditing(false)
+                }
+              }}
+            />
           ) : (
             <input
               autoFocus
@@ -198,15 +218,21 @@ export function InlineEditField({ label, value, kind, options, onSave, full, not
             type="button"
             onClick={begin}
             title="Click to edit"
-            className={`group/edit -mx-1 inline-flex max-w-full items-center gap-1 rounded px-1 text-left hover:bg-accent ${
-              value == null || value === '' ? 'text-muted-foreground' : ''
-            }`}
+            className={`group/edit -mx-1 inline-flex max-w-full gap-1 rounded px-1 text-left hover:bg-accent ${
+              multiline ? 'items-start' : 'items-center'
+            } ${value == null || value === '' ? 'text-muted-foreground' : ''}`}
           >
-            <span className="truncate">{saving ? 'Saving…' : (shown ?? '—')}</span>
-            <Pencil className="size-3 shrink-0 opacity-0 transition-opacity group-hover/edit:opacity-50" />
+            <span className={multiline ? 'whitespace-pre-wrap' : 'truncate'}>
+              {saving ? 'Saving…' : (shown ?? (multiline ? 'Add a description…' : '—'))}
+            </span>
+            <Pencil
+              className={`size-3 shrink-0 opacity-0 transition-opacity group-hover/edit:opacity-50 ${multiline ? 'mt-1' : ''}`}
+            />
           </button>
         ) : (
-          <span className={value == null || value === '' ? 'text-muted-foreground' : ''}>
+          <span
+            className={`${multiline ? 'whitespace-pre-wrap' : ''} ${value == null || value === '' ? 'text-muted-foreground' : ''}`}
+          >
             {shown ?? '—'}
           </span>
         )}
