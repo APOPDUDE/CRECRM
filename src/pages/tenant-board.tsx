@@ -40,7 +40,7 @@ import {
   useTenantRepMatches,
   useUpdateMatchStage,
 } from '@/hooks/use-matches'
-import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { PassedRail } from '@/components/passed-rail'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail } from '@/hooks/use-tenant-reps'
@@ -86,8 +86,37 @@ export function TenantBoardPage() {
     null,
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
-  const [removingMatch, setRemovingMatch] = useState<MatchWithRelations | null>(null)
   const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
+
+  // Removing a property from the board is SOFT: it moves to the Passed rail on the left,
+  // where it can be restored — a hard delete only happens from inside the rail.
+  const passed = matches.filter((m) => m.stage === 'passed')
+  const softPass = (m: MatchWithRelations) => {
+    const from = m.stage
+    updateStage.mutate(
+      { id: m.id, stage: 'passed' },
+      {
+        onSuccess: () =>
+          toast.success('Moved to Passed', {
+            action: { label: 'Undo', onClick: () => updateStage.mutate({ id: m.id, stage: from }) },
+          }),
+        onError: () => toast.error('Could not move it'),
+      },
+    )
+  }
+  const restorePassed = (id: string) =>
+    updateStage.mutate(
+      { id, stage: 'inquiring' },
+      {
+        onSuccess: () => toast.success('Restored to Inquiring'),
+        onError: () => toast.error('Could not restore it'),
+      },
+    )
+  const deletePassed = (id: string) =>
+    deleteMatch.mutate(id, {
+      onSuccess: () => toast.success('Deleted permanently'),
+      onError: () => toast.error('Could not delete it'),
+    })
 
   // Returning to /repping after viewing a tenant deal should land on the tenant side.
   useEffect(() => {
@@ -306,22 +335,37 @@ export function TenantBoardPage() {
               </Button>
             </div>
           ) : (
-            <KanbanBoard
-              columns={tenantBoardStages(tenantRep.deal_type)}
-              items={matches}
-              getId={(m) => m.id}
-              getStage={(m) => m.stage}
-              onMove={handleMove}
-              renderCard={(m) => (
-                <MatchCard
-                  match={m}
-                  facing="tenant"
-                  onPreview={() => setPreviewPropertyId(m.property_id)}
-                  onOpen={() => navigate(`/properties/${m.property_id}`)}
-                  onRemove={() => setRemovingMatch(m)}
+            <div className="flex items-stretch gap-3">
+              <PassedRail
+                items={passed.map((m) => ({
+                  id: m.id,
+                  title: m.property?.address ?? 'Property',
+                  subtitle:
+                    [m.property?.city, m.property?.state].filter(Boolean).join(', ') || null,
+                }))}
+                onRestore={restorePassed}
+                onDelete={deletePassed}
+                deletePending={deleteMatch.isPending}
+              />
+              <div className="min-w-0 flex-1">
+                <KanbanBoard
+                  columns={tenantBoardStages(tenantRep.deal_type)}
+                  items={matches}
+                  getId={(m) => m.id}
+                  getStage={(m) => m.stage}
+                  onMove={handleMove}
+                  renderCard={(m) => (
+                    <MatchCard
+                      match={m}
+                      facing="tenant"
+                      onPreview={() => setPreviewPropertyId(m.property_id)}
+                      onOpen={() => navigate(`/properties/${m.property_id}`)}
+                      onRemove={() => softPass(m)}
+                    />
+                  )}
                 />
-              )}
-            />
+              </div>
+            </div>
           )}
         </div>
 
@@ -500,23 +544,6 @@ export function TenantBoardPage() {
         propertyId={previewPropertyId}
         open={!!previewPropertyId}
         onOpenChange={(open) => !open && setPreviewPropertyId(null)}
-      />
-      <ConfirmDeleteDialog
-        open={!!removingMatch}
-        onOpenChange={(open) => !open && setRemovingMatch(null)}
-        title="Remove from board?"
-        description={`This removes ${removingMatch?.property?.address ?? 'this property'} from ${title}'s board. The property record itself is kept.`}
-        pending={deleteMatch.isPending}
-        onConfirm={() => {
-          if (!removingMatch) return
-          deleteMatch.mutate(removingMatch.id, {
-            onSuccess: () => {
-              toast.success('Removed from board')
-              setRemovingMatch(null)
-            },
-            onError: () => toast.error('Could not remove it'),
-          })
-        }}
       />
       <StageDateDialog
         stage={dateMove?.stage ?? null}

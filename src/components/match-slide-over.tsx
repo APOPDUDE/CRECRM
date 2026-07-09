@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowUpRight, Trash2, UserPlus } from 'lucide-react'
+import { ArrowUpRight, UserPlus, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import {
   Sheet,
   SheetContent,
@@ -21,7 +20,7 @@ import { NotesLog } from '@/components/notes-log'
 import { SourceBadge } from '@/components/source-badge'
 import { ContactActions } from '@/components/contact-actions'
 import { contactNameOf } from '@/hooks/use-contacts'
-import { useDeleteMatch, useMatch, usePromoteToTenantRep } from '@/hooks/use-matches'
+import { useMatch, usePromoteToTenantRep, useUpdateMatch } from '@/hooks/use-matches'
 import { useProperty, useUpdateProperty } from '@/hooks/use-properties'
 import { usePursuitUnits, unitSizeLabel } from '@/hooks/use-units'
 import { pursuitStageLabels } from '@/lib/stages'
@@ -52,9 +51,8 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
   const { data: property } = useProperty(match?.property_id)
   const updateProperty = useUpdateProperty()
   const promote = usePromoteToTenantRep()
-  const deleteMatch = useDeleteMatch()
+  const updateMatch = useUpdateMatch()
   const [leaseOpen, setLeaseOpen] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const saveDescription = async (v: string | number | boolean | null) => {
     if (!match) return
@@ -69,16 +67,20 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
     }
   }
 
-  const handleDelete = () => {
+  // Passing is soft — the deal moves to the board's Passed rail, where it can be
+  // restored (or permanently deleted) later.
+  const handlePass = () => {
     if (!match) return
-    deleteMatch.mutate(match.id, {
-      onSuccess: () => {
-        toast.success('Removed from board')
-        setConfirmDelete(false)
-        onOpenChange(false)
+    updateMatch.mutate(
+      { id: match.id, stage: 'passed' },
+      {
+        onSuccess: () => {
+          toast.success('Moved to Passed — restore it any time from the board’s Passed rail')
+          onOpenChange(false)
+        },
+        onError: () => toast.error('Could not move it'),
       },
-      onError: () => toast.error('Could not remove it'),
-    })
+    )
   }
 
   const tenantName =
@@ -242,10 +244,11 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                     variant="ghost"
                     size="sm"
                     className="w-full text-destructive hover:text-destructive"
-                    onClick={() => setConfirmDelete(true)}
+                    onClick={handlePass}
+                    disabled={updateMatch.isPending}
                   >
-                    <Trash2 className="size-4" />
-                    Remove from board
+                    <XCircle className="size-4" />
+                    Pass — move off the board
                   </Button>
                 </div>
               </TabsContent>
@@ -269,14 +272,6 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
             </Tabs>
 
             <LeaseDetailsDialog open={leaseOpen} onOpenChange={setLeaseOpen} match={match} />
-            <ConfirmDeleteDialog
-              open={confirmDelete}
-              onOpenChange={setConfirmDelete}
-              title="Remove from board?"
-              description={`This removes ${match.property?.address ?? 'this property'} from the board. The property record itself is kept.`}
-              pending={deleteMatch.isPending}
-              onConfirm={handleDelete}
-            />
           </>
         )}
       </SheetContent>

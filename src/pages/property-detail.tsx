@@ -13,6 +13,7 @@ import { FileSection } from '@/components/files/file-section'
 import { PropertyTasks } from '@/components/property-tasks'
 import { PropertyComps } from '@/components/property-comps'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { EnrichParcelDialog } from '@/components/enrich-parcel-dialog'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
@@ -30,6 +31,7 @@ import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { formatCurrency, formatListingPrice } from '@/lib/format'
 import { dorLabel } from '@/lib/dor-codes'
+import { ENRICHABLE_COUNTIES } from '@/lib/parcel'
 import { pursuitStageLabels } from '@/lib/stages'
 
 function AppraiserField({ label, value }: { label: string; value: string | null | undefined }) {
@@ -130,6 +132,7 @@ export function PropertyDetailPage() {
   const deleteProperty = useDeleteProperty()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [enrichAskOpen, setEnrichAskOpen] = useState(false)
 
   useSetBreadcrumb(property?.address)
 
@@ -179,9 +182,7 @@ export function PropertyDetailPage() {
     }
   const typeOptions = Object.entries(propertyKindLabels).map(([value, label]) => ({ value, label }))
   // Counties with an appraiser adapter — setting one lets a parcel-only property enrich.
-  const countyOptions = ['Hillsborough', 'Pinellas', 'Pasco', 'Polk', 'Manatee', 'Sarasota'].map(
-    (c) => ({ value: c, label: c }),
-  )
+  const countyOptions = ENRICHABLE_COUNTIES.map((c) => ({ value: c, label: c }))
   const saveSubTypes = async (value: FieldVal) => {
     const arr = String(value ?? '')
       .split(',')
@@ -419,17 +420,27 @@ export function PropertyDetailPage() {
             variant="outline"
             size="sm"
             disabled={enrich.isPending}
-            onClick={() =>
+            onClick={() => {
+              // No parcel or no supported county -> ask for them instead of failing.
+              if (
+                !property.parcel_number?.trim() ||
+                !property.county ||
+                !ENRICHABLE_COUNTIES.includes(property.county)
+              ) {
+                setEnrichAskOpen(true)
+                return
+              }
               enrich.mutate(property.id, {
                 onSuccess: (d) => {
                   const s = d?.results?.[0]?.status
                   if (s === 'ok') toast.success('Enriched from county appraiser')
                   else if (s === 'not_found') toast.error('No matching parcel at the appraiser')
+                  else if (s === 'no_parcel' || s === 'unsupported_county') setEnrichAskOpen(true)
                   else toast.error('Could not enrich')
                 },
                 onError: () => toast.error('Could not enrich'),
               })
-            }
+            }}
           >
             {enrich.isPending ? 'Enriching…' : property.appraiser_updated_at ? 'Refresh' : 'Enrich'}
           </Button>
@@ -479,6 +490,7 @@ export function PropertyDetailPage() {
       </section>
 
       <PropertyFormDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
+      <EnrichParcelDialog property={property} open={enrichAskOpen} onOpenChange={setEnrichAskOpen} />
       <ConfirmDeleteDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}

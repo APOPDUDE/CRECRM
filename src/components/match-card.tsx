@@ -112,10 +112,10 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
                   className="flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                 >
                   <Trash2 className="size-3.5" />
-                  <span className="sr-only">Remove from board</span>
+                  <span className="sr-only">Pass — move to the Passed rail</span>
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Remove from board</TooltipContent>
+              <TooltipContent>Pass — moves to the Passed rail</TooltipContent>
             </Tooltip>
           )}
           {match.flagged_new && (
