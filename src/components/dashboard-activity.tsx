@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { PaymentCheckActions } from '@/components/payment-check-actions'
 import {
+  paymentRungMessage,
   taskDealPath,
   taskKindLabels,
   usePaymentCheckAnswer,
@@ -247,7 +248,7 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: TaskTone }) {
             paymentAnswer.mutate(
               { task, received: false },
               {
-                onSuccess: () => toast.success('Not received — next check in 2 weeks'),
+                onSuccess: (rung) => toast.success(paymentRungMessage(rung)),
                 onError: () => toast.error('Could not set reminder'),
               },
             )

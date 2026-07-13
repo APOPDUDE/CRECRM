@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { addMonths, format } from 'date-fns'
 import { ArrowLeft, ChevronDown, ExternalLink, Pencil, Plus, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -44,7 +43,7 @@ import { PassedRail } from '@/components/passed-rail'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useTenantRepDetail } from '@/hooks/use-tenant-reps'
-import { useCreateTask, usePaymentReceivedToggle } from '@/hooks/use-tasks'
+import { paymentRungMessage, useCreateTask, usePaymentReceivedToggle } from '@/hooks/use-tasks'
 import { useClearFlaggedNew } from '@/hooks/use-automation'
 import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
@@ -243,16 +242,14 @@ export function TenantBoardPage() {
           close_listing: result.closeListing,
         },
       })
-      // Seed the first "payment received?" reminder right away so the follow-up is
-      // visible on the task list immediately (not waiting on the nightly sweep). The
-      // FIRST check lands a month after closing; answering "not received" then follows
-      // up every two weeks.
+      // Seed the first payment check right away so it's on the task list immediately.
+      // The collection ladder is anchored to the close date: follow-up day 4, formal
+      // notice day 14, final notice day 30, then weekly.
       paymentToggle.mutate({
         pursuitId: match.id,
         received: false,
         ownerId: match.owner_id,
         title: `Payment received? — ${match.property?.address ?? 'deal'}`,
-        nextDue: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
       })
       toast.success('Deal executed')
       setExecutedMove(null)
@@ -414,9 +411,9 @@ export function TenantBoardPage() {
                             title: `Payment received? — ${executedPursuit.property?.address ?? 'deal'}`,
                           },
                           {
-                            onSuccess: () =>
+                            onSuccess: (rung) =>
                               toast.success(
-                                received ? 'Payment marked received' : 'Not received — reminder set',
+                                received ? 'Payment marked received' : paymentRungMessage(rung),
                               ),
                             onError: () => toast.error('Could not update payment'),
                           },
@@ -425,7 +422,7 @@ export function TenantBoardPage() {
                     />
                     Payment received
                     {!executedPursuit.payment_received && (
-                      <span className="text-xs text-muted-foreground">· reminding monthly</span>
+                      <span className="text-xs text-muted-foreground">· reminders active</span>
                     )}
                   </label>
                 )}

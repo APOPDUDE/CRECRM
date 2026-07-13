@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { addMonths, format } from 'date-fns'
 import { ArrowLeft, Pencil, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -216,14 +215,14 @@ export function PropertyBoardPage() {
           close_listing: result.closeListing,
         },
       })
-      // Seed the first "payment received?" reminder a month out, same as executing from
-      // the tenant board — follow-ups then run every two weeks until marked received.
+      // Seed the first payment check right away, same as executing from the tenant board.
+      // The collection ladder is anchored to the close date: follow-up day 4, formal
+      // notice day 14, final notice day 30, then weekly.
       paymentToggle.mutate({
         pursuitId: match.id,
         received: false,
         ownerId: match.owner_id,
         title: `Payment received? — ${match.property?.address ?? 'deal'}`,
-        nextDue: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
       })
       toast.success('Deal executed')
       setExecutedMove(null)

@@ -39,6 +39,7 @@ import { PaymentCheckActions } from '@/components/payment-check-actions'
 import { TaskFormDialog } from '@/components/task-form-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
+  paymentRungMessage,
   useDeleteTask,
   usePaymentCheckAnswer,
   useTasks,
@@ -135,7 +136,7 @@ export function TasksPage() {
               paymentAnswer.mutate(
                 { task, received: false },
                 {
-                  onSuccess: () => toast.success('Not received — next check in 2 weeks'),
+                  onSuccess: (rung) => toast.success(paymentRungMessage(rung)),
                   onError: () => toast.error('Could not set reminder'),
                 },
               )

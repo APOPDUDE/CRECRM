@@ -1,6 +1,6 @@
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { usePaymentCheckAnswer } from '@/hooks/use-tasks'
+import { paymentRungMessage, usePaymentCheckAnswer } from '@/hooks/use-tasks'
 import type { Tables } from '@/lib/database.types'
 
 /**
@@ -40,7 +40,7 @@ export function PaymentCheckActions({ task }: { task: Tables<'tasks'> }) {
           answer.mutate(
             { task, received: false },
             {
-              onSuccess: () => toast.success('Not received — next check in 2 weeks'),
+              onSuccess: (rung) => toast.success(paymentRungMessage(rung)),
               onError: () => toast.error('Could not set reminder'),
             },
           )
