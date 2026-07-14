@@ -337,6 +337,47 @@ export type Database = {
           },
         ]
       }
+      deal_flags: {
+        Row: {
+          created_at: string
+          id: string
+          land_vs_market_pct: number | null
+          lease_vs_market_pct: number | null
+          property_id: string
+          sale_vs_market_pct: number | null
+          status: Database["public"]["Enums"]["deal_flag_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          land_vs_market_pct?: number | null
+          lease_vs_market_pct?: number | null
+          property_id: string
+          sale_vs_market_pct?: number | null
+          status?: Database["public"]["Enums"]["deal_flag_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          land_vs_market_pct?: number | null
+          lease_vs_market_pct?: number | null
+          property_id?: string
+          sale_vs_market_pct?: number | null
+          status?: Database["public"]["Enums"]["deal_flag_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_flags_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       county_lookup: {
         Row: {
           city_key: string
@@ -1327,6 +1368,10 @@ export type Database = {
       }
       cross_reference: { Args: { p_property_ids: string[] }; Returns: Json }
       ensure_payment_checks: { Args: Record<PropertyKey, never>; Returns: Json }
+      flag_deal_candidates: {
+        Args: { p_property_ids?: string[] | null; p_days?: number }
+        Returns: Json
+      }
       execute_pursuit: {
         Args: { p?: Json; p_pursuit_id: string }
         Returns: Json
@@ -1364,6 +1409,7 @@ export type Database = {
       client_status: "prospect" | "searching" | "negotiating" | "closed" | "lost"
       comp_kind: "asking" | "executed"
       company_type: "landlord" | "tenant" | "broker" | "other" | "vendor"
+      deal_flag_status: "pending" | "dismissed"
       deal_type: "lease" | "sale" | "both"
       engagement_status: "active" | "lost"
       file_category:

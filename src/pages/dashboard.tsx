@@ -1,6 +1,7 @@
 import { useDashboardMatches } from '@/hooks/use-dashboard'
 import { DashboardActivity, TasksDueWidget } from '@/components/dashboard-activity'
 import { SuggestionsWidget } from '@/components/suggestions-widget'
+import { DealFlagsWidget } from '@/components/deal-flags-widget'
 import { NewListingsWidget } from '@/components/new-listings-widget'
 import { OffMarketWidget } from '@/components/off-market-widget'
 import { CountyAverages } from '@/components/county-averages'
@@ -13,6 +14,8 @@ export function DashboardPage() {
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
       <SuggestionsWidget />
+
+      <DealFlagsWidget />
 
       <NewListingsWidget />
 
