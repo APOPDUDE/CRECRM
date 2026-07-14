@@ -3,25 +3,36 @@ import { ChevronDown, ChevronRight, ExternalLink, Plus, Sparkles } from 'lucide-
 import { Button } from '@/components/ui/button'
 import { AddToClientDialog, type AddToClientProperty } from '@/components/add-to-client-dialog'
 import { propertyKindLabels } from '@/components/property-form-dialog'
-import { useNewListings, useClearNewListings } from '@/hooks/use-dashboard'
+import {
+  useNewListings,
+  useClearNewListings,
+  type NewListingsTypeFilter,
+} from '@/hooks/use-dashboard'
+import { usePersistentState } from '@/hooks/use-persistent-state'
 import { useCurrentAsking } from '@/hooks/use-comps'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
 /**
  * Weekly feed of newly-scraped listings (last 7 days). Collapsed to a count; expand to
- * review each and add it to a client's board. Replaces the auto-matching suggestions
- * widget now that matching is paused. Hidden when there's nothing new.
+ * review each and add it to a client's board. Defaults to industrial/land/other — the
+ * sweep imports every type for county market intel, but LoopNet's deep pagination pads
+ * in retail/office noise; the toggle shows everything. Hidden when there's nothing new.
  */
 export function NewListingsWidget() {
-  const { data } = useNewListings()
+  const [filter, setFilter] = usePersistentState<NewListingsTypeFilter>(
+    'new-listings:type-filter',
+    'industrial',
+  )
+  const { data } = useNewListings(filter)
   const items = data?.items ?? []
   const total = data?.total ?? 0
+  const allTotal = data?.allTotal ?? 0
   const { data: askingMap } = useCurrentAsking(items.map((p) => p.id))
   const clearNewListings = useClearNewListings()
   const [expanded, setExpanded] = useState(false)
   const [adding, setAdding] = useState<AddToClientProperty | null>(null)
 
-  if (total === 0) return null
+  if (allTotal === 0) return null
 
   return (
     <>
@@ -43,6 +54,15 @@ export function NewListingsWidget() {
               {total}
             </span>
           </button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-muted-foreground"
+            onClick={() => setFilter(filter === 'industrial' ? 'all' : 'industrial')}
+            title="The sweep imports every property type for market intel; this widget defaults to industrial, land, and other"
+          >
+            {filter === 'industrial' ? `All types (${allTotal})` : 'Industrial only'}
+          </Button>
           <Button
             variant="ghost"
             size="sm"

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Enums } from '@/lib/database.types'
 
@@ -139,16 +139,28 @@ function newListingsFloorIso(): string {
 }
 
 /**
+ * The widget's default lens: LoopNet's deep pagination pads county searches with
+ * "related" retail/office listings — those still import (they feed county market
+ * intel), but the feed defaults to the types Alex actually works.
+ */
+export type NewListingsTypeFilter = 'industrial' | 'all'
+const INDUSTRIAL_FEED_KINDS = 'industrial,land,other'
+
+/**
  * Scraped properties imported since the feed's floor (7 days, or the last "clear") — the
  * weekly "new listings" feed that replaced the auto-matching suggestions. Each can be added
  * to a client. Returns the capped rows to render plus the true total (a bulk sweep can
  * import thousands at once, so the badge must not under-report at the render cap).
  */
-export function useNewListings() {
+export function useNewListings(filter: NewListingsTypeFilter = 'industrial') {
   return useQuery({
-    queryKey: ['new-listings'],
-    queryFn: async (): Promise<{ items: NewListing[]; total: number }> => {
-      const { data, error, count } = await supabase
+    queryKey: ['new-listings', filter],
+    // Toggling the filter switches the key; without previous data the widget would
+    // momentarily see allTotal 0 and unmount itself mid-tap.
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<{ items: NewListing[]; total: number; allTotal: number }> => {
+      const floor = newListingsFloorIso()
+      let q = supabase
         .from('properties')
         .select(
           'id, address, city, state, listing_url, building_sf, land_acres, property_type, created_at',
@@ -156,12 +168,31 @@ export function useNewListings() {
         )
         .eq('source', 'scrape')
         .eq('listing_status', 'on_market')
-        .gte('created_at', newListingsFloorIso())
+        .gte('created_at', floor)
+      if (filter === 'industrial') {
+        q = q.or(`property_type.in.(${INDUSTRIAL_FEED_KINDS}),property_type.is.null`)
+      }
+      const { data, error, count } = await q
         .order('created_at', { ascending: false })
         .limit(NEW_LISTINGS_RENDER_CAP)
       if (error) throw error
       const items = (data ?? []) as NewListing[]
-      return { items, total: count ?? items.length }
+      const total = count ?? items.length
+
+      // The widget hides only when NOTHING is new — the filtered lens still needs the
+      // unfiltered count so "0 industrial, 37 total" renders the toggle.
+      let allTotal = total
+      if (filter === 'industrial') {
+        const { count: all, error: allErr } = await supabase
+          .from('properties')
+          .select('id', { count: 'exact', head: true })
+          .eq('source', 'scrape')
+          .eq('listing_status', 'on_market')
+          .gte('created_at', floor)
+        if (allErr) throw allErr
+        allTotal = all ?? total
+      }
+      return { items, total, allTotal }
     },
   })
 }

@@ -1349,6 +1349,7 @@ export type Database = {
         Args: { p_client_id: string }
         Returns: Database["public"]["Tables"]["clients"]["Row"]
       }
+      refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
       sweep_mark_off_market: {
         Args: { p_seen_property_ids: string[] }
         Returns: Json

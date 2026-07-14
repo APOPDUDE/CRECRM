@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { TablesInsert, TablesUpdate } from '@/lib/database.types'
 
@@ -226,19 +226,38 @@ type CurrentAskingRow = {
  * the query; omit to fetch the whole table (the Properties list). Plain async fn so
  * data hooks (e.g. use-matches) can merge it into embedded property rows.
  */
+// PostgREST filters ride in the GET query string (~39 bytes per uuid); a few hundred
+// ids would blow proxy URL limits, so id lookups go out in chunks.
+const ASKING_IDS_PER_REQUEST = 150
+
 export async function fetchCurrentAsking(
   propertyIds?: string[],
 ): Promise<Map<string, CurrentAsking>> {
   const map = new Map<string, CurrentAsking>()
   const ids = propertyIds ? Array.from(new Set(propertyIds.filter(Boolean))) : undefined
   if (ids && ids.length === 0) return map
-  let q = supabase
-    .from('v_property_current_asking')
-    .select('property_id, deal_type, asking_lease_rate_psf, sale_price, cap_rate_pct, sf')
-  if (ids) q = q.in('property_id', ids)
-  const { data, error } = await q
-  if (error) throw error
-  for (const r of (data ?? []) as CurrentAskingRow[]) {
+  const select = 'property_id, deal_type, asking_lease_rate_psf, sale_price, cap_rate_pct, sf'
+  let rows: CurrentAskingRow[] = []
+  if (ids) {
+    const chunks = []
+    for (let i = 0; i < ids.length; i += ASKING_IDS_PER_REQUEST) {
+      chunks.push(ids.slice(i, i + ASKING_IDS_PER_REQUEST))
+    }
+    const results = await Promise.all(
+      chunks.map((chunk) =>
+        supabase.from('v_property_current_asking').select(select).in('property_id', chunk),
+      ),
+    )
+    for (const { data, error } of results) {
+      if (error) throw error
+      rows = rows.concat((data ?? []) as CurrentAskingRow[])
+    }
+  } else {
+    const { data, error } = await supabase.from('v_property_current_asking').select(select)
+    if (error) throw error
+    rows = (data ?? []) as CurrentAskingRow[]
+  }
+  for (const r of rows) {
     const cur = map.get(r.property_id) ?? { rate: null, price: null, cap: null, sf: null }
     if (r.deal_type === 'lease') {
       if (r.asking_lease_rate_psf != null) cur.rate = r.asking_lease_rate_psf
@@ -252,7 +271,11 @@ export async function fetchCurrentAsking(
   return map
 }
 
-/** React-Query wrapper around {@link fetchCurrentAsking} for components. */
+/**
+ * React-Query wrapper around {@link fetchCurrentAsking} for components. The id list is
+ * part of the key, so accepting/dismissing a suggestion changes it — keepPreviousData
+ * holds the old map on screen instead of blanking every metric during the refetch.
+ */
 export function useCurrentAsking(propertyIds?: string[]) {
   const ids = propertyIds
     ? Array.from(new Set(propertyIds.filter(Boolean))).sort()
@@ -261,6 +284,7 @@ export function useCurrentAsking(propertyIds?: string[]) {
     queryKey: ['current-asking', ids ?? 'all'],
     enabled: ids ? ids.length > 0 : true,
     queryFn: () => fetchCurrentAsking(ids),
+    placeholderData: keepPreviousData,
   })
 }
 
