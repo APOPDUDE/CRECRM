@@ -115,6 +115,16 @@ export function DealFlagsWidget() {
             <RefreshCw className={`size-4 ${scan.isPending ? 'animate-spin' : ''}`} />
             Scan
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-muted-foreground"
+            disabled={visible.length === 0}
+            onClick={() => handleDismiss(visible.map((f) => f.id))}
+            title="Dismiss everything shown (the toast can undo it)"
+          >
+            Clear
+          </Button>
         </div>
         {expanded && (
           <ul className="divide-y border-t">

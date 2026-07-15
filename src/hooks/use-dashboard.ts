@@ -83,6 +83,20 @@ export type OffMarketProperty = {
   updated_at: string
 }
 
+const OFF_MARKET_CLEARED_KEY = 'off-market:cleared-at'
+
+/** Feed floor: 7 days back, or the last "clear" if more recent (same as new-listings). */
+function offMarketFloorIso(): string {
+  const weekAgo = sevenDaysAgoIso()
+  let cleared: string | null = null
+  try {
+    cleared = window.localStorage.getItem(OFF_MARKET_CLEARED_KEY)
+  } catch {
+    cleared = null
+  }
+  return cleared && cleared > weekAgo ? cleared : weekAgo
+}
+
 /**
  * Properties flipped to off_market in the last 7 days (present last sweep, gone this
  * one), most recently first. Powers the dashboard "New off-market" widget.
@@ -97,13 +111,26 @@ export function useRecentlyOffMarket() {
           'id, address, city, state, listing_url, building_sf, property_type, updated_at',
         )
         .eq('listing_status', 'off_market')
-        .gte('updated_at', sevenDaysAgoIso())
+        .gte('updated_at', offMarketFloorIso())
         .order('updated_at', { ascending: false })
         .limit(100)
       if (error) throw error
       return (data ?? []) as OffMarketProperty[]
     },
   })
+}
+
+/** Clear the off-market feed: stamps now as the floor until the next sweep flips more. */
+export function useClearOffMarket() {
+  const qc = useQueryClient()
+  return () => {
+    try {
+      window.localStorage.setItem(OFF_MARKET_CLEARED_KEY, new Date().toISOString())
+    } catch {
+      // ignore storage errors — clearing is best-effort
+    }
+    qc.invalidateQueries({ queryKey: ['recently-off-market'] })
+  }
 }
 
 export type NewListing = {
