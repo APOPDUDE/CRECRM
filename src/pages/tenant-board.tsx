@@ -50,7 +50,7 @@ import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { automationEnabled } from '@/lib/n8n'
 import { setReppingSide } from '@/lib/repping-side'
-import { pursuitStageLabels, tenantBoardStages } from '@/lib/stages'
+import { pursuitLabelsFor, tenantBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'pursuit_stage'> }
 
@@ -167,6 +167,7 @@ export function TenantBoardPage() {
   const contact = tenantRep.contact
   const brokerName = tenantRep.broker ? contactNameOf(tenantRep.broker) : null
 
+  const stageLabels = pursuitLabelsFor(tenantRep.deal_type)
   const executedPursuit = matches.find((m) => m.stage === 'executed') ?? null
 
   const plainMove = (match: MatchWithRelations, toStage: Enums<'pursuit_stage'>) => {
@@ -175,7 +176,7 @@ export function TenantBoardPage() {
       { id: match.id, stage: toStage },
       {
         onSuccess: () =>
-          toast.success(`Moved to ${pursuitStageLabels[toStage]}`, {
+          toast.success(`Moved to ${stageLabels[toStage]}`, {
             action: {
               label: 'Undo',
               onClick: () => updateStage.mutate({ id: match.id, stage: fromStage }),
@@ -190,6 +191,8 @@ export function TenantBoardPage() {
     const toStage = toStageStr as Enums<'pursuit_stage'>
     if (toStage === 'touring' && !match.tour_date) {
       setDateMove({ match, stage: 'touring' })
+    } else if (toStage === 'due_diligence' && !match.dd_expiration_date) {
+      setDateMove({ match, stage: 'due_diligence' })
     } else if (toStage === 'executed') {
       setExecutedMove({ match, toStage })
     } else {
@@ -204,7 +207,7 @@ export function TenantBoardPage() {
       { id: match.id, stage, patch },
       {
         onSuccess: () => {
-          toast.success(`Moved to ${pursuitStageLabels[stage]}`)
+          toast.success(`Moved to ${stageLabels[stage]}`)
           // Touring with a date/time becomes a scheduled tour task.
           if (stage === 'touring' && patch.tour_date) {
             const tourDate = patch.tour_date as string
@@ -215,6 +218,16 @@ export function TenantBoardPage() {
               title: `Tour — ${match.property?.address ?? 'property'}`,
               due_date: tourDate,
               due_at: tourTime ? new Date(`${tourDate}T${tourTime}`).toISOString() : null,
+              pursuit_id: match.id,
+              contact_id: match.client?.contact_id ?? null,
+            })
+          }
+          if (stage === 'due_diligence' && patch.dd_expiration_date) {
+            createTask.mutate({
+              owner_id: match.owner_id,
+              kind: 'follow_up',
+              title: `DD expires — ${match.property?.address ?? 'property'}`,
+              due_date: patch.dd_expiration_date as string,
               pursuit_id: match.id,
               contact_id: match.client?.contact_id ?? null,
             })

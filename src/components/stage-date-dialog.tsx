@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { format } from 'date-fns'
+import { addDays, format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -15,13 +15,31 @@ import { Label } from '@/components/ui/label'
 import type { TablesUpdate } from '@/lib/database.types'
 
 /** Pursuit stages that prompt for a date when reached. */
-export type DatedStage = 'touring'
+export type DatedStage = 'touring' | 'due_diligence'
 
-const CONFIG: Record<DatedStage, { title: string; description: string; dateLabel: string }> = {
+const CONFIG: Record<
+  DatedStage,
+  {
+    title: string
+    description: string
+    dateLabel: string
+    withTime: boolean
+    defaultDaysOut: number
+  }
+> = {
   touring: {
     title: 'Tour date',
     description: 'When is (or was) the tour?',
     dateLabel: 'Date',
+    withTime: true,
+    defaultDaysOut: 0,
+  },
+  due_diligence: {
+    title: 'Due diligence expiration',
+    description: 'PSA is executed — when does the inspection period expire?',
+    dateLabel: 'DD expires',
+    withTime: false,
+    defaultDaysOut: 30, // typical inspection period; adjust per deal
   },
 }
 
@@ -46,8 +64,8 @@ export function StageDateDialog({
   const [time, setTime] = useState('')
 
   useEffect(() => {
-    if (open) {
-      setDate(format(new Date(), 'yyyy-MM-dd'))
+    if (open && stage) {
+      setDate(format(addDays(new Date(), CONFIG[stage].defaultDaysOut), 'yyyy-MM-dd'))
       setTime('')
     }
   }, [open, stage])
@@ -55,7 +73,11 @@ export function StageDateDialog({
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!stage || !date) return
-    onConfirm({ tour_date: date, tour_time: time || null })
+    onConfirm(
+      stage === 'due_diligence'
+        ? { dd_expiration_date: date }
+        : { tour_date: date, tour_time: time || null },
+    )
   }
 
   return (
@@ -77,15 +99,17 @@ export function StageDateDialog({
                 autoFocus
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="stage-time">Time</Label>
-              <Input
-                id="stage-time"
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
-            </div>
+            {cfg?.withTime && (
+              <div className="space-y-2">
+                <Label htmlFor="stage-time">Time</Label>
+                <Input
+                  id="stage-time"
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
             <Button

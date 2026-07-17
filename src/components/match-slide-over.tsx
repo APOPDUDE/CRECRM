@@ -23,7 +23,7 @@ import { contactNameOf } from '@/hooks/use-contacts'
 import { useMatch, usePromoteToTenantRep, useUpdateMatch } from '@/hooks/use-matches'
 import { useProperty, useUpdateProperty } from '@/hooks/use-properties'
 import { usePursuitUnits, unitSizeLabel } from '@/hooks/use-units'
-import { pursuitStageLabels } from '@/lib/stages'
+import { pursuitLabelsFor } from '@/lib/stages'
 import { formatCurrency, formatPsf } from '@/lib/format'
 import { formatDate, formatTimeOfDay } from '@/lib/dates'
 
@@ -135,7 +135,7 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
               <TabsContent value="overview" className="min-h-0 flex-1 overflow-y-auto p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{pursuitStageLabels[match.stage]}</Badge>
+                    <Badge variant="secondary">{pursuitLabelsFor(match.client?.deal_type)[match.stage]}</Badge>
                     <SourceBadge
                       source={match.source}
                       brokerName={match.broker ? contactNameOf(match.broker) : null}

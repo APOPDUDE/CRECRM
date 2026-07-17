@@ -39,33 +39,48 @@ export const clientOverviewStages: StageDef<Enums<'client_status'>>[] = [
   { value: 'closed', label: 'Closed' },
 ]
 
-/** Pursuit pipeline labels (lease). */
+/** Pursuit pipeline labels (lease). due_diligence is a sale-only column; the lease
+ * label exists only so every Record over the enum stays exhaustive. */
 export const pursuitStageLabels: Record<Enums<'pursuit_stage'>, string> = {
   inquiring: 'Inquiring',
   touring: 'Touring',
   negotiation: 'Negotiation',
+  due_diligence: 'Due diligence',
   executed: 'Executed',
   passed: 'Passed',
 }
 
-/** Sale relabels for the pipeline (same underlying enum). */
+/** Sale relabels for the pipeline (same underlying enum). The terminal stage stays
+ * the 'executed' enum value — labeled Closed — so the execute machinery (fee, comp,
+ * payment ladder, checklist) is shared with leases. */
 export const pursuitStageSaleLabels: Record<Enums<'pursuit_stage'>, string> = {
   inquiring: 'Inquiring',
   touring: 'Touring',
   negotiation: 'PSA negotiation',
-  executed: 'PSA executed',
+  due_diligence: 'Due diligence',
+  executed: 'Closed',
   passed: 'Passed',
 }
 
-/** Pipeline columns shown on both the property board and the tenant board ('passed' is hidden). */
+/** Deal-type-aware label map (sale boards read PSA negotiation / Due diligence / Closed). */
+export function pursuitLabelsFor(
+  dealType: Enums<'deal_type'> | null | undefined,
+): Record<Enums<'pursuit_stage'>, string> {
+  return dealType === 'sale' ? pursuitStageSaleLabels : pursuitStageLabels
+}
+
+/** Pipeline columns shown on both the property board and the tenant board ('passed' is
+ * hidden). Sale pipelines get the extra due-diligence column between PSA negotiation
+ * and Closed; lease pipelines never show it. */
 export function pursuitBoardStages(
   dealType: Enums<'deal_type'> = 'lease',
 ): StageDef<Enums<'pursuit_stage'>>[] {
-  const labels = dealType === 'sale' ? pursuitStageSaleLabels : pursuitStageLabels
-  return (['inquiring', 'touring', 'negotiation', 'executed'] as const).map((value) => ({
-    value,
-    label: labels[value],
-  }))
+  const labels = pursuitLabelsFor(dealType)
+  const order: Enums<'pursuit_stage'>[] =
+    dealType === 'sale'
+      ? ['inquiring', 'touring', 'negotiation', 'due_diligence', 'executed']
+      : ['inquiring', 'touring', 'negotiation', 'executed']
+  return order.map((value) => ({ value, label: labels[value] }))
 }
 
 /** Landlord-side property board columns. */
@@ -78,7 +93,8 @@ const pursuitStageRank: Record<Enums<'pursuit_stage'>, number> = {
   inquiring: 0,
   touring: 1,
   negotiation: 2,
-  executed: 3,
+  due_diligence: 3,
+  executed: 4,
   passed: -1,
 }
 

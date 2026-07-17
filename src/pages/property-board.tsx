@@ -41,7 +41,7 @@ import { formatDate } from '@/lib/dates'
 import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
 import { calculateCommission } from '@/lib/commission'
 import { setReppingSide } from '@/lib/repping-side'
-import { pursuitStageLabels, propertyBoardStages } from '@/lib/stages'
+import { pursuitLabelsFor, propertyBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'pursuit_stage'> }
 
@@ -134,6 +134,7 @@ export function PropertyBoardPage() {
   }
 
   const columns = propertyBoardStages(listing.deal_type)
+  const stageLabels = pursuitLabelsFor(listing.deal_type)
   const landlordContact = listing.landlord_contact
   const parcelOptions = parcels.map((p) => ({
     id: p.property_id,
@@ -149,7 +150,7 @@ export function PropertyBoardPage() {
       { id: match.id, stage: toStage },
       {
         onSuccess: () =>
-          toast.success(`Moved to ${pursuitStageLabels[toStage]}`, {
+          toast.success(`Moved to ${stageLabels[toStage]}`, {
             action: {
               label: 'Undo',
               onClick: () => updateStage.mutate({ id: match.id, stage: fromStage }),
@@ -164,6 +165,8 @@ export function PropertyBoardPage() {
     const toStage = toStageStr as Enums<'pursuit_stage'>
     if (toStage === 'touring' && !match.tour_date) {
       setDateMove({ match, stage: 'touring' })
+    } else if (toStage === 'due_diligence' && !match.dd_expiration_date) {
+      setDateMove({ match, stage: 'due_diligence' })
     } else if (toStage === 'executed') {
       setExecutedMove({ match, toStage })
     } else {
@@ -178,7 +181,7 @@ export function PropertyBoardPage() {
       { id: match.id, stage, patch },
       {
         onSuccess: () => {
-          toast.success(`Moved to ${pursuitStageLabels[stage]}`)
+          toast.success(`Moved to ${stageLabels[stage]}`)
           if (stage === 'touring' && patch.tour_date) {
             const tourDate = patch.tour_date as string
             const tourTime = (patch.tour_time as string | null | undefined) ?? null
@@ -188,6 +191,16 @@ export function PropertyBoardPage() {
               title: `Tour — ${match.property?.address ?? 'property'}`,
               due_date: tourDate,
               due_at: tourTime ? new Date(`${tourDate}T${tourTime}`).toISOString() : null,
+              pursuit_id: match.id,
+              contact_id: match.client?.contact_id ?? null,
+            })
+          }
+          if (stage === 'due_diligence' && patch.dd_expiration_date) {
+            createTask.mutate({
+              owner_id: match.owner_id,
+              kind: 'follow_up',
+              title: `DD expires — ${match.property?.address ?? 'property'}`,
+              due_date: patch.dd_expiration_date as string,
               pursuit_id: match.id,
               contact_id: match.client?.contact_id ?? null,
             })
@@ -234,7 +247,7 @@ export function PropertyBoardPage() {
   // Pipeline snapshot from the pursuits already loaded for the board.
   const liveProspects = matches.filter((m) => m.stage !== 'passed')
   const pastLoi = liveProspects.filter((m) =>
-    ['negotiation', 'executed'].includes(m.stage),
+    ['negotiation', 'due_diligence', 'executed'].includes(m.stage),
   ).length
   const oldestDays = (() => {
     const dates = liveProspects.map((m) => m.inquiry_date).filter(Boolean) as string[]

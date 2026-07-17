@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { ListingWithRelations } from '@/hooks/use-listings'
 import { formatListingPrice } from '@/lib/format'
-import { hottestStage, livePursuits, pursuitStageLabels } from '@/lib/stages'
+import { hottestStage, livePursuits, pursuitLabelsFor } from '@/lib/stages'
 import { isOverdue } from '@/lib/dates'
 
 interface ListingCardProps {
@@ -109,7 +109,7 @@ export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCa
           {prospects.length} {prospects.length === 1 ? 'prospect' : 'prospects'}
         </Badge>
         {hottest && (
-          <span className="text-xs text-muted-foreground">{pursuitStageLabels[hottest]}</span>
+          <span className="text-xs text-muted-foreground">{pursuitLabelsFor(listing.deal_type)[hottest]}</span>
         )}
       </div>
     </div>

@@ -1038,6 +1038,7 @@ export type Database = {
           actual_fee: number | null
           client_id: string
           created_at: string
+          dd_expiration_date: string | null
           executed_date: string | null
           flagged_new: boolean
           id: string
@@ -1055,6 +1056,7 @@ export type Database = {
           actual_fee?: number | null
           client_id: string
           created_at?: string
+          dd_expiration_date?: string | null
           executed_date?: string | null
           flagged_new?: boolean
           id?: string
@@ -1072,6 +1074,7 @@ export type Database = {
           actual_fee?: number | null
           client_id?: string
           created_at?: string
+          dd_expiration_date?: string | null
           executed_date?: string | null
           flagged_new?: boolean
           id?: string
@@ -1443,6 +1446,7 @@ export type Database = {
         | "inquiring"
         | "touring"
         | "negotiation"
+        | "due_diligence"
         | "executed"
         | "passed"
       suggestion_status: "pending" | "dismissed"
@@ -1619,6 +1623,7 @@ export const Constants = {
         "inquiring",
         "touring",
         "negotiation",
+        "due_diligence",
         "executed",
         "passed",
       ],

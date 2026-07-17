@@ -1,5 +1,17 @@
-import { useRef, useState } from 'react'
-import { Download, Eye, FileText, MoreHorizontal, Pencil, Trash2, Upload } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import {
+  ChevronLeft,
+  Download,
+  Eye,
+  FileText,
+  Folder,
+  FolderInput,
+  FolderPlus,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Upload,
+} from 'lucide-react'
 import JSZip from 'jszip'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -29,9 +41,12 @@ import {
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import {
   fileCategoryLabels,
+  fileSubfolder,
   signedUrl,
   useDeleteFile,
+  useEntityBasePath,
   useFiles,
+  useMoveFile,
   useRenameFile,
   useUploadFiles,
 } from '@/hooks/use-files'
@@ -62,9 +77,11 @@ export function FileSection({
   onLeaseUploaded,
 }: FileSectionProps) {
   const { data: files = [], isLoading } = useFiles(parentType, parentId)
+  const { data: basePath } = useEntityBasePath(parentType, parentId)
   const upload = useUploadFiles(parentType, parentId)
   const rename = useRenameFile(parentType, parentId)
   const remove = useDeleteFile(parentType, parentId)
+  const move = useMoveFile(parentType, parentId)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [category, setCategory] = useState<FileCategory>(defaultCategory)
@@ -75,10 +92,78 @@ export function FileSection({
   const [deleting, setDeleting] = useState<FileRow | null>(null)
   const [zipping, setZipping] = useState(false)
 
+  // Sub-folder navigation ('' = the entity's file root). Folders mirror the
+  // Finder-synced storage layout; a session-created folder exists on screen until
+  // its first upload materializes it in storage.
+  const [folder, setFolder] = useState('')
+  const [sessionFolders, setSessionFolders] = useState<string[]>([])
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [moving, setMoving] = useState<FileRow | null>(null)
+
+  const folderOf = (f: FileRow) => fileSubfolder(f, basePath)
+
+  /** All known folder paths (from files + created this session). */
+  const allFolders = useMemo(() => {
+    const set = new Set<string>(sessionFolders)
+    for (const f of files) {
+      const path = fileSubfolder(f, basePath)
+      // register every ancestor so nested paths navigate cleanly
+      const parts = path.split('/').filter(Boolean)
+      for (let i = 1; i <= parts.length; i++) set.add(parts.slice(0, i).join('/'))
+    }
+    return set
+  }, [files, basePath, sessionFolders])
+
+  /** Direct child folders of the current folder. */
+  const childFolders = useMemo(() => {
+    const prefix = folder ? folder + '/' : ''
+    const children = new Set<string>()
+    for (const path of allFolders) {
+      if (path === folder || !path.startsWith(prefix)) continue
+      const rest = path.slice(prefix.length)
+      if (rest) children.add(rest.split('/')[0])
+    }
+    return [...children].sort((a, b) => a.localeCompare(b))
+  }, [allFolders, folder])
+
+  const visibleFiles = files.filter((f) => folderOf(f) === folder)
+  const countIn = (child: string) => {
+    const full = folder ? `${folder}/${child}` : child
+    return files.filter((f) => {
+      const p = folderOf(f)
+      return p === full || p.startsWith(full + '/')
+    }).length
+  }
+
+  const createFolder = () => {
+    const name = newFolderName.trim().replace(/[/\\]/g, '-')
+    if (!name) return
+    const full = folder ? `${folder}/${name}` : name
+    setSessionFolders((s) => (s.includes(full) ? s : [...s, full]))
+    setFolder(full)
+    setNewFolderOpen(false)
+    setNewFolderName('')
+  }
+
+  const moveTo = (target: string) => {
+    if (!moving || !basePath) return
+    move.mutate(
+      { file: moving, subfolder: target, basePath },
+      {
+        onSuccess: () => {
+          toast.success(target ? `Moved to ${target.split('/').pop()}` : 'Moved to files root')
+          setMoving(null)
+        },
+        onError: () => toast.error('Could not move file'),
+      },
+    )
+  }
+
   const doUpload = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return
     upload.mutate(
-      { files: Array.from(fileList), category },
+      { files: Array.from(fileList), category, subfolder: folder },
       {
         onSuccess: (res) => {
           if (res.failed.length === 0) {
@@ -241,13 +326,65 @@ export function FileSection({
         </Button>
       )}
 
+      <div className="flex items-center gap-1">
+        {folder ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0"
+              onClick={() => setFolder(folder.split('/').slice(0, -1).join('/'))}
+            >
+              <ChevronLeft className="size-4" />
+              Back
+            </Button>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {folder.split('/').pop()}
+            </span>
+          </>
+        ) : (
+          <span className="flex-1" />
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 text-muted-foreground"
+          onClick={() => setNewFolderOpen(true)}
+        >
+          <FolderPlus className="size-4" />
+          New folder
+        </Button>
+      </div>
+
+      {childFolders.length > 0 && (
+        <ul className="space-y-1.5">
+          {childFolders.map((name) => (
+            <li key={name}>
+              <button
+                type="button"
+                onClick={() => setFolder(folder ? `${folder}/${name}` : name)}
+                className="flex w-full items-center gap-2 rounded-md border bg-card p-2 text-left hover:bg-accent/50"
+              >
+                <Folder className="size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{countIn(name)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading files…</p>
-      ) : files.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No files yet.</p>
+      ) : visibleFiles.length === 0 ? (
+        childFolders.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            {folder ? 'Empty folder — drop files above to fill it.' : 'No files yet.'}
+          </p>
+        )
       ) : (
         <ul className="space-y-1.5">
-          {files.map((file) => (
+          {visibleFiles.map((file) => (
             <li key={file.id} className="flex items-center gap-2 rounded-md border bg-card p-2">
               <FileText className="size-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
@@ -286,6 +423,10 @@ export function FileSection({
                   >
                     <Pencil className="size-4" />
                     Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setMoving(file)}>
+                    <FolderInput className="size-4" />
+                    Move to folder
                   </DropdownMenuItem>
                   <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(file)}>
                     <Trash2 className="size-4" />
@@ -337,6 +478,65 @@ export function FileSection({
               {rename.isPending ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New folder */}
+      <Dialog open={newFolderOpen} onOpenChange={setNewFolderOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New folder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="new-folder-input">Name</Label>
+            <Input
+              id="new-folder-input"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Due diligence"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && createFolder()}
+            />
+            <p className="text-xs text-muted-foreground">
+              The folder appears in storage (and your synced Finder folder) with its first file.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewFolderOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={createFolder} disabled={!newFolderName.trim()}>
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move to folder */}
+      <Dialog open={!!moving} onOpenChange={(open) => !open && setMoving(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="truncate pr-6">Move “{moving?.file_name}”</DialogTitle>
+          </DialogHeader>
+          <ul className="max-h-72 space-y-1 overflow-y-auto">
+            {['', ...[...allFolders].sort((a, b) => a.localeCompare(b))]
+              .filter((target) => !moving || target !== folderOf(moving))
+              .map((target) => (
+                <li key={target || '(root)'}>
+                  <button
+                    type="button"
+                    disabled={move.isPending}
+                    onClick={() => moveTo(target)}
+                    className="flex w-full items-center gap-2 rounded-md border bg-card p-2 text-left hover:bg-accent/50 disabled:opacity-50"
+                  >
+                    <Folder className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {target === '' ? 'All files (root)' : target}
+                    </span>
+                  </button>
+                </li>
+              ))}
+          </ul>
         </DialogContent>
       </Dialog>
 
