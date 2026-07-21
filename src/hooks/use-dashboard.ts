@@ -69,7 +69,7 @@ export function matchFee(m: DashMatch): number {
   return m.actual_fee ?? 0
 }
 
-/** ISO timestamp 7 days ago — the trailing window for the weekly dashboard feeds. */
+/** ISO timestamp 7 days ago — the trailing window for the daily-refreshed dashboard feeds. */
 const sevenDaysAgoIso = () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
 export type OffMarketProperty = {
@@ -175,7 +175,7 @@ const INDUSTRIAL_FEED_KINDS = 'industrial,land,other'
 
 /**
  * Scraped properties imported since the feed's floor (7 days, or the last "clear") — the
- * weekly "new listings" feed that replaced the auto-matching suggestions. Each can be added
+ * daily-refreshed "new listings" feed that replaced the auto-matching suggestions. Each can be added
  * to a client. Returns the capped rows to render plus the true total (a bulk sweep can
  * import thousands at once, so the badge must not under-report at the render cap).
  */
@@ -225,7 +225,7 @@ export function useNewListings(filter: NewListingsTypeFilter = 'industrial') {
 }
 
 /**
- * Clear the "new listings this week" feed: stamps now as the floor so the widget reads zero
+ * Clear the "new listings" feed: stamps now as the floor so the widget reads zero
  * until the next sweep imports new listings. (Per-browser via localStorage.)
  */
 export function useClearNewListings() {

@@ -105,7 +105,7 @@ export function CountyAverages() {
         <Skeleton className="h-48 w-full" />
       ) : visible.length === 0 ? (
         <p className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-          No county data yet — the weekly sweep populates this.
+          No county data yet — the daily sweep populates this.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border">

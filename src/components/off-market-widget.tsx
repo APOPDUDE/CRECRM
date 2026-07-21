@@ -8,7 +8,7 @@ import { useCurrentAsking } from '@/hooks/use-comps'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
 /**
- * Properties the weekly sweep flipped to off_market in the last 7 days. Collapsed to a
+ * Properties the daily sweep flipped to off_market in the last 7 days. Collapsed to a
  * count; expand to see each, clicking through to its detail page. Hidden when empty.
  */
 export function OffMarketWidget() {
@@ -34,7 +34,7 @@ export function OffMarketWidget() {
             <ChevronRight className="size-4 text-muted-foreground" />
           )}
           <CircleSlash className="size-4 text-amber-600" />
-          <h2 className="text-sm font-medium">New off-market this week</h2>
+          <h2 className="text-sm font-medium">New off-market</h2>
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 tabular-nums">
             {items.length}
           </span>

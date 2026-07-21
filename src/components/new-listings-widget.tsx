@@ -13,7 +13,8 @@ import { useCurrentAsking } from '@/hooks/use-comps'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 
 /**
- * Weekly feed of newly-scraped listings (last 7 days). Collapsed to a count; expand to
+ * Feed of newly-scraped listings (rolling last 7 days, refreshed by the daily sweep).
+ * Collapsed to a count; expand to
  * review each and add it to a client's board. Defaults to industrial/land/other — the
  * sweep imports every type for county market intel, but LoopNet's deep pagination pads
  * in retail/office noise; the toggle shows everything. Hidden when there's nothing new.
@@ -49,7 +50,7 @@ export function NewListingsWidget() {
               <ChevronRight className="size-4 text-muted-foreground" />
             )}
             <Sparkles className="size-4 text-primary" />
-            <h2 className="text-sm font-medium">New listings this week</h2>
+            <h2 className="text-sm font-medium">New listings</h2>
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary tabular-nums">
               {total}
             </span>
