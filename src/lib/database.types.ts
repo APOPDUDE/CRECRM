@@ -192,9 +192,12 @@ export type Database = {
           source: string
           source_key: string | null
           tenant_company_id: string | null
+          tenant_name: string | null
           term_months: number | null
           ti_psf: number | null
+          unit: string | null
           updated_at: string
+          verified: boolean
         }
         Insert: {
           asking_lease_rate_psf?: number | null
@@ -227,9 +230,12 @@ export type Database = {
           source?: string
           source_key?: string | null
           tenant_company_id?: string | null
+          tenant_name?: string | null
           term_months?: number | null
           ti_psf?: number | null
+          unit?: string | null
           updated_at?: string
+          verified?: boolean
         }
         Update: {
           asking_lease_rate_psf?: number | null
@@ -262,9 +268,12 @@ export type Database = {
           source?: string
           source_key?: string | null
           tenant_company_id?: string | null
+          tenant_name?: string | null
           term_months?: number | null
           ti_psf?: number | null
+          unit?: string | null
           updated_at?: string
+          verified?: boolean
         }
         Relationships: [
           {
@@ -1436,7 +1445,7 @@ export type Database = {
         | "website"
         | "referral"
         | "broker"
-      lease_structure: "NNN" | "NN" | "MG"
+      lease_structure: "NNN" | "NN" | "MG" | "FS" | "IG"
       listing_market_status: "on_market" | "off_market"
       listing_stage: "proposal" | "listed" | "closed"
       note_kind: "note" | "call" | "text" | "email" | "meeting"
@@ -1613,7 +1622,7 @@ export const Constants = {
         "referral",
         "broker",
       ],
-      lease_structure: ["NNN", "NN", "MG"],
+      lease_structure: ["NNN", "NN", "MG", "FS", "IG"],
       listing_market_status: ["on_market", "off_market"],
       listing_stage: ["proposal", "listed", "closed"],
       note_kind: ["note", "call", "text", "email", "meeting"],
