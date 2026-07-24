@@ -75,6 +75,27 @@ export function useGoodDealIds() {
   })
 }
 
+/**
+ * Property ids with an executed pursuit — deals Alex actually closed (gold on the map,
+ * and the "Executed (mine)" filter). Deliberately NOT the imported market comps: those
+ * are other brokers' transactions, not his.
+ */
+export function useExecutedPropertyIds() {
+  return useQuery({
+    queryKey: ['executed-property-ids'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pursuits')
+        .select('property_id')
+        .eq('stage', 'executed')
+      if (error) throw error
+      const ids = new Set<string>()
+      for (const row of data ?? []) if (row.property_id) ids.add(row.property_id)
+      return ids
+    },
+  })
+}
+
 /** Has the system flagged a good deal of any kind on this position row? */
 export function isGoodDeal(p: PropertyMarketPosition | null | undefined): boolean {
   return !!(p && (p.good_lease_deal || p.good_sale_deal))

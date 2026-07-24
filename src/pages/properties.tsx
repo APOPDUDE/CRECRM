@@ -38,7 +38,7 @@ import { ListErrorState } from '@/components/list-error-state'
 import { PropertiesMap } from '@/components/properties-map'
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
-import { useGoodDealIds } from '@/hooks/use-market'
+import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -122,6 +122,7 @@ export function PropertiesPage() {
   const navigate = useNavigate()
   const { data: properties, isLoading, isError, refetch } = useProperties()
   const { data: goodDealIds } = useGoodDealIds()
+  const { data: executedIds } = useExecutedPropertyIds()
   const { data: askingMap } = useCurrentAsking()
   const deleteProperty = useDeleteProperty()
   // background-drain the lat/lng backfill (25/visit, Nominatim-throttled) so scrape rows
@@ -132,6 +133,7 @@ export function PropertiesPage() {
   // Filters + column choice persist across navigation (sticky) so returning from a
   // property detail keeps the list exactly as it was.
   const [status, setStatus] = usePersistentState('properties:status', 'all')
+  const [dealType, setDealType] = usePersistentState('properties:dealType', 'all')
   const [ptype, setPtype] = usePersistentState('properties:ptype', 'all')
   const [county, setCounty] = usePersistentState('properties:county', 'all')
   const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
@@ -185,7 +187,16 @@ export function PropertiesPage() {
           .some((field) => field!.toLowerCase().includes(q))
       )
         return false
-      if (status !== 'all' && (p.listing_status ?? 'on_market') !== status) return false
+      // 'executed' is a lens on OUR deals, not a listing_status value — hence its own branch.
+      if (status === 'executed') {
+        if (!executedIds?.has(p.id)) return false
+      } else if (status !== 'all' && (p.listing_status ?? 'on_market') !== status) return false
+      // For lease / for sale comes from the current asking comp (a property can be both).
+      if (dealType !== 'all') {
+        const ask = askingMap?.get(p.id)
+        if (dealType === 'lease' && ask?.rate == null) return false
+        if (dealType === 'sale' && ask?.price == null) return false
+      }
       if (ptype !== 'all' && p.property_type !== ptype) return false
       if (county !== 'all' && p.county !== county) return false
       if (sfLo != null && (p.building_sf == null || p.building_sf < sfLo)) return false
@@ -199,12 +210,12 @@ export function PropertiesPage() {
       }
       return true
     })
-  }, [properties, askingMap, search, status, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+  }, [properties, askingMap, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+  }, [search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
 
   // Paginate the table display (data is fully loaded; this just bounds the DOM).
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -213,6 +224,7 @@ export function PropertiesPage() {
 
   const activeFilterCount =
     (status !== 'all' ? 1 : 0) +
+    (dealType !== 'all' ? 1 : 0) +
     (ptype !== 'all' ? 1 : 0) +
     (county !== 'all' ? 1 : 0) +
     (sfMin || sfMax ? 1 : 0) +
@@ -340,6 +352,20 @@ export function PropertiesPage() {
                     <SelectItem value="all">All</SelectItem>
                     <SelectItem value="on_market">On market</SelectItem>
                     <SelectItem value="off_market">Off market</SelectItem>
+                    <SelectItem value="executed">Executed (mine)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Lease / sale</Label>
+                <Select value={dealType} onValueChange={setDealType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="lease">For lease</SelectItem>
+                    <SelectItem value="sale">For sale</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -467,7 +493,7 @@ export function PropertiesPage() {
           <p className="text-sm text-muted-foreground">No properties match “{search.trim()}”</p>
         </div>
       ) : view === 'map' ? (
-        <PropertiesMap properties={filtered} goodDealIds={goodDealIds} />
+        <PropertiesMap properties={filtered} goodDealIds={goodDealIds} executedIds={executedIds} />
       ) : (
         <>
           {/* Desktop table */}
