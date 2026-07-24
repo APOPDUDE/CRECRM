@@ -60,6 +60,9 @@ export function ExecutedMatchDialog({
   const isSale = dealType === 'sale'
   const [fee, setFee] = useState('')
   const [feeTouched, setFeeTouched] = useState(false)
+  // A deal executed with no fee silently books $0 on the dashboard — so an empty fee
+  // takes a second, explicit confirm rather than sailing through.
+  const [confirmNoFee, setConfirmNoFee] = useState(false)
   const [executionDate, setExecutionDate] = useState('')
   const [closeClient, setCloseClient] = useState(true)
   const [closeListing, setCloseListing] = useState(false)
@@ -77,6 +80,7 @@ export function ExecutedMatchDialog({
     if (open) {
       setFee('')
       setFeeTouched(false)
+      setConfirmNoFee(false)
       setExecutionDate(format(new Date(), 'yyyy-MM-dd'))
       setCloseClient(true)
       setCloseListing(false)
@@ -110,6 +114,11 @@ export function ExecutedMatchDialog({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    // No fee = $0 on the dashboard. Make that a deliberate choice, not an accident.
+    if (!fee.trim() && !confirmNoFee) {
+      setConfirmNoFee(true)
+      return
+    }
     const economics: Record<string, unknown> = {}
     if (isSale) {
       if (numOrNull(price) != null) economics.sale_price = numOrNull(price)
@@ -294,12 +303,21 @@ export function ExecutedMatchDialog({
               onChange={(e) => {
                 setFee(e.target.value)
                 setFeeTouched(true)
+                if (e.target.value.trim()) setConfirmNoFee(false)
               }}
               placeholder="$"
+              aria-invalid={confirmNoFee && !fee.trim()}
+              className={confirmNoFee && !fee.trim() ? 'border-amber-500' : undefined}
             />
             {calc?.netFee != null && !feeTouched && (
               <p className="text-xs text-muted-foreground">
                 Prefilled from the estimate — edit if the actual fee differs.
+              </p>
+            )}
+            {confirmNoFee && !fee.trim() && (
+              <p className="text-xs text-amber-600">
+                No fee entered — this deal will show $0 booked on the dashboard. Add the
+                commission, or press “Execute without a fee” to continue.
               </p>
             )}
           </div>
@@ -325,7 +343,11 @@ export function ExecutedMatchDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? 'Saving…' : 'Mark executed'}
+              {pending
+                ? 'Saving…'
+                : confirmNoFee && !fee.trim()
+                  ? 'Execute without a fee'
+                  : 'Mark executed'}
             </Button>
           </DialogFooter>
         </form>
