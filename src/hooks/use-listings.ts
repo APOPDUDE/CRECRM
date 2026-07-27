@@ -7,7 +7,7 @@ export type ListingWithRelations = Tables<'listings'> & {
   landlord: Pick<Tables<'companies'>, 'id' | 'name'> | null
   broker: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
   /** pursuits on this listing's property (the prospects), for the count badge */
-  matches: { id: string; stage: Enums<'pursuit_stage'> }[]
+  matches: { id: string; stage: Enums<'pursuit_stage'>; deal_type: Enums<'deal_type'> }[]
 }
 
 const LISTING_SELECT = `
@@ -30,16 +30,16 @@ export function useListings() {
 
       // a listing's prospects = pursuits on the same property (no listing_id on pursuits)
       const propertyIds = [...new Set(listings.map((l) => l.property_id))]
-      const byProperty = new Map<string, { id: string; stage: Enums<'pursuit_stage'> }[]>()
+      const byProperty = new Map<string, ListingWithRelations['matches']>()
       if (propertyIds.length) {
         const { data: pursuits, error: pErr } = await supabase
           .from('pursuits')
-          .select('id, stage, property_id')
+          .select('id, stage, property_id, deal_type')
           .in('property_id', propertyIds)
         if (pErr) throw pErr
         for (const p of pursuits ?? []) {
           const arr = byProperty.get(p.property_id) ?? []
-          arr.push({ id: p.id, stage: p.stage })
+          arr.push({ id: p.id, stage: p.stage, deal_type: p.deal_type })
           byProperty.set(p.property_id, arr)
         }
       }

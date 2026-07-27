@@ -27,6 +27,7 @@ import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
 import { leadSourceLabels } from '@/components/source-badge'
 import { useUnits, useSetPursuitUnits, unitSizeLabel } from '@/hooks/use-units'
+import { resolvePursuitSide } from '@/hooks/use-matches'
 import { formatPsf } from '@/lib/format'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase'
@@ -40,12 +41,18 @@ interface AddTenantMatchDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   propertyId: string
+  /** The listing's deal type — decides which side of the flip board this prospect lands on. */
+  listingDealType?: Enums<'deal_type'> | null
+  /** The side of the flip board this was opened from, used as the tie-breaker. */
+  boardSide?: 'lease' | 'sale'
 }
 
 export function AddTenantMatchDialog({
   open,
   onOpenChange,
   propertyId,
+  listingDealType,
+  boardSide = 'lease',
 }: AddTenantMatchDialogProps) {
   const { session } = useAuth()
   const queryClient = useQueryClient()
@@ -139,7 +146,16 @@ export function AddTenantMatchDialog({
         clientId = c.id
       }
 
-      // open the pursuit on this property (links to the landlord board via property_id)
+      // open the pursuit on this property (links to the landlord board via property_id).
+      // The listing decides the side; when it is offered both ways, an explicit
+      // lease/buy answer above wins, then the asking terms, then the board on screen.
+      const pursuitSide = await resolvePursuitSide(
+        propertyId,
+        listingDealType === 'both' && (makeRep === 'lease' || makeRep === 'sale')
+          ? makeRep
+          : listingDealType,
+        boardSide,
+      )
       const { data: pursuit, error: mErr } = await supabase
         .from('pursuits')
         .insert({
@@ -147,6 +163,7 @@ export function AddTenantMatchDialog({
           client_id: clientId,
           owner_id: session.user.id,
           inquiry_date: inquiryDate || undefined,
+          deal_type: pursuitSide,
         })
         .select('id')
         .single()

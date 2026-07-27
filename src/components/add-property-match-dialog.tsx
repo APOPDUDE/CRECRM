@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCreateMatch } from '@/hooks/use-matches'
+import { resolvePursuitSide, useCreateMatch } from '@/hooks/use-matches'
 import { useCreateProperty, useEnrichProperty } from '@/hooks/use-properties'
 import { usePropertySearch, type ParcelSearchResult } from '@/hooks/use-listing-parcels'
 import { useScrapePropertyByUrl } from '@/hooks/use-automation'
@@ -37,6 +37,8 @@ interface AddPropertyMatchDialogProps {
   onOpenChange: (open: boolean) => void
   tenantRep: TenantRepDetail
   initialMode?: Mode
+  /** The side of the flip board this was opened from — breaks ties when the client leases OR buys. */
+  boardSide?: 'lease' | 'sale'
 }
 
 /** One URL per box, no spaces, with an "add another" button below. */
@@ -99,6 +101,7 @@ export function AddPropertyMatchDialog({
   onOpenChange,
   tenantRep,
   initialMode = 'manual',
+  boardSide = 'lease',
 }: AddPropertyMatchDialogProps) {
   const scrape = useScrapePropertyByUrl()
   const createProperty = useCreateProperty()
@@ -178,12 +181,13 @@ export function AddPropertyMatchDialog({
   const matches = results // existing properties matching the typed address/parcel
   const canCreate = !!parcel.trim() && !!county
 
-  const addPursuit = (propertyId: string) =>
+  const addPursuit = async (propertyId: string) =>
     createMatch.mutateAsync({
       property_id: propertyId,
       client_id: tenantRep.id,
       owner_id: tenantRep.owner_id,
       inquiry_date: format(new Date(), 'yyyy-MM-dd'),
+      deal_type: await resolvePursuitSide(propertyId, tenantRep.deal_type, boardSide),
     })
 
   // Attach an existing property to this tenant (creates the pursuit).

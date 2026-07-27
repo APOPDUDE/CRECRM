@@ -135,7 +135,7 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
               <TabsContent value="overview" className="min-h-0 flex-1 overflow-y-auto p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{pursuitLabelsFor(match.client?.deal_type)[match.stage]}</Badge>
+                    <Badge variant="secondary">{pursuitLabelsFor(match.deal_type)[match.stage]}</Badge>
                     <SourceBadge
                       source={match.source}
                       brokerName={match.broker ? contactNameOf(match.broker) : null}
@@ -256,7 +256,7 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
               <TabsContent value="files" className="min-h-0 flex-1 overflow-y-auto p-4">
                 <div className="space-y-3">
                   {match.stage === 'executed' && (
-                    <ExecutedChecklist matchId={match.id} dealType={match.client?.deal_type ?? null} />
+                    <ExecutedChecklist matchId={match.id} dealType={match.deal_type} />
                   )}
                   <FileSection
                     parentType="pursuit"

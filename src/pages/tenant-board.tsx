@@ -38,7 +38,9 @@ import {
   useExecutePursuit,
   useTenantRepMatches,
   useUpdateMatchStage,
+  useUpdatePursuitDealSide,
 } from '@/hooks/use-matches'
+import { BoardSideToggle, useBoardSide } from '@/components/board-side-toggle'
 import { PassedRail } from '@/components/passed-rail'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { MatchWithRelations } from '@/hooks/use-matches'
@@ -50,7 +52,7 @@ import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { automationEnabled } from '@/lib/n8n'
 import { setReppingSide } from '@/lib/repping-side'
-import { pursuitLabelsFor, tenantBoardStages } from '@/lib/stages'
+import { boardSides, dealSideLabels, pursuitLabelsFor, tenantBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'pursuit_stage'> }
 
@@ -87,9 +89,40 @@ export function TenantBoardPage() {
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
   const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
 
+  // A client looking to lease OR buy runs two boards — the pipelines differ (PSA
+  // negotiation + Due diligence on the sale side) — so the board flips between them
+  // instead of mixing them. One side in play means no toggle and no filtering, so a
+  // pursuit sitting on an unexpected side can never hide.
+  const sides = boardSides(tenantRep?.deal_type, matches)
+  const [side, setSide] = useBoardSide(tenantRepId, sides)
+  const flipSide = useUpdatePursuitDealSide(tenantRepMatchesKey(tenantRepId ?? ''))
+  const sideMatches = sides.length > 1 ? matches.filter((m) => m.deal_type === side) : matches
+  const sideCounts = {
+    lease: matches.filter((m) => m.deal_type === 'lease' && m.stage !== 'passed').length,
+    sale: matches.filter((m) => m.deal_type === 'sale' && m.stage !== 'passed').length,
+  }
+
+  const moveToOtherSide = (m: MatchWithRelations) => {
+    const from = m.deal_type === 'sale' ? 'sale' : 'lease'
+    const to = from === 'sale' ? 'lease' : 'sale'
+    flipSide.mutate(
+      { id: m.id, dealType: to },
+      {
+        onSuccess: () =>
+          toast.success(`Moved to ${dealSideLabels[to]}`, {
+            action: {
+              label: 'Undo',
+              onClick: () => flipSide.mutate({ id: m.id, dealType: from }),
+            },
+          }),
+        onError: () => toast.error('Could not move it to the other board'),
+      },
+    )
+  }
+
   // Removing a property from the board is SOFT: it moves to the Passed rail on the left,
   // where it can be restored — a hard delete only happens from inside the rail.
-  const passed = matches.filter((m) => m.stage === 'passed')
+  const passed = sideMatches.filter((m) => m.stage === 'passed')
   const softPass = (m: MatchWithRelations) => {
     const from = m.stage
     updateStage.mutate(
@@ -167,7 +200,9 @@ export function TenantBoardPage() {
   const contact = tenantRep.contact
   const brokerName = tenantRep.broker ? contactNameOf(tenantRep.broker) : null
 
-  const stageLabels = pursuitLabelsFor(tenantRep.deal_type)
+  // Columns follow the side being shown, not the client's overall deal type — that is
+  // what gives a "lease or buy" client real PSA negotiation / Due diligence columns.
+  const stageLabels = pursuitLabelsFor(side)
   const executedPursuit = matches.find((m) => m.stage === 'executed') ?? null
 
   const plainMove = (match: MatchWithRelations, toStage: Enums<'pursuit_stage'>) => {
@@ -301,7 +336,9 @@ export function TenantBoardPage() {
             )}
           </div>
         </div>
-        <DropdownMenu>
+        <div className="flex flex-wrap items-center gap-2">
+          <BoardSideToggle sides={sides} value={side} onChange={setSide} counts={sideCounts} />
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button>
               <Plus className="size-4" />
@@ -327,17 +364,20 @@ export function TenantBoardPage() {
               Add manually
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="order-1 min-w-0 flex-1 lg:order-2">
           {matchesError ? (
             <ListErrorState message="Could not load properties in play." onRetry={() => refetchMatches()} />
-          ) : matches.length === 0 ? (
+          ) : sideMatches.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
               <p className="text-sm text-muted-foreground">
-                No properties in play yet — add a property to start.
+                {sides.length > 1
+                  ? `Nothing on the ${dealSideLabels[side].toLowerCase()} board yet — everything in play is on the other one.`
+                  : 'No properties in play yet — add a property to start.'}
               </p>
               <Button onClick={() => openAdd('manual')}>
                 <Plus className="size-4" />
@@ -359,8 +399,8 @@ export function TenantBoardPage() {
               />
               <div className="min-w-0 flex-1">
                 <KanbanBoard
-                  columns={tenantBoardStages(tenantRep.deal_type)}
-                  items={matches}
+                  columns={tenantBoardStages(side)}
+                  items={sideMatches}
                   getId={(m) => m.id}
                   getStage={(m) => m.stage}
                   onMove={handleMove}
@@ -371,6 +411,7 @@ export function TenantBoardPage() {
                       onPreview={() => setPreviewPropertyId(m.property_id)}
                       onOpen={() => navigate(`/properties/${m.property_id}`)}
                       onRemove={() => softPass(m)}
+                      onFlipSide={sides.length > 1 ? () => moveToOtherSide(m) : undefined}
                     />
                   )}
                 />
@@ -528,7 +569,13 @@ export function TenantBoardPage() {
         </aside>
       </div>
 
-      <AddPropertyMatchDialog open={addOpen} onOpenChange={setAddOpen} tenantRep={tenantRep} initialMode={addMode} />
+      <AddPropertyMatchDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        tenantRep={tenantRep}
+        initialMode={addMode}
+        boardSide={side}
+      />
       <FindListingsDialog open={findOpen} onOpenChange={setFindOpen} tenantRep={tenantRep} />
       <TenantRepEditDialog open={editOpen} onOpenChange={setEditOpen} tenantRep={tenantRep} />
       <TenantCommissionDialog
@@ -565,7 +612,7 @@ export function TenantBoardPage() {
       <ExecutedMatchDialog
         open={!!executedMove}
         onOpenChange={(open) => !open && setExecutedMove(null)}
-        dealType={tenantRep.deal_type}
+        dealType={executedMove?.match.deal_type ?? side}
         commissionCalcContext={{
           commissionPct: tenantRep.commission_pct,
           coBrokeSplitPct: null,

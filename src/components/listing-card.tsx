@@ -28,6 +28,9 @@ const stopDrag = (e: React.SyntheticEvent) => e.stopPropagation()
 export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCardProps) {
   const prospects = livePursuits(listing.matches)
   const hottest = hottestStage(listing.matches)
+  // Label the hottest chip from that pursuit's own side, so a lease-or-sale listing
+  // reads "PSA negotiation" when the furthest deal is a sale.
+  const hottestSide = prospects.find((p) => p.stage === hottest)?.deal_type ?? listing.deal_type
   const overdue = listing.status === 'active' && isOverdue(listing.next_action_date)
   const price = formatListingPrice(listing)
 
@@ -109,7 +112,7 @@ export function ListingCard({ listing, onOpen, onMarkLost, onReopen }: ListingCa
           {prospects.length} {prospects.length === 1 ? 'prospect' : 'prospects'}
         </Badge>
         {hottest && (
-          <span className="text-xs text-muted-foreground">{pursuitLabelsFor(listing.deal_type)[hottest]}</span>
+          <span className="text-xs text-muted-foreground">{pursuitLabelsFor(hottestSide)[hottest]}</span>
         )}
       </div>
     </div>

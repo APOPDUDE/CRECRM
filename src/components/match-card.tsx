@@ -1,4 +1,4 @@
-import { CalendarClock, Eye, Trash2 } from 'lucide-react'
+import { ArrowLeftRight, CalendarClock, Eye, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
@@ -18,10 +18,16 @@ interface MatchCardProps {
   onPreview?: (match: MatchWithRelations) => void
   /** Corner trash icon — removes this card from the board. Hidden when not provided. */
   onRemove?: (match: MatchWithRelations) => void
+  /**
+   * Corner flip icon — sends this pursuit to the other side of the board (lease <-> sale).
+   * Only passed when the parent actually runs both boards.
+   */
+  onFlipSide?: (match: MatchWithRelations) => void
 }
 
-export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchCardProps) {
+export function MatchCard({ match, facing, onOpen, onPreview, onRemove, onFlipSide }: MatchCardProps) {
   const brokerName = match.broker ? contactNameOf(match.broker) : null
+  const otherSideLabel = match.deal_type === 'sale' ? 'the for-lease board' : 'the for-sale board'
 
   const title =
     facing === 'property'
@@ -96,6 +102,26 @@ export function MatchCard({ match, facing, onOpen, onPreview, onRemove }: MatchC
                 </button>
               </TooltipTrigger>
               <TooltipContent>Preview</TooltipContent>
+            </Tooltip>
+          )}
+          {onFlipSide && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onFlipSide(match)
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                >
+                  <ArrowLeftRight className="size-3.5" />
+                  <span className="sr-only">Move to {otherSideLabel}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Move to {otherSideLabel}</TooltipContent>
             </Tooltip>
           )}
           {onRemove && (

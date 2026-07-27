@@ -31,7 +31,9 @@ import {
   useExecutePursuit,
   usePropertyMatches,
   useUpdateMatchStage,
+  useUpdatePursuitDealSide,
 } from '@/hooks/use-matches'
+import { BoardSideToggle, useBoardSide } from '@/components/board-side-toggle'
 import { PassedRail } from '@/components/passed-rail'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
@@ -41,7 +43,7 @@ import { formatDate } from '@/lib/dates'
 import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
 import { calculateCommission } from '@/lib/commission'
 import { setReppingSide } from '@/lib/repping-side'
-import { pursuitLabelsFor, propertyBoardStages } from '@/lib/stages'
+import { boardSides, dealSideLabels, pursuitLabelsFor, propertyBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'pursuit_stage'> }
 
@@ -69,9 +71,41 @@ export function PropertyBoardPage() {
     null,
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
+
+  // A listing offered for lease OR sale runs two boards — the pipelines differ (PSA
+  // negotiation + Due diligence on the sale side) — so the board flips between them
+  // instead of mixing them. One side in play means no toggle and no filtering, so a
+  // prospect sitting on an unexpected side can never hide.
+  const sides = boardSides(listing?.deal_type, matches)
+  const [side, setSide] = useBoardSide(listingId, sides)
+  const flipSide = useUpdatePursuitDealSide(propertyMatchesKey(propertyId ?? ''))
+  const sideMatches = sides.length > 1 ? matches.filter((m) => m.deal_type === side) : matches
+  const sideCounts = {
+    lease: matches.filter((m) => m.deal_type === 'lease' && m.stage !== 'passed').length,
+    sale: matches.filter((m) => m.deal_type === 'sale' && m.stage !== 'passed').length,
+  }
+
+  const moveToOtherSide = (m: MatchWithRelations) => {
+    const from = m.deal_type === 'sale' ? 'sale' : 'lease'
+    const to = from === 'sale' ? 'lease' : 'sale'
+    flipSide.mutate(
+      { id: m.id, dealType: to },
+      {
+        onSuccess: () =>
+          toast.success(`Moved to ${dealSideLabels[to]}`, {
+            action: {
+              label: 'Undo',
+              onClick: () => flipSide.mutate({ id: m.id, dealType: from }),
+            },
+          }),
+        onError: () => toast.error('Could not move it to the other board'),
+      },
+    )
+  }
+
   // Removing a prospect from the board is SOFT: it moves to the Passed rail on the left,
   // where it can be restored — a hard delete only happens from inside the rail.
-  const passed = matches.filter((m) => m.stage === 'passed')
+  const passed = sideMatches.filter((m) => m.stage === 'passed')
   const softPass = (m: MatchWithRelations) => {
     const from = m.stage
     updateStage.mutate(
@@ -133,8 +167,10 @@ export function PropertyBoardPage() {
     )
   }
 
-  const columns = propertyBoardStages(listing.deal_type)
-  const stageLabels = pursuitLabelsFor(listing.deal_type)
+  // Columns follow the side being shown, not the listing's overall deal type — that is
+  // what gives a lease-or-sale listing real PSA negotiation / Due diligence columns.
+  const columns = propertyBoardStages(side)
+  const stageLabels = pursuitLabelsFor(side)
   const landlordContact = listing.landlord_contact
   const parcelOptions = parcels.map((p) => ({
     id: p.property_id,
@@ -244,8 +280,8 @@ export function PropertyBoardPage() {
     }
   }
 
-  // Pipeline snapshot from the pursuits already loaded for the board.
-  const liveProspects = matches.filter((m) => m.stage !== 'passed')
+  // Pipeline snapshot from the pursuits already loaded for the board (the side on screen).
+  const liveProspects = sideMatches.filter((m) => m.stage !== 'passed')
   const pastLoi = liveProspects.filter((m) =>
     ['negotiation', 'due_diligence', 'executed'].includes(m.stage),
   ).length
@@ -258,7 +294,7 @@ export function PropertyBoardPage() {
 
   // Live commission estimate from the asking terms (shown on the Terms panel).
   const commissionEstimate = calculateCommission({
-    dealType: listing.deal_type === 'both' ? 'lease' : listing.deal_type,
+    dealType: side,
     commissionPct: listing.commission_pct,
     coBrokeSplitPct: listing.co_broke_split_pct,
     buildingSf: listing.property?.building_sf ?? null,
@@ -267,8 +303,7 @@ export function PropertyBoardPage() {
     termMonths: null, // calculateCommission defaults to a 5-year term
   })
   const commissionNeedsInput =
-    listing.commission_pct == null ||
-    (listing.deal_type !== 'sale' && listing.property?.building_sf == null)
+    listing.commission_pct == null || (side !== 'sale' && listing.property?.building_sf == null)
 
   return (
     <div className="space-y-4">
@@ -295,20 +330,25 @@ export function PropertyBoardPage() {
             )}
           </div>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="size-4" />
-          Add tenant
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <BoardSideToggle sides={sides} value={side} onChange={setSide} counts={sideCounts} />
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="size-4" />
+            Add tenant
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="order-1 min-w-0 flex-1 lg:order-2">
           {matchesError ? (
             <ListErrorState message="Could not load prospects." onRetry={() => refetchMatches()} />
-          ) : matches.length === 0 ? (
+          ) : sideMatches.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
               <p className="text-sm text-muted-foreground">
-                No tenant inquiries yet — add a tenant to start moving prospects.
+                {sides.length > 1
+                  ? `Nothing on the ${dealSideLabels[side].toLowerCase()} board yet — every prospect is on the other one.`
+                  : 'No tenant inquiries yet — add a tenant to start moving prospects.'}
               </p>
               <Button onClick={() => setAddOpen(true)}>
                 <Plus className="size-4" />
@@ -332,7 +372,7 @@ export function PropertyBoardPage() {
               <div className="min-w-0 flex-1">
                 <KanbanBoard
                   columns={columns}
-                  items={matches}
+                  items={sideMatches}
                   getId={(m) => m.id}
                   getStage={(m) => m.stage}
                   onMove={handleMove}
@@ -342,6 +382,7 @@ export function PropertyBoardPage() {
                       facing="property"
                       onOpen={() => setOpenMatchId(m.id)}
                       onRemove={() => softPass(m)}
+                      onFlipSide={sides.length > 1 ? () => moveToOtherSide(m) : undefined}
                     />
                   )}
                 />
@@ -688,6 +729,8 @@ export function PropertyBoardPage() {
         open={addOpen}
         onOpenChange={setAddOpen}
         propertyId={listing.property_id}
+        listingDealType={listing.deal_type}
+        boardSide={side}
       />
       <AddListingParcelDialog
         listingId={listing.id}
@@ -716,7 +759,7 @@ export function PropertyBoardPage() {
       <ExecutedMatchDialog
         open={!!executedMove}
         onOpenChange={(open) => !open && setExecutedMove(null)}
-        dealType={listing.deal_type}
+        dealType={executedMove?.match.deal_type ?? side}
         commissionCalcContext={{
           commissionPct: listing.commission_pct,
           coBrokeSplitPct: listing.co_broke_split_pct,

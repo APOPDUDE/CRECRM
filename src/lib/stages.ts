@@ -88,6 +88,40 @@ export const propertyBoardStages = pursuitBoardStages
 /** Tenant-side board columns (identical pipeline, one source of truth across both boards). */
 export const tenantBoardStages = pursuitBoardStages
 
+/** One side of the flip board. A pursuit is always exactly one of these (DB check). */
+export type DealSide = 'lease' | 'sale'
+
+export const dealSideLabels: Record<DealSide, string> = {
+  lease: 'For lease',
+  sale: 'For sale',
+}
+
+/**
+ * Which boards a client/listing runs. A parent set to 'both' gets two: its lease
+ * pursuits and its sale pursuits move through different columns, so they can't share
+ * one board. Pursuits are passed in as a safety net — if the parent was switched from
+ * 'both' back to a single side, pursuits stranded on the other side keep their board
+ * (and stay reachable) rather than silently vanishing.
+ */
+export function boardSides(
+  dealType: Enums<'deal_type'> | null | undefined,
+  pursuits: { deal_type: Enums<'deal_type'> }[] = [],
+): DealSide[] {
+  const sides = new Set<DealSide>()
+  if (dealType === 'both') {
+    sides.add('lease')
+    sides.add('sale')
+  } else {
+    // 'lease', 'sale', or unset (unset reads as lease, same as the column labels)
+    sides.add(dealType === 'sale' ? 'sale' : 'lease')
+  }
+  for (const p of pursuits) {
+    if (p.deal_type === 'lease' || p.deal_type === 'sale') sides.add(p.deal_type)
+  }
+  // stable order — lease first, the way the deal-type select reads
+  return (['lease', 'sale'] as const).filter((s) => sides.has(s))
+}
+
 /** Rank used to pick the "hottest" (furthest-along) pursuit on a property. 'passed' is excluded. */
 const pursuitStageRank: Record<Enums<'pursuit_stage'>, number> = {
   inquiring: 0,

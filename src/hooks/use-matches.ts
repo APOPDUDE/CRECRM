@@ -165,6 +165,34 @@ function invalidateMatchViews(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['tenant_rep'] })
 }
 
+/**
+ * Which side of the flip board a new pursuit should land on. An unambiguous client or
+ * listing (lease-only, sale-only) decides it outright. When they work both, the
+ * property's own asking terms decide — a sale price alone means the sale board, a lease
+ * rate alone the lease board — and anything priced for either way (or not priced at all)
+ * follows the board you were looking at. Always overridable from the card afterwards.
+ *
+ * Mirrors `derive_pursuit_deal_type()` in Postgres, which covers the automation path;
+ * this adds the one thing SQL can't know — which board is on screen.
+ */
+export async function resolvePursuitSide(
+  propertyId: string,
+  parentDealType: Enums<'deal_type'> | null | undefined,
+  boardSide: 'lease' | 'sale',
+): Promise<'lease' | 'sale'> {
+  if (parentDealType === 'lease' || parentDealType === 'sale') return parentDealType
+  try {
+    const asking = (await fetchCurrentAsking([propertyId])).get(propertyId)
+    const hasSale = asking?.price != null
+    const hasLease = asking?.rate != null
+    if (hasSale && !hasLease) return 'sale'
+    if (hasLease && !hasSale) return 'lease'
+  } catch {
+    // no asking data to read — fall through to the board on screen
+  }
+  return boardSide
+}
+
 export function useCreateMatch() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -233,6 +261,33 @@ export function useUpdateMatchStage(boardKey: readonly unknown[]) {
       const previous = queryClient.getQueryData<MatchWithRelations[]>(boardKey)
       queryClient.setQueryData<MatchWithRelations[]>(boardKey, (old) =>
         old?.map((m) => (m.id === id ? { ...m, stage, ...patch } : m)),
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(boardKey, context.previous)
+    },
+    onSettled: () => invalidateMatchViews(queryClient),
+  })
+}
+
+/**
+ * Move a pursuit to the other side of the flip board (lease <-> sale). The stage rides
+ * along unchanged — the two pipelines share the same enum, so a deal mid-negotiation
+ * stays mid-negotiation, it just gets the other side's columns and labels.
+ */
+export function useUpdatePursuitDealSide(boardKey: readonly unknown[]) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, dealType }: { id: string; dealType: 'lease' | 'sale' }) => {
+      const { error } = await supabase.from('pursuits').update({ deal_type: dealType }).eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, dealType }) => {
+      await queryClient.cancelQueries({ queryKey: boardKey })
+      const previous = queryClient.getQueryData<MatchWithRelations[]>(boardKey)
+      queryClient.setQueryData<MatchWithRelations[]>(boardKey, (old) =>
+        old?.map((m) => (m.id === id ? { ...m, deal_type: dealType } : m)),
       )
       return { previous }
     },

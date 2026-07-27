@@ -1048,6 +1048,7 @@ export type Database = {
           client_id: string
           created_at: string
           dd_expiration_date: string | null
+          deal_type: Database["public"]["Enums"]["deal_type"]
           executed_date: string | null
           flagged_new: boolean
           id: string
@@ -1066,6 +1067,7 @@ export type Database = {
           client_id: string
           created_at?: string
           dd_expiration_date?: string | null
+          deal_type?: Database["public"]["Enums"]["deal_type"]
           executed_date?: string | null
           flagged_new?: boolean
           id?: string
@@ -1084,6 +1086,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           dd_expiration_date?: string | null
+          deal_type?: Database["public"]["Enums"]["deal_type"]
           executed_date?: string | null
           flagged_new?: boolean
           id?: string
