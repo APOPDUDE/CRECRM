@@ -777,6 +777,7 @@ export type Database = {
       }
       properties: {
         Row: {
+          amps: number | null
           address: string
           broker_company: string | null
           broker_email: string | null
@@ -786,11 +787,18 @@ export type Database = {
           building_far: string | null
           building_sf: number | null
           city: string | null
+          clear_height_ft: number | null
+          column_spacing: string | null
+          construction_material: string | null
+          cross_docks: boolean | null
           construction_status: string | null
           county: string | null
           created_at: string
           days_on_market: number | null
+          dock_levelers: number | null
+          dock_high_doors: number | null
           description: string | null
+          grade_level_doors: number | null
           gross_leasable_area: string | null
           id: string
           is_auction: boolean | null
@@ -813,6 +821,7 @@ export type Database = {
           on_ground_lease: boolean | null
           opportunity_zone: boolean | null
           parcel_number: string | null
+          parking_spaces: number | null
           parking_ratio: string | null
           photo_urls: string[] | null
           property_sub_types: string[] | null
@@ -821,14 +830,20 @@ export type Database = {
           sale_status: number | null
           sale_type: string | null
           scraped_at: string | null
+          scrape_facts: Json | null
+          sprinkler_system: string | null
           source: string | null
           source_key: string | null
           source_last_updated: string | null
           specs: string | null
           state: string | null
           stories: number | null
+          three_phase_power: boolean | null
+          truck_court_ft: number | null
           title: string | null
           updated_at: string
+          usable_acres: number | null
+          volts: string | null
           year_built: number | null
           year_renovated: number | null
           zip: string | null
@@ -845,11 +860,18 @@ export type Database = {
           building_far?: string | null
           building_sf?: number | null
           city?: string | null
+          clear_height_ft?: number | null
+          column_spacing?: string | null
+          construction_material?: string | null
+          cross_docks?: boolean | null
           construction_status?: string | null
           county?: string | null
           created_at?: string
           days_on_market?: number | null
+          dock_levelers?: number | null
+          dock_high_doors?: number | null
           description?: string | null
+          grade_level_doors?: number | null
           gross_leasable_area?: string | null
           id?: string
           is_auction?: boolean | null
@@ -872,6 +894,7 @@ export type Database = {
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
           parcel_number?: string | null
+          parking_spaces?: number | null
           parking_ratio?: string | null
           photo_urls?: string[] | null
           property_sub_types?: string[] | null
@@ -880,14 +903,20 @@ export type Database = {
           sale_status?: number | null
           sale_type?: string | null
           scraped_at?: string | null
+          scrape_facts?: Json | null
+          sprinkler_system?: string | null
           source?: string | null
           source_key?: string | null
           source_last_updated?: string | null
           specs?: string | null
           state?: string | null
           stories?: number | null
+          three_phase_power?: boolean | null
+          truck_court_ft?: number | null
           title?: string | null
           updated_at?: string
+          usable_acres?: number | null
+          volts?: string | null
           year_built?: number | null
           year_renovated?: number | null
           zip?: string | null
@@ -895,6 +924,7 @@ export type Database = {
           zoning_district?: string | null
         }
         Update: {
+          amps?: number | null
           address?: string
           broker_company?: string | null
           broker_email?: string | null
@@ -904,11 +934,18 @@ export type Database = {
           building_far?: string | null
           building_sf?: number | null
           city?: string | null
+          clear_height_ft?: number | null
+          column_spacing?: string | null
+          construction_material?: string | null
+          cross_docks?: boolean | null
           construction_status?: string | null
           county?: string | null
           created_at?: string
           days_on_market?: number | null
+          dock_levelers?: number | null
+          dock_high_doors?: number | null
           description?: string | null
+          grade_level_doors?: number | null
           gross_leasable_area?: string | null
           id?: string
           is_auction?: boolean | null
@@ -931,6 +968,7 @@ export type Database = {
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
           parcel_number?: string | null
+          parking_spaces?: number | null
           parking_ratio?: string | null
           photo_urls?: string[] | null
           property_sub_types?: string[] | null
@@ -939,14 +977,20 @@ export type Database = {
           sale_status?: number | null
           sale_type?: string | null
           scraped_at?: string | null
+          scrape_facts?: Json | null
+          sprinkler_system?: string | null
           source?: string | null
           source_key?: string | null
           source_last_updated?: string | null
           specs?: string | null
           state?: string | null
           stories?: number | null
+          three_phase_power?: boolean | null
+          truck_court_ft?: number | null
           title?: string | null
           updated_at?: string
+          usable_acres?: number | null
+          volts?: string | null
           year_built?: number | null
           year_renovated?: number | null
           zip?: string | null
@@ -1456,6 +1500,7 @@ export type Database = {
       prospect_status: "open" | "converted" | "dead"
       pursuit_stage:
         | "inquiring"
+        | "confirmed"
         | "touring"
         | "negotiation"
         | "due_diligence"
@@ -1633,6 +1678,7 @@ export const Constants = {
       prospect_status: ["open", "converted", "dead"],
       pursuit_stage: [
         "inquiring",
+        "confirmed",
         "touring",
         "negotiation",
         "due_diligence",

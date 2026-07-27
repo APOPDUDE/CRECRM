@@ -43,6 +43,7 @@ export const clientOverviewStages: StageDef<Enums<'client_status'>>[] = [
  * label exists only so every Record over the enum stays exhaustive. */
 export const pursuitStageLabels: Record<Enums<'pursuit_stage'>, string> = {
   inquiring: 'Inquiring',
+  confirmed: 'Confirmed',
   touring: 'Touring',
   negotiation: 'Negotiation',
   due_diligence: 'Due diligence',
@@ -55,6 +56,7 @@ export const pursuitStageLabels: Record<Enums<'pursuit_stage'>, string> = {
  * payment ladder, checklist) is shared with leases. */
 export const pursuitStageSaleLabels: Record<Enums<'pursuit_stage'>, string> = {
   inquiring: 'Inquiring',
+  confirmed: 'Confirmed',
   touring: 'Touring',
   negotiation: 'PSA negotiation',
   due_diligence: 'Due diligence',
@@ -78,8 +80,8 @@ export function pursuitBoardStages(
   const labels = pursuitLabelsFor(dealType)
   const order: Enums<'pursuit_stage'>[] =
     dealType === 'sale'
-      ? ['inquiring', 'touring', 'negotiation', 'due_diligence', 'executed']
-      : ['inquiring', 'touring', 'negotiation', 'executed']
+      ? ['inquiring', 'confirmed', 'touring', 'negotiation', 'due_diligence', 'executed']
+      : ['inquiring', 'confirmed', 'touring', 'negotiation', 'executed']
   return order.map((value) => ({ value, label: labels[value] }))
 }
 
@@ -125,10 +127,11 @@ export function boardSides(
 /** Rank used to pick the "hottest" (furthest-along) pursuit on a property. 'passed' is excluded. */
 const pursuitStageRank: Record<Enums<'pursuit_stage'>, number> = {
   inquiring: 0,
-  touring: 1,
-  negotiation: 2,
-  due_diligence: 3,
-  executed: 4,
+  confirmed: 1,
+  touring: 2,
+  negotiation: 3,
+  due_diligence: 4,
+  executed: 5,
   passed: -1,
 }
 

@@ -181,8 +181,6 @@ export function PropertyDetailPage() {
       } as TablesUpdate<'properties'> & { id: string })
     }
   const typeOptions = Object.entries(propertyKindLabels).map(([value, label]) => ({ value, label }))
-  // Counties with an appraiser adapter — setting one lets a parcel-only property enrich.
-  const countyOptions = ENRICHABLE_COUNTIES.map((c) => ({ value: c, label: c }))
   const saveSubTypes = async (value: FieldVal) => {
     const arr = String(value ?? '')
       .split(',')
@@ -193,6 +191,10 @@ export function PropertyDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Sticks just under the app's own h-14 top bar, so the address and the listing
+          link stay reachable while scrolling a long spec sheet. Negative margins let the
+          bar span the full width of <main>'s padding. */}
+      <div className="sticky top-14 z-20 -mx-4 -mt-4 border-b bg-background px-4 pb-3 pt-4 md:-mx-6 md:-mt-6 md:px-6 md:pt-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button
@@ -204,17 +206,30 @@ export function PropertyDetailPage() {
             <ArrowLeft className="size-4" />
             <span className="sr-only">Back</span>
           </Button>
-          <div>
+          <div className="group/header">
             <a
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
               title="Open in Google Maps"
-              className="group inline-flex items-center gap-1.5 text-xl font-semibold hover:underline"
+              className="group inline-flex items-center gap-2 text-2xl font-semibold hover:underline"
             >
-              {property.address}
-              <MapPin className="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              {/* Full address lives here now — city/state/zip were dropped from the
+                  details grid below, since repeating them there was pure noise. */}
+              {fullAddress}
+              <MapPin className="size-5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
             </a>
+            {/* The Edit button is gone from the bar; this pencil keeps address, city,
+                state, zip and county reachable — they live only in that dialog now. */}
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              title="Edit address & location"
+              className="ml-1.5 align-middle text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/header:opacity-100"
+            >
+              <Pencil className="size-4" />
+              <span className="sr-only">Edit address &amp; location</span>
+            </button>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {property.property_type && <PropertyTypeBadge type={property.property_type} />}
               {sourceLabel && (
@@ -236,7 +251,8 @@ export function PropertyDetailPage() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {listingUrl && (
+          {/* On-market only — a dead link to an off-market listing is worse than no link. */}
+          {listingUrl && property.listing_status === 'on_market' && (
             <Button variant="outline" asChild>
               <a href={listingUrl} target="_blank" rel="noopener noreferrer">
                 View listing
@@ -244,11 +260,8 @@ export function PropertyDetailPage() {
               </a>
             </Button>
           )}
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil className="size-4" />
-            Edit
-          </Button>
         </div>
+      </div>
       </div>
 
       {photos.length > 0 && (
@@ -360,22 +373,38 @@ export function PropertyDetailPage() {
           </div>
           <InlineEditField label="Building SF" value={property.building_sf} kind="sf" onSave={saveField('building_sf')} />
           <InlineEditField label="Land acres" value={property.land_acres} kind="acres" onSave={saveField('land_acres')} />
+          <InlineEditField label="Usable acres" value={property.usable_acres} kind="acres" onSave={saveField('usable_acres')} />
           <InlineEditField label="Year built" value={property.year_built} kind="number" onSave={saveField('year_built')} />
           <InlineEditField label="Type" value={property.property_type} kind="select" options={typeOptions} onSave={saveField('property_type')} />
-          <InlineEditField label="Title" value={property.title} kind="text" onSave={saveField('title')} full />
           <InlineEditField label="Sub-types" value={property.property_sub_types?.join(', ') ?? null} kind="text" onSave={saveSubTypes} />
-          <InlineEditField label="City" value={property.city} kind="text" onSave={saveField('city')} />
-          <InlineEditField label="State" value={property.state} kind="text" onSave={saveField('state')} />
-          <InlineEditField label="Zip" value={property.zip} kind="text" onSave={saveField('zip')} />
-          <InlineEditField label="County" value={property.county} kind="select" options={countyOptions} onSave={saveField('county')} />
+          <InlineEditField label="Dock high doors" value={property.dock_high_doors} kind="number" onSave={saveField('dock_high_doors')} />
+          <InlineEditField label="Grade level doors" value={property.grade_level_doors} kind="number" onSave={saveField('grade_level_doors')} />
+          <InlineEditField label="Dock levelers" value={property.dock_levelers} kind="number" onSave={saveField('dock_levelers')} />
+          <InlineEditField label="Cross docks" value={property.cross_docks} kind="boolean" onSave={saveField('cross_docks')} />
+          <InlineEditField label="Truck court" note="feet" value={property.truck_court_ft} kind="number" onSave={saveField('truck_court_ft')} />
+          <InlineEditField label="Column spacing" value={property.column_spacing} kind="text" onSave={saveField('column_spacing')} />
+          <InlineEditField label="Sprinkler system" value={property.sprinkler_system} kind="text" onSave={saveField('sprinkler_system')} />
+          <InlineEditField label="Construction material" value={property.construction_material} kind="text" onSave={saveField('construction_material')} />
+          <InlineEditField label="Parking spaces" value={property.parking_spaces} kind="number" onSave={saveField('parking_spaces')} />
+          <InlineEditField
+            label="Clear height"
+            note="feet — enter the minimum of a range"
+            value={property.clear_height_ft}
+            kind="number"
+            onSave={saveField('clear_height_ft')}
+          />
+          <InlineEditField
+            label="Three-phase power"
+            value={property.three_phase_power}
+            kind="boolean"
+            onSave={saveField('three_phase_power')}
+          />
+          <InlineEditField label="Volts" note="e.g. 277-480" value={property.volts} kind="text" onSave={saveField('volts')} />
+          <InlineEditField label="Amps" value={property.amps} kind="number" onSave={saveField('amps')} />
           <InlineEditField label="Building class" value={property.building_class} kind="text" onSave={saveField('building_class')} />
-          <InlineEditField label="Construction status" value={property.construction_status} kind="text" onSave={saveField('construction_status')} />
-          <InlineEditField label="Stories" value={property.stories} kind="number" onSave={saveField('stories')} />
           <InlineEditField label="Units" value={property.num_units} kind="number" onSave={saveField('num_units')} />
           <InlineEditField label="Year renovated" value={property.year_renovated} kind="number" onSave={saveField('year_renovated')} />
           <InlineEditField label="Gross leasable area" value={property.gross_leasable_area} kind="text" onSave={saveField('gross_leasable_area')} />
-          <InlineEditField label="Building FAR" value={property.building_far} kind="text" onSave={saveField('building_far')} />
-          <InlineEditField label="Parking ratio" value={property.parking_ratio} kind="text" onSave={saveField('parking_ratio')} />
           <InlineEditField label="Occupancy" value={property.occupancy} kind="text" onSave={saveField('occupancy')} />
           <InlineEditField label="Zoning district" value={property.zoning_district} kind="text" onSave={saveField('zoning_district')} />
           <InlineEditField label="Zoning description" value={property.zoning_description} kind="text" onSave={saveField('zoning_description')} full />
@@ -395,6 +424,7 @@ export function PropertyDetailPage() {
             ]}
             onSave={saveField('listing_status')}
           />
+          <InlineEditField label="Title" value={property.title} kind="text" onSave={saveField('title')} full />
           <InlineEditField label="Broker name" value={property.broker_name} kind="text" onSave={saveField('broker_name')} />
           <InlineEditField label="Broker company" value={property.broker_company} kind="text" onSave={saveField('broker_company')} />
           <InlineEditField label="Broker phone" value={property.broker_phone} kind="text" onSave={saveField('broker_phone')} />
