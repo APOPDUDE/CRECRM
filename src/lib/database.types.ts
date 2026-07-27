@@ -648,6 +648,15 @@ export type Database = {
           size_acres: number | null
           asking_rate_psf: number | null
           status: string
+          office_sf: number | null
+          dock_high_doors: number | null
+          grade_level_doors: number | null
+          dock_levelers: number | null
+          clear_height_ft: number | null
+          three_phase_power: boolean | null
+          volts: string | null
+          amps: number | null
+          notes: string | null
           created_at: string
         }
         Insert: {
@@ -658,6 +667,15 @@ export type Database = {
           size_acres?: number | null
           asking_rate_psf?: number | null
           status?: string
+          office_sf?: number | null
+          dock_high_doors?: number | null
+          grade_level_doors?: number | null
+          dock_levelers?: number | null
+          clear_height_ft?: number | null
+          three_phase_power?: boolean | null
+          volts?: string | null
+          amps?: number | null
+          notes?: string | null
           created_at?: string
         }
         Update: {
@@ -668,6 +686,15 @@ export type Database = {
           size_acres?: number | null
           asking_rate_psf?: number | null
           status?: string
+          office_sf?: number | null
+          dock_high_doors?: number | null
+          grade_level_doors?: number | null
+          dock_levelers?: number | null
+          clear_height_ft?: number | null
+          three_phase_power?: boolean | null
+          volts?: string | null
+          amps?: number | null
+          notes?: string | null
           created_at?: string
         }
         Relationships: [
@@ -1101,6 +1128,7 @@ export type Database = {
           owner_id: string
           payment_received: boolean
           property_id: string
+          sort_order: number
           stage: Database["public"]["Enums"]["pursuit_stage"]
           tour_date: string | null
           tour_time: string | null
@@ -1120,6 +1148,7 @@ export type Database = {
           owner_id: string
           payment_received?: boolean
           property_id: string
+          sort_order?: number
           stage?: Database["public"]["Enums"]["pursuit_stage"]
           tour_date?: string | null
           tour_time?: string | null
@@ -1139,6 +1168,7 @@ export type Database = {
           owner_id?: string
           payment_received?: boolean
           property_id?: string
+          sort_order?: number
           stage?: Database["public"]["Enums"]["pursuit_stage"]
           tour_date?: string | null
           tour_time?: string | null
@@ -1366,6 +1396,35 @@ export type Database = {
           land_baseline_n: number | null
           land_vs_market_pct: number | null
           good_land_deal: boolean | null
+        }
+        Relationships: []
+      }
+      v_unit_specs: {
+        Row: {
+          unit_id: string | null
+          property_id: string | null
+          label: string | null
+          size_sf: number | null
+          size_acres: number | null
+          asking_rate_psf: number | null
+          status: string | null
+          notes: string | null
+          office_sf: number | null
+          warehouse_sf: number | null
+          dock_high_doors: number | null
+          grade_level_doors: number | null
+          dock_levelers: number | null
+          clear_height_ft: number | null
+          three_phase_power: boolean | null
+          volts: string | null
+          amps: number | null
+          dock_high_doors_inherited: boolean | null
+          grade_level_doors_inherited: boolean | null
+          dock_levelers_inherited: boolean | null
+          clear_height_ft_inherited: boolean | null
+          three_phase_power_inherited: boolean | null
+          volts_inherited: boolean | null
+          amps_inherited: boolean | null
         }
         Relationships: []
       }

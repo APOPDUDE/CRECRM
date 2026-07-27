@@ -363,8 +363,8 @@ export function PropertyDetailPage() {
         <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-3 xl:col-span-4">
             <InlineEditField
-              label="Description"
-              note="shows on the prospect preview"
+              label="Notes"
+              note="also shows on the property preview"
               value={property.description}
               kind="text"
               multiline

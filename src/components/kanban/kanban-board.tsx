@@ -5,12 +5,13 @@ import {
   DragOverlay,
   MouseSensor,
   TouchSensor,
-  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { StageDef } from '@/lib/stages'
 import { cn } from '@/lib/utils'
 
@@ -20,11 +21,16 @@ interface KanbanBoardProps<TItem, TStage extends string> {
   getId: (item: TItem) => string
   getStage: (item: TItem) => TStage
   onMove: (item: TItem, toStage: TStage) => void
+  /**
+   * Dropped within its own column — `before` is the card it was dropped above, or null
+   * when it landed at the bottom. Omit to leave columns in their stored order.
+   */
+  onReorder?: (item: TItem, before: TItem | null) => void
   renderCard: (item: TItem) => ReactNode
 }
 
-function DraggableCard({ id, children }: { id: string; children: ReactNode }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id })
+function SortableCard({ id, children }: { id: string; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   return (
     <div
       ref={setNodeRef}
@@ -32,6 +38,7 @@ function DraggableCard({ id, children }: { id: string; children: ReactNode }) {
       {...attributes}
       // No touch-action:none here — a quick swipe should scroll the board on a phone.
       // The TouchSensor uses a press-delay so a long-press (not a swipe) starts a drag.
+      style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn('outline-none', isDragging && 'opacity-40')}
     >
       {children}
@@ -90,6 +97,7 @@ export function KanbanBoard<TItem, TStage extends string>({
   getId,
   getStage,
   onMove,
+  onReorder,
   renderCard,
 }: KanbanBoardProps<TItem, TStage>) {
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -111,8 +119,26 @@ export function KanbanBoard<TItem, TStage extends string>({
     if (!over) return
     const item = items.find((i) => getId(i) === String(active.id))
     if (!item) return
-    const toStage = String(over.id) as TStage
-    if (getStage(item) !== toStage) onMove(item, toStage)
+
+    const overId = String(over.id)
+    // `over` is either a column (dropped on empty space) or another card.
+    const overItem = items.find((i) => getId(i) === overId) ?? null
+    const toStage = (overItem ? getStage(overItem) : overId) as TStage
+
+    if (getStage(item) !== toStage) {
+      onMove(item, toStage)
+      return
+    }
+    if (!onReorder || !overItem || getId(overItem) === getId(item)) return
+
+    // Within one column: work out which card it now sits above. Dragging downwards puts
+    // it *after* the card it was dropped on, so the anchor is that card's successor.
+    const columnItems = items.filter((i) => getStage(i) === toStage)
+    const from = columnItems.findIndex((i) => getId(i) === getId(item))
+    const to = columnItems.findIndex((i) => getId(i) === overId)
+    if (from === -1 || to === -1 || from === to) return
+    const before = from < to ? (columnItems[to + 1] ?? null) : overItem
+    onReorder(item, before)
   }
 
   return (
@@ -132,11 +158,16 @@ export function KanbanBoard<TItem, TStage extends string>({
               count={columnItems.length}
               accent={stageAccent(index, columns.length)}
             >
-              {columnItems.map((item) => (
-                <DraggableCard key={getId(item)} id={getId(item)}>
-                  {renderCard(item)}
-                </DraggableCard>
-              ))}
+              <SortableContext
+                items={columnItems.map(getId)}
+                strategy={verticalListSortingStrategy}
+              >
+                {columnItems.map((item) => (
+                  <SortableCard key={getId(item)} id={getId(item)}>
+                    {renderCard(item)}
+                  </SortableCard>
+                ))}
+              </SortableContext>
             </DroppableColumn>
           )
         })}

@@ -1,8 +1,60 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Tables, TablesInsert } from '@/lib/database.types'
+import type { Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
 
 export type Unit = Tables<'units'>
+
+/**
+ * A unit with the building's specs applied as fallbacks (from the `v_unit_specs` view).
+ * A null spec on the unit means "same as the building", so the view resolves it and the
+ * matching `*_inherited` flag says whether the value came from the suite or the building.
+ * Resolution lives in Postgres so the app, the automations and a phone Claude chat all
+ * agree on what a suite's clear height actually is.
+ */
+export type UnitSpecs = {
+  unit_id: string
+  property_id: string
+  label: string | null
+  size_sf: number | null
+  size_acres: number | null
+  asking_rate_psf: number | null
+  status: string
+  notes: string | null
+  office_sf: number | null
+  /** size_sf - office_sf; null unless both are known. */
+  warehouse_sf: number | null
+  dock_high_doors: number | null
+  grade_level_doors: number | null
+  dock_levelers: number | null
+  clear_height_ft: number | null
+  three_phase_power: boolean | null
+  volts: string | null
+  amps: number | null
+  dock_high_doors_inherited: boolean
+  grade_level_doors_inherited: boolean
+  dock_levelers_inherited: boolean
+  clear_height_ft_inherited: boolean
+  three_phase_power_inherited: boolean
+  volts_inherited: boolean
+  amps_inherited: boolean
+}
+
+/** Units with building specs resolved in — use this wherever specs are displayed. */
+export function useUnitSpecs(propertyIds: string[]) {
+  const ids = Array.from(new Set(propertyIds.filter(Boolean)))
+  return useQuery({
+    queryKey: ['unit-specs', [...ids].sort().join(',')],
+    enabled: ids.length > 0,
+    queryFn: async (): Promise<UnitSpecs[]> => {
+      const { data, error } = await supabase
+        .from('v_unit_specs')
+        .select('*')
+        .in('property_id', ids)
+      if (error) throw error
+      return (data ?? []) as unknown as UnitSpecs[]
+    },
+  })
+}
 
 export const unitsKey = (propertyIds: string[]) => ['units', [...propertyIds].sort().join(',')]
 
@@ -29,6 +81,25 @@ export function useUnits(propertyIds: string[]) {
 
 function invalidateUnits(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ['units'] })
+  qc.invalidateQueries({ queryKey: ['unit-specs'] })
+}
+
+/** Edit a unit — its size, rate, or any of its suite-level specs. */
+export function useUpdateUnit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...values }: TablesUpdate<'units'> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('units')
+        .update(values)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as Unit
+    },
+    onSuccess: () => invalidateUnits(qc),
+  })
 }
 
 export function useCreateUnit() {

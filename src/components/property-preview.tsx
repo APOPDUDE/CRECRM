@@ -49,7 +49,7 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
       await updateProperty.mutateAsync({ id: p.id, description: v == null ? null : String(v) })
       toast.success('Description saved')
     } catch {
-      toast.error('Could not save description')
+      toast.error('Could not save notes')
     }
   }
 
@@ -125,11 +125,11 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
                 </div>
               )}
 
-              {/* Broker-facing description — click to edit right here after talking to the
+              {/* Broker-facing notes — click to edit right here after talking to the
                   listing broker; the same text shows on the property page. */}
               <div className="rounded-lg border p-3">
                 <InlineEditField
-                  label="Description"
+                  label="Notes"
                   value={p.description}
                   kind="text"
                   multiline

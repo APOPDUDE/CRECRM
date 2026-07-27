@@ -115,7 +115,7 @@ export function usePropertyMatches(propertyId: string | undefined) {
         .from('pursuits')
         .select(MATCH_SELECT)
         .eq('property_id', propertyId!)
-        .order('created_at', { ascending: false })
+        .order('sort_order', { ascending: true })
       if (error) throw error
       return withAsking((data as unknown as PursuitRow[]).map(decorate))
     },
@@ -132,7 +132,7 @@ export function useTenantRepMatches(clientId: string | undefined) {
         .from('pursuits')
         .select(MATCH_SELECT)
         .eq('client_id', clientId!)
-        .order('created_at', { ascending: false })
+        .order('sort_order', { ascending: true })
       if (error) throw error
       return withAsking((data as unknown as PursuitRow[]).map(decorate))
     },
@@ -296,6 +296,53 @@ export function useUpdatePursuitDealSide(boardKey: readonly unknown[]) {
     },
     onSettled: () => invalidateMatchViews(queryClient),
   })
+}
+
+/**
+ * Move a card within its column. `before` is the card it should sit above (null = drop to
+ * the bottom); the new position is the midpoint between that card and the one above it, so
+ * a drop is a single row update rather than renumbering the column.
+ */
+export function useReorderPursuit(boardKey: readonly unknown[]) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, sortOrder }: { id: string; sortOrder: number }) => {
+      const { error } = await supabase.from('pursuits').update({ sort_order: sortOrder }).eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, sortOrder }) => {
+      await queryClient.cancelQueries({ queryKey: boardKey })
+      const previous = queryClient.getQueryData<MatchWithRelations[]>(boardKey)
+      queryClient.setQueryData<MatchWithRelations[]>(boardKey, (old) =>
+        old
+          ?.map((m) => (m.id === id ? { ...m, sort_order: sortOrder } : m))
+          .sort((a, b) => a.sort_order - b.sort_order),
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(boardKey, context.previous)
+    },
+    onSettled: () => invalidateMatchViews(queryClient),
+  })
+}
+
+/**
+ * The sort_order a card should take to land directly above `before` within `columnItems`.
+ * Bottom of the column => last position + 1000; otherwise the midpoint of its new
+ * neighbours, which keeps every drop to one update.
+ */
+export function sortOrderBefore(
+  columnItems: { id: string; sort_order: number }[],
+  moving: { id: string },
+  before: { id: string } | null,
+): number {
+  const others = columnItems.filter((i) => i.id !== moving.id)
+  if (others.length === 0) return 1000
+  if (!before) return others[others.length - 1].sort_order + 1000
+  const idx = others.findIndex((i) => i.id === before.id)
+  if (idx <= 0) return others[0].sort_order - 1000
+  return (others[idx - 1].sort_order + others[idx].sort_order) / 2
 }
 
 /** Promote a pursuit's client to an active (signed) client. Returns the client. */

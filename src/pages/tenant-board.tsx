@@ -39,6 +39,8 @@ import {
   useTenantRepMatches,
   useUpdateMatchStage,
   useUpdatePursuitDealSide,
+  useReorderPursuit,
+  sortOrderBefore,
 } from '@/hooks/use-matches'
 import { BoardSideToggle, useBoardSide } from '@/components/board-side-toggle'
 import { PassedRail } from '@/components/passed-rail'
@@ -96,6 +98,7 @@ export function TenantBoardPage() {
   const sides = boardSides(tenantRep?.deal_type, matches)
   const [side, setSide] = useBoardSide(tenantRepId, sides)
   const flipSide = useUpdatePursuitDealSide(tenantRepMatchesKey(tenantRepId ?? ''))
+  const reorder = useReorderPursuit(tenantRepMatchesKey(tenantRepId ?? ''))
   const sideMatches = sides.length > 1 ? matches.filter((m) => m.deal_type === side) : matches
   const sideCounts = {
     lease: matches.filter((m) => m.deal_type === 'lease' && m.stage !== 'passed').length,
@@ -404,6 +407,16 @@ export function TenantBoardPage() {
                   getId={(m) => m.id}
                   getStage={(m) => m.stage}
                   onMove={handleMove}
+                  onReorder={(m, before) =>
+                    reorder.mutate({
+                      id: m.id,
+                      sortOrder: sortOrderBefore(
+                        sideMatches.filter((x) => x.stage === m.stage),
+                        m,
+                        before,
+                      ),
+                    })
+                  }
                   renderCard={(m) => (
                     <MatchCard
                       match={m}

@@ -23,7 +23,7 @@ import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useListingDetail } from '@/hooks/use-listings'
 import { useListingParcels } from '@/hooks/use-listing-parcels'
-import { useUnits, useDeleteUnit, unitSizeLabel } from '@/hooks/use-units'
+import { useUnits, useUnitSpecs, useDeleteUnit, unitSizeLabel } from '@/hooks/use-units'
 import { AddUnitDialog } from '@/components/add-unit-dialog'
 import {
   propertyMatchesKey,
@@ -32,6 +32,8 @@ import {
   usePropertyMatches,
   useUpdateMatchStage,
   useUpdatePursuitDealSide,
+  useReorderPursuit,
+  sortOrderBefore,
 } from '@/hooks/use-matches'
 import { BoardSideToggle, useBoardSide } from '@/components/board-side-toggle'
 import { PassedRail } from '@/components/passed-rail'
@@ -56,6 +58,7 @@ export function PropertyBoardPage() {
     usePropertyMatches(propertyId)
   const { data: parcels = [] } = useListingParcels(listingId)
   const { data: units = [] } = useUnits(parcels.map((p) => p.property_id))
+  const { data: unitSpecs = [] } = useUnitSpecs(parcels.map((p) => p.property_id))
   const updateStage = useUpdateMatchStage(propertyMatchesKey(propertyId ?? ''))
   const createTask = useCreateTask()
   const paymentToggle = usePaymentReceivedToggle()
@@ -79,6 +82,7 @@ export function PropertyBoardPage() {
   const sides = boardSides(listing?.deal_type, matches)
   const [side, setSide] = useBoardSide(listingId, sides)
   const flipSide = useUpdatePursuitDealSide(propertyMatchesKey(propertyId ?? ''))
+  const reorder = useReorderPursuit(propertyMatchesKey(propertyId ?? ''))
   const sideMatches = sides.length > 1 ? matches.filter((m) => m.deal_type === side) : matches
   const sideCounts = {
     lease: matches.filter((m) => m.deal_type === 'lease' && m.stage !== 'passed').length,
@@ -376,6 +380,16 @@ export function PropertyBoardPage() {
                   getId={(m) => m.id}
                   getStage={(m) => m.stage}
                   onMove={handleMove}
+                  onReorder={(m, before) =>
+                    reorder.mutate({
+                      id: m.id,
+                      sortOrder: sortOrderBefore(
+                        sideMatches.filter((x) => x.stage === m.stage),
+                        m,
+                        before,
+                      ),
+                    })
+                  }
                   renderCard={(m) => (
                     <MatchCard
                       match={m}
@@ -445,6 +459,34 @@ export function PropertyBoardPage() {
                           <div className="min-w-0">
                             <div className="truncate font-medium">{u.label || unitSizeLabel(u)}</div>
                             {sub && <div className="truncate text-xs text-muted-foreground">{sub}</div>}
+                            {(() => {
+                              // Suite specs, with building values filled in behind them.
+                              const s = unitSpecs.find((x) => x.unit_id === u.id)
+                              if (!s) return null
+                              const bits = [
+                                s.office_sf != null
+                                  ? `${s.office_sf.toLocaleString()} SF office`
+                                  : null,
+                                s.dock_high_doors != null
+                                  ? `${s.dock_high_doors} DH${s.dock_high_doors_inherited ? '*' : ''}`
+                                  : null,
+                                s.grade_level_doors != null
+                                  ? `${s.grade_level_doors} GL${s.grade_level_doors_inherited ? '*' : ''}`
+                                  : null,
+                                s.clear_height_ft != null
+                                  ? `${s.clear_height_ft}' clear${s.clear_height_ft_inherited ? '*' : ''}`
+                                  : null,
+                              ].filter(Boolean)
+                              if (!bits.length) return null
+                              return (
+                                <div
+                                  className="truncate text-xs text-muted-foreground"
+                                  title="* inherited from the building"
+                                >
+                                  {bits.join(' · ')}
+                                </div>
+                              )
+                            })()}
                           </div>
                           <button
                             type="button"
