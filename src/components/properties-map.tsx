@@ -5,6 +5,7 @@ import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-le
 import 'leaflet/dist/leaflet.css'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { Property } from '@/hooks/use-properties'
+import type { OwnerContext } from '@/hooks/use-owners'
 import { formatSf } from '@/lib/format'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
@@ -58,14 +59,52 @@ const PIN = {
   off: '#dc2626',
 } as const
 
+/**
+ * The owner lens answers a different question: not "is it listed" but "can we reach whoever
+ * owns it". Verified = we hold a contact confirmed to speak for the owner.
+ */
+const OWNER_PIN = {
+  verified: '#2563eb',
+  contact: '#f59e0b',
+  owner_only: '#94a3b8',
+  none: '#cbd5e1',
+} as const
+
+export type MapColorBy = 'market' | 'owner'
+
+function ownerPin(ctx: OwnerContext | undefined): string {
+  if (!ctx?.owner_id) return OWNER_PIN.none
+  if (ctx.owner_contact_verified) return OWNER_PIN.verified
+  if ((ctx.owner_contact_count ?? 0) > 0) return OWNER_PIN.contact
+  return OWNER_PIN.owner_only
+}
+
+const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
+  market: [
+    { c: PIN.on, label: 'On market' },
+    { c: PIN.off, label: 'Off market' },
+    { c: PIN.executed, label: 'Executed' },
+  ],
+  owner: [
+    { c: OWNER_PIN.verified, label: 'Verified contact' },
+    { c: OWNER_PIN.contact, label: 'Contact, unverified' },
+    { c: OWNER_PIN.owner_only, label: 'Owner known, no contact' },
+    { c: OWNER_PIN.none, label: 'No owner yet' },
+  ],
+}
+
 export function PropertiesMap({
   properties,
   goodDealIds,
   executedIds,
+  ownerContext,
+  colorBy = 'market',
 }: {
   properties: Property[]
   goodDealIds?: Set<string>
   executedIds?: Set<string>
+  ownerContext?: Map<string, OwnerContext>
+  colorBy?: MapColorBy
 }) {
   const navigate = useNavigate()
 
@@ -100,12 +139,8 @@ export function PropertiesMap({
             ? `Showing ${shown.length} of ${points.length} mapped properties — narrow your filters to see the rest.`
             : `${points.length} mapped ${points.length === 1 ? 'property' : 'properties'} · hover a pin for details, click to open.`}
         </p>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {[
-            { c: PIN.on, label: 'On market' },
-            { c: PIN.off, label: 'Off market' },
-            { c: PIN.executed, label: 'Executed' },
-          ].map(({ c, label }) => (
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          {LEGENDS[colorBy].map(({ c, label }) => (
             <span key={label} className="inline-flex items-center gap-1.5">
               <span
                 className="inline-block size-2.5 rounded-full ring-1 ring-white"
@@ -133,15 +168,25 @@ export function PropertiesMap({
           {shown.map(({ id, lat, lng, p }) => {
             const executed = executedIds?.has(id)
             const off = p.listing_status === 'off_market'
+            const ctx = ownerContext?.get(id)
             // Executed wins over market status — a closed deal is usually off-market too.
-            const fillColor = executed ? PIN.executed : off ? PIN.off : PIN.on
+            const fillColor =
+              colorBy === 'owner'
+                ? ownerPin(ctx)
+                : executed
+                  ? PIN.executed
+                  : off
+                    ? PIN.off
+                    : PIN.on
             const loc = [p.city, p.state].filter(Boolean).join(', ')
             const bits = [
               p.property_type ? propertyKindLabels[p.property_type] : null,
               formatSf(p.building_sf),
+              p.land_acres != null ? `${p.land_acres} AC` : null,
               executed ? 'Executed' : off ? 'Off market' : 'On market',
               goodDealIds?.has(id) ? 'Good deal' : null,
             ].filter(Boolean)
+            const portfolio = ctx?.owner_property_count ?? 0
             return (
               <CircleMarker
                 key={id}
@@ -151,10 +196,31 @@ export function PropertiesMap({
                 eventHandlers={{ click: () => navigate(`/properties/${id}`) }}
               >
                 <Tooltip direction="top" offset={[0, -6]}>
-                  <div className="text-xs leading-snug">
+                  <div className="max-w-[15rem] text-xs leading-snug">
                     <div className="font-medium">{p.address}</div>
                     {loc && <div className="opacity-70">{loc}</div>}
                     {bits.length > 0 && <div className="opacity-70">{bits.join(' · ')}</div>}
+                    {ctx?.owner_name && (
+                      <div className="mt-1 border-t pt-1">
+                        <div className="font-medium">{ctx.owner_name}</div>
+                        <div className="opacity-70">
+                          {ctx.owner_contact_verified
+                            ? 'Verified contact'
+                            : (ctx.owner_contact_count ?? 0) > 0
+                              ? `${ctx.owner_contact_count} contact${ctx.owner_contact_count === 1 ? '' : 's'}, unverified`
+                              : 'No contact yet'}
+                          {portfolio > 1 ? ` · ${portfolio} properties` : ''}
+                        </div>
+                        {(ctx.comm_count ?? 0) > 0 && (
+                          <div className="opacity-70">
+                            {ctx.comm_count} conversation{ctx.comm_count === 1 ? '' : 's'}
+                          </div>
+                        )}
+                        {ctx.owner_do_not_call && (
+                          <div className="font-medium text-red-600">Do not call</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Tooltip>
               </CircleMarker>

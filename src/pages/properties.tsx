@@ -35,10 +35,12 @@ import {
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
-import { PropertiesMap } from '@/components/properties-map'
+import { PropertiesMap, type MapColorBy } from '@/components/properties-map'
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
+import type { OwnerContext } from '@/hooks/use-owners'
 import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
+import { useOwnerContext } from '@/hooks/use-owners'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -74,12 +76,17 @@ type ColumnId =
   | 'type' | 'location' | 'city' | 'county' | 'size' | 'building_sf'
   | 'land_acres' | 'asking' | 'deals' | 'market_status' | 'days_on_market'
   | 'year_built' | 'zoning' | 'occupancy'
+  | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted'
 
 type ColumnDef = {
   id: ColumnId
   label: string
   className?: string
-  cell: (p: PropertyWithCounts, asking: CurrentAsking | undefined) => ReactNode
+  cell: (
+    p: PropertyWithCounts,
+    asking: CurrentAsking | undefined,
+    owner: OwnerContext | undefined,
+  ) => ReactNode
 }
 
 const MUTED = 'text-muted-foreground'
@@ -110,6 +117,33 @@ const COLUMN_DEFS: ColumnDef[] = [
   { id: 'year_built', label: 'Year built', className: MUTED, cell: (p) => (p.year_built != null ? String(p.year_built) : '') },
   { id: 'zoning', label: 'Zoning', className: MUTED, cell: (p) => p.zoning_description ?? p.zoning_district ?? '' },
   { id: 'occupancy', label: 'Occupancy', className: MUTED, cell: (p) => p.occupancy ?? '' },
+  { id: 'owner', label: 'Owner', className: MUTED, cell: (_p, _a, o) => o?.owner_name ?? '' },
+  {
+    id: 'owner_contact',
+    label: 'Owner contact',
+    cell: (_p, _a, o) =>
+      !o?.owner_id ? (
+        <span className="text-xs text-muted-foreground">—</span>
+      ) : o.owner_contact_verified ? (
+        <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">Verified</Badge>
+      ) : (o.owner_contact_count ?? 0) > 0 ? (
+        <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Unverified</Badge>
+      ) : (
+        <span className="text-xs text-muted-foreground">None</span>
+      ),
+  },
+  {
+    id: 'portfolio',
+    label: 'Portfolio',
+    className: MUTED,
+    cell: (_p, _a, o) => ((o?.owner_property_count ?? 0) > 1 ? `${o!.owner_property_count} props` : ''),
+  },
+  {
+    id: 'last_contacted',
+    label: 'Last contacted',
+    className: MUTED,
+    cell: (_p, _a, o) => (o?.last_contacted_at ? new Date(o.last_contacted_at).toLocaleDateString() : ''),
+  },
 ]
 
 const DEFAULT_COLUMNS: ColumnId[] = ['type', 'location', 'size', 'asking', 'deals']
@@ -124,6 +158,7 @@ export function PropertiesPage() {
   const { data: goodDealIds } = useGoodDealIds()
   const { data: executedIds } = useExecutedPropertyIds()
   const { data: askingMap } = useCurrentAsking()
+  const { data: ownerCtx } = useOwnerContext()
   const deleteProperty = useDeleteProperty()
   // background-drain the lat/lng backfill (25/visit, Nominatim-throttled) so scrape rows
   // without coordinates progressively gain map pins. No-op once everything is geocoded.
@@ -143,7 +178,9 @@ export function PropertiesPage() {
   const [priceMin, setPriceMin] = usePersistentState('properties:priceMin', '')
   const [priceMax, setPriceMax] = usePersistentState('properties:priceMax', '')
   const [columns, setColumns] = usePersistentState<ColumnId[]>('properties:columns', DEFAULT_COLUMNS)
+  const [ownerFilter, setOwnerFilter] = usePersistentState('properties:owner', 'all')
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
+  const [colorBy, setColorBy] = usePersistentState<MapColorBy>('properties:colorBy', 'market')
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
@@ -197,6 +234,13 @@ export function PropertiesPage() {
         if (dealType === 'lease' && ask?.rate == null) return false
         if (dealType === 'sale' && ask?.price == null) return false
       }
+      if (ownerFilter !== 'all') {
+        const o = ownerCtx?.get(p.id)
+        if (ownerFilter === 'verified' && !o?.owner_contact_verified) return false
+        if (ownerFilter === 'any' && (o?.owner_contact_count ?? 0) === 0) return false
+        if (ownerFilter === 'none' && (o?.owner_contact_count ?? 0) > 0) return false
+        if (ownerFilter === 'known' && !o?.owner_id) return false
+      }
       if (ptype !== 'all' && p.property_type !== ptype) return false
       if (county !== 'all' && p.county !== county) return false
       if (sfLo != null && (p.building_sf == null || p.building_sf < sfLo)) return false
@@ -210,12 +254,12 @@ export function PropertiesPage() {
       }
       return true
     })
-  }, [properties, askingMap, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+  }, [properties, askingMap, ownerCtx, ownerFilter, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
 
   // Paginate the table display (data is fully loaded; this just bounds the DOM).
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -226,6 +270,7 @@ export function PropertiesPage() {
     (status !== 'all' ? 1 : 0) +
     (dealType !== 'all' ? 1 : 0) +
     (ptype !== 'all' ? 1 : 0) +
+    (ownerFilter !== 'all' ? 1 : 0) +
     (county !== 'all' ? 1 : 0) +
     (sfMin || sfMax ? 1 : 0) +
     (acMin || acMax ? 1 : 0) +
@@ -234,6 +279,7 @@ export function PropertiesPage() {
   const clearFilters = () => {
     setStatus('all')
     setPtype('all')
+    setOwnerFilter('all')
     setCounty('all')
     setSfMin('')
     setSfMax('')
@@ -329,6 +375,29 @@ export function PropertiesPage() {
               <span className="hidden lg:inline">Map</span>
             </Button>
           </div>
+          {/* Which question the pin colours answer: "is it listed" vs "can we reach the owner". */}
+          {view === 'map' && (
+            <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
+              <Button
+                variant={colorBy === 'market' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="rounded-none"
+                onClick={() => setColorBy('market')}
+                title="Colour pins by market status"
+              >
+                Market
+              </Button>
+              <Button
+                variant={colorBy === 'owner' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="rounded-none border-l"
+                onClick={() => setColorBy('owner')}
+                title="Colour pins by whether we can reach the owner"
+              >
+                Owner
+              </Button>
+            </div>
+          )}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline">
@@ -382,6 +451,21 @@ export function PropertiesPage() {
                         {label}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Owner contact</Label>
+                <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any</SelectItem>
+                    <SelectItem value="verified">Verified contact only</SelectItem>
+                    <SelectItem value="any">Has a contact (any confidence)</SelectItem>
+                    <SelectItem value="known">Owner known</SelectItem>
+                    <SelectItem value="none">No contact yet</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -493,7 +577,13 @@ export function PropertiesPage() {
           <p className="text-sm text-muted-foreground">No properties match “{search.trim()}”</p>
         </div>
       ) : view === 'map' ? (
-        <PropertiesMap properties={filtered} goodDealIds={goodDealIds} executedIds={executedIds} />
+        <PropertiesMap
+          properties={filtered}
+          goodDealIds={goodDealIds}
+          executedIds={executedIds}
+          ownerContext={ownerCtx}
+          colorBy={colorBy}
+        />
       ) : (
         <>
           {/* Desktop table */}
@@ -538,7 +628,7 @@ export function PropertiesPage() {
                     </TableCell>
                     {visibleColumns.map((c) => (
                       <TableCell key={c.id} className={c.className}>
-                        {c.cell(property, askingMap?.get(property.id))}
+                        {c.cell(property, askingMap?.get(property.id), ownerCtx?.get(property.id))}
                       </TableCell>
                     ))}
                     <TableCell>{rowMenu(property)}</TableCell>

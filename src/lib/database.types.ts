@@ -299,40 +299,246 @@ export type Database = {
           },
         ]
       }
+      owners: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          kind: Database["public"]["Enums"]["owner_kind"]
+          mailing_address: string | null
+          mailing_city: string | null
+          mailing_state: string | null
+          mailing_zip: string | null
+          normalized_name: string | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          kind?: Database["public"]["Enums"]["owner_kind"]
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["owner_kind"]
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      owner_contacts: {
+        Row: {
+          confidence: Database["public"]["Enums"]["owner_contact_confidence"]
+          contact_id: string
+          created_at: string
+          id: string
+          match_basis: string | null
+          notes: string | null
+          owner_id: string
+          role: string | null
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          confidence?: Database["public"]["Enums"]["owner_contact_confidence"]
+          contact_id: string
+          created_at?: string
+          id?: string
+          match_basis?: string | null
+          notes?: string | null
+          owner_id: string
+          role?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          confidence?: Database["public"]["Enums"]["owner_contact_confidence"]
+          contact_id?: string
+          created_at?: string
+          id?: string
+          match_basis?: string | null
+          notes?: string | null
+          owner_id?: string
+          role?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_contacts_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communications: {
+        Row: {
+          body: string | null
+          channel: Database["public"]["Enums"]["comm_channel"]
+          contact_id: string | null
+          created_at: string
+          direction: Database["public"]["Enums"]["comm_direction"]
+          disposition: string | null
+          external_id: string | null
+          id: string
+          occurred_at: string
+          owner_id: string | null
+          phone: string | null
+          property_id: string | null
+          raw: Json | null
+          source: Database["public"]["Enums"]["comm_source"]
+          subject: string | null
+          tags: string[] | null
+          transcript: string | null
+        }
+        Insert: {
+          body?: string | null
+          channel: Database["public"]["Enums"]["comm_channel"]
+          contact_id?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["comm_direction"]
+          disposition?: string | null
+          external_id?: string | null
+          id?: string
+          occurred_at: string
+          owner_id?: string | null
+          phone?: string | null
+          property_id?: string | null
+          raw?: Json | null
+          source: Database["public"]["Enums"]["comm_source"]
+          subject?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+        }
+        Update: {
+          body?: string | null
+          channel?: Database["public"]["Enums"]["comm_channel"]
+          contact_id?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["comm_direction"]
+          disposition?: string | null
+          external_id?: string | null
+          id?: string
+          occurred_at?: string
+          owner_id?: string | null
+          phone?: string | null
+          property_id?: string | null
+          raw?: Json | null
+          source?: Database["public"]["Enums"]["comm_source"]
+          subject?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communications_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
+          campaign_lists: string[] | null
           company_id: string | null
           created_at: string
+          do_not_call: boolean
           email: string | null
           first_name: string
+          hubspot_id: string | null
           id: string
+          import_addresses: string[] | null
+          last_contacted_at: string | null
           last_name: string | null
           notes: string | null
-          phone: string
+          phone: string | null
+          phone_grade: string | null
+          phone_type: string | null
+          source_system: string | null
+          terrakotta_id: string | null
           title: string | null
           updated_at: string
         }
         Insert: {
+          campaign_lists?: string[] | null
           company_id?: string | null
           created_at?: string
+          do_not_call?: boolean
           email?: string | null
           first_name: string
+          hubspot_id?: string | null
           id?: string
+          import_addresses?: string[] | null
+          last_contacted_at?: string | null
           last_name?: string | null
           notes?: string | null
           phone?: string | null
+          phone_grade?: string | null
+          phone_type?: string | null
+          source_system?: string | null
+          terrakotta_id?: string | null
           title?: string | null
           updated_at?: string
         }
         Update: {
+          campaign_lists?: string[] | null
           company_id?: string | null
           created_at?: string
+          do_not_call?: boolean
           email?: string | null
           first_name?: string
+          hubspot_id?: string | null
           id?: string
+          import_addresses?: string[] | null
+          last_contacted_at?: string | null
           last_name?: string | null
           notes?: string | null
           phone?: string | null
+          phone_grade?: string | null
+          phone_type?: string | null
+          source_system?: string | null
+          terrakotta_id?: string | null
           title?: string | null
           updated_at?: string
         }
@@ -845,6 +1051,7 @@ export type Database = {
           lng: number | null
           num_units: number | null
           occupancy: string | null
+          owner_id: string | null
           on_ground_lease: boolean | null
           opportunity_zone: boolean | null
           parcel_number: string | null
@@ -918,6 +1125,7 @@ export type Database = {
           lng?: number | null
           num_units?: number | null
           occupancy?: string | null
+          owner_id?: string | null
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
           parcel_number?: string | null
@@ -992,6 +1200,7 @@ export type Database = {
           lng?: number | null
           num_units?: number | null
           occupancy?: string | null
+          owner_id?: string | null
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
           parcel_number?: string | null
@@ -1352,6 +1561,25 @@ export type Database = {
       }
     }
     Views: {
+      v_property_owner_context: {
+        Row: {
+          property_id: string | null
+          owner_id: string | null
+          owner_name: string | null
+          owner_kind: Database['public']['Enums']['owner_kind'] | null
+          owner_mailing_address: string | null
+          owner_property_count: number | null
+          owner_portfolio_sf: number | null
+          owner_portfolio_acres: number | null
+          owner_contact_count: number | null
+          owner_confirmed_contact_count: number | null
+          owner_contact_verified: boolean | null
+          owner_do_not_call: boolean | null
+          comm_count: number | null
+          last_contacted_at: string | null
+        }
+        Relationships: []
+      }
       v_county_market_stats: {
         Row: {
           county: string | null
@@ -1525,8 +1753,13 @@ export type Database = {
         | "relocation"
         | "investment"
       client_status: "prospect" | "searching" | "negotiating" | "closed" | "lost"
+      comm_channel: "call" | "sms" | "email" | "note" | "meeting" | "other"
+      comm_direction: "inbound" | "outbound" | "unknown"
+      comm_source: "hubspot" | "terrakotta" | "smartercontact" | "ghl" | "manual"
       comp_kind: "asking" | "executed"
       company_type: "landlord" | "tenant" | "broker" | "other" | "vendor"
+      owner_contact_confidence: "confirmed" | "likely" | "unconfirmed"
+      owner_kind: "individual" | "entity" | "government" | "unknown"
       deal_flag_status: "pending" | "dismissed"
       deal_type: "lease" | "sale" | "both"
       engagement_status: "active" | "lost"
