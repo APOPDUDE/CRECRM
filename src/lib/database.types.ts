@@ -312,6 +312,9 @@ export type Database = {
           normalized_name: string | null
           notes: string | null
           updated_at: string
+          verification_note: string | null
+          verification_status: Database["public"]["Enums"]["owner_verification_status"]
+          verification_updated_at: string | null
         }
         Insert: {
           created_at?: string
@@ -324,6 +327,9 @@ export type Database = {
           mailing_zip?: string | null
           notes?: string | null
           updated_at?: string
+          verification_note?: string | null
+          verification_status?: Database["public"]["Enums"]["owner_verification_status"]
+          verification_updated_at?: string | null
         }
         Update: {
           created_at?: string
@@ -336,6 +342,9 @@ export type Database = {
           mailing_zip?: string | null
           notes?: string | null
           updated_at?: string
+          verification_note?: string | null
+          verification_status?: Database["public"]["Enums"]["owner_verification_status"]
+          verification_updated_at?: string | null
         }
         Relationships: []
       }
@@ -1575,6 +1584,9 @@ export type Database = {
           owner_kind: Database['public']['Enums']['owner_kind'] | null
           owner_mailing_address: string | null
           owner_property_count: number | null
+          owner_verification_status:
+            | Database["public"]["Enums"]["owner_verification_status"]
+            | null
           owner_portfolio_sf: number | null
           owner_portfolio_acres: number | null
           owner_contact_count: number | null
@@ -1746,6 +1758,7 @@ export type Database = {
         Args: { p_client_id: string }
         Returns: Database["public"]["Tables"]["clients"]["Row"]
       }
+      mark_owners_exported: { Args: { p_property_ids: string[] }; Returns: Json }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
       sweep_mark_off_market: {
         Args: { p_seen_property_ids: string[] }
@@ -1766,6 +1779,13 @@ export type Database = {
       company_type: "landlord" | "tenant" | "broker" | "other" | "vendor"
       owner_contact_confidence: "confirmed" | "likely" | "unconfirmed"
       owner_kind: "individual" | "entity" | "government" | "unknown"
+      owner_verification_status:
+        | "unverified"
+        | "exported"
+        | "calling"
+        | "verified"
+        | "unreachable"
+        | "do_not_call"
       deal_flag_status: "pending" | "dismissed"
       deal_type: "lease" | "sale" | "both"
       engagement_status: "active" | "lost"

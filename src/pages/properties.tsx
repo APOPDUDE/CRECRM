@@ -43,6 +43,7 @@ import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
 import { useOwnerContext } from '@/hooks/use-owners'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
 import { usePersistentState } from '@/hooks/use-persistent-state'
+import { supabase } from '@/lib/supabase'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import { withinRadius, type RadiusFilter } from '@/lib/geo'
@@ -296,6 +297,19 @@ export function PropertiesPage() {
       ]
     })
     downloadCsv(`skiptrace-${todayStamp()}-${rows.length}.csv`, toCsv(headers, rows))
+    // Stamp the pipeline: these owners are now "out for skip-trace", so the map can show
+    // what's already in flight and the next export can exclude them. Fire-and-forget —
+    // the download must not hinge on the write.
+    void supabase
+      .rpc('mark_owners_exported', { p_property_ids: filtered.map((p) => p.id) })
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error('Export downloaded, but marking owners as exported failed.')
+        } else {
+          const n = (data as { owners_marked?: number } | null)?.owners_marked ?? 0
+          if (n > 0) toast.success(`${n} owner${n === 1 ? '' : 's'} marked as exported`)
+        }
+      })
   }
 
   // Paginate the table display (data is fully loaded; this just bounds the DOM).
