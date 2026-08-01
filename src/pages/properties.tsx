@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Columns3, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,8 @@ import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
+import { withinRadius, type RadiusFilter } from '@/lib/geo'
+import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
 
 /** $14.50 PSF (lease) or $5,200,000 (sale) — from the property's current asking comp. */
 function askingLabel(a: CurrentAsking | undefined): string | null {
@@ -185,6 +187,11 @@ export function PropertiesPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
+  // Radius search: the centre lives here (not in the map) because it also filters the table
+  // and drives the skip-trace export.
+  const [radius, setRadius] = usePersistentState<RadiusFilter | null>('properties:radius', null)
+  const [radiusMode, setRadiusMode] = useState(false)
+  const [radiusMiles, setRadiusMiles] = usePersistentState('properties:radiusMiles', 2)
 
   // Guard against a tampered/legacy localStorage value that isn't an array.
   const safeColumns = Array.isArray(columns) ? columns : DEFAULT_COLUMNS
@@ -252,14 +259,44 @@ export function PropertiesPage() {
         if (prLo != null && (price == null || price < prLo)) return false
         if (prHi != null && (price == null || price > prHi)) return false
       }
+      // Radius last: it's the most expensive test, so everything cheap rejects first.
+      if (radius && !withinRadius(radius, p.lat, p.lng)) return false
       return true
     })
-  }, [properties, askingMap, ownerCtx, ownerFilter, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+  }, [properties, askingMap, ownerCtx, ownerFilter, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, radius])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax])
+  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, radius])
+
+  /**
+   * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
+   * join key that has to survive Terrakotta and GHL and come back to the right owner.
+   */
+  const exportCsv = () => {
+    const headers = [
+      'Parcel ID', 'Address', 'City', 'State', 'Zip', 'County',
+      'Owner Name', 'Owner Mailing Address', 'Property Type', 'Building SF', 'Acres',
+      'Year Built', 'Last Sale Date', 'Last Sale Price',
+      'Owner Verified', 'Known Contacts', 'Last Contacted', 'CRM Property ID',
+    ]
+    const rows = filtered.map((p) => {
+      const o = ownerCtx?.get(p.id)
+      return [
+        p.parcel_number, p.address, p.city, p.state, p.zip, p.county,
+        o?.owner_name ?? p.owner_name, p.owner_mailing_address,
+        p.property_type ? propertyKindLabels[p.property_type] : null,
+        p.building_sf, p.land_acres, p.year_built,
+        p.last_sale_date, p.last_sale_price,
+        o?.owner_contact_verified ? 'yes' : 'no',
+        o?.owner_contact_count ?? 0,
+        o?.last_contacted_at ? new Date(o.last_contacted_at).toISOString().slice(0, 10) : null,
+        p.id,
+      ]
+    })
+    downloadCsv(`skiptrace-${todayStamp()}-${rows.length}.csv`, toCsv(headers, rows))
+  }
 
   // Paginate the table display (data is fully loaded; this just bounds the DOM).
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -577,13 +614,67 @@ export function PropertiesPage() {
           <p className="text-sm text-muted-foreground">No properties match “{search.trim()}”</p>
         </div>
       ) : view === 'map' ? (
-        <PropertiesMap
-          properties={filtered}
-          goodDealIds={goodDealIds}
-          executedIds={executedIds}
-          ownerContext={ownerCtx}
-          colorBy={colorBy}
-        />
+        <div className="space-y-2">
+          {/* Radius search: pick a centre on the map, then tune the distance. */}
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
+            <Button
+              size="sm"
+              variant={radiusMode ? 'default' : 'outline'}
+              onClick={() => setRadiusMode((v) => !v)}
+            >
+              <Crosshair className="size-4" />
+              {radiusMode ? 'Click the map…' : radius ? 'Move centre' : 'Radius search'}
+            </Button>
+            {radius && (
+              <>
+                <label className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Radius</span>
+                  <input
+                    type="range"
+                    min={0.25}
+                    max={25}
+                    step={0.25}
+                    value={radiusMiles}
+                    onChange={(e) => {
+                      const mi = Number(e.target.value)
+                      setRadiusMiles(mi)
+                      setRadius((r) => (r ? { ...r, miles: mi } : r))
+                    }}
+                    className="w-40 accent-primary"
+                  />
+                  <span className="w-16 tabular-nums font-medium">{radiusMiles} mi</span>
+                </label>
+                <Button size="sm" variant="ghost" onClick={() => { setRadius(null); setRadiusMode(false) }}>
+                  Clear
+                </Button>
+              </>
+            )}
+            <span className="ml-auto text-sm text-muted-foreground">
+              {radius
+                ? `${filtered.length.toLocaleString()} in radius`
+                : radiusMode
+                  ? 'Click anywhere on the map to drop the centre'
+                  : `${filtered.length.toLocaleString()} matching`}
+            </span>
+            <Button size="sm" variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
+              <Download className="size-4" />
+              Export CSV
+            </Button>
+          </div>
+          <PropertiesMap
+            properties={filtered}
+            goodDealIds={goodDealIds}
+            executedIds={executedIds}
+            ownerContext={ownerCtx}
+            colorBy={colorBy}
+            radius={radius}
+            radiusMode={radiusMode}
+            onPickCentre={(lat, lng) => {
+              setRadius({ lat, lng, miles: radiusMiles })
+              setRadiusMode(false)
+            }}
+          />
+        </div>
       ) : (
         <>
           {/* Desktop table */}

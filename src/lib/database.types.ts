@@ -1039,6 +1039,8 @@ export type Database = {
           lat: number | null
           listed_at: string | null
           listing_status: Database["public"]["Enums"]["listing_market_status"]
+          last_sale_date: string | null
+          last_sale_price: number | null
           last_seen_in_sweep: string | null
           owner_name: string | null
           owner_mailing_address: string | null
@@ -1113,6 +1115,8 @@ export type Database = {
           lat?: number | null
           listed_at?: string | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
+          last_sale_date?: string | null
+          last_sale_price?: number | null
           last_seen_in_sweep?: string | null
           owner_name?: string | null
           owner_mailing_address?: string | null
@@ -1188,6 +1192,8 @@ export type Database = {
           lat?: number | null
           listed_at?: string | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
+          last_sale_date?: string | null
+          last_sale_price?: number | null
           last_seen_in_sweep?: string | null
           owner_name?: string | null
           owner_mailing_address?: string | null

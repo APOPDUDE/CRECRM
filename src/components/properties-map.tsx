@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
-import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import { Circle, CircleMarker, MapContainer, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { Property } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import { formatSf } from '@/lib/format'
+import type { RadiusFilter } from '@/lib/geo'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
 // the comfortable ceiling on a phone. Desktop has the headroom for the whole book, so
@@ -35,14 +36,26 @@ const finite = (n: number | null | undefined): n is number =>
 
 type MapPoint = { id: string; lat: number; lng: number; p: Property }
 
-/** Refit the viewport whenever the plotted set changes (i.e. when filters change). */
-function FitToPoints({ points }: { points: MapPoint[] }) {
+/**
+ * Refit the viewport whenever the plotted set changes (i.e. when filters change).
+ * Suspended while a radius search is active — refitting there would yank the map away
+ * from the circle the user is still adjusting.
+ */
+function FitToPoints({ points, suspended }: { points: MapPoint[]; suspended?: boolean }) {
   const map = useMap()
   useEffect(() => {
-    if (points.length === 0) return
+    if (suspended || points.length === 0) return
     const bounds = L.latLngBounds(points.map((pt) => [pt.lat, pt.lng] as [number, number]))
     map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 })
-  }, [points, map])
+  }, [points, map, suspended])
+  return null
+}
+
+/** In radius mode, a map click (re)places the search centre. */
+function RadiusPicker({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click: (e) => onPick(e.latlng.lat, e.latlng.lng),
+  })
   return null
 }
 
@@ -99,12 +112,19 @@ export function PropertiesMap({
   executedIds,
   ownerContext,
   colorBy = 'market',
+  radius,
+  radiusMode = false,
+  onPickCentre,
 }: {
   properties: Property[]
   goodDealIds?: Set<string>
   executedIds?: Set<string>
   ownerContext?: Map<string, OwnerContext>
   colorBy?: MapColorBy
+  /** Active radius search; the parent owns it because it also filters the table + export. */
+  radius?: RadiusFilter | null
+  radiusMode?: boolean
+  onPickCentre?: (lat: number, lng: number) => void
 }) {
   const navigate = useNavigate()
 
@@ -164,7 +184,22 @@ export function PropertiesMap({
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
           />
-          <FitToPoints points={shown} />
+          <FitToPoints points={shown} suspended={radiusMode || !!radius} />
+          {radiusMode && onPickCentre && <RadiusPicker onPick={onPickCentre} />}
+          {radius && (
+            <Circle
+              center={[radius.lat, radius.lng]}
+              radius={radius.miles * 1609.344}
+              pathOptions={{
+                color: '#2563eb',
+                weight: 2,
+                fillColor: '#2563eb',
+                fillOpacity: 0.08,
+              }}
+              // let clicks fall through to the map so the centre stays re-placeable
+              interactive={false}
+            />
+          )}
           {shown.map(({ id, lat, lng, p }) => {
             const executed = executedIds?.has(id)
             const off = p.listing_status === 'off_market'
