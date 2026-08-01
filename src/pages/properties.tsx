@@ -123,16 +123,12 @@ const COLUMN_DEFS: ColumnDef[] = [
   { id: 'owner', label: 'Owner', className: MUTED, cell: (_p, _a, o) => o?.owner_name ?? '' },
   {
     id: 'owner_contact',
-    label: 'Owner contact',
+    label: 'Verified owner',
     cell: (_p, _a, o) =>
-      !o?.owner_id ? (
-        <span className="text-xs text-muted-foreground">—</span>
-      ) : o.owner_contact_verified ? (
+      o?.owner_contact_verified ? (
         <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">Verified</Badge>
-      ) : (o.owner_contact_count ?? 0) > 0 ? (
-        <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Unverified</Badge>
       ) : (
-        <span className="text-xs text-muted-foreground">None</span>
+        <span className="text-xs text-muted-foreground">—</span>
       ),
   },
   {
@@ -181,7 +177,12 @@ export function PropertiesPage() {
   const [priceMin, setPriceMin] = usePersistentState('properties:priceMin', '')
   const [priceMax, setPriceMax] = usePersistentState('properties:priceMax', '')
   const [columns, setColumns] = usePersistentState<ColumnId[]>('properties:columns', DEFAULT_COLUMNS)
-  const [ownerFilter, setOwnerFilter] = usePersistentState('properties:owner', 'all')
+  const [ownerFilterRaw, setOwnerFilter] = usePersistentState('properties:owner', 'all')
+  // the filter used to have 4 tiers; a persisted legacy value ('any'/'known'/'none') would
+  // render an empty select and silently filter nothing — normalize it to 'all'
+  const ownerFilter = ['all', 'verified', 'unverified'].includes(ownerFilterRaw)
+    ? ownerFilterRaw
+    : 'all'
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
   const [colorBy, setColorBy] = usePersistentState<MapColorBy>('properties:colorBy', 'market')
   const [page, setPage] = useState(0)
@@ -243,12 +244,12 @@ export function PropertiesPage() {
         if (dealType === 'lease' && ask?.rate == null) return false
         if (dealType === 'sale' && ask?.price == null) return false
       }
+      // Binary on purpose (Alex): either we can call the owner today, or the parcel goes on
+      // the next skip-trace list — county-known-but-uncalled is still "not verified".
       if (ownerFilter !== 'all') {
-        const o = ownerCtx?.get(p.id)
-        if (ownerFilter === 'verified' && !o?.owner_contact_verified) return false
-        if (ownerFilter === 'any' && (o?.owner_contact_count ?? 0) === 0) return false
-        if (ownerFilter === 'none' && (o?.owner_contact_count ?? 0) > 0) return false
-        if (ownerFilter === 'known' && !o?.owner_id) return false
+        const verified = !!ownerCtx?.get(p.id)?.owner_contact_verified
+        if (ownerFilter === 'verified' && !verified) return false
+        if (ownerFilter === 'unverified' && verified) return false
       }
       if (ptype !== 'all' && p.property_type !== ptype) return false
       if (county !== 'all' && p.county !== county) return false
@@ -507,17 +508,15 @@ export function PropertiesPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Owner contact</Label>
+                <Label>Verified owner</Label>
                 <Select value={ownerFilter} onValueChange={setOwnerFilter}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Any</SelectItem>
-                    <SelectItem value="verified">Verified contact only</SelectItem>
-                    <SelectItem value="any">Has a contact (any confidence)</SelectItem>
-                    <SelectItem value="known">Owner known</SelectItem>
-                    <SelectItem value="none">No contact yet</SelectItem>
+                    <SelectItem value="verified">Verified</SelectItem>
+                    <SelectItem value="unverified">Not verified</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

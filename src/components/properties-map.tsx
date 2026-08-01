@@ -73,23 +73,21 @@ const PIN = {
 } as const
 
 /**
- * The owner lens answers a different question: not "is it listed" but "can we reach whoever
- * owns it". Verified = we hold a contact confirmed to speak for the owner.
+ * The owner lens answers ONE question: do we hold a verified owner contact or not.
+ * Deliberately binary (Alex 2026-08-01) — a county-record owner name or an unverified
+ * skip-trace number doesn't change the workflow, because Terrakotta only needs the
+ * address to skip-trace. Either we can call the owner today, or the parcel belongs on
+ * the next skip-trace export.
  */
 const OWNER_PIN = {
   verified: '#2563eb',
-  contact: '#f59e0b',
-  owner_only: '#94a3b8',
-  none: '#cbd5e1',
+  unverified: '#94a3b8',
 } as const
 
 export type MapColorBy = 'market' | 'owner'
 
 function ownerPin(ctx: OwnerContext | undefined): string {
-  if (!ctx?.owner_id) return OWNER_PIN.none
-  if (ctx.owner_contact_verified) return OWNER_PIN.verified
-  if ((ctx.owner_contact_count ?? 0) > 0) return OWNER_PIN.contact
-  return OWNER_PIN.owner_only
+  return ctx?.owner_contact_verified ? OWNER_PIN.verified : OWNER_PIN.unverified
 }
 
 const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
@@ -99,10 +97,8 @@ const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
     { c: PIN.executed, label: 'Executed' },
   ],
   owner: [
-    { c: OWNER_PIN.verified, label: 'Verified contact' },
-    { c: OWNER_PIN.contact, label: 'Contact, unverified' },
-    { c: OWNER_PIN.owner_only, label: 'Owner known, no contact' },
-    { c: OWNER_PIN.none, label: 'No owner yet' },
+    { c: OWNER_PIN.verified, label: 'Verified owner' },
+    { c: OWNER_PIN.unverified, label: 'Not verified' },
   ],
 }
 
