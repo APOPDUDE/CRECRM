@@ -32,7 +32,7 @@ export function ContactSelect({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
-  const { data: contacts = [] } = useContacts()
+  const { data: contacts = [], isLoading, isError, refetch } = useContacts()
 
   const selected = contacts.find((c) => c.id === value)
 
@@ -71,7 +71,24 @@ export function ContactSelect({
                 </CommandItem>
               </CommandGroup>
               <CommandEmpty>
-                {search.trim() ? 'No matching contacts' : 'No contacts yet'}
+                {isError ? (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span className="text-destructive">Couldn't load contacts</span>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      onClick={() => refetch()}
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : isLoading ? (
+                  'Loading contacts…'
+                ) : search.trim() ? (
+                  'No matching contacts'
+                ) : (
+                  'No contacts yet'
+                )}
               </CommandEmpty>
               <CommandGroup>
                 {value && (
