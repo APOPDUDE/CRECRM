@@ -46,7 +46,7 @@ import { usePersistentState } from '@/hooks/use-persistent-state'
 import { supabase } from '@/lib/supabase'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
-import { withinRadius, type RadiusFilter } from '@/lib/geo'
+import { pointInPolygon, type LatLng } from '@/lib/geo'
 import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
 
 /** $14.50 PSF (lease) or $5,200,000 (sale) — from the property's current asking comp. */
@@ -188,11 +188,12 @@ export function PropertiesPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
-  // Radius search: the centre lives here (not in the map) because it also filters the table
-  // and drives the skip-trace export.
-  const [radius, setRadius] = usePersistentState<RadiusFilter | null>('properties:radius', null)
-  const [radiusMode, setRadiusMode] = useState(false)
-  const [radiusMiles, setRadiusMiles] = usePersistentState('properties:radiusMiles', 2)
+  // Shape search: draw a polygon on the map. The completed shape lives here (not in the
+  // map) because it also filters the table and drives the skip-trace export. The draft is
+  // ephemeral on purpose — a half-drawn shape should not survive navigation.
+  const [polygon, setPolygon] = usePersistentState<LatLng[] | null>('properties:shape', null)
+  const [draft, setDraft] = useState<LatLng[] | null>(null)
+  const drawMode = draft !== null
 
   // Guard against a tampered/legacy localStorage value that isn't an array.
   const safeColumns = Array.isArray(columns) ? columns : DEFAULT_COLUMNS
@@ -260,16 +261,16 @@ export function PropertiesPage() {
         if (prLo != null && (price == null || price < prLo)) return false
         if (prHi != null && (price == null || price > prHi)) return false
       }
-      // Radius last: it's the most expensive test, so everything cheap rejects first.
-      if (radius && !withinRadius(radius, p.lat, p.lng)) return false
+      // Shape last: it's the most expensive test, so everything cheap rejects first.
+      if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [properties, askingMap, ownerCtx, ownerFilter, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, radius])
+  }, [properties, askingMap, ownerCtx, ownerFilter, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, radius])
+  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -629,45 +630,51 @@ export function PropertiesPage() {
         </div>
       ) : view === 'map' ? (
         <div className="space-y-2">
-          {/* Radius search: pick a centre on the map, then tune the distance. */}
+          {/* Shape search: click the map to drop vertices, Finish closes the polygon. */}
           <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
-            <Button
-              size="sm"
-              variant={radiusMode ? 'default' : 'outline'}
-              onClick={() => setRadiusMode((v) => !v)}
-            >
-              <Crosshair className="size-4" />
-              {radiusMode ? 'Click the map…' : radius ? 'Move centre' : 'Radius search'}
-            </Button>
-            {radius && (
+            {!drawMode ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setPolygon(null); setDraft([]) }}
+              >
+                <Crosshair className="size-4" />
+                {polygon ? 'Redraw shape' : 'Draw shape'}
+              </Button>
+            ) : (
               <>
-                <label className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Radius</span>
-                  <input
-                    type="range"
-                    min={0.25}
-                    max={25}
-                    step={0.25}
-                    value={radiusMiles}
-                    onChange={(e) => {
-                      const mi = Number(e.target.value)
-                      setRadiusMiles(mi)
-                      setRadius((r) => (r ? { ...r, miles: mi } : r))
-                    }}
-                    className="w-40 accent-primary"
-                  />
-                  <span className="w-16 tabular-nums font-medium">{radiusMiles} mi</span>
-                </label>
-                <Button size="sm" variant="ghost" onClick={() => { setRadius(null); setRadiusMode(false) }}>
-                  Clear
+                <Button
+                  size="sm"
+                  disabled={(draft?.length ?? 0) < 3}
+                  onClick={() => { setPolygon(draft); setDraft(null) }}
+                >
+                  Finish shape{draft && draft.length > 0 ? ` (${draft.length})` : ''}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={(draft?.length ?? 0) === 0}
+                  onClick={() => setDraft((d) => (d && d.length > 0 ? d.slice(0, -1) : d))}
+                >
+                  Undo point
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>
+                  Cancel
                 </Button>
               </>
             )}
+            {polygon && !drawMode && (
+              <Button size="sm" variant="ghost" onClick={() => setPolygon(null)}>
+                Clear
+              </Button>
+            )}
             <span className="ml-auto text-sm text-muted-foreground">
-              {radius
-                ? `${filtered.length.toLocaleString()} in radius`
-                : radiusMode
-                  ? 'Click anywhere on the map to drop the centre'
+              {drawMode
+                ? (draft?.length ?? 0) < 3
+                  ? 'Click the map to outline your search area (3+ points)'
+                  : `${draft!.length} points — keep clicking or Finish`
+                : polygon
+                  ? `${filtered.length.toLocaleString()} in shape`
                   : `${filtered.length.toLocaleString()} matching`}
             </span>
             <Button size="sm" variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
@@ -681,12 +688,10 @@ export function PropertiesPage() {
             executedIds={executedIds}
             ownerContext={ownerCtx}
             colorBy={colorBy}
-            radius={radius}
-            radiusMode={radiusMode}
-            onPickCentre={(lat, lng) => {
-              setRadius({ lat, lng, miles: radiusMiles })
-              setRadiusMode(false)
-            }}
+            polygon={polygon}
+            draft={draft}
+            drawMode={drawMode}
+            onAddVertex={(lat, lng) => setDraft((d) => [...(d ?? []), { lat, lng }])}
           />
         </div>
       ) : (

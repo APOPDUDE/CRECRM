@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
-import { Circle, CircleMarker, MapContainer, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { CircleMarker, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { Property } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import { formatSf } from '@/lib/format'
-import type { RadiusFilter } from '@/lib/geo'
+import type { LatLng } from '@/lib/geo'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
 // the comfortable ceiling on a phone. Desktop has the headroom for the whole book, so
@@ -51,10 +51,10 @@ function FitToPoints({ points, suspended }: { points: MapPoint[]; suspended?: bo
   return null
 }
 
-/** In radius mode, a map click (re)places the search centre. */
-function RadiusPicker({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+/** In draw mode, each map click adds a vertex to the shape being drawn. */
+function ShapeDrawer({ onVertex }: { onVertex: (lat: number, lng: number) => void }) {
   useMapEvents({
-    click: (e) => onPick(e.latlng.lat, e.latlng.lng),
+    click: (e) => onVertex(e.latlng.lat, e.latlng.lng),
   })
   return null
 }
@@ -112,19 +112,22 @@ export function PropertiesMap({
   executedIds,
   ownerContext,
   colorBy = 'market',
-  radius,
-  radiusMode = false,
-  onPickCentre,
+  polygon,
+  draft,
+  drawMode = false,
+  onAddVertex,
 }: {
   properties: Property[]
   goodDealIds?: Set<string>
   executedIds?: Set<string>
   ownerContext?: Map<string, OwnerContext>
   colorBy?: MapColorBy
-  /** Active radius search; the parent owns it because it also filters the table + export. */
-  radius?: RadiusFilter | null
-  radiusMode?: boolean
-  onPickCentre?: (lat: number, lng: number) => void
+  /** Completed search shape; the parent owns it because it also filters the table + export. */
+  polygon?: LatLng[] | null
+  /** Vertices of a shape mid-draw (draw mode active while non-null). */
+  draft?: LatLng[] | null
+  drawMode?: boolean
+  onAddVertex?: (lat: number, lng: number) => void
 }) {
   const navigate = useNavigate()
 
@@ -184,21 +187,39 @@ export function PropertiesMap({
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
           />
-          <FitToPoints points={shown} suspended={radiusMode || !!radius} />
-          {radiusMode && onPickCentre && <RadiusPicker onPick={onPickCentre} />}
-          {radius && (
-            <Circle
-              center={[radius.lat, radius.lng]}
-              radius={radius.miles * 1609.344}
+          <FitToPoints points={shown} suspended={drawMode || !!polygon} />
+          {drawMode && onAddVertex && <ShapeDrawer onVertex={onAddVertex} />}
+          {/* the completed search shape */}
+          {polygon && polygon.length >= 3 && (
+            <Polygon
+              positions={polygon.map((v) => [v.lat, v.lng] as [number, number])}
               pathOptions={{
                 color: '#2563eb',
                 weight: 2,
                 fillColor: '#2563eb',
                 fillOpacity: 0.08,
               }}
-              // let clicks fall through to the map so the centre stays re-placeable
               interactive={false}
             />
+          )}
+          {/* the shape mid-draw: open polyline + a dot per vertex */}
+          {draft && draft.length > 0 && (
+            <>
+              <Polyline
+                positions={draft.map((v) => [v.lat, v.lng] as [number, number])}
+                pathOptions={{ color: '#2563eb', weight: 2, dashArray: '6 4' }}
+                interactive={false}
+              />
+              {draft.map((v, i) => (
+                <CircleMarker
+                  key={`draft-${i}`}
+                  center={[v.lat, v.lng]}
+                  radius={4}
+                  pathOptions={{ color: '#2563eb', weight: 2, fillColor: '#fff', fillOpacity: 1 }}
+                  interactive={false}
+                />
+              ))}
+            </>
           )}
           {shown.map(({ id, lat, lng, p }) => {
             const executed = executedIds?.has(id)
@@ -228,7 +249,9 @@ export function PropertiesMap({
                 center={[lat, lng]}
                 radius={7}
                 pathOptions={{ color: '#fff', weight: 1.5, fillColor, fillOpacity: 0.9 }}
-                eventHandlers={{ click: () => navigate(`/properties/${id}`) }}
+                // while drawing, a click near a pin should add a vertex (the event bubbles
+                // to the map), not navigate away mid-shape
+                eventHandlers={{ click: () => { if (!drawMode) navigate(`/properties/${id}`) } }}
               >
                 <Tooltip direction="top" offset={[0, -6]}>
                   <div className="max-w-[15rem] text-xs leading-snug">
