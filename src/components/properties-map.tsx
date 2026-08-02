@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import { CircleMarker, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
@@ -6,7 +6,8 @@ import 'leaflet/dist/leaflet.css'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { Property } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
-import { formatSf } from '@/lib/format'
+import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
+import type { CurrentAsking } from '@/hooks/use-comps'
 import type { LatLng } from '@/lib/geo'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
@@ -36,14 +37,56 @@ const finite = (n: number | null | undefined): n is number =>
 
 type MapPoint = { id: string; lat: number; lng: number; p: Property }
 
+// Where the user last panned/zoomed to — survives navigating into a property and back,
+// so returning restores the exact spot instead of refitting to the whole extent.
+const VIEWPORT_KEY = 'properties:mapViewport'
+
+type Viewport = { lat: number; lng: number; zoom: number }
+
+function savedViewport(): Viewport | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(VIEWPORT_KEY) ?? 'null')
+    return v && finite(v.lat) && finite(v.lng) && finite(v.zoom) ? v : null
+  } catch {
+    return null
+  }
+}
+
+/** Persist every pan/zoom so a remount (back-navigation) can restore it. */
+function ViewportKeeper() {
+  const map = useMapEvents({
+    moveend: () => {
+      const c = map.getCenter()
+      sessionStorage.setItem(
+        VIEWPORT_KEY,
+        JSON.stringify({ lat: c.lat, lng: c.lng, zoom: map.getZoom() }),
+      )
+    },
+  })
+  return null
+}
+
 /**
  * Refit the viewport whenever the plotted set changes (i.e. when filters change).
- * Suspended while a radius search is active — refitting there would yank the map away
- * from the circle the user is still adjusting.
+ * Suspended while a shape is active — refitting there would yank the map away from the
+ * area the user drew. skipInitial suppresses the mount-time fit when restoring a
+ * remembered viewport (coming back from a property page).
  */
-function FitToPoints({ points, suspended }: { points: MapPoint[]; suspended?: boolean }) {
+function FitToPoints({
+  points,
+  suspended,
+  skipInitial,
+}: {
+  points: MapPoint[]
+  suspended?: boolean
+  skipInitial?: boolean
+}) {
   const map = useMap()
+  const first = useRef(true)
   useEffect(() => {
+    const isFirst = first.current
+    first.current = false
+    if (isFirst && skipInitial) return
     if (suspended || points.length === 0) return
     const bounds = L.latLngBounds(points.map((pt) => [pt.lat, pt.lng] as [number, number]))
     map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 })
@@ -112,6 +155,7 @@ export function PropertiesMap({
   draft,
   drawMode = false,
   onAddVertex,
+  asking,
 }: {
   properties: Property[]
   goodDealIds?: Set<string>
@@ -124,8 +168,12 @@ export function PropertiesMap({
   draft?: LatLng[] | null
   drawMode?: boolean
   onAddVertex?: (lat: number, lng: number) => void
+  /** Current asking per property, so a listed pin can show its rate/price on hover. */
+  asking?: Map<string, CurrentAsking>
 }) {
   const navigate = useNavigate()
+  // read once per mount: restoring the exact spot the user left when they clicked a pin
+  const [initialView] = useState<Viewport | null>(savedViewport)
 
   const points = useMemo<MapPoint[]>(
     () =>
@@ -173,8 +221,8 @@ export function PropertiesMap({
       {/* isolate z-0 keeps Leaflet's internal z-indexes from covering app dialogs/popovers */}
       <div className="relative isolate z-0 h-[70vh] w-full overflow-hidden rounded-lg border">
         <MapContainer
-          center={[27.95, -82.5]}
-          zoom={8}
+          center={initialView ? [initialView.lat, initialView.lng] : [27.95, -82.5]}
+          zoom={initialView?.zoom ?? 8}
           scrollWheelZoom
           className="size-full"
           style={{ background: '#f8fafc' }}
@@ -183,7 +231,8 @@ export function PropertiesMap({
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
           />
-          <FitToPoints points={shown} suspended={drawMode || !!polygon} />
+          <ViewportKeeper />
+          <FitToPoints points={shown} suspended={drawMode || !!polygon} skipInitial={!!initialView} />
           {drawMode && onAddVertex && <ShapeDrawer onVertex={onAddVertex} />}
           {/* the completed search shape */}
           {polygon && polygon.length >= 3 && (
@@ -231,7 +280,10 @@ export function PropertiesMap({
                     ? PIN.off
                     : PIN.on
             const loc = [p.city, p.state].filter(Boolean).join(', ')
+            const ask = asking?.get(id)
+            const askLabel = formatPsf(ask?.rate) ?? formatCurrency(ask?.price)
             const bits = [
+              askLabel,
               p.property_type ? propertyKindLabels[p.property_type] : null,
               formatSf(p.building_sf),
               p.land_acres != null ? `${p.land_acres} AC` : null,

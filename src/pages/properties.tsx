@@ -709,6 +709,7 @@ export function PropertiesPage() {
             polygon={polygon}
             draft={draft}
             drawMode={drawMode}
+            asking={askingMap}
             onAddVertex={(lat, lng) => setDraft((d) => [...(d ?? []), { lat, lng }])}
           />
         </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, MapPin, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, ExternalLink, MapPin, Pencil, Trash2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { PropertyFormDialog, propertyKindLabels } from '@/components/property-fo
 import { PropertyMiniMap } from '@/components/property-mini-map'
 import { MarketPositionCard } from '@/components/market-position-card'
 import { PropertyOwnerCard } from '@/components/property-owner-card'
+import { AddToClientDialog } from '@/components/add-to-client-dialog'
 import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
 import { PropertyTasks } from '@/components/property-tasks'
@@ -163,6 +164,7 @@ export function PropertyDetailPage() {
     .join(', ')
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
   const listingUrl = property.listing_url
+  const [addToDealOpen, setAddToDealOpen] = useState(false)
   const sourceLabel =
     property.source === 'scrape' ? 'Scraped' : property.source === 'landlord_rep' ? 'My listing' : null
   const photos = property.photo_urls ?? []
@@ -261,6 +263,10 @@ export function PropertyDetailPage() {
               </a>
             </Button>
           )}
+          <Button onClick={() => setAddToDealOpen(true)}>
+            <Plus className="size-4" />
+            Add to deal
+          </Button>
         </div>
       </div>
       </div>
@@ -316,6 +322,12 @@ export function PropertyDetailPage() {
       </div>
 
       <PropertyOwnerCard property={property} />
+
+      <AddToClientDialog
+        property={{ id: property.id, address: property.address, city: property.city, state: property.state }}
+        open={addToDealOpen}
+        onOpenChange={setAddToDealOpen}
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="space-y-2">
