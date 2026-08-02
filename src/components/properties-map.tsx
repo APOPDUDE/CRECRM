@@ -13,8 +13,8 @@ import type { LatLng } from '@/lib/geo'
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
 // the comfortable ceiling on a phone. Desktop has the headroom for the whole book, so
 // the cap is viewport-dependent rather than a single conservative number.
-const MAX_MARKERS_MOBILE = 400
-const MAX_MARKERS_DESKTOP = 2500
+const MAX_MARKERS_MOBILE = 250
+const MAX_MARKERS_DESKTOP = 800
 const DESKTOP_QUERY = '(min-width: 768px)'
 
 /** Live desktop/mobile check so rotating or resizing re-caps without a reload. */

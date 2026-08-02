@@ -59,7 +59,8 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
           </p>
         ) : (
           <ul className="space-y-1.5">
-            {[...verified, ...others].map((oc) => (
+            {/* once the owner is verified, the unverified skip-trace lines are noise */}
+            {(verified.length > 0 ? verified : others).map((oc) => (
               <li key={oc.id} className="flex flex-wrap items-center gap-x-2 text-sm">
                 <Link to={`/contacts/${oc.contact?.id}`} className="font-medium hover:underline">
                   {[oc.contact?.first_name, oc.contact?.last_name].filter(Boolean).join(' ') || 'Unknown'}
