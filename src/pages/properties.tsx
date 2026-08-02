@@ -79,7 +79,7 @@ type ColumnId =
   | 'type' | 'location' | 'city' | 'county' | 'size' | 'building_sf'
   | 'land_acres' | 'asking' | 'deals' | 'market_status' | 'days_on_market'
   | 'year_built' | 'zoning' | 'occupancy'
-  | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted'
+  | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted' | 'off_market_days'
 
 type ColumnDef = {
   id: ColumnId
@@ -142,6 +142,18 @@ const COLUMN_DEFS: ColumnDef[] = [
     label: 'Last contacted',
     className: MUTED,
     cell: (_p, _a, o) => (o?.last_contacted_at ? new Date(o.last_contacted_at).toLocaleDateString() : ''),
+  },
+  {
+    id: 'off_market_days',
+    label: 'Days off market',
+    className: MUTED,
+    // "Never listed" is the interesting cohort for cold outreach; a number means the
+    // sweep saw it listed and watched it disappear.
+    cell: (p, _a, o) =>
+      p.listing_status !== 'off_market' ? ''
+        : o?.off_market_days != null ? `${o.off_market_days}d`
+        : o?.was_on_market ? 'recent'
+        : 'never listed',
   },
 ]
 
@@ -282,6 +294,7 @@ export function PropertiesPage() {
       'Parcel ID', 'Address', 'City', 'State', 'Zip', 'County',
       'Owner Name', 'Owner Mailing Address', 'Property Type', 'Building SF', 'Acres',
       'Year Built', 'Last Sale Date', 'Last Sale Price',
+      'Market Status', 'Was On Market', 'Days Off Market',
       'Owner Verified', 'Known Contacts', 'Last Contacted', 'CRM Property ID',
     ]
     const rows = filtered.map((p) => {
@@ -292,6 +305,10 @@ export function PropertiesPage() {
         p.property_type ? propertyKindLabels[p.property_type] : null,
         p.building_sf, p.land_acres, p.year_built,
         p.last_sale_date, p.last_sale_price,
+        p.listing_status === 'off_market' ? 'off market' : 'on market',
+        // "never" vs "was listed" is the split that matters for cold lists
+        o?.was_on_market ? 'yes' : 'never',
+        o?.off_market_days ?? '',
         o?.owner_contact_verified ? 'yes' : 'no',
         o?.owner_contact_count ?? 0,
         o?.last_contacted_at ? new Date(o.last_contacted_at).toISOString().slice(0, 10) : null,

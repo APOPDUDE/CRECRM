@@ -1587,6 +1587,9 @@ export type Database = {
           owner_verification_status:
             | Database["public"]["Enums"]["owner_verification_status"]
             | null
+          was_on_market: boolean | null
+          off_market_since: string | null
+          off_market_days: number | null
           owner_portfolio_sf: number | null
           owner_portfolio_acres: number | null
           owner_contact_count: number | null
