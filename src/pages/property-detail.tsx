@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { PropertyMiniMap } from '@/components/property-mini-map'
 import { MarketPositionCard } from '@/components/market-position-card'
+import { PropertyOwnerCard } from '@/components/property-owner-card'
 import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
 import { PropertyTasks } from '@/components/property-tasks'
@@ -313,6 +314,8 @@ export function PropertyDetailPage() {
         </div>
         <MarketPositionCard propertyId={property.id} county={property.county} />
       </div>
+
+      <PropertyOwnerCard property={property} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="space-y-2">

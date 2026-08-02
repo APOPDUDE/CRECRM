@@ -1590,6 +1590,12 @@ export type Database = {
           was_on_market: boolean | null
           off_market_since: string | null
           off_market_days: number | null
+          best_contact_name: string | null
+          best_contact_phone: string | null
+          best_contact_email: string | null
+          best_contact_confidence:
+            | Database["public"]["Enums"]["owner_contact_confidence"]
+            | null
           owner_portfolio_sf: number | null
           owner_portfolio_acres: number | null
           owner_contact_count: number | null
