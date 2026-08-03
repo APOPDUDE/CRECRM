@@ -62,29 +62,39 @@ export function dealCount(p: Pick<PropertyWithCounts, 'listings' | 'matches'>): 
 export function useProperties() {
   return useQuery({
     queryKey: ['properties'],
+    // The book is ~13k rows: refetching it on every mount made returning to the map feel
+    // frozen. Cache for 5 minutes (mutations invalidate explicitly), don't refetch on
+    // window focus, and fetch the pages IN PARALLEL (serial paging was 14 round-trips).
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      // PostgREST caps a single response at 1000 rows, so page through all of them
-      // (there are ~2,300+). Order by (address, id) — id is the unique tiebreaker that
-      // keeps offset paging stable across pages when addresses collide.
       const PAGE = 1000
-      const all: PropertyWithCounts[] = []
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase
+      // explicit FK hints: listing_parcels adds a 2nd properties<->listings relationship,
+      // so a bare listings(count) is ambiguous (PGRST201) and 300s the whole query.
+      const SELECT =
+        '*, listings!listings_property_id_fkey(count), matches:pursuits!pursuits_property_id_fkey(count)'
+      const base = () =>
+        supabase
           .from('properties')
-          // explicit FK hints: listing_parcels adds a 2nd properties<->listings relationship,
-          // so a bare listings(count) is now ambiguous (PGRST201) and 300s the whole query.
-          .select('*, listings!listings_property_id_fkey(count), matches:pursuits!pursuits_property_id_fkey(count)')
-          // hide LoopNet scrape placeholders that aren't real addresses ("Address unavailable",
-          // "Portfolio of N properties...") — they have no coords/parcel/deals and only clutter the list.
+          .select(SELECT, { count: 'exact' })
+          // hide scrape placeholders that aren't real addresses — no coords/parcel/deals.
           .not('address', 'ilike', '%unavailable%')
           .not('address', 'ilike', 'Portfolio of %')
+          // (address, id) — id is the unique tiebreaker keeping offset pages stable.
           .order('address')
           .order('id')
-          .range(from, from + PAGE - 1)
-        if (error) throw error
-        const rows = (data ?? []) as unknown as PropertyWithCounts[]
-        all.push(...rows)
-        if (rows.length < PAGE) break
+      const first = await base().range(0, PAGE - 1)
+      if (first.error) throw first.error
+      const total = first.count ?? (first.data?.length ?? 0)
+      const rest = await Promise.all(
+        Array.from({ length: Math.max(0, Math.ceil(total / PAGE) - 1) }, (_, i) =>
+          base().range((i + 1) * PAGE, (i + 2) * PAGE - 1),
+        ),
+      )
+      const all = [...(first.data ?? [])] as unknown as PropertyWithCounts[]
+      for (const r of rest) {
+        if (r.error) throw r.error
+        all.push(...((r.data ?? []) as unknown as PropertyWithCounts[]))
       }
       return all
     },

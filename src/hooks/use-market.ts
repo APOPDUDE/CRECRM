@@ -60,6 +60,8 @@ export function usePropertyMarketPosition(id: string | null | undefined) {
 export function useGoodDealIds() {
   return useQuery({
     queryKey: ['good-deal-ids'],
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('v_property_market_position')
@@ -83,6 +85,8 @@ export function useGoodDealIds() {
 export function useExecutedPropertyIds() {
   return useQuery({
     queryKey: ['executed-property-ids'],
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pursuits')

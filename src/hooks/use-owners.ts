@@ -16,21 +16,28 @@ export type Communication = Tables<'communications'>
 export function useOwnerContext() {
   return useQuery({
     queryKey: ['owner-context'],
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      // PostgREST caps a response at 1000 rows and there are ~7,700 properties.
+      // ~13k rows behind PostgREST's 1000-row cap — fetch the pages in parallel; serial
+      // paging plus a zero staleTime is what made back-navigation to the map crawl.
       const PAGE = 1000
+      const base = () =>
+        supabase.from('v_property_owner_context').select('*', { count: 'exact' }).order('property_id')
+      const first = await base().range(0, PAGE - 1)
+      if (first.error) throw first.error
+      const total = first.count ?? (first.data?.length ?? 0)
+      const rest = await Promise.all(
+        Array.from({ length: Math.max(0, Math.ceil(total / PAGE) - 1) }, (_, i) =>
+          base().range((i + 1) * PAGE, (i + 2) * PAGE - 1),
+        ),
+      )
       const map = new Map<string, OwnerContext>()
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase
-          .from('v_property_owner_context')
-          .select('*')
-          .order('property_id')
-          .range(from, from + PAGE - 1)
-        if (error) throw error
-        const rows = (data ?? []) as OwnerContext[]
-        for (const r of rows) if (r.property_id) map.set(r.property_id, r)
-        if (rows.length < PAGE) break
+      for (const r of [first, ...rest]) {
+        if (r.error) throw r.error
+        for (const row of (r.data ?? []) as OwnerContext[]) {
+          if (row.property_id) map.set(row.property_id, row)
+        }
       }
       return map
     },

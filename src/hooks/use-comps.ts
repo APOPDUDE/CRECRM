@@ -283,6 +283,8 @@ export function useCurrentAsking(propertyIds?: string[]) {
   return useQuery({
     queryKey: ['current-asking', ids ?? 'all'],
     enabled: ids ? ids.length > 0 : true,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
     queryFn: () => fetchCurrentAsking(ids),
     placeholderData: keepPreviousData,
   })
