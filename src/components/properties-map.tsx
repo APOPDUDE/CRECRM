@@ -182,6 +182,9 @@ const PARCEL_SERVICES: ParcelSvc[] = [
   },
 ]
 
+const PARCEL_STYLE = { color: '#ffffff', weight: 2, opacity: 0.8, fill: true, fillOpacity: 0.03 }
+const PARCEL_STYLE_HOVER = { color: '#dc2626', weight: 3.5, opacity: 1, fillOpacity: 0.12 }
+
 /** Format-blind parcel key: letters+digits only (folio digits vs dashed PIN both normalize). */
 const parcelKey = (p: string | null | undefined) =>
   (p ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null
@@ -251,10 +254,13 @@ function ParcelLines({
     <GeoJSON
       key={ver}
       data={fc as any}
-      style={{ color: '#475569', weight: 1, opacity: 0.55, fill: true, fillOpacity: 0.02 }}
+      style={PARCEL_STYLE}
       onEachFeature={(feature: any, layer: any) => {
         const svc = PARCEL_SERVICES.find((s) => s.name === feature?.properties?.__svc)
         if (!svc) return
+        // hover: light the parcel up red and heavier so the cursor's target is unmistakable
+        layer.on('mouseover', () => layer.setStyle(PARCEL_STYLE_HOVER))
+        layer.on('mouseout', () => layer.setStyle(PARCEL_STYLE))
         const a = svc.attrs(feature.properties ?? {})
         const crmId = parcelKey(a.parcel) ? parcelIndex.get(parcelKey(a.parcel)!) : undefined
         if (crmId) {
