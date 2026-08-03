@@ -44,6 +44,23 @@ export function useOwnerContext() {
   })
 }
 
+/** The owner row itself — outcome tags + pipeline status for the card header. */
+export function useOwnerRecord(ownerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['owner-record', ownerId],
+    enabled: !!ownerId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('owners')
+        .select('id, tags, verification_status')
+        .eq('id', ownerId!)
+        .single()
+      if (error) throw error
+      return data
+    },
+  })
+}
+
 /** Every property an owner holds — the portfolio view behind a map pin. */
 export function useOwnerProperties(ownerId: string | null | undefined) {
   return useQuery({

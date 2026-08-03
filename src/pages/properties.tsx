@@ -295,7 +295,7 @@ export function PropertiesPage() {
       'Owner Name', 'Owner Mailing Address', 'Property Type', 'Building SF', 'Acres',
       'Year Built', 'Last Sale Date', 'Last Sale Price',
       'Market Status', 'Was On Market', 'Days Off Market',
-      'Owner Verified', 'Owner Contact Name', 'Owner Contact Phone', 'Owner Contact Email',
+      'Owner Verified', 'Owner Tags', 'Owner Contact Name', 'Owner Contact Phone', 'Owner Contact Email',
       'Known Contacts', 'Last Contacted', 'CRM Property ID',
     ]
     const rows = filtered.map((p) => {
@@ -311,6 +311,7 @@ export function PropertiesPage() {
         o?.was_on_market ? 'yes' : 'never',
         o?.off_market_days ?? '',
         o?.owner_contact_verified ? 'yes' : 'no',
+        (o?.owner_tags ?? []).join('; '),
         o?.best_contact_name, o?.best_contact_phone, o?.best_contact_email,
         o?.owner_contact_count ?? 0,
         o?.last_contacted_at ? new Date(o.last_contacted_at).toISOString().slice(0, 10) : null,

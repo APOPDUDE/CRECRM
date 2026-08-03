@@ -10,6 +10,7 @@ import {
   useOwnerContacts,
   useOwnerConversations,
   useOwnerProperties,
+  useOwnerRecord,
   useRemoveOwnerContact,
 } from '@/hooks/use-owners'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
@@ -27,6 +28,7 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
   const { data: portfolio } = useOwnerProperties(ownerId)
   const contactIds = (contacts ?? []).map((c) => c.contact?.id).filter((v): v is string => !!v)
   const { data: comms } = useOwnerConversations(ownerId, contactIds)
+  const { data: ownerRec } = useOwnerRecord(ownerId)
   const removeLink = useRemoveOwnerContact()
 
   const verified = (contacts ?? []).filter((c) => c.confidence === 'confirmed')
@@ -60,6 +62,22 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
           ) : (
             <Badge variant="outline" className="text-muted-foreground">Not verified</Badge>
           )}
+          {/* conversation outcomes, straight from the GHL flow (owners.tags) */}
+          {(ownerRec?.tags ?? []).map((t) => (
+            <Badge
+              key={t}
+              variant="outline"
+              className={
+                t === 'interested'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : t === 'not interested'
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : 'text-muted-foreground'
+              }
+            >
+              {t}
+            </Badge>
+          ))}
           {portfolioCount > 1 && (
             <span className="text-xs text-muted-foreground">
               {portfolioCount} properties in portfolio

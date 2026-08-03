@@ -315,6 +315,7 @@ export type Database = {
           verification_note: string | null
           verification_status: Database["public"]["Enums"]["owner_verification_status"]
           verification_updated_at: string | null
+          tags: string[] | null
         }
         Insert: {
           created_at?: string
@@ -330,6 +331,7 @@ export type Database = {
           verification_note?: string | null
           verification_status?: Database["public"]["Enums"]["owner_verification_status"]
           verification_updated_at?: string | null
+          tags?: string[] | null
         }
         Update: {
           created_at?: string
@@ -345,6 +347,7 @@ export type Database = {
           verification_note?: string | null
           verification_status?: Database["public"]["Enums"]["owner_verification_status"]
           verification_updated_at?: string | null
+          tags?: string[] | null
         }
         Relationships: []
       }
@@ -1596,6 +1599,7 @@ export type Database = {
           best_contact_confidence:
             | Database["public"]["Enums"]["owner_contact_confidence"]
             | null
+          owner_tags: string[] | null
           owner_portfolio_sf: number | null
           owner_portfolio_acres: number | null
           owner_contact_count: number | null
