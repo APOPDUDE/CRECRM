@@ -135,6 +135,7 @@ export function PropertyDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [enrichAskOpen, setEnrichAskOpen] = useState(false)
+  const [addToDealOpen, setAddToDealOpen] = useState(false)
 
   useSetBreadcrumb(property?.address)
 
@@ -164,7 +165,6 @@ export function PropertyDetailPage() {
     .join(', ')
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
   const listingUrl = property.listing_url
-  const [addToDealOpen, setAddToDealOpen] = useState(false)
   const sourceLabel =
     property.source === 'scrape' ? 'Scraped' : property.source === 'landlord_rep' ? 'My listing' : null
   const photos = property.photo_urls ?? []
