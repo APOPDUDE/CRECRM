@@ -1767,6 +1767,7 @@ export type Database = {
         Args: { p_client_id: string }
         Returns: Database["public"]["Tables"]["clients"]["Row"]
       }
+      ghl_verify_owner: { Args: { p: Json }; Returns: Json }
       mark_owners_exported: { Args: { p_property_ids: string[] }; Returns: Json }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
       sweep_mark_off_market: {

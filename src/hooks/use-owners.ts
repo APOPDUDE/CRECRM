@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/lib/database.types'
 
@@ -102,5 +102,76 @@ export function useOwnerConversations(ownerId: string | null | undefined, contac
       if (error) throw error
       return (data ?? []) as Communication[]
     },
+  })
+}
+
+
+function invalidateOwnerViews(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['owner-contacts'] })
+  qc.invalidateQueries({ queryKey: ['owner-context'] })
+  qc.invalidateQueries({ queryKey: ['owner-conversations'] })
+}
+
+/**
+ * Add a VERIFIED contact to a property's owner from the property page. Reuses the same DB
+ * routine as the GHL webhook: upserts the contact by phone, mints the owner entity when the
+ * parcel has none, links confirmed, keeps owners.verification_status in lockstep.
+ */
+export function useAddVerifiedContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: {
+      property: Pick<Tables<'properties'>, 'parcel_number' | 'address' | 'city' | 'owner_name'>
+      first: string
+      last?: string | null
+      phone: string
+      email?: string | null
+    }) => {
+      const { data, error } = await supabase.rpc('ghl_verify_owner', {
+        p: {
+          status: 'verified',
+          parcel: v.property.parcel_number,
+          address: v.property.address,
+          city: v.property.city,
+          owner_name: v.property.owner_name,
+          first: v.first,
+          last: v.last ?? null,
+          phone: v.phone,
+          email: v.email ?? null,
+          role: 'owner',
+        },
+      })
+      if (error) throw error
+      const res = data as { ok?: boolean; error?: string } | null
+      if (!res?.ok) throw new Error(res?.error ?? 'could not verify contact')
+    },
+    onSuccess: () => invalidateOwnerViews(qc),
+  })
+}
+
+/**
+ * Unlink a contact from an owner (the contact itself and its history survive). If that was
+ * the owner's last confirmed link, the owner drops back to unverified so the map stays honest.
+ */
+export function useRemoveOwnerContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { linkId: string; ownerId: string }) => {
+      const { error } = await supabase.from('owner_contacts').delete().eq('id', v.linkId)
+      if (error) throw error
+      const { count, error: e2 } = await supabase
+        .from('owner_contacts')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', v.ownerId)
+        .eq('confidence', 'confirmed')
+      if (e2) throw e2
+      if ((count ?? 0) === 0) {
+        await supabase
+          .from('owners')
+          .update({ verification_status: 'unverified', verification_updated_at: new Date().toISOString() })
+          .eq('id', v.ownerId)
+      }
+    },
+    onSuccess: () => invalidateOwnerViews(qc),
   })
 }

@@ -1,14 +1,25 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Plus, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
-import { useOwnerContacts, useOwnerConversations, useOwnerProperties } from '@/hooks/use-owners'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  useAddVerifiedContact,
+  useOwnerContacts,
+  useOwnerConversations,
+  useOwnerProperties,
+  useRemoveOwnerContact,
+} from '@/hooks/use-owners'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
 import type { Property } from '@/hooks/use-properties'
-import { formatPhone } from '@/lib/format'
+import { formatPhone, normalizePhone } from '@/lib/format'
 
 /**
  * Who owns this building and whether we can actually reach them — the data-room answer,
- * right on the property page. Binary presentation on purpose (Alex): a contact is either
- * verified or it isn't; the confidence ladder stays in the DB.
+ * right on the property page. Contacts added here count as VERIFIED (Alex vouching is the
+ * same signal as the VA's tag); removing a link never deletes the contact or its history.
  */
 export function PropertyOwnerCard({ property }: { property: Property }) {
   const ownerId = property.owner_id
@@ -16,21 +27,25 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
   const { data: portfolio } = useOwnerProperties(ownerId)
   const contactIds = (contacts ?? []).map((c) => c.contact?.id).filter((v): v is string => !!v)
   const { data: comms } = useOwnerConversations(ownerId, contactIds)
-
-  if (!ownerId && !property.owner_name) {
-    return (
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Owner</h2>
-        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-          No owner on record — county enrichment hasn't matched this parcel yet.
-        </div>
-      </section>
-    )
-  }
+  const removeLink = useRemoveOwnerContact()
 
   const verified = (contacts ?? []).filter((c) => c.confidence === 'confirmed')
   const others = (contacts ?? []).filter((c) => c.confidence !== 'confirmed')
+  // once the owner is verified, the unverified skip-trace lines are noise
+  const shown = verified.length > 0 ? verified : others
   const portfolioCount = portfolio?.length ?? 0
+
+  const remove = (linkId: string, name: string) => {
+    if (!ownerId) return
+    if (!window.confirm(`Remove ${name} from this owner? The contact and its history stay in the CRM.`)) return
+    removeLink.mutate(
+      { linkId, ownerId },
+      {
+        onSuccess: () => toast.success(`${name} removed from owner`),
+        onError: (e) => toast.error(`Could not remove: ${e.message}`),
+      },
+    )
+  }
 
   return (
     <section className="space-y-2">
@@ -56,46 +71,66 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
             Mailing: {property.owner_mailing_address}
           </p>
         )}
-        {(contacts ?? []).length === 0 ? (
+
+        {shown.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No contacts yet — export this property for skip-tracing to start verification.
+            No contacts yet — add a verified number below, or export this property for
+            skip-tracing.
           </p>
         ) : (
           <ul className="space-y-1.5">
-            {/* once the owner is verified, the unverified skip-trace lines are noise */}
-            {(verified.length > 0 ? verified : others).map((oc) => (
-              <li key={oc.id} className="flex flex-wrap items-center gap-x-2 text-sm">
-                <Link to={`/contacts/${oc.contact?.id}`} className="font-medium hover:underline">
-                  {[oc.contact?.first_name, oc.contact?.last_name].filter(Boolean).join(' ') || 'Unknown'}
-                </Link>
-                {oc.contact?.phone && (
-                  <a href={`tel:${oc.contact.phone}`} className="text-muted-foreground hover:underline">
-                    {formatPhone(oc.contact.phone) ?? oc.contact.phone}
-                  </a>
-                )}
-                {oc.contact?.email && (
-                  <span className="text-xs text-muted-foreground">{oc.contact.email}</span>
-                )}
-                {oc.confidence === 'confirmed' ? (
-                  <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 text-[10px]">
-                    verified
-                  </Badge>
-                ) : (
-                  <span className="text-[10px] text-muted-foreground">unverified</span>
-                )}
-                {oc.contact?.do_not_call && (
-                  <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 text-[10px]">
-                    DNC
-                  </Badge>
-                )}
-              </li>
-            ))}
+            {shown.map((oc) => {
+              const name =
+                [oc.contact?.first_name, oc.contact?.last_name].filter(Boolean).join(' ') ||
+                'Unknown'
+              return (
+                <li key={oc.id} className="flex flex-wrap items-center gap-x-2 text-sm">
+                  <Link to={`/contacts/${oc.contact?.id}`} className="font-medium hover:underline">
+                    {name}
+                  </Link>
+                  {oc.contact?.phone && (
+                    <a
+                      href={`tel:${oc.contact.phone}`}
+                      className="text-muted-foreground hover:underline"
+                    >
+                      {formatPhone(oc.contact.phone) ?? oc.contact.phone}
+                    </a>
+                  )}
+                  {oc.contact?.email && (
+                    <span className="text-xs text-muted-foreground">{oc.contact.email}</span>
+                  )}
+                  {oc.confidence === 'confirmed' ? (
+                    <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 text-[10px]">
+                      verified
+                    </Badge>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">unverified</span>
+                  )}
+                  {oc.contact?.do_not_call && (
+                    <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 text-[10px]">
+                      DNC
+                    </Badge>
+                  )}
+                  <button
+                    type="button"
+                    title="Remove from this owner"
+                    onClick={() => remove(oc.id, name)}
+                    className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         )}
+
+        <AddContactForm property={property} />
+
         <div className="space-y-2 border-t pt-3">
           <h3 className="text-xs font-medium text-muted-foreground">Conversations</h3>
           <AddNoteBox
-            contactId={(contacts ?? []).find((c) => c.confidence === 'confirmed')?.contact?.id ?? contactIds[0] ?? null}
+            contactId={verified[0]?.contact?.id ?? contactIds[0] ?? null}
             ownerId={ownerId}
             propertyId={property.id}
           />
@@ -103,5 +138,74 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
         </div>
       </div>
     </section>
+  )
+}
+
+/** Inline "add a verified number" — the phone is the identity, the name makes it callable. */
+function AddContactForm({ property }: { property: Property }) {
+  const [open, setOpen] = useState(false)
+  const [first, setFirst] = useState('')
+  const [last, setLast] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const add = useAddVerifiedContact()
+
+  if (!open) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <Plus className="size-4" />
+        Add verified contact
+      </Button>
+    )
+  }
+
+  const save = () => {
+    if (!first.trim()) {
+      toast.error('First name is required')
+      return
+    }
+    if (!normalizePhone(phone)) {
+      toast.error('A valid 10-digit phone is required')
+      return
+    }
+    add.mutate(
+      {
+        property,
+        first: first.trim(),
+        last: last.trim() || null,
+        phone: phone.trim(),
+        email: email.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Verified contact added')
+          setOpen(false)
+          setFirst('')
+          setLast('')
+          setPhone('')
+          setEmail('')
+        },
+        onError: (e) => toast.error(`Could not add contact: ${e.message}`),
+      },
+    )
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <Input placeholder="First name" value={first} onChange={(e) => setFirst(e.target.value)} />
+        <Input placeholder="Last name" value={last} onChange={(e) => setLast(e.target.value)} />
+        <Input placeholder="Phone (required)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <Input placeholder="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={save} disabled={add.isPending}>
+          Save as verified
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   )
 }
