@@ -40,7 +40,17 @@ export function useAddCommNote() {
         source: 'manual',
         occurred_at: new Date().toISOString(),
       })
-      if (error) throw error
+      if (error) {
+        // 23503: the target contact no longer exists — almost always a page rendered from
+        // cache after a contact merge. Refresh the data so the retry hits the survivor.
+        if (error.code === '23503') {
+          queryClient.invalidateQueries({ queryKey: ['owner-contacts'] })
+          queryClient.invalidateQueries({ queryKey: ['contacts'] })
+          queryClient.invalidateQueries({ queryKey: ['conversations'] })
+          throw new Error('this contact was merged into another record — the page has refreshed, try again')
+        }
+        throw error
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
