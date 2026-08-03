@@ -59,3 +59,39 @@ export function useAddCommNote() {
     },
   })
 }
+
+
+/** Edit a note's text. Only manual notes are editable — imported calls are records. */
+export function useUpdateCommNote() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { id: string; body: string }) => {
+      const { error } = await supabase
+        .from('communications')
+        .update({ body: v.body })
+        .eq('id', v.id)
+        .eq('source', 'manual')
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['owner-conversations'] })
+    },
+  })
+}
+
+/** Delete a conversation entry (any source — confirmed by the caller). */
+export function useDeleteComm() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('communications').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['owner-conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['owner-context'] })
+    },
+  })
+}

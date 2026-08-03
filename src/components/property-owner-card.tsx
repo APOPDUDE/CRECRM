@@ -12,6 +12,7 @@ import {
   useOwnerProperties,
   useOwnerRecord,
   useRemoveOwnerContact,
+  useUpdateOwnerTags,
 } from '@/hooks/use-owners'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
 import type { Property } from '@/hooks/use-properties'
@@ -30,6 +31,17 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
   const { data: comms } = useOwnerConversations(ownerId, contactIds)
   const { data: ownerRec } = useOwnerRecord(ownerId)
   const removeLink = useRemoveOwnerContact()
+  const updateTags = useUpdateOwnerTags()
+  const [addingTag, setAddingTag] = useState(false)
+  const [tagDraft, setTagDraft] = useState('')
+
+  const saveTags = (tags: string[]) => {
+    if (!ownerId) return
+    updateTags.mutate(
+      { ownerId, tags },
+      { onError: (e) => toast.error(`Could not update tags: ${e.message}`) },
+    )
+  }
 
   const verified = (contacts ?? []).filter((c) => c.confidence === 'confirmed')
   const others = (contacts ?? []).filter((c) => c.confidence !== 'confirmed')
@@ -62,22 +74,63 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
           ) : (
             <Badge variant="outline" className="text-muted-foreground">Not verified</Badge>
           )}
-          {/* conversation outcomes, straight from the GHL flow (owners.tags) */}
+          {/* outcome tags: written by the GHL flow, editable by Alex right here */}
           {(ownerRec?.tags ?? []).map((t) => (
             <Badge
               key={t}
               variant="outline"
               className={
-                t === 'interested'
+                'gap-1 ' +
+                (t === 'interested'
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                   : t === 'not interested'
                     ? 'border-amber-200 bg-amber-50 text-amber-700'
-                    : 'text-muted-foreground'
+                    : 'text-muted-foreground')
               }
             >
               {t}
+              <button
+                type="button"
+                title="Remove tag"
+                onClick={() => saveTags((ownerRec?.tags ?? []).filter((x) => x !== t))}
+                className="opacity-50 hover:opacity-100"
+              >
+                <X className="size-3" />
+              </button>
             </Badge>
           ))}
+          {ownerId && !addingTag && (
+            <button
+              type="button"
+              onClick={() => setAddingTag(true)}
+              className="rounded border border-dashed px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+            >
+              + tag
+            </button>
+          )}
+          {addingTag && (
+            <form
+              className="flex items-center gap-1"
+              onSubmit={(e) => {
+                e.preventDefault()
+                const t = tagDraft.trim().toLowerCase()
+                if (t) {
+                  saveTags(Array.from(new Set([...(ownerRec?.tags ?? []), t])))
+                }
+                setTagDraft('')
+                setAddingTag(false)
+              }}
+            >
+              <Input
+                autoFocus
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value)}
+                onBlur={() => setAddingTag(false)}
+                placeholder="tag…"
+                className="h-6 w-28 px-2 text-xs"
+              />
+            </form>
+          )}
           {portfolioCount > 1 && (
             <span className="text-xs text-muted-foreground">
               {portfolioCount} properties in portfolio

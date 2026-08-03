@@ -199,3 +199,22 @@ export function useRemoveOwnerContact() {
     onSuccess: () => invalidateOwnerViews(qc),
   })
 }
+
+
+/** Replace the owner's outcome tags (the card's chip editor writes the whole array). */
+export function useUpdateOwnerTags() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { ownerId: string; tags: string[] }) => {
+      const { error } = await supabase
+        .from('owners')
+        .update({ tags: v.tags.length ? v.tags : null })
+        .eq('id', v.ownerId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['owner-record'] })
+      qc.invalidateQueries({ queryKey: ['owner-context'] })
+    },
+  })
+}

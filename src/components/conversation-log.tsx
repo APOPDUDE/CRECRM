@@ -1,9 +1,15 @@
 import { useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { useAddCommNote, type Communication } from '@/hooks/use-communications'
+import {
+  useAddCommNote,
+  useDeleteComm,
+  useUpdateCommNote,
+  type Communication,
+} from '@/hooks/use-communications'
 
 const CHANNEL_ICON: Record<string, string> = {
   call: '📞',
@@ -25,31 +31,104 @@ export function ConversationLog({ comms }: { comms: Communication[] }) {
   return (
     <ul className="space-y-3">
       {comms.map((c) => (
-        <li key={c.id} className="rounded-md border bg-card p-3 text-sm">
-          <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>{CHANNEL_ICON[c.channel] ?? '•'}</span>
-            <span>{new Date(c.occurred_at).toLocaleDateString()}</span>
-            <Badge variant="outline" className="text-[10px] uppercase">{c.source}</Badge>
-            {c.disposition && <span>{c.disposition}</span>}
-            {(c.tags ?? []).map((t) => (
-              <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
-            ))}
-          </div>
-          {c.subject && <p className="font-medium">{c.subject}</p>}
-          {c.body && <p className="whitespace-pre-line">{c.body}</p>}
-          {c.transcript && (
-            <details className="mt-1">
-              <summary className="cursor-pointer text-xs text-muted-foreground">
-                Call transcript
-              </summary>
-              <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
-                {c.transcript}
-              </p>
-            </details>
-          )}
-        </li>
+        <ConversationItem key={c.id} c={c} />
       ))}
     </ul>
+  )
+}
+
+function ConversationItem({ c }: { c: Communication }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const updateNote = useUpdateCommNote()
+  const deleteComm = useDeleteComm()
+  // only manual notes are editable — imported calls/transcripts are records
+  const editable = c.source === 'manual' && c.channel === 'note'
+
+  const remove = () => {
+    if (!window.confirm('Delete this entry from the conversation history?')) return
+    deleteComm.mutate(c.id, {
+      onSuccess: () => toast.success('Entry deleted'),
+      onError: (e) => toast.error(`Could not delete: ${e.message}`),
+    })
+  }
+
+  const saveEdit = () => {
+    const text = draft.trim()
+    if (!text) return
+    updateNote.mutate(
+      { id: c.id, body: text },
+      {
+        onSuccess: () => {
+          setEditing(false)
+          toast.success('Note updated')
+        },
+        onError: (e) => toast.error(`Could not update: ${e.message}`),
+      },
+    )
+  }
+
+  return (
+    <li className="group rounded-md border bg-card p-3 text-sm">
+      <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span>{CHANNEL_ICON[c.channel] ?? '•'}</span>
+        <span>{new Date(c.occurred_at).toLocaleDateString()}</span>
+        <Badge variant="outline" className="text-[10px] uppercase">{c.source}</Badge>
+        {c.disposition && <span>{c.disposition}</span>}
+        {(c.tags ?? []).map((t) => (
+          <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
+        ))}
+        <span className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {editable && !editing && (
+            <button
+              type="button"
+              title="Edit note"
+              onClick={() => {
+                setDraft(c.body ?? '')
+                setEditing(true)
+              }}
+              className="rounded p-0.5 hover:bg-muted"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            title="Delete entry"
+            onClick={remove}
+            className="rounded p-0.5 hover:bg-red-50 hover:text-red-600"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </span>
+      </div>
+      {c.subject && <p className="font-medium">{c.subject}</p>}
+      {editing ? (
+        <div className="space-y-2">
+          <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={saveEdit} disabled={updateNote.isPending || !draft.trim()}>
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        c.body && <p className="whitespace-pre-line">{c.body}</p>
+      )}
+      {c.transcript && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-xs text-muted-foreground">
+            Call transcript
+          </summary>
+          <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
+            {c.transcript}
+          </p>
+        </details>
+      )}
+    </li>
   )
 }
 
