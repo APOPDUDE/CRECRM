@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
-import { useOwnerContacts, useOwnerProperties } from '@/hooks/use-owners'
+import { useOwnerContacts, useOwnerConversations, useOwnerProperties } from '@/hooks/use-owners'
+import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
 import type { Property } from '@/hooks/use-properties'
 import { formatPhone } from '@/lib/format'
 
@@ -13,6 +14,8 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
   const ownerId = property.owner_id
   const { data: contacts } = useOwnerContacts(ownerId)
   const { data: portfolio } = useOwnerProperties(ownerId)
+  const contactIds = (contacts ?? []).map((c) => c.contact?.id).filter((v): v is string => !!v)
+  const { data: comms } = useOwnerConversations(ownerId, contactIds)
 
   if (!ownerId && !property.owner_name) {
     return (
@@ -89,6 +92,15 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
             ))}
           </ul>
         )}
+        <div className="space-y-2 border-t pt-3">
+          <h3 className="text-xs font-medium text-muted-foreground">Conversations</h3>
+          <AddNoteBox
+            contactId={(contacts ?? []).find((c) => c.confidence === 'confirmed')?.contact?.id ?? contactIds[0] ?? null}
+            ownerId={ownerId}
+            propertyId={property.id}
+          />
+          <ConversationLog comms={comms ?? []} />
+        </div>
       </div>
     </section>
   )

@@ -7,6 +7,8 @@ import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { contactName } from '@/pages/contacts'
 import { useContact } from '@/hooks/use-contacts'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
+import { useContactConversations } from '@/hooks/use-communications'
+import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null
@@ -23,6 +25,7 @@ export function ContactDetailPage() {
   const navigate = useNavigate()
   const { data: contact, isLoading, isError } = useContact(id)
   const [editOpen, setEditOpen] = useState(false)
+  const { data: comms } = useContactConversations(id)
 
   useSetBreadcrumb(contact ? contactName(contact) : undefined)
 
@@ -89,9 +92,11 @@ export function ContactDetailPage() {
         </div>
       </dl>
 
-      <p className="text-xs text-muted-foreground">
-        Linked listings, tenant reps and matches appear here in a later phase.
-      </p>
+      <section className="max-w-2xl space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">Conversations</h2>
+        <AddNoteBox contactId={contact.id} />
+        <ConversationLog comms={comms ?? []} />
+      </section>
 
       <ContactFormDialog open={editOpen} onOpenChange={setEditOpen} contact={contact} />
     </div>

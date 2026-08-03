@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
-import { CircleMarker, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { Property } from '@/hooks/use-properties'
@@ -66,6 +66,19 @@ function ViewportKeeper() {
   return null
 }
 
+/** Report the live viewport bounds so marker rendering can follow the camera. */
+function BoundsWatcher({ onBounds }: { onBounds: (b: L.LatLngBounds) => void }) {
+  const map = useMapEvents({
+    moveend: () => onBounds(map.getBounds()),
+    zoomend: () => onBounds(map.getBounds()),
+  })
+  useEffect(() => {
+    onBounds(map.getBounds())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return null
+}
+
 /**
  * Refit the viewport whenever the plotted set changes (i.e. when filters change).
  * Suspended while a shape is active — refitting there would yank the map away from the
@@ -100,6 +113,167 @@ function ShapeDrawer({ onVertex }: { onVertex: (lat: number, lng: number) => voi
     click: (e) => onVertex(e.latlng.lat, e.latlng.lng),
   })
   return null
+}
+
+// ---------------------------------------------------------------------------
+// Parcel outlines, straight from the county appraiser GIS services (same endpoints the
+// enrichment functions use). Only at high zoom -- a viewport then holds a few hundred
+// parcels at most. Clicking a parcel opens its CRM property when we hold that parcel,
+// otherwise a popup with the county's own facts.
+const PARCEL_ZOOM = 16
+
+type ParcelSvc = {
+  name: string
+  url: string
+  /** rough county bounds [minLat, minLng, maxLat, maxLng] to skip irrelevant services */
+  box: [number, number, number, number]
+  fields: string[]
+  attrs: (a: Record<string, unknown>) => { parcel: string; addr: string; owner: string; sf: string; acres: string }
+}
+
+const str0 = (v: unknown) => (v == null ? '' : String(v).trim())
+
+const PARCEL_SERVICES: ParcelSvc[] = [
+  {
+    name: 'Hillsborough',
+    url: 'https://maps.hillsboroughcounty.org/arcgis/rest/services/InfoLayers/HC_Parcels/FeatureServer/0',
+    box: [27.57, -82.65, 28.2, -82.05],
+    fields: ['PIN', 'SITE_ADDR', 'OWNER', 'HEAT_AR', 'ACREAGE'],
+    attrs: (a) => ({ parcel: str0(a.PIN), addr: str0(a.SITE_ADDR), owner: str0(a.OWNER), sf: str0(a.HEAT_AR), acres: str0(a.ACREAGE) }),
+  },
+  {
+    name: 'Pinellas',
+    url: 'https://egis.pinellas.gov/pcpagis/rest/services/Pcpao_gov/PropertyPopup_A/MapServer/0',
+    box: [27.6, -82.9, 28.2, -82.55],
+    fields: ['DISPLAY_STRAP', 'SITE_ADDR', 'OWNER1', 'TOTAL_GROSS_SQFT', 'ACREAGE'],
+    attrs: (a) => ({ parcel: str0(a.DISPLAY_STRAP), addr: str0(a.SITE_ADDR), owner: str0(a.OWNER1), sf: str0(a.TOTAL_GROSS_SQFT), acres: str0(a.ACREAGE) }),
+  },
+  {
+    name: 'Sarasota',
+    url: 'https://services3.arcgis.com/icrWMv7eBkctFu1f/arcgis/rest/services/ParcelHosted/FeatureServer/0',
+    box: [26.9, -82.75, 27.4, -82.05],
+    fields: ['ID', 'FULLADDRESS', 'NAME1', 'GRND_AREA', 'MeasuredAcreage'],
+    attrs: (a) => ({ parcel: str0(a.ID), addr: str0(a.FULLADDRESS), owner: str0(a.NAME1), sf: str0(a.GRND_AREA), acres: str0(a.MeasuredAcreage) }),
+  },
+  {
+    name: 'Pasco',
+    url: 'https://pascogis.pascocountyfl.net/gisweb/rest/services/PascoView/PascoMapper_R_OP/MapServer/7',
+    box: [28.15, -82.9, 28.5, -82.05],
+    fields: ['VPARCEL', 'SITE_ADDRESS', 'OWNER_NAME_1', 'LIVING_AREA', 'SITE_ACRES'],
+    attrs: (a) => ({ parcel: str0(a.VPARCEL), addr: str0(a.SITE_ADDRESS), owner: str0(a.OWNER_NAME_1), sf: str0(a.LIVING_AREA), acres: str0(a.SITE_ACRES) }),
+  },
+  {
+    name: 'Manatee',
+    url: 'https://gis.manateepao.com/arcgis/rest/services/Website/WebLayers/MapServer/0',
+    box: [27.35, -82.75, 27.65, -82.05],
+    fields: ['PARID', 'SITUS_ADDRESS', 'PAR_OWNER_NAME1', 'BLDGS_SQFT_LIVING', 'LAND_ACREAGE_CAMA'],
+    attrs: (a) => ({ parcel: str0(a.PARID), addr: str0(a.SITUS_ADDRESS), owner: str0(a.PAR_OWNER_NAME1), sf: str0(a.BLDGS_SQFT_LIVING), acres: str0(a.LAND_ACREAGE_CAMA) }),
+  },
+  {
+    name: 'Polk',
+    url: 'https://gis.polk-county.net/server/rest/services/Map_Property_Appraiser/MapServer/1',
+    box: [27.6, -82.11, 28.35, -81.1],
+    fields: ['PARCELID', 'PROP_ADRNO', 'PROP_ADRSTR', 'PROP_ADRSUF', 'NAME', 'TOT_ACREAGE'],
+    attrs: (a) => ({
+      parcel: str0(a.PARCELID),
+      addr: [str0(a.PROP_ADRNO), str0(a.PROP_ADRSTR), str0(a.PROP_ADRSUF)].filter(Boolean).join(' '),
+      owner: str0(a.NAME), sf: '', acres: str0(a.TOT_ACREAGE),
+    }),
+  },
+]
+
+/** Format-blind parcel key: letters+digits only (folio digits vs dashed PIN both normalize). */
+const parcelKey = (p: string | null | undefined) =>
+  (p ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null
+
+function ParcelLines({
+  parcelIndex,
+  onOpenProperty,
+}: {
+  parcelIndex: Map<string, string>
+  onOpenProperty: (id: string) => void
+}) {
+  const [fc, setFc] = useState<{ type: 'FeatureCollection'; features: unknown[] } | null>(null)
+  const [ver, setVer] = useState(0)
+  const timer = useRef<number | null>(null)
+  const seq = useRef(0)
+
+  const map = useMapEvents({ moveend: schedule, zoomend: schedule })
+  useEffect(() => {
+    schedule()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function schedule() {
+    if (timer.current) window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(load, 400)
+  }
+
+  async function load() {
+    if (map.getZoom() < PARCEL_ZOOM) {
+      setFc(null)
+      return
+    }
+    const b = map.getBounds()
+    const env = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`
+    const my = ++seq.current
+    const feats: any[] = []
+    await Promise.all(
+      PARCEL_SERVICES.filter(
+        (s) => b.getSouth() <= s.box[2] && b.getNorth() >= s.box[0] &&
+               b.getWest() <= s.box[3] && b.getEast() >= s.box[1],
+      ).map(async (s) => {
+        try {
+          const u = `${s.url}/query?where=1%3D1&geometry=${encodeURIComponent(env)}` +
+            `&geometryType=esriGeometryEnvelope&inSR=4326&outSR=4326` +
+            `&spatialRel=esriSpatialRelIntersects&returnGeometry=true` +
+            `&outFields=${encodeURIComponent(s.fields.join(','))}&resultRecordCount=600&f=geojson`
+          const r = await fetch(u)
+          const d = await r.json()
+          if (Array.isArray(d?.features)) {
+            for (const f of d.features) {
+              f.properties = { ...(f.properties ?? {}), __svc: s.name }
+              feats.push(f)
+            }
+          }
+        } catch {
+          // county service down or CORS-blocked -- its lines simply don't render
+        }
+      }),
+    )
+    if (my !== seq.current) return
+    setFc(feats.length ? { type: 'FeatureCollection', features: feats.slice(0, 2000) } : null)
+    setVer((v) => v + 1)
+  }
+
+  if (!fc) return null
+  return (
+    <GeoJSON
+      key={ver}
+      data={fc as any}
+      style={{ color: '#475569', weight: 1, opacity: 0.55, fill: true, fillOpacity: 0.02 }}
+      onEachFeature={(feature: any, layer: any) => {
+        const svc = PARCEL_SERVICES.find((s) => s.name === feature?.properties?.__svc)
+        if (!svc) return
+        const a = svc.attrs(feature.properties ?? {})
+        const crmId = parcelKey(a.parcel) ? parcelIndex.get(parcelKey(a.parcel)!) : undefined
+        if (crmId) {
+          // a parcel we hold: click goes straight to the property page
+          layer.on('click', () => onOpenProperty(crmId))
+          layer.bindTooltip(`${a.addr || a.parcel} — open in CRM`, { sticky: true })
+        } else {
+          const rows = [
+            a.addr && `<b>${a.addr}</b>`,
+            a.owner && `Owner: ${a.owner}`,
+            a.sf && `${Number(a.sf).toLocaleString()} SF`,
+            a.acres && `${a.acres} AC`,
+            a.parcel && `<span style="opacity:.6">${a.parcel}</span>`,
+          ].filter(Boolean)
+          layer.bindPopup(rows.join('<br>') || 'No county data')
+        }
+      }}
+    />
+  )
 }
 
 /**
@@ -174,6 +348,15 @@ export function PropertiesMap({
   const navigate = useNavigate()
   // read once per mount: restoring the exact spot the user left when they clicked a pin
   const [initialView] = useState<Viewport | null>(savedViewport)
+  // parcel-number -> property id (format-blind), for click-through from parcel outlines
+  const parcelIndex = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const p of properties) {
+      const k = parcelKey(p.parcel_number)
+      if (k) m.set(k, p.id)
+    }
+    return m
+  }, [properties])
 
   const points = useMemo<MapPoint[]>(
     () =>
@@ -183,9 +366,22 @@ export function PropertiesMap({
     [properties],
   )
   const maxMarkers = useIsDesktop() ? MAX_MARKERS_DESKTOP : MAX_MARKERS_MOBILE
-  // Stable reference (memoized on points) so FitToPoints only refits when the set
-  // actually changes — not on every render, which would fight the user's pan/zoom.
-  const shown = useMemo(() => points.slice(0, maxMarkers), [points, maxMarkers])
+  // Regrid-style rendering: the cap applies to what's IN VIEW, not to the whole book.
+  // Pan or zoom and the markers around you (re)load — every property in a street-level
+  // viewport gets its pin, while a whole-region view stays capped for performance.
+  const [viewBounds, setViewBounds] = useState<L.LatLngBounds | null>(null)
+  const shown = useMemo(() => {
+    if (!viewBounds) return points.slice(0, maxMarkers)
+    const padded = viewBounds.pad(0.2)
+    const inView: MapPoint[] = []
+    for (const pt of points) {
+      if (padded.contains([pt.lat, pt.lng] as [number, number])) {
+        inView.push(pt)
+        if (inView.length >= maxMarkers) break
+      }
+    }
+    return inView
+  }, [points, maxMarkers, viewBounds])
 
   if (points.length === 0) {
     return (
@@ -202,9 +398,9 @@ export function PropertiesMap({
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <p className="text-xs text-muted-foreground">
-          {points.length > shown.length
-            ? `Showing ${shown.length} of ${points.length} mapped properties — narrow your filters to see the rest.`
-            : `${points.length} mapped ${points.length === 1 ? 'property' : 'properties'} · hover a pin for details, click to open.`}
+          {shown.length >= maxMarkers
+            ? `Showing the ${shown.length} nearest of ${points.length} mapped — zoom in and every property in view gets a pin.`
+            : `${shown.length} in view of ${points.length} mapped · click a pin to open · zoom in for parcel lines.`}
         </p>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           {LEGENDS[colorBy].map(({ c, label }) => (
@@ -232,7 +428,9 @@ export function PropertiesMap({
             maxZoom={19}
           />
           <ViewportKeeper />
-          <FitToPoints points={shown} suspended={drawMode || !!polygon} skipInitial={!!initialView} />
+          <ParcelLines parcelIndex={parcelIndex} onOpenProperty={(pid) => navigate(`/properties/${pid}`)} />
+          <BoundsWatcher onBounds={setViewBounds} />
+          <FitToPoints points={points} suspended={drawMode || !!polygon} skipInitial={!!initialView} />
           {drawMode && onAddVertex && <ShapeDrawer onVertex={onAddVertex} />}
           {/* the completed search shape */}
           {polygon && polygon.length >= 3 && (
