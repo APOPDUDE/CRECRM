@@ -47,6 +47,7 @@ import { supabase } from '@/lib/supabase'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import { pointInPolygon, type LatLng } from '@/lib/geo'
+import { buildHaystack, matchesTokens, searchTokens } from '@/lib/address-search'
 import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
 
 /** $14.50 PSF (lease) or $5,200,000 (sale) — from the property's current asking comp. */
@@ -229,8 +230,28 @@ export function PropertiesPage() {
     return [...set].sort()
   }, [properties])
 
+  // One canonical searchable string per property, rebuilt only when the book changes — the
+  // normalizer is too costly to re-run over ~13k rows on every keystroke.
+  const haystacks = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of properties ?? [])
+      map.set(
+        p.id,
+        buildHaystack([
+          p.address,
+          p.city,
+          p.state,
+          p.zip,
+          p.specs,
+          p.county,
+          p.property_type ? propertyKindLabels[p.property_type] : null,
+        ]),
+      )
+    return map
+  }, [properties])
+
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
+    const tokens = searchTokens(search)
     const n = (v: string) => {
       const x = parseFloat(v)
       return Number.isFinite(x) ? x : null
@@ -239,13 +260,10 @@ export function PropertiesPage() {
     const acLo = n(acMin), acHi = n(acMax)
     const prLo = n(priceMin), prHi = n(priceMax)
     return (properties ?? []).filter((p) => {
-      if (
-        q &&
-        ![p.address, p.city, p.state, p.zip, p.specs, p.county, p.property_type ? propertyKindLabels[p.property_type] : null]
-          .filter(Boolean)
-          .some((field) => field!.toLowerCase().includes(q))
-      )
-        return false
+      // Every token must appear somewhere in the property's combined text, so a full
+      // "3206 Sydney Rd Plant City, FL 33566" matches even though the street, city, state and
+      // zip live in different columns.
+      if (tokens.length && !matchesTokens(haystacks.get(p.id) ?? '', tokens)) return false
       // 'executed' is a lens on OUR deals, not a listing_status value — hence its own branch.
       if (status === 'executed') {
         if (!executedIds?.has(p.id)) return false
@@ -278,7 +296,7 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [properties, askingMap, ownerCtx, ownerFilter, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [properties, haystacks, askingMap, ownerCtx, ownerFilter, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {

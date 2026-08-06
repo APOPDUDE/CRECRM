@@ -102,7 +102,10 @@ function FitToPoints({
     if (isFirst && skipInitial) return
     if (suspended || points.length === 0) return
     const bounds = L.latLngBounds(points.map((pt) => [pt.lat, pt.lng] as [number, number]))
-    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 })
+    // Narrowing to a handful of properties means the user searched for a specific one, so go in
+    // far enough that the county parcel outlines (zoom >= 16) draw. A broad set stays at 14 —
+    // zooming to street level on hundreds of pins would just hide most of them.
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: points.length <= 3 ? 17 : 14 })
   }, [points, map, suspended])
   return null
 }
