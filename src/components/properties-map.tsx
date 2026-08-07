@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import { CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
@@ -188,15 +188,36 @@ const PARCEL_SERVICES: ParcelSvc[] = [
 const PARCEL_STYLE = { color: '#ffffff', weight: 2, opacity: 0.8, fill: true, fillOpacity: 0.03 }
 const PARCEL_STYLE_HOVER = { color: '#dc2626', weight: 3.5, opacity: 1, fillOpacity: 0.12 }
 
+/**
+ * A parcel we hold wears its property's pin colour instead of the generic white, so at
+ * street level the outline carries the same meaning the dot did when zoomed out
+ * (green/blue = verified owner, grey = not, etc). Heavier and more opaque than a
+ * neighbouring county parcel so ours reads as "mine" at a glance.
+ */
+const parcelStyleFor = (color: string) => ({
+  color,
+  weight: 3,
+  opacity: 1,
+  fill: true,
+  fillOpacity: 0.15,
+  fillColor: color,
+})
+
 /** Format-blind parcel key: letters+digits only (folio digits vs dashed PIN both normalize). */
 const parcelKey = (p: string | null | undefined) =>
   (p ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null
 
 function ParcelLines({
   parcelIndex,
+  colorById,
+  onMatchedIds,
   onOpenProperty,
 }: {
   parcelIndex: Map<string, string>
+  /** property id -> pin colour, so a held parcel outlines in its own colour */
+  colorById: Map<string, string>
+  /** reports which CRM properties now have an outline drawn, so the parent can drop their dots */
+  onMatchedIds: (ids: Set<string>) => void
   onOpenProperty: (id: string) => void
 }) {
   const [fc, setFc] = useState<{ type: 'FeatureCollection'; features: unknown[] } | null>(null)
@@ -218,6 +239,7 @@ function ParcelLines({
   async function load() {
     if (map.getZoom() < PARCEL_ZOOM) {
       setFc(null)
+      onMatchedIds(new Set())
       return
     }
     const b = map.getBounds()
@@ -248,7 +270,21 @@ function ParcelLines({
       }),
     )
     if (my !== seq.current) return
-    setFc(feats.length ? { type: 'FeatureCollection', features: feats.slice(0, 2000) } : null)
+    const kept = feats.slice(0, 2000)
+    // Tell the parent which of our properties are now outlined, so it can drop their dots
+    // and leave only the shape (the Regrid behaviour: dot far out, outline up close).
+    // Derived from `kept`, not `feats` — a parcel trimmed by the cap has no outline drawn,
+    // so its dot must stay or the property would vanish from the map entirely.
+    const matched = new Set<string>()
+    for (const f of kept) {
+      const svc = PARCEL_SERVICES.find((s) => s.name === f?.properties?.__svc)
+      if (!svc) continue
+      const k = parcelKey(svc.attrs(f.properties ?? {}).parcel)
+      const id = k ? parcelIndex.get(k) : undefined
+      if (id) matched.add(id)
+    }
+    setFc(kept.length ? { type: 'FeatureCollection', features: kept } : null)
+    onMatchedIds(matched)
     setVer((v) => v + 1)
   }
 
@@ -257,15 +293,26 @@ function ParcelLines({
     <GeoJSON
       key={ver}
       data={fc as any}
-      style={PARCEL_STYLE}
+      style={(feature: any) => {
+        const svc = PARCEL_SERVICES.find((s) => s.name === feature?.properties?.__svc)
+        if (!svc) return PARCEL_STYLE
+        const k = parcelKey(svc.attrs(feature.properties ?? {}).parcel)
+        const id = k ? parcelIndex.get(k) : undefined
+        const color = id ? colorById.get(id) : undefined
+        return color ? parcelStyleFor(color) : PARCEL_STYLE
+      }}
       onEachFeature={(feature: any, layer: any) => {
         const svc = PARCEL_SERVICES.find((s) => s.name === feature?.properties?.__svc)
         if (!svc) return
-        // hover: light the parcel up red and heavier so the cursor's target is unmistakable
-        layer.on('mouseover', () => layer.setStyle(PARCEL_STYLE_HOVER))
-        layer.on('mouseout', () => layer.setStyle(PARCEL_STYLE))
         const a = svc.attrs(feature.properties ?? {})
         const crmId = parcelKey(a.parcel) ? parcelIndex.get(parcelKey(a.parcel)!) : undefined
+        // Remember this parcel's own resting style — mouseout must restore ITS colour,
+        // not the generic white, or hovering a held parcel would permanently bleach it.
+        const ownColor = crmId ? colorById.get(crmId) : undefined
+        const base = ownColor ? parcelStyleFor(ownColor) : PARCEL_STYLE
+        // hover: light the parcel up red and heavier so the cursor's target is unmistakable
+        layer.on('mouseover', () => layer.setStyle(PARCEL_STYLE_HOVER))
+        layer.on('mouseout', () => layer.setStyle(base))
         if (crmId) {
           // a parcel we hold: click goes straight to the property page
           layer.on('click', () => onOpenProperty(crmId))
@@ -367,6 +414,39 @@ export function PropertiesMap({
     return m
   }, [properties])
 
+  // Executed wins over market status — a closed deal is usually off-market too.
+  const colorOf = useCallback(
+    (id: string, p: Property) =>
+      colorBy === 'owner'
+        ? ownerPin(ownerContext?.get(id))
+        : executedIds?.has(id)
+          ? PIN.executed
+          : p.listing_status === 'off_market'
+            ? PIN.off
+            : PIN.on,
+    [colorBy, ownerContext, executedIds],
+  )
+
+  // Same colour the dot would have used, keyed by property, so the parcel outline can
+  // inherit it at street level.
+  const pinColorById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const p of properties) m.set(p.id, colorOf(p.id, p))
+    return m
+  }, [properties, colorOf])
+
+  // Properties whose parcel outline is currently drawn — their dot is suppressed so the
+  // shape stands alone, and comes back the moment you zoom out past PARCEL_ZOOM.
+  const [outlinedIds, setOutlinedIds] = useState<Set<string>>(() => new Set())
+  // Parcels reload on every pan/zoom, but panning within one block usually yields the
+  // same set. Swap state only on a real change, or each pan would re-render every marker.
+  const applyOutlined = useCallback((next: Set<string>) => {
+    setOutlinedIds((cur) => {
+      if (cur.size === next.size && [...next].every((id) => cur.has(id))) return cur
+      return next
+    })
+  }, [])
+
   const points = useMemo<MapPoint[]>(
     () =>
       properties
@@ -437,7 +517,12 @@ export function PropertiesMap({
             maxZoom={19}
           />
           <ViewportKeeper />
-          <ParcelLines parcelIndex={parcelIndex} onOpenProperty={(pid) => navigate(`/properties/${pid}`)} />
+          <ParcelLines
+            parcelIndex={parcelIndex}
+            colorById={pinColorById}
+            onMatchedIds={applyOutlined}
+            onOpenProperty={(pid) => navigate(`/properties/${pid}`)}
+          />
           <BoundsWatcher onBounds={setViewBounds} />
           <FitToPoints points={points} suspended={drawMode || !!polygon} skipInitial={!!initialView} />
           {drawMode && onAddVertex && <ShapeDrawer onVertex={onAddVertex} />}
@@ -474,18 +559,13 @@ export function PropertiesMap({
             </>
           )}
           {shown.map(({ id, lat, lng, p }) => {
+            // Zoomed in far enough that this property's parcel outline is drawn: the
+            // outline IS the marker now, so skip the dot rather than stack both.
+            if (outlinedIds.has(id)) return null
             const executed = executedIds?.has(id)
             const off = p.listing_status === 'off_market'
             const ctx = ownerContext?.get(id)
-            // Executed wins over market status — a closed deal is usually off-market too.
-            const fillColor =
-              colorBy === 'owner'
-                ? ownerPin(ctx)
-                : executed
-                  ? PIN.executed
-                  : off
-                    ? PIN.off
-                    : PIN.on
+            const fillColor = colorOf(id, p)
             const loc = [p.city, p.state].filter(Boolean).join(', ')
             const ask = asking?.get(id)
             const askLabel = formatPsf(ask?.rate) ?? formatCurrency(ask?.price)
