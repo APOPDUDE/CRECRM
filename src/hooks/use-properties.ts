@@ -46,7 +46,21 @@ export function useGeocodeMissing(enabled = true) {
   }, [enabled, queryClient])
 }
 
-export type Property = Tables<'properties'>
+/**
+ * The list-page slice of a property — every column the table, map, filters, quick-edit
+ * form and skip-trace export actually read. Deliberately NOT the full row: the book is
+ * ~13k rows, and the full row carries multi-KB blobs (appraiser_data, scrape_facts,
+ * photo_urls, description) that only the detail page needs — fetching them for the whole
+ * book is what made the properties map take tens of seconds to load.
+ */
+export type Property = Pick<
+  Tables<'properties'>,
+  | 'id' | 'address' | 'city' | 'state' | 'zip' | 'county' | 'parcel_number'
+  | 'property_type' | 'building_sf' | 'land_acres' | 'specs' | 'listing_status'
+  | 'days_on_market' | 'year_built' | 'zoning_description' | 'zoning_district'
+  | 'occupancy' | 'lat' | 'lng' | 'owner_id' | 'owner_name' | 'owner_mailing_address'
+  | 'last_sale_date' | 'last_sale_price' | 'created_at' | 'updated_at'
+>
 
 /** Property plus embedded linked-deal counts (listings + pursuits). */
 export type PropertyWithCounts = Property & {
@@ -72,18 +86,24 @@ export function useProperties() {
       // explicit FK hints: listing_parcels adds a 2nd properties<->listings relationship,
       // so a bare listings(count) is ambiguous (PGRST201) and 300s the whole query.
       const SELECT =
-        '*, listings!listings_property_id_fkey(count), matches:pursuits!pursuits_property_id_fkey(count)'
-      const base = () =>
+        'id, address, city, state, zip, county, parcel_number, property_type, building_sf, ' +
+        'land_acres, specs, listing_status, days_on_market, year_built, zoning_description, ' +
+        'zoning_district, occupancy, lat, lng, owner_id, owner_name, owner_mailing_address, ' +
+        'last_sale_date, last_sale_price, created_at, updated_at, ' +
+        'listings!listings_property_id_fkey(count), matches:pursuits!pursuits_property_id_fkey(count)'
+      // count:'exact' only on the first page — it re-runs the full filtered count per
+      // request, so repeating it on all ~14 parallel pages just multiplies server work.
+      const base = (withCount?: boolean) =>
         supabase
           .from('properties')
-          .select(SELECT, { count: 'exact' })
+          .select(SELECT, withCount ? { count: 'exact' } : undefined)
           // hide scrape placeholders that aren't real addresses — no coords/parcel/deals.
           .not('address', 'ilike', '%unavailable%')
           .not('address', 'ilike', 'Portfolio of %')
           // (address, id) — id is the unique tiebreaker keeping offset pages stable.
           .order('address')
           .order('id')
-      const first = await base().range(0, PAGE - 1)
+      const first = await base(true).range(0, PAGE - 1)
       if (first.error) throw first.error
       const total = first.count ?? (first.data?.length ?? 0)
       const rest = await Promise.all(

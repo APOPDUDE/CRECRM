@@ -22,9 +22,14 @@ export function useOwnerContext() {
       // ~13k rows behind PostgREST's 1000-row cap — fetch the pages in parallel; serial
       // paging plus a zero staleTime is what made back-navigation to the map crawl.
       const PAGE = 1000
-      const base = () =>
-        supabase.from('v_property_owner_context').select('*', { count: 'exact' }).order('property_id')
-      const first = await base().range(0, PAGE - 1)
+      // count:'exact' only on the first request — the later parallel pages don't need the
+      // total, and re-counting a ~13k-row view per page multiplies server work.
+      const base = (withCount?: boolean) =>
+        supabase
+          .from('v_property_owner_context')
+          .select('*', withCount ? { count: 'exact' } : undefined)
+          .order('property_id')
+      const first = await base(true).range(0, PAGE - 1)
       if (first.error) throw first.error
       const total = first.count ?? (first.data?.length ?? 0)
       const rest = await Promise.all(

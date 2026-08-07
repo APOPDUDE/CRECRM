@@ -377,6 +377,8 @@ const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
 
 export function PropertiesMap({
   properties,
+  parcelProperties,
+  emptyHint,
   goodDealIds,
   executedIds,
   ownerContext,
@@ -388,6 +390,14 @@ export function PropertiesMap({
   asking,
 }: {
   properties: Property[]
+  /**
+   * Source for parcel-outline matching/colouring at street level. Pins plot only from
+   * `properties`, but held-parcel recognition should span the whole book even when no
+   * pins are requested (the no-preload map) — so the parent passes the full set here.
+   */
+  parcelProperties?: Property[]
+  /** Header text when there are no pins to plot (loading / no search yet / no matches). */
+  emptyHint?: string
   goodDealIds?: Set<string>
   executedIds?: Set<string>
   ownerContext?: Map<string, OwnerContext>
@@ -404,15 +414,16 @@ export function PropertiesMap({
   const navigate = useNavigate()
   // read once per mount: restoring the exact spot the user left when they clicked a pin
   const [initialView] = useState<Viewport | null>(savedViewport)
+  const parcelSource = parcelProperties ?? properties
   // parcel-number -> property id (format-blind), for click-through from parcel outlines
   const parcelIndex = useMemo(() => {
     const m = new Map<string, string>()
-    for (const p of properties) {
+    for (const p of parcelSource) {
       const k = parcelKey(p.parcel_number)
       if (k) m.set(k, p.id)
     }
     return m
-  }, [properties])
+  }, [parcelSource])
 
   // Executed wins over market status — a closed deal is usually off-market too.
   const colorOf = useCallback(
@@ -431,9 +442,9 @@ export function PropertiesMap({
   // inherit it at street level.
   const pinColorById = useMemo(() => {
     const m = new Map<string, string>()
-    for (const p of properties) m.set(p.id, colorOf(p.id, p))
+    for (const p of parcelSource) m.set(p.id, colorOf(p.id, p))
     return m
-  }, [properties, colorOf])
+  }, [parcelSource, colorOf])
 
   // Properties whose parcel outline is currently drawn — their dot is suppressed so the
   // shape stands alone, and comes back the moment you zoom out past PARCEL_ZOOM.
@@ -472,24 +483,16 @@ export function PropertiesMap({
     return inView
   }, [points, maxMarkers, viewBounds])
 
-  if (points.length === 0) {
-    return (
-      <div className="flex h-[70vh] items-center justify-center rounded-lg border border-dashed text-center">
-        <p className="max-w-xs text-sm text-muted-foreground">
-          None of these properties have map coordinates yet — adjust your filters or add a
-          parcel/address so they can be located.
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <p className="text-xs text-muted-foreground">
-          {shown.length >= maxMarkers
-            ? `Showing the ${shown.length} nearest of ${points.length} mapped — zoom in and every property in view gets a pin.`
-            : `${shown.length} in view of ${points.length} mapped · click a pin to open · zoom in for parcel lines.`}
+          {points.length === 0
+            ? emptyHint ??
+              'None of these properties have map coordinates yet — add a parcel/address so they can be located.'
+            : shown.length >= maxMarkers
+              ? `Showing the ${shown.length} nearest of ${points.length} mapped — zoom in and every property in view gets a pin.`
+              : `${shown.length} in view of ${points.length} mapped · click a pin to open · zoom in for parcel lines.`}
         </p>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           {LEGENDS[colorBy].map(({ c, label }) => (

@@ -398,6 +398,14 @@ export function PropertiesPage() {
     (acMin || acMax ? 1 : 0) +
     (priceMin || priceMax ? 1 : 0)
 
+  // Map pins are opt-in: nothing preloads (Alex 2026-08-07 — plotting the whole book made
+  // the map take forever to appear). A search, any filter, or a drawn shape is the signal
+  // that a specific set is wanted, and only then do pins plot.
+  const hasQuery =
+    searchTokens(search).length > 0 ||
+    activeFilterCount > 0 ||
+    (polygon != null && polygon.length >= 3)
+
   const clearFilters = () => {
     setStatus('all')
     setPtype('all')
@@ -678,25 +686,9 @@ export function PropertiesPage() {
         </p>
       )}
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ListErrorState message="Could not load properties." onRetry={() => refetch()} />
-      ) : (properties ?? []).length === 0 ? (
-        <div className="rounded-lg border border-dashed py-16 text-center">
-          <p className="text-sm text-muted-foreground">
-            No properties yet — use “Add property” above to add the buildings and land you're working.
-          </p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-16 text-center">
-          <p className="text-sm text-muted-foreground">No properties match “{search.trim()}”</p>
-        </div>
-      ) : view === 'map' ? (
+      {/* Map view renders immediately — tiles first, the book streams in behind it. It
+          never waits on the (big) properties fetch, because pins only plot on demand. */}
+      {view === 'map' && !isError ? (
         <div className="space-y-2">
           {/* Shape search: click the map to drop vertices, Finish closes the polygon. */}
           <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
@@ -743,7 +735,11 @@ export function PropertiesPage() {
                   : `${draft!.length} points — keep clicking or Finish`
                 : polygon
                   ? `${filtered.length.toLocaleString()} in shape`
-                  : `${filtered.length.toLocaleString()} matching`}
+                  : hasQuery
+                    ? `${filtered.length.toLocaleString()} matching`
+                    : isLoading
+                      ? 'Loading properties in the background…'
+                      : `${(properties ?? []).length.toLocaleString()} loaded — pins appear when you search or filter`}
             </span>
             <Button size="sm" variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
               <Download className="size-4" />
@@ -751,7 +747,17 @@ export function PropertiesPage() {
             </Button>
           </div>
           <PropertiesMap
-            properties={filtered}
+            properties={hasQuery ? filtered : []}
+            parcelProperties={filtered}
+            emptyHint={
+              isLoading
+                ? 'Loading properties in the background — the map is ready now.'
+                : hasQuery
+                  ? filtered.length === 0
+                    ? 'Nothing matches the current search/filters.'
+                    : undefined
+                  : 'Pins appear when you search, filter, or draw a shape.'
+            }
             goodDealIds={goodDealIds}
             executedIds={executedIds}
             ownerContext={ownerCtx}
@@ -762,6 +768,24 @@ export function PropertiesPage() {
             asking={askingMap}
             onAddVertex={(lat, lng) => setDraft((d) => [...(d ?? []), { lat, lng }])}
           />
+        </div>
+      ) : isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }, (_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : isError ? (
+        <ListErrorState message="Could not load properties." onRetry={() => refetch()} />
+      ) : (properties ?? []).length === 0 ? (
+        <div className="rounded-lg border border-dashed py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            No properties yet — use “Add property” above to add the buildings and land you're working.
+          </p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-lg border border-dashed py-16 text-center">
+          <p className="text-sm text-muted-foreground">No properties match “{search.trim()}”</p>
         </div>
       ) : (
         <>

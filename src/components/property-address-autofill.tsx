@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useProperties } from '@/hooks/use-properties'
-import type { Tables } from '@/lib/database.types'
-
-type Property = Tables<'properties'>
+import type { Property } from '@/hooks/use-properties'
 
 interface PropertyAddressAutofillProps {
   value: string
