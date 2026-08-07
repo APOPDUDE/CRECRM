@@ -28,6 +28,7 @@ export type Database = {
           created_at: string
           deal_type: Database["public"]["Enums"]["deal_type"]
           id: string
+          intended_use: string | null
           is_rep: boolean
           land_acres_max: number | null
           land_acres_min: number | null
@@ -57,6 +58,7 @@ export type Database = {
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
           id?: string
+          intended_use?: string | null
           is_rep?: boolean
           land_acres_max?: number | null
           land_acres_min?: number | null
@@ -86,6 +88,7 @@ export type Database = {
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
           id?: string
+          intended_use?: string | null
           is_rep?: boolean
           land_acres_max?: number | null
           land_acres_min?: number | null
@@ -1344,19 +1347,35 @@ export type Database = {
         Row: {
           actual_fee: number | null
           client_id: string
+          closing_days: number | null
           created_at: string
+          dd_days: number | null
           dd_expiration_date: string | null
           deal_type: Database["public"]["Enums"]["deal_type"]
+          earnest_deposit: number | null
+          escalation_pct: number | null
           executed_date: string | null
           flagged_new: boolean
+          free_rent_months: number | null
           id: string
           inquiry_date: string
+          lease_term_months: number | null
           notes: string | null
           owner_id: string
           payment_received: boolean
           property_id: string
+          proposed_commencement: string | null
+          proposed_lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          proposed_opex_psf: number | null
+          proposed_price: number | null
+          proposed_rate_psf: number | null
+          proposed_sf: number | null
+          renewal_terms: string | null
+          security_deposit: number | null
           sort_order: number
+          special_provisions: string | null
           stage: Database["public"]["Enums"]["pursuit_stage"]
+          ti_allowance_psf: number | null
           tour_date: string | null
           tour_time: string | null
           updated_at: string
@@ -1364,19 +1383,35 @@ export type Database = {
         Insert: {
           actual_fee?: number | null
           client_id: string
+          closing_days?: number | null
           created_at?: string
+          dd_days?: number | null
           dd_expiration_date?: string | null
           deal_type?: Database["public"]["Enums"]["deal_type"]
+          earnest_deposit?: number | null
+          escalation_pct?: number | null
           executed_date?: string | null
           flagged_new?: boolean
+          free_rent_months?: number | null
           id?: string
           inquiry_date?: string
+          lease_term_months?: number | null
           notes?: string | null
           owner_id: string
           payment_received?: boolean
           property_id: string
+          proposed_commencement?: string | null
+          proposed_lease_structure?: Database["public"]["Enums"]["lease_structure"] | null
+          proposed_opex_psf?: number | null
+          proposed_price?: number | null
+          proposed_rate_psf?: number | null
+          proposed_sf?: number | null
+          renewal_terms?: string | null
+          security_deposit?: number | null
           sort_order?: number
+          special_provisions?: string | null
           stage?: Database["public"]["Enums"]["pursuit_stage"]
+          ti_allowance_psf?: number | null
           tour_date?: string | null
           tour_time?: string | null
           updated_at?: string
@@ -1384,19 +1419,35 @@ export type Database = {
         Update: {
           actual_fee?: number | null
           client_id?: string
+          closing_days?: number | null
           created_at?: string
+          dd_days?: number | null
           dd_expiration_date?: string | null
           deal_type?: Database["public"]["Enums"]["deal_type"]
+          earnest_deposit?: number | null
+          escalation_pct?: number | null
           executed_date?: string | null
           flagged_new?: boolean
+          free_rent_months?: number | null
           id?: string
           inquiry_date?: string
+          lease_term_months?: number | null
           notes?: string | null
           owner_id?: string
           payment_received?: boolean
           property_id?: string
+          proposed_commencement?: string | null
+          proposed_lease_structure?: Database["public"]["Enums"]["lease_structure"] | null
+          proposed_opex_psf?: number | null
+          proposed_price?: number | null
+          proposed_rate_psf?: number | null
+          proposed_sf?: number | null
+          renewal_terms?: string | null
+          security_deposit?: number | null
           sort_order?: number
+          special_provisions?: string | null
           stage?: Database["public"]["Enums"]["pursuit_stage"]
+          ti_allowance_psf?: number | null
           tour_date?: string | null
           tour_time?: string | null
           updated_at?: string
@@ -1808,6 +1859,7 @@ export type Database = {
         | "rep_agreement"
         | "marketing"
         | "loi"
+        | "rfp"
         | "lease"
         | "psa"
         | "coi_insurance"
@@ -1984,6 +2036,7 @@ export const Constants = {
         "rep_agreement",
         "marketing",
         "loi",
+        "rfp",
         "lease",
         "psa",
         "coi_insurance",

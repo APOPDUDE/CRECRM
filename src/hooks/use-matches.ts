@@ -34,7 +34,14 @@ export type MatchWithRelations = Tables<'pursuits'> & {
   client:
     | (Pick<
         Tables<'clients'>,
-        'id' | 'status' | 'deal_type' | 'source' | 'commission_pct' | 'company_id' | 'contact_id'
+        | 'id'
+        | 'status'
+        | 'deal_type'
+        | 'source'
+        | 'commission_pct'
+        | 'company_id'
+        | 'contact_id'
+        | 'intended_use'
       > & {
         company: Pick<Company, 'id' | 'name'> | null
         contact: Pick<Contact, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'title'> | null
@@ -54,7 +61,7 @@ const MATCH_SELECT = `
   *,
   property:properties!pursuits_property_id_fkey(id, address, city, state, building_sf, source, source_key, listing_url, photo_urls, specs),
   client:clients!pursuits_client_id_fkey(
-    id, status, deal_type, source, commission_pct, company_id, contact_id,
+    id, status, deal_type, source, commission_pct, company_id, contact_id, intended_use,
     company:companies!clients_company_id_fkey(id, name),
     contact:contacts!clients_contact_id_fkey(id, first_name, last_name, email, phone, title),
     broker:contacts!clients_broker_contact_id_fkey(id, first_name, last_name)

@@ -25,6 +25,7 @@ export const fileCategoryLabels: Record<FileCategory, string> = {
   rep_agreement: 'Rep agreement',
   marketing: 'Marketing',
   loi: 'LOI',
+  rfp: 'RFP',
   lease: 'Lease',
   psa: 'PSA',
   coi_insurance: 'COI / Insurance',

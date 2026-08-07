@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowUpRight, UserPlus, XCircle } from 'lucide-react'
+import { ArrowUpRight, FileText, UserPlus, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { DraftDocDialog } from '@/components/draft-doc-dialog'
 import { ExecutedChecklist } from '@/components/files/executed-checklist'
 import { FileSection } from '@/components/files/file-section'
 import { InlineEditField } from '@/components/inline-edit-field'
@@ -53,6 +54,7 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
   const promote = usePromoteToTenantRep()
   const updateMatch = useUpdateMatch()
   const [leaseOpen, setLeaseOpen] = useState(false)
+  const [draftOpen, setDraftOpen] = useState(false)
 
   const saveDescription = async (v: string | number | boolean | null) => {
     if (!match) return
@@ -228,6 +230,12 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                     </Button>
                   </div>
 
+                  {/* The LOI dialog fills the deal's proposed terms and generates the doc */}
+                  <Button variant="secondary" className="w-full" onClick={() => setDraftOpen(true)}>
+                    <FileText className="size-4" />
+                    Draft LOI
+                  </Button>
+
                   {match.client?.status === 'prospect' && (
                     <Button
                       variant="secondary"
@@ -272,6 +280,12 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
             </Tabs>
 
             <LeaseDetailsDialog open={leaseOpen} onOpenChange={setLeaseOpen} match={match} />
+            <DraftDocDialog
+              open={draftOpen}
+              onOpenChange={setDraftOpen}
+              match={match}
+              docType="loi"
+            />
           </>
         )}
       </SheetContent>

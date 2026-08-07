@@ -28,6 +28,7 @@ import { TenantCommissionDialog } from '@/components/tenant-commission-dialog'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { CompanyFormDialog } from '@/components/company-form-dialog'
 import { PropertyPreview } from '@/components/property-preview'
+import { DraftDocDialog } from '@/components/draft-doc-dialog'
 import { StageDateDialog } from '@/components/stage-date-dialog'
 import type { DatedStage } from '@/components/stage-date-dialog'
 import { contactNameOf, type Contact } from '@/hooks/use-contacts'
@@ -85,6 +86,7 @@ export function TenantBoardPage() {
   const [contactEditOpen, setContactEditOpen] = useState(false)
   const [companyEditOpen, setCompanyEditOpen] = useState(false)
   const [previewPropertyId, setPreviewPropertyId] = useState<string | null>(null)
+  const [draftMatch, setDraftMatch] = useState<MatchWithRelations | null>(null)
   const [dateMove, setDateMove] = useState<{ match: MatchWithRelations; stage: DatedStage } | null>(
     null,
   )
@@ -425,6 +427,7 @@ export function TenantBoardPage() {
                       onOpen={() => navigate(`/properties/${m.property_id}`)}
                       onRemove={() => softPass(m)}
                       onFlipSide={sides.length > 1 ? () => moveToOtherSide(m) : undefined}
+                      onDraftDoc={() => setDraftMatch(m)}
                     />
                   )}
                 />
@@ -615,6 +618,14 @@ export function TenantBoardPage() {
         open={!!previewPropertyId}
         onOpenChange={(open) => !open && setPreviewPropertyId(null)}
       />
+      {draftMatch && (
+        <DraftDocDialog
+          open={!!draftMatch}
+          onOpenChange={(open) => !open && setDraftMatch(null)}
+          match={draftMatch}
+          docType={draftMatch.deal_type === 'sale' ? 'loi' : 'rfp'}
+        />
+      )}
       <StageDateDialog
         stage={dateMove?.stage ?? null}
         open={!!dateMove}
