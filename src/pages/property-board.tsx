@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AddTenantMatchDialog } from '@/components/add-tenant-match-dialog'
 import { ExecutedMatchDialog } from '@/components/executed-match-dialog'
 import type { ExecutedResult } from '@/components/executed-match-dialog'
 import { ListingTermsDialog } from '@/components/listing-terms-dialog'
@@ -45,6 +44,7 @@ import { formatDate } from '@/lib/dates'
 import { formatCurrency, formatListingPrice, formatPsf, formatSf } from '@/lib/format'
 import { calculateCommission } from '@/lib/commission'
 import { setReppingSide } from '@/lib/repping-side'
+import { LEAD_INTAKE_FORM_URL } from '@/lib/n8n'
 import { boardSides, dealSideLabels, pursuitLabelsFor, propertyBoardStages } from '@/lib/stages'
 
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'pursuit_stage'> }
@@ -66,7 +66,12 @@ export function PropertyBoardPage() {
   const deleteMatch = useDeleteMatch()
   const deleteUnit = useDeleteUnit()
 
-  const [addOpen, setAddOpen] = useState(false)
+  // "Add tenant" hands off to the n8n /lead intake form — one intake path for the
+  // whole business, editable in n8n rather than in the app.
+  const openLeadForm = () => {
+    window.open(LEAD_INTAKE_FORM_URL, '_blank', 'noopener,noreferrer')
+  }
+
   const [addParcelOpen, setAddParcelOpen] = useState(false)
   const [addUnitOpen, setAddUnitOpen] = useState(false)
   const [openMatchId, setOpenMatchId] = useState<string | null>(null)
@@ -336,7 +341,7 @@ export function PropertyBoardPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <BoardSideToggle sides={sides} value={side} onChange={setSide} counts={sideCounts} />
-          <Button onClick={() => setAddOpen(true)}>
+          <Button onClick={openLeadForm}>
             <Plus className="size-4" />
             Add tenant
           </Button>
@@ -354,7 +359,7 @@ export function PropertyBoardPage() {
                   ? `Nothing on the ${dealSideLabels[side].toLowerCase()} board yet — every prospect is on the other one.`
                   : 'No tenant inquiries yet — add a tenant to start moving prospects.'}
               </p>
-              <Button onClick={() => setAddOpen(true)}>
+              <Button onClick={openLeadForm}>
                 <Plus className="size-4" />
                 Add tenant
               </Button>
@@ -767,13 +772,6 @@ export function PropertyBoardPage() {
         </aside>
       </div>
 
-      <AddTenantMatchDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        propertyId={listing.property_id}
-        listingDealType={listing.deal_type}
-        boardSide={side}
-      />
       <AddListingParcelDialog
         listingId={listing.id}
         existingPropertyIds={parcels.map((p) => p.property_id)}

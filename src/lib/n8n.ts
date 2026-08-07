@@ -22,6 +22,9 @@ export const TENANT_INTAKE_FORM_URL = 'https://n8n.ayxco.com/webhook/cre-tenant-
 /** The live custom landlord/listing-intake form (n8n-hosted HTML form). */
 export const LANDLORD_INTAKE_FORM_URL = 'https://n8n.ayxco.com/webhook/cre-landlord-form'
 
+/** The branching lead-intake form behind Slack /lead (n8n-hosted HTML form). */
+export const LEAD_INTAKE_FORM_URL = 'https://n8n.ayxco.com/webhook/cre-lead-form'
+
 /** POST JSON to an n8n webhook and return its JSON response (throws on failure). */
 export async function callN8nWebhook<T = unknown>(
   path: string,
