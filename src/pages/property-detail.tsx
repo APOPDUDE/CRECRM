@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, MapPin, Pencil, Trash2, Plus } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Pencil, Trash2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { PropertyMiniMap } from '@/components/property-mini-map'
+import { AddressActions } from '@/components/address-actions'
 import { MarketPositionCard } from '@/components/market-position-card'
 import { PropertyOwnerCard } from '@/components/property-owner-card'
 import { AddToClientDialog } from '@/components/add-to-client-dialog'
@@ -163,7 +164,6 @@ export function PropertyDetailPage() {
   const fullAddress = [property.address, property.city, property.state, property.zip]
     .filter(Boolean)
     .join(', ')
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
   const listingUrl = property.listing_url
   const sourceLabel =
     property.source === 'scrape' ? 'Scraped' : property.source === 'landlord_rep' ? 'My listing' : null
@@ -210,18 +210,14 @@ export function PropertyDetailPage() {
             <span className="sr-only">Back</span>
           </Button>
           <div className="group/header">
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open in Google Maps"
-              className="group inline-flex items-center gap-2 text-2xl font-semibold hover:underline"
-            >
-              {/* Full address lives here now — city/state/zip were dropped from the
-                  details grid below, since repeating them there was pure noise. */}
+            {/* Full address lives here now — city/state/zip were dropped from the
+                details grid below, since repeating them there was pure noise.
+                No longer a Google Maps link: the buttons beside it cover Apple Maps,
+                Google Earth and copy, and the mini-map tile goes to our Deal Map. */}
+            <span className="inline-flex flex-wrap items-center gap-2 text-2xl font-semibold">
               {fullAddress}
-              <MapPin className="size-5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-            </a>
+              <AddressActions address={fullAddress} lat={property.lat} lng={property.lng} />
+            </span>
             {/* The Edit button is gone from the bar; this pencil keeps address, city,
                 state, zip and county reachable — they live only in that dialog now. */}
             <button

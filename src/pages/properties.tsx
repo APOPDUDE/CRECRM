@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -166,6 +166,7 @@ const PAGE_SIZE = 100
 
 export function PropertiesPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data: properties, isLoading, isError, refetch } = useProperties()
   const { data: goodDealIds } = useGoodDealIds()
   const { data: executedIds } = useExecutedPropertyIds()
@@ -208,6 +209,36 @@ export function PropertiesPage() {
   const [polygon, setPolygon] = usePersistentState<LatLng[] | null>('properties:shape', null)
   const [draft, setDraft] = useState<LatLng[] | null>(null)
   const drawMode = draft !== null
+
+  // Deep link from a property's mini-map: /properties?view=map&q=<address>.
+  // Every filter here is sticky, so a saved county/type/shape from an earlier session
+  // would silently exclude the very property being linked to and land on an empty map.
+  // "Show me this one property" outranks the saved filters, so clear them, then strip
+  // the params so a later refresh doesn't wipe filters the user has since re-set.
+  useEffect(() => {
+    const q = searchParams.get('q')
+    const wantsMap = searchParams.get('view') === 'map'
+    if (!q && !wantsMap) return
+    if (q) {
+      setSearch(q)
+      setStatus('all')
+      setDealType('all')
+      setPtype('all')
+      setCounty('all')
+      setSfMin('')
+      setSfMax('')
+      setAcMin('')
+      setAcMax('')
+      setPriceMin('')
+      setPriceMax('')
+      setOwnerFilter('all')
+      setPolygon(null)
+      setPage(0)
+    }
+    if (wantsMap) setView('map')
+    setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Guard against a tampered/legacy localStorage value that isn't an array.
   const safeColumns = Array.isArray(columns) ? columns : DEFAULT_COLUMNS
