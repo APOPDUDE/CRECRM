@@ -78,6 +78,31 @@ export function useOwnerProperties(ownerId: string | null | undefined) {
   })
 }
 
+/**
+ * Contact ids that are a *confirmed* link to some owner — i.e. we've established this
+ * human really is who we think, on the number we hold. Mirrors the rule the verification
+ * loop enforces: `confidence = 'confirmed'` AND a `verified_at` stamp (the schema requires
+ * the stamp for confirmed, but a link written before that constraint could lack one, and a
+ * badge claiming "verified" with no date behind it would be a lie).
+ *
+ * Returned as a Set so list rows are an O(1) lookup rather than a scan per row.
+ */
+export function useVerifiedContactIds() {
+  return useQuery({
+    queryKey: ['verified-contact-ids'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('owner_contacts')
+        .select('contact_id')
+        .eq('confidence', 'confirmed')
+        .not('verified_at', 'is', null)
+        .not('contact_id', 'is', null)
+      if (error) throw error
+      return new Set((data ?? []).map((r) => r.contact_id as string))
+    },
+  })
+}
+
 export type OwnerContactRow = Tables<'owner_contacts'> & {
   contact: Pick<
     Tables<'contacts'>,
