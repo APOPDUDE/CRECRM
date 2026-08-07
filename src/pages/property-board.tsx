@@ -67,9 +67,13 @@ export function PropertyBoardPage() {
   const deleteUnit = useDeleteUnit()
 
   // "Add tenant" hands off to the n8n /lead intake form — one intake path for the
-  // whole business, editable in n8n rather than in the app.
+  // whole business, editable in n8n rather than in the app. The deal we came from
+  // is passed through so the form opens as a User lead already pointed at it.
   const openLeadForm = () => {
-    window.open(LEAD_INTAKE_FORM_URL, '_blank', 'noopener,noreferrer')
+    const url = `${LEAD_INTAKE_FORM_URL}?lead_type=user&listing_id=${encodeURIComponent(
+      listing?.id ?? '',
+    )}&deal_type=${encodeURIComponent(side)}`
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   const [addParcelOpen, setAddParcelOpen] = useState(false)
