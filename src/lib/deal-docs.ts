@@ -22,6 +22,12 @@ export interface DealDocTerms {
   // Parties
   tenantName: string
   tenantContactName: string | null
+  /**
+   * Everyone signing on the tenant/buyer side. When set, each name gets its own
+   * signature block — co-signers, second members of an LLC, guarantors. Falls
+   * back to the single tenantContactName when omitted.
+   */
+  tenantSignatories?: string[] | null
   landlordName: string | null
   landlordContactName: string | null
   // Premises
@@ -140,6 +146,14 @@ const para = (text: string, opts: { bold?: boolean; after?: number } = {}) =>
   })
 
 const SIGN_LINE = '______________________________'
+
+/** Tenant/buyer-side blocks: one per signatory, or a single block when none listed. */
+function tenantSignatureBlocks(role: string, t: DealDocTerms): Paragraph[] {
+  const names = t.tenantSignatories?.length
+    ? t.tenantSignatories
+    : [t.tenantContactName ?? t.tenantName]
+  return names.flatMap((n) => signatureBlock(role, n))
+}
 
 function signatureBlock(role: string, name: string | null): Paragraph[] {
   return [
@@ -265,7 +279,7 @@ function leaseLoiParagraphs(t: DealDocTerms): Paragraph[] {
       'Governing Law',
       `This Letter of Intent shall be governed under the laws of the State of ${stateName(t.stateCode)}.`,
     ),
-    ...signatureBlock('LESSEE', t.tenantContactName ?? t.tenantName),
+    ...tenantSignatureBlocks('LESSEE', t),
     ...signatureBlock('LESSOR', t.landlordContactName ?? t.landlordName),
   )
 
@@ -328,7 +342,7 @@ function saleLoiParagraphs(t: DealDocTerms): Paragraph[] {
       'Governing Law',
       `This Letter of Intent shall be governed under the laws of the State of ${stateName(t.stateCode)}.`,
     ),
-    ...signatureBlock('BUYER', t.tenantContactName ?? t.tenantName),
+    ...tenantSignatureBlocks('BUYER', t),
     ...signatureBlock('SELLER', t.landlordContactName ?? t.landlordName),
   )
 
