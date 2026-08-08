@@ -9,6 +9,7 @@ import { useContact } from '@/hooks/use-contacts'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { useContactConversations } from '@/hooks/use-communications'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
+import { ContactAssociations } from '@/components/contact-associations'
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null
@@ -97,6 +98,8 @@ export function ContactDetailPage() {
         <AddNoteBox contactId={contact.id} />
         <ConversationLog comms={comms ?? []} />
       </section>
+
+      <ContactAssociations contactId={contact.id} />
 
       <ContactFormDialog open={editOpen} onOpenChange={setEditOpen} contact={contact} />
     </div>
