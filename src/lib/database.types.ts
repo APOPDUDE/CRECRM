@@ -2071,7 +2071,7 @@ export type Database = {
         }
         Relationships: []
       }
-      v_lease_expirations: {
+      v_lease_comps: {
         Row: {
           address: string | null
           building_sf: number | null
@@ -2086,12 +2086,15 @@ export type Database = {
           lat: number | null
           lease_structure: Database["public"]["Enums"]["lease_structure"] | null
           lng: number | null
+          months_since_signed: number | null
           months_to_expiry: number | null
           property_id: string | null
           property_type: Database["public"]["Enums"]["property_kind"] | null
           sf: number | null
+          signed_date: string | null
           state: string | null
           tenant_name: string | null
+          term_months: number | null
         }
         Relationships: [
           {

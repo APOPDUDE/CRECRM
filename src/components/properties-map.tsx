@@ -8,7 +8,7 @@ import type { Property } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import type { CurrentAsking } from '@/hooks/use-comps'
-import type { LeaseExpiration } from '@/hooks/use-lease-expirations'
+import type { LeaseComp } from '@/hooks/use-lease-comps'
 import type { LatLng } from '@/lib/geo'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
@@ -371,6 +371,9 @@ const LEASE_PIN = {
   m6: '#ef4444',
   m12: '#fca5a5',
   beyond: '#94a3b8',
+  // Off the ramp on purpose: an expired lease is not "further along the same scale",
+  // it is a different state — a past comp rather than upcoming availability.
+  expired: '#475569',
 } as const
 
 export type MapColorBy = 'market' | 'owner' | 'lease'
@@ -379,23 +382,54 @@ function ownerPin(ctx: OwnerContext | undefined): string {
   return ctx?.owner_contact_verified ? OWNER_PIN.verified : OWNER_PIN.unverified
 }
 
-/** "Expires 14 Sep 2026 · 4,500 SF" — the one line that says what is coming free. */
-function leaseLabel(l: LeaseExpiration): string {
-  const parts: string[] = []
-  if (l.expiration_date) {
-    const d = new Date(`${l.expiration_date}T00:00:00`)
-    const m = l.months_to_expiry
-    // 0 is floored months, i.e. "under a month out" — not "this calendar month".
-    const rel = m == null ? '' : m === 0 ? ' (<1 mo)' : m > 0 ? ` (${m} mo)` : ''
-    parts.push(`Expires ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}${rel}`)
-  }
-  if (l.sf) parts.push(`${l.sf.toLocaleString()} SF`)
-  return parts.join(' · ')
+const shortDate = (iso: string) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+
+/**
+ * Monthly rent implied by the comp: annual PSF x area / 12.
+ *
+ * Whether that is the whole cheque depends on the structure, which is why the caller
+ * prints it alongside — on a gross lease this is what the tenant pays, on NNN it is
+ * base rent before taxes, insurance and CAM, and the book does not carry those.
+ */
+function monthlyRent(l: LeaseComp): number | null {
+  const psf = l.executed_lease_rate_psf
+  if (psf == null || !l.sf) return null
+  return (Number(psf) * l.sf) / 12
 }
 
-/** Months to the soonest expiry on the parcel -> its step on the ramp. */
+/** Terms of the representative lease, for the hover card on the lease lens. */
+function leaseLines(l: LeaseComp): string[] {
+  const lines: string[] = []
+  const dates: string[] = []
+  if (l.signed_date) dates.push(`Signed ${shortDate(l.signed_date)}`)
+  if (l.expiration_date) {
+    const m = l.months_to_expiry
+    // 0 is floored months, i.e. "under a month out" — not "this calendar month".
+    const rel = m == null ? '' : m < 0 ? ' (expired)' : m === 0 ? ' (<1 mo)' : ` (${m} mo)`
+    dates.push(`expires ${shortDate(l.expiration_date)}${rel}`)
+  }
+  if (dates.length) lines.push(dates.join(' · '))
+
+  const terms: string[] = []
+  if (l.executed_lease_rate_psf != null) {
+    terms.push(`${formatPsf(l.executed_lease_rate_psf)}${l.lease_structure ? ` ${l.lease_structure}` : ''}`)
+  }
+  if (l.sf) terms.push(`${l.sf.toLocaleString()} SF`)
+  const rent = monthlyRent(l)
+  if (rent != null) terms.push(`${formatCurrency(Math.round(rent))}/mo`)
+  if (terms.length) lines.push(terms.join(' · '))
+  return lines
+}
+
+/** Months to the representative lease's expiry -> its step on the ramp. */
 function leasePin(months: number | undefined): string {
   if (months == null) return LEASE_PIN.beyond
+  if (months < 0) return LEASE_PIN.expired
   if (months < 1) return LEASE_PIN.m1
   if (months < 3) return LEASE_PIN.m3
   if (months < 6) return LEASE_PIN.m6
@@ -414,6 +448,7 @@ const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
     { c: OWNER_PIN.unverified, label: 'Not verified' },
   ],
   lease: [
+    { c: LEASE_PIN.expired, label: 'Expired' },
     { c: LEASE_PIN.m1, label: '< 1 mo' },
     { c: LEASE_PIN.m3, label: '1-3 mo' },
     { c: LEASE_PIN.m6, label: '3-6 mo' },
@@ -455,7 +490,7 @@ export function PropertiesMap({
    * names the outgoing tenant on hover. The parent owns the windowing, because the same
    * filter drives the table.
    */
-  leaseInfo?: Map<string, LeaseExpiration>
+  leaseInfo?: Map<string, LeaseComp>
   /** Completed search shape; the parent owns it because it also filters the table + export. */
   polygon?: LatLng[] | null
   /** Vertices of a shape mid-draw (draw mode active while non-null). */
@@ -657,7 +692,11 @@ export function PropertiesMap({
                         <div className="font-medium">
                           {leaseInfo.get(id)!.tenant_name || 'Tenant not named'}
                         </div>
-                        <div className="opacity-70">{leaseLabel(leaseInfo.get(id)!)}</div>
+                        {leaseLines(leaseInfo.get(id)!).map((line) => (
+                          <div key={line} className="opacity-70">
+                            {line}
+                          </div>
+                        ))}
                       </div>
                     )}
                     {ctx?.owner_name && (

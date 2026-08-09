@@ -1,32 +1,32 @@
 import { useQuery } from '@tanstack/react-query'
-import { addMonths, startOfMonth } from 'date-fns'
+import { addMonths, startOfMonth, subMonths } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 
-export type LeaseExpiration = Database['public']['Views']['v_lease_expirations']['Row']
+export type LeaseComp = Database['public']['Views']['v_lease_comps']['Row']
 
 const PAGE = 1000
 
 /**
- * Every executed lease that knows when it ends, parcel attached.
+ * Every executed lease comp, expired ones included, parcel attached.
  *
- * Fetched whole (~1.3k rows) rather than filtered server-side: both consumers slice the
+ * Fetched whole (~1.3k rows) rather than filtered server-side: the consumers slice the
  * same set on different windows -- the dashboard graph on the next twelve months, the
- * War Room on whatever min/max the broker types -- and a server round-trip per slice
- * would refetch on every keystroke of the filter.
+ * War Room on whatever expiry or sign-date range the broker types -- and a server
+ * round-trip per slice would refetch on every keystroke of the filter.
  */
-export function useLeaseExpirations() {
+export function useLeaseComps() {
   return useQuery({
-    queryKey: ['lease-expirations'],
+    queryKey: ['lease-comps'],
     staleTime: 5 * 60_000,
     queryFn: async () => {
       // count:'exact' on the first page only; repeating it per page just multiplies work.
       const base = (withCount?: boolean) =>
         supabase
-          .from('v_lease_expirations')
+          .from('v_lease_comps')
           .select('*', withCount ? { count: 'exact' } : undefined)
           // (expiration_date, comp_id) — the id tiebreaks so offset pages stay stable.
-          .order('expiration_date')
+          .order('expiration_date', { nullsFirst: false })
           .order('comp_id')
       const first = await base(true).range(0, PAGE - 1)
       if (first.error) throw first.error
@@ -47,25 +47,60 @@ export function useLeaseExpirations() {
 }
 
 /**
- * Window test in calendar months, not month arithmetic on a signed integer.
+ * Window tests in calendar months, not arithmetic on the floored month integers.
  *
- * `months_to_expiry` is floored, so a lease 40 days out and one 75 days out both live
- * in "1" — fine for a label, wrong for a boundary, because "max 3 months" has to mean
- * "on or before the same day three months from now". Comparing dates keeps month
- * lengths honest and makes the min/max inclusive in the way a broker reads them.
+ * `months_to_expiry` / `months_since_signed` are floored, so a lease 40 days out and one
+ * 75 days out both live in "1" — fine for a label, wrong for a boundary, because "max 3
+ * months" has to mean "on or before the same day three months from now". Comparing dates
+ * keeps month lengths honest and makes min/max inclusive the way a broker reads them.
  */
+function inDateWindow(
+  value: string | null,
+  earliest: Date | null,
+  latest: Date | null,
+): boolean {
+  if (!value) return false
+  const d = new Date(`${value}T00:00:00`)
+  if (earliest && d < earliest) return false
+  if (latest && d > latest) return false
+  return true
+}
+
+const today = () => {
+  const t = new Date()
+  t.setHours(0, 0, 0, 0)
+  return t
+}
+
+/** Leases expiring between `min` and `max` months from now. Forward-looking. */
 export function withinMonths(
-  row: Pick<LeaseExpiration, 'expiration_date'>,
+  row: Pick<LeaseComp, 'expiration_date'>,
   min: number | null,
   max: number | null,
 ): boolean {
-  if (!row.expiration_date) return false
-  const exp = new Date(`${row.expiration_date}T00:00:00`)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  if (min != null && exp < addMonths(today, min)) return false
-  if (max != null && exp > addMonths(today, max)) return false
-  return true
+  const t = today()
+  return inDateWindow(
+    row.expiration_date,
+    min == null ? null : addMonths(t, min),
+    max == null ? null : addMonths(t, max),
+  )
+}
+
+/**
+ * Leases signed between `min` and `max` months ago. The mirror of withinMonths: here the
+ * larger number is the older bound, so "signed in the last 12 months" is min 0, max 12.
+ */
+export function signedWithinMonths(
+  row: Pick<LeaseComp, 'signed_date'>,
+  min: number | null,
+  max: number | null,
+): boolean {
+  const t = today()
+  return inDateWindow(
+    row.signed_date,
+    max == null ? null : subMonths(t, max),
+    min == null ? null : subMonths(t, min),
+  )
 }
 
 export interface ExpiryMonthBucket {
@@ -81,7 +116,7 @@ export interface ExpiryMonthBucket {
  * Empty months are kept — a gap in the run-off is information, and dropping them would
  * make the bars lie about spacing.
  */
-export function bucketByMonth(rows: LeaseExpiration[], months: number): ExpiryMonthBucket[] {
+export function bucketByMonth(rows: LeaseComp[], months: number): ExpiryMonthBucket[] {
   const start = startOfMonth(new Date())
   const buckets: ExpiryMonthBucket[] = Array.from({ length: months }, (_, i) => {
     const date = addMonths(start, i)

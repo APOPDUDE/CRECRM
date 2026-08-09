@@ -6,10 +6,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import {
   bucketByMonth,
-  useLeaseExpirations,
+  useLeaseComps,
   withinMonths,
   type ExpiryMonthBucket,
-} from '@/hooks/use-lease-expirations'
+} from '@/hooks/use-lease-comps'
 import { formatSf } from '@/lib/format'
 
 /** The windows a broker actually plans against. */
@@ -125,7 +125,7 @@ function ExpiryBars({
  */
 export function LeaseExpirationsWidget() {
   const navigate = useNavigate()
-  const { data: rows = [], isLoading } = useLeaseExpirations()
+  const { data: rows = [], isLoading } = useLeaseComps()
   const [expanded, setExpanded] = useState(true)
 
   const { buckets, counts, upcoming } = useMemo(() => {

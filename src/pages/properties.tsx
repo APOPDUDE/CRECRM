@@ -43,7 +43,7 @@ import type { OwnerContext } from '@/hooks/use-owners'
 import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
 import { useOwnerContext } from '@/hooks/use-owners'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
-import { useLeaseExpirations, withinMonths, type LeaseExpiration } from '@/hooks/use-lease-expirations'
+import { useLeaseComps, withinMonths, signedWithinMonths, type LeaseComp } from '@/hooks/use-lease-comps'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { supabase } from '@/lib/supabase'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -84,10 +84,10 @@ type ColumnId =
   | 'land_acres' | 'asking' | 'deals' | 'market_status' | 'days_on_market'
   | 'year_built' | 'zoning' | 'occupancy'
   | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted' | 'off_market_days'
-  | 'tenant' | 'lease_expiry'
+  | 'tenant' | 'lease_signed' | 'lease_rate' | 'lease_expiry'
 
 /** Columns that only mean anything while a lease window is filtering the list. */
-const LEASE_COLUMNS: ColumnId[] = ['tenant', 'lease_expiry']
+const LEASE_COLUMNS: ColumnId[] = ['tenant', 'lease_signed', 'lease_rate', 'lease_expiry']
 
 type ColumnDef = {
   id: ColumnId
@@ -97,7 +97,7 @@ type ColumnDef = {
     p: PropertyWithCounts,
     asking: CurrentAsking | undefined,
     owner: OwnerContext | undefined,
-    lease: LeaseExpiration | undefined,
+    lease: LeaseComp | undefined,
   ) => ReactNode
 }
 
@@ -159,6 +159,33 @@ const COLUMN_DEFS: ColumnDef[] = [
     cell: (_p, _a, _o, lease) => lease?.tenant_name ?? '',
   },
   {
+    id: 'lease_signed',
+    label: 'Signed',
+    className: MUTED,
+    cell: (_p, _a, _o, lease) =>
+      lease?.signed_date
+        ? format(new Date(`${lease.signed_date}T00:00:00`), 'MMM yyyy')
+        : '',
+  },
+  {
+    id: 'lease_rate',
+    label: 'Lease rate',
+    className: MUTED,
+    // The comp's own executed rate, not the parcel's current asking — that is the number
+    // you price against.
+    cell: (_p, _a, _o, lease) => {
+      if (lease?.executed_lease_rate_psf == null) return ''
+      return (
+        <span className="whitespace-nowrap">
+          {formatPsf(lease.executed_lease_rate_psf)}
+          {lease.lease_structure && (
+            <span className="ml-1 text-xs opacity-70">{lease.lease_structure}</span>
+          )}
+        </span>
+      )
+    },
+  },
+  {
     id: 'lease_expiry',
     label: 'Lease expires',
     className: MUTED,
@@ -207,7 +234,7 @@ export function PropertiesPage() {
   const { data: executedIds } = useExecutedPropertyIds()
   const { data: askingMap } = useCurrentAsking()
   const { data: ownerCtx } = useOwnerContext()
-  const { data: leases = [] } = useLeaseExpirations()
+  const { data: leases = [] } = useLeaseComps()
   const deleteProperty = useDeleteProperty()
   // background-drain the lat/lng backfill (25/visit, Nominatim-throttled) so scrape rows
   // without coordinates progressively gain map pins. No-op once everything is geocoded.
@@ -243,6 +270,10 @@ export function PropertiesPage() {
   // Overrides min/max: "September" is a month on the calendar, not a rolling window from
   // today, and the two would disagree about which leases belong to it.
   const [leaseMonth, setLeaseMonth] = usePersistentState('properties:leaseMonth', '')
+  // Sign date runs the other way: months BACK from today, so "signed in the last year"
+  // is 0-12. This is the pricing filter — recent comps are the ones worth quoting.
+  const [signMin, setSignMin] = usePersistentState('properties:signMin', '')
+  const [signMax, setSignMax] = usePersistentState('properties:signMax', '')
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [pushOpen, setPushOpen] = useState(false)
@@ -280,6 +311,13 @@ export function PropertiesPage() {
       setPriceMax('')
       setOwnerFilter('all')
       setPolygon(null)
+      // Lease windows are sticky too, and a stale one would cut the very set being
+      // linked to. The lease branch below re-applies whatever the link asked for.
+      setLeaseMin('')
+      setLeaseMax('')
+      setLeaseMonth('')
+      setSignMin('')
+      setSignMax('')
       setPage(0)
     }
     if (q) {
@@ -342,24 +380,38 @@ export function PropertiesPage() {
   }, [properties])
 
   /**
-   * Soonest still-running lease per parcel, in months. Drives pin colour on the lease
-   * lens, and is deliberately independent of the window filter — a building shown
-   * because it expires in 9 months should still be painted as a 9-month building.
+   * The one lease that best represents each parcel: the soonest still to run, or — for a
+   * building whose leases have all ended — the one that ended most recently, since that
+   * is the comp you would price against. Drives pin colour and the hover card, and is
+   * deliberately independent of the window filter: a building shown because it expires
+   * in 9 months should still be painted as a 9-month building.
    */
   const leaseSoonest = useMemo(() => {
-    const m = new Map<string, LeaseExpiration>()
+    const m = new Map<string, LeaseComp>()
     for (const l of leases) {
+      if (!l.property_id) continue
       const months = l.months_to_expiry
-      if (months == null || months < 0 || !l.property_id) continue
+      if (months == null) continue
       const cur = m.get(l.property_id)
-      if (cur == null || months < (cur.months_to_expiry ?? Infinity)) m.set(l.property_id, l)
+      if (cur == null) {
+        m.set(l.property_id, l)
+        continue
+      }
+      const curM = cur.months_to_expiry as number
+      // A running lease always beats an expired one; among running leases the soonest
+      // wins, among expired ones the latest to have ended.
+      const better = months >= 0 ? curM < 0 || months < curM : curM < 0 && months > curM
+      if (better) m.set(l.property_id, l)
     }
     return m
   }, [leases])
 
   /**
-   * Parcels with at least one lease inside the requested window, or null when no window
-   * is set (meaning "don't filter on leases at all"). A month pick beats min/max.
+   * Parcels with at least one lease satisfying every active lease criterion, or null when
+   * none is set (meaning "don't filter on leases at all"). Expiry and sign date are
+   * ANDed, and both must hold on the SAME lease — a building with an old lease that
+   * expires soon and a new one signed last month is not a match for "expires within 3
+   * months AND signed this year".
    */
   const leaseMatch = useMemo(() => {
     const num = (v: string) => {
@@ -367,29 +419,41 @@ export function PropertiesPage() {
       return v !== '' && Number.isFinite(n) ? n : null
     }
     const monthPicked = /^\d{4}-\d{2}$/.test(leaseMonth)
-    if (!monthPicked && leaseMin === '' && leaseMax === '') return null
-    // An empty minimum means "from today", not "since the beginning of time". Without
-    // this floor, "expires within 3 months" also drags in all 700-odd leases that ran
-    // out years ago. Chasing an expired lease is a real use, so a negative minimum
-    // still reaches back — it just has to be asked for.
+    const expiryOn = monthPicked || leaseMin !== '' || leaseMax !== ''
+    const signOn = signMin !== '' || signMax !== ''
+    if (!expiryOn && !signOn) return null
+    // An empty expiry minimum means "from today", not "since the beginning of time".
+    // Without this floor, "expires within 3 months" also drags in the 700-odd leases
+    // that ran out years ago. Reaching back is a real use — it just has to be asked
+    // for, with a negative minimum or the sign-date filter.
     const lo = num(leaseMin) ?? 0
     const hi = num(leaseMax)
+    const sLo = num(signMin) ?? 0
+    const sHi = num(signMax)
     const ids = new Set<string>()
     // The lease that put the parcel on the list — so the Tenant column names the tenant
     // you are here about, not whichever of the building's leases sorts first.
-    const top = new Map<string, LeaseExpiration>()
+    const top = new Map<string, LeaseComp>()
     for (const l of leases) {
-      if (!l.property_id || !l.expiration_date) continue
-      const hit = monthPicked
-        ? l.expiration_date.slice(0, 7) === leaseMonth
-        : withinMonths(l, lo, hi)
-      if (!hit) continue
+      if (!l.property_id) continue
+      if (expiryOn) {
+        if (!l.expiration_date) continue
+        const hit = monthPicked
+          ? l.expiration_date.slice(0, 7) === leaseMonth
+          : withinMonths(l, lo, hi)
+        if (!hit) continue
+      }
+      if (signOn && !signedWithinMonths(l, sLo, sHi)) continue
       ids.add(l.property_id)
       const cur = top.get(l.property_id)
-      if (!cur || (cur.expiration_date ?? '') > l.expiration_date) top.set(l.property_id, l)
+      // Most recently signed wins when pricing; soonest to expire when hunting vacancy.
+      const better = signOn
+        ? !cur || (cur.signed_date ?? '') < (l.signed_date ?? '')
+        : !cur || (cur.expiration_date ?? '') > (l.expiration_date ?? '')
+      if (better) top.set(l.property_id, l)
     }
     return { ids, top }
-  }, [leases, leaseMin, leaseMax, leaseMonth])
+  }, [leases, leaseMin, leaseMax, leaseMonth, signMin, signMax])
   const leaseMatchIds = leaseMatch?.ids ?? null
 
   // Tenant + expiry ride along whenever a lease window is filtering, so the list answers
@@ -595,6 +659,8 @@ export function PropertiesPage() {
     setLeaseMin('')
     setLeaseMax('')
     setLeaseMonth('')
+    setSignMin('')
+    setSignMax('')
   }
 
   const openCreate = () => {
@@ -863,6 +929,33 @@ export function PropertiesPage() {
                     </div>
                   </>
                 )}
+              </div>
+              <div className="space-y-1.5 border-t pt-3">
+                <Label>Lease signed (months ago)</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" inputMode="numeric" placeholder="0" value={signMin} onChange={(e) => setSignMin(e.target.value)} />
+                  <span className="text-muted-foreground">–</span>
+                  <Input type="number" inputMode="numeric" placeholder="Any" value={signMax} onChange={(e) => setSignMax(e.target.value)} />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[6, 12, 24, 36].map((n) => (
+                    <Button
+                      key={n}
+                      variant={signMin === '' && signMax === String(n) ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => {
+                        setSignMin('')
+                        setSignMax(String(n))
+                      }}
+                    >
+                      last {n < 12 ? `${n} mo` : `${n / 12} yr`}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Recent comps for pricing. Includes leases that have already expired.
+                </p>
               </div>
               <div className="flex justify-end border-t pt-2">
                 <Button variant="ghost" size="sm" onClick={clearFilters} disabled={activeFilterCount === 0}>
