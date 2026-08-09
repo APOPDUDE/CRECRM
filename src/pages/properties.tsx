@@ -380,6 +380,32 @@ export function PropertiesPage() {
   }, [properties])
 
   /**
+   * Which filters the panel offers right now.
+   *
+   * A map lens asks exactly one question, so it offers only the filters that answer it:
+   * asking price belongs to Market, verified owner to Owner, the two date windows to
+   * Lease. The table has no lens and keeps everything.
+   *
+   * A filter that is not offered is also not APPLIED — otherwise switching to Lease
+   * would leave an asking-price bound narrowing the map from behind a closed popover.
+   * The values are kept rather than cleared, so flipping back to Market restores what
+   * was typed instead of quietly discarding it.
+   *
+   * County goes on the map's own terms (Alex): search and shape-draw already place a
+   * parcel geographically, so the dropdown is table-only.
+   */
+  const applies = useMemo(() => {
+    const onMap = view === 'map'
+    return {
+      county: !onMap,
+      dealType: !onMap || colorBy === 'market',
+      price: !onMap || colorBy === 'market',
+      owner: !onMap || colorBy === 'owner',
+      lease: !onMap || colorBy === 'lease',
+    }
+  }, [view, colorBy])
+
+  /**
    * The one lease that best represents each parcel: the soonest still to run, or — for a
    * building whose leases have all ended — the one that ended most recently, since that
    * is the comp you would price against. Drives pin colour and the hover card, and is
@@ -485,26 +511,26 @@ export function PropertiesPage() {
         if (!executedIds?.has(p.id)) return false
       } else if (status !== 'all' && (p.listing_status ?? 'on_market') !== status) return false
       // For lease / for sale comes from the current asking comp (a property can be both).
-      if (dealType !== 'all') {
+      if (applies.dealType && dealType !== 'all') {
         const ask = askingMap?.get(p.id)
         if (dealType === 'lease' && ask?.rate == null) return false
         if (dealType === 'sale' && ask?.price == null) return false
       }
       // Binary on purpose (Alex): either we can call the owner today, or the parcel goes on
       // the next skip-trace list — county-known-but-uncalled is still "not verified".
-      if (ownerFilter !== 'all') {
+      if (applies.owner && ownerFilter !== 'all') {
         const verified = !!ownerCtx?.get(p.id)?.owner_contact_verified
         if (ownerFilter === 'verified' && !verified) return false
         if (ownerFilter === 'unverified' && verified) return false
       }
-      if (leaseMatchIds && !leaseMatchIds.has(p.id)) return false
+      if (applies.lease && leaseMatchIds && !leaseMatchIds.has(p.id)) return false
       if (ptype !== 'all' && p.property_type !== ptype) return false
-      if (county !== 'all' && p.county !== county) return false
+      if (applies.county && county !== 'all' && p.county !== county) return false
       if (sfLo != null && (p.building_sf == null || p.building_sf < sfLo)) return false
       if (sfHi != null && (p.building_sf == null || p.building_sf > sfHi)) return false
       if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) return false
       if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) return false
-      if (prLo != null || prHi != null) {
+      if (applies.price && (prLo != null || prHi != null)) {
         const price = askingMap?.get(p.id)?.price ?? null
         if (prLo != null && (price == null || price < prLo)) return false
         if (prHi != null && (price == null || price > prHi)) return false
@@ -513,12 +539,12 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [properties, haystacks, askingMap, ownerCtx, ownerFilter, executedIds, leaseMatchIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [properties, haystacks, askingMap, ownerCtx, ownerFilter, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon, leaseMatchIds])
+  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon, leaseMatchIds, applies])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -626,16 +652,18 @@ export function PropertiesPage() {
   const safePage = Math.min(page, pageCount - 1)
   const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
 
+  // Counts only what is actually biting: a dormant filter narrows nothing, so badging it
+  // would send you hunting through the panel for a number that is not there.
   const activeFilterCount =
     (status !== 'all' ? 1 : 0) +
-    (dealType !== 'all' ? 1 : 0) +
+    (applies.dealType && dealType !== 'all' ? 1 : 0) +
     (ptype !== 'all' ? 1 : 0) +
-    (ownerFilter !== 'all' ? 1 : 0) +
-    (county !== 'all' ? 1 : 0) +
+    (applies.owner && ownerFilter !== 'all' ? 1 : 0) +
+    (applies.county && county !== 'all' ? 1 : 0) +
     (sfMin || sfMax ? 1 : 0) +
     (acMin || acMax ? 1 : 0) +
-    (priceMin || priceMax ? 1 : 0) +
-    (leaseMatchIds ? 1 : 0)
+    (applies.price && (priceMin || priceMax) ? 1 : 0) +
+    (applies.lease && leaseMatchIds ? 1 : 0)
 
   // Map pins are opt-in: nothing preloads (Alex 2026-08-07 — plotting the whole book made
   // the map take forever to appear). A search, any filter, or a drawn shape is the signal
@@ -808,19 +836,21 @@ export function PropertiesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Lease / sale</Label>
-                <Select value={dealType} onValueChange={setDealType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="lease">For lease</SelectItem>
-                    <SelectItem value="sale">For sale</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {applies.dealType && (
+                <div className="space-y-1.5">
+                  <Label>Lease / sale</Label>
+                  <Select value={dealType} onValueChange={setDealType}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="lease">For lease</SelectItem>
+                      <SelectItem value="sale">For sale</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Type</Label>
                 <Select value={ptype} onValueChange={setPtype}>
@@ -837,35 +867,39 @@ export function PropertiesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Verified owner</Label>
-                <Select value={ownerFilter} onValueChange={setOwnerFilter}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Any</SelectItem>
-                    <SelectItem value="verified">Verified</SelectItem>
-                    <SelectItem value="unverified">Not verified</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>County</Label>
-                <Select value={county} onValueChange={setCounty}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All counties</SelectItem>
-                    {counties.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {applies.owner && (
+                <div className="space-y-1.5">
+                  <Label>Verified owner</Label>
+                  <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Any</SelectItem>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="unverified">Not verified</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {applies.county && (
+                <div className="space-y-1.5">
+                  <Label>County</Label>
+                  <Select value={county} onValueChange={setCounty}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All counties</SelectItem>
+                      {counties.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Building SF</Label>
                 <div className="flex items-center gap-2">
@@ -882,14 +916,18 @@ export function PropertiesPage() {
                   <Input type="number" inputMode="decimal" placeholder="Max" value={acMax} onChange={(e) => setAcMax(e.target.value)} />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Asking price</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="number" inputMode="numeric" placeholder="Min" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} />
-                  <span className="text-muted-foreground">–</span>
-                  <Input type="number" inputMode="numeric" placeholder="Max" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
+              {applies.price && (
+                <div className="space-y-1.5">
+                  <Label>Asking price</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" inputMode="numeric" placeholder="Min" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} />
+                    <span className="text-muted-foreground">–</span>
+                    <Input type="number" inputMode="numeric" placeholder="Max" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
+                  </div>
                 </div>
-              </div>
+              )}
+              {applies.lease && (
+              <>
               <div className="space-y-1.5 border-t pt-3">
                 <Label>Lease expires (months)</Label>
                 {/^\d{4}-\d{2}$/.test(leaseMonth) ? (
@@ -957,6 +995,8 @@ export function PropertiesPage() {
                   Recent comps for pricing. Includes leases that have already expired.
                 </p>
               </div>
+              </>
+              )}
               <div className="flex justify-end border-t pt-2">
                 <Button variant="ghost" size="sm" onClick={clearFilters} disabled={activeFilterCount === 0}>
                   Clear all
@@ -1068,8 +1108,10 @@ export function PropertiesPage() {
               Export CSV
             </Button>
             {/* Only meaningful on a verified-owner view: the whole point of narrowing to
-                verified is that these are people you can call today. */}
-            {ownerFilter === 'verified' && (
+                verified is that these are people you can call today. `applies.owner`
+                matters as much as the value — on the Lease lens the owner filter is
+                dormant, so the list on screen is NOT the verified set it would push. */}
+            {applies.owner && ownerFilter === 'verified' && (
               <Button size="sm" onClick={() => setPushOpen(true)} disabled={pushable.length === 0}>
                 <Send className="size-4" />
                 Push to HighLevel
