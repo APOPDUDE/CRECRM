@@ -2,14 +2,16 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/error-boundary'
 import {
-  Building,
   Building2,
+  ChevronDown,
   Contact,
   Handshake,
   LayoutDashboard,
   ListTodo,
   LogOut,
+  Map,
   Menu,
+  MoreHorizontal,
   Target,
   Users,
 } from 'lucide-react'
@@ -20,14 +22,19 @@ import { useAuth } from '@/hooks/use-auth'
 import { useBreadcrumbValue } from '@/hooks/use-breadcrumb'
 import { cn } from '@/lib/utils'
 
+// The daily drivers. Everything else lives behind "More" — they get opened rarely and
+// were only ever crowding the rail.
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/repping', label: 'Repping', icon: Handshake },
+  { to: '/properties', label: 'War Room', icon: Map },
+]
+
+const moreItems = [
   { to: '/prospecting', label: 'Prospecting', icon: Target },
   { to: '/tasks', label: 'Tasks', icon: ListTodo },
   { to: '/contacts', label: 'Contacts', icon: Contact },
   { to: '/companies', label: 'Companies', icon: Users },
-  { to: '/properties', label: 'Properties', icon: Building },
 ]
 
 const sectionLabels: Record<string, string> = {
@@ -40,31 +47,53 @@ const sectionLabels: Record<string, string> = {
   tasks: 'Tasks',
   contacts: 'Contacts',
   companies: 'Companies',
-  properties: 'Properties',
+  // The route stays /properties; only the name changed.
+  properties: 'War Room',
 }
 
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+    isActive ? 'bg-white/15 text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white',
+  )
+
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+  const { pathname } = useLocation()
+  // Open the drawer when you are already inside one of its pages, so the current
+  // location is never hidden behind a collapsed section.
+  const inMore = moreItems.some((i) => pathname.startsWith(i.to))
+  const [moreOpen, setMoreOpen] = useState(inMore)
+
   return (
     <nav className="flex flex-col gap-1 px-2">
       {navItems.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.to === '/'}
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            cn(
-              'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              isActive
-                ? 'bg-white/15 text-white'
-                : 'text-slate-300 hover:bg-white/10 hover:text-white',
-            )
-          }
-        >
+        <NavLink key={item.to} to={item.to} end={item.to === '/'} onClick={onNavigate} className={navLinkClass}>
           <item.icon className="size-4" />
           {item.label}
         </NavLink>
       ))}
+
+      <button
+        type="button"
+        onClick={() => setMoreOpen((v) => !v)}
+        aria-expanded={moreOpen}
+        className="mt-1 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+      >
+        <MoreHorizontal className="size-4" />
+        More
+        <ChevronDown className={cn('ml-auto size-4 transition-transform', moreOpen && 'rotate-180')} />
+      </button>
+
+      {moreOpen && (
+        <div className="flex flex-col gap-1 border-l border-white/10 pl-2 ml-4">
+          {moreItems.map((item) => (
+            <NavLink key={item.to} to={item.to} onClick={onNavigate} className={navLinkClass}>
+              <item.icon className="size-4" />
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
     </nav>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, Send, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -49,6 +49,7 @@ import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import { pointInPolygon, type LatLng } from '@/lib/geo'
 import { buildHaystack, matchesTokens, searchTokens } from '@/lib/address-search'
 import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
+import { PushToGhlDialog, type PushContact } from '@/components/push-to-ghl-dialog'
 
 /** $14.50 PSF (lease) or $5,200,000 (sale) — from the property's current asking comp. */
 function askingLabel(a: CurrentAsking | undefined): string | null {
@@ -201,6 +202,7 @@ export function PropertiesPage() {
   const [colorBy, setColorBy] = usePersistentState<MapColorBy>('properties:colorBy', 'market')
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
+  const [pushOpen, setPushOpen] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
   // Shape search: draw a polygon on the map. The completed shape lives here (not in the
@@ -338,6 +340,58 @@ export function PropertiesPage() {
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
    * join key that has to survive Terrakotta and GHL and come back to the right owner.
    */
+  // Push splits the current view in two: owners we can actually dial, and everything else.
+  // A verified owner with no phone is not pushable — GHL keys contacts on the number — so
+  // those fall to the skip-trace CSV instead of silently vanishing from the count.
+  //
+  // Deduped by phone here rather than only in n8n: one owner routinely holds a dozen of the
+  // properties on screen, and the dialog must promise the number that actually gets pushed.
+  const { pushable, skippedIds } = useMemo(() => {
+    const byPhone = new Map<string, PushContact>()
+    const skipped: string[] = []
+    for (const p of filtered) {
+      const o = ownerCtx?.get(p.id)
+      const digits = String(o?.best_contact_phone ?? '').replace(/\D/g, '')
+      const ten = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+      if (!o?.owner_contact_verified || ten.length !== 10) {
+        skipped.push(p.id)
+        continue
+      }
+      if (byPhone.has(ten)) continue
+      const name = (o.best_contact_name ?? '').trim()
+      const sp = name.indexOf(' ')
+      byPhone.set(ten, {
+        phone: ten,
+        first: sp > 0 ? name.slice(0, sp) : name || null,
+        last: sp > 0 ? name.slice(sp + 1) : null,
+        email: o.best_contact_email ?? null,
+        ownerName: o.owner_name ?? p.owner_name ?? null,
+        address: p.address ?? null,
+        city: p.city ?? null,
+        parcel: p.parcel_number ?? null,
+        propertyId: p.id,
+      })
+    }
+    return { pushable: [...byPhone.values()], skippedIds: skipped }
+  }, [filtered, ownerCtx])
+
+  /** The rows the push cannot take — same shape as the main export, for skip-tracing. */
+  const exportSkipped = () => {
+    const ids = new Set(skippedIds)
+    const rows = filtered.filter((p) => ids.has(p.id))
+    if (rows.length === 0) return
+    const headers = ['Parcel ID', 'Address', 'City', 'State', 'Zip', 'County', 'Owner Name', 'Owner Mailing Address', 'Building SF', 'Acres', 'CRM Property ID']
+    downloadCsv(
+      `skiptrace-needed-${todayStamp()}-${rows.length}.csv`,
+      toCsv(headers, rows.map((p) => {
+        const o = ownerCtx?.get(p.id)
+        return [p.parcel_number, p.address, p.city, p.state, p.zip, p.county,
+                o?.owner_name ?? p.owner_name, p.owner_mailing_address,
+                p.building_sf, p.land_acres, p.id]
+      })),
+    )
+  }
+
   const exportCsv = () => {
     const headers = [
       'Parcel ID', 'Address', 'City', 'State', 'Zip', 'County',
@@ -472,7 +526,7 @@ export function PropertiesPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Properties</h1>
+        <h1 className="text-xl font-semibold">War Room</h1>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -745,6 +799,14 @@ export function PropertiesPage() {
               <Download className="size-4" />
               Export CSV
             </Button>
+            {/* Only meaningful on a verified-owner view: the whole point of narrowing to
+                verified is that these are people you can call today. */}
+            {ownerFilter === 'verified' && (
+              <Button size="sm" onClick={() => setPushOpen(true)} disabled={pushable.length === 0}>
+                <Send className="size-4" />
+                Push to HighLevel
+              </Button>
+            )}
           </div>
           <PropertiesMap
             properties={hasQuery ? filtered : []}
@@ -924,6 +986,20 @@ export function PropertiesPage() {
           )}
         </>
       )}
+
+      <PushToGhlDialog
+
+        open={pushOpen}
+
+        onOpenChange={setPushOpen}
+
+        contacts={pushable}
+
+        skippedCount={skippedIds.length}
+
+        onDownloadSkipped={exportSkipped}
+
+      />
 
       <PropertyFormDialog open={formOpen} onOpenChange={setFormOpen} property={editing} />
       <ConfirmDeleteDialog
