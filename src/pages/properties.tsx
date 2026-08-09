@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, Send, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +43,7 @@ import type { OwnerContext } from '@/hooks/use-owners'
 import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
 import { useOwnerContext } from '@/hooks/use-owners'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
+import { useLeaseExpirations, withinMonths, type LeaseExpiration } from '@/hooks/use-lease-expirations'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { supabase } from '@/lib/supabase'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -82,6 +84,10 @@ type ColumnId =
   | 'land_acres' | 'asking' | 'deals' | 'market_status' | 'days_on_market'
   | 'year_built' | 'zoning' | 'occupancy'
   | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted' | 'off_market_days'
+  | 'tenant' | 'lease_expiry'
+
+/** Columns that only mean anything while a lease window is filtering the list. */
+const LEASE_COLUMNS: ColumnId[] = ['tenant', 'lease_expiry']
 
 type ColumnDef = {
   id: ColumnId
@@ -91,6 +97,7 @@ type ColumnDef = {
     p: PropertyWithCounts,
     asking: CurrentAsking | undefined,
     owner: OwnerContext | undefined,
+    lease: LeaseExpiration | undefined,
   ) => ReactNode
 }
 
@@ -146,6 +153,33 @@ const COLUMN_DEFS: ColumnDef[] = [
     cell: (_p, _a, o) => (o?.last_contacted_at ? new Date(o.last_contacted_at).toLocaleDateString() : ''),
   },
   {
+    id: 'tenant',
+    label: 'Tenant',
+    className: MUTED,
+    cell: (_p, _a, _o, lease) => lease?.tenant_name ?? '',
+  },
+  {
+    id: 'lease_expiry',
+    label: 'Lease expires',
+    className: MUTED,
+    // The months figure is what the filter is expressed in, so it rides along with the
+    // date — otherwise you have to do the arithmetic to check the row belongs here.
+    cell: (_p, _a, _o, lease) => {
+      if (!lease?.expiration_date) return ''
+      const m = lease.months_to_expiry
+      // months_to_expiry is floored, so 0 means "under a month out" — not "this calendar
+      // month". A lease ending 1 Sep is 0 months away on 9 Aug, and calling that "this
+      // month" would read as August.
+      const rel = m == null ? null : m < 0 ? 'expired' : m === 0 ? '<1 mo' : `${m} mo`
+      return (
+        <span className="whitespace-nowrap">
+          {format(new Date(`${lease.expiration_date}T00:00:00`), 'd MMM yyyy')}
+          {rel && <span className="ml-1.5 text-xs opacity-70">({rel})</span>}
+        </span>
+      )
+    },
+  },
+  {
     id: 'off_market_days',
     label: 'Days off market',
     className: MUTED,
@@ -173,6 +207,7 @@ export function PropertiesPage() {
   const { data: executedIds } = useExecutedPropertyIds()
   const { data: askingMap } = useCurrentAsking()
   const { data: ownerCtx } = useOwnerContext()
+  const { data: leases = [] } = useLeaseExpirations()
   const deleteProperty = useDeleteProperty()
   // background-drain the lat/lng backfill (25/visit, Nominatim-throttled) so scrape rows
   // without coordinates progressively gain map pins. No-op once everything is geocoded.
@@ -200,6 +235,14 @@ export function PropertiesPage() {
     : 'all'
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
   const [colorBy, setColorBy] = usePersistentState<MapColorBy>('properties:colorBy', 'market')
+  // Lease run-off window, in whole months from today. Kept as a filter rather than as
+  // part of the lease lens so it narrows the table too — the lens only paints pins.
+  const [leaseMin, setLeaseMin] = usePersistentState('properties:leaseMin', '')
+  const [leaseMax, setLeaseMax] = usePersistentState('properties:leaseMax', '')
+  // A single calendar month ('YYYY-MM'), set by clicking a bar on the dashboard graph.
+  // Overrides min/max: "September" is a month on the calendar, not a rolling window from
+  // today, and the two would disagree about which leases belong to it.
+  const [leaseMonth, setLeaseMonth] = usePersistentState('properties:leaseMonth', '')
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [pushOpen, setPushOpen] = useState(false)
@@ -220,9 +263,11 @@ export function PropertiesPage() {
   useEffect(() => {
     const q = searchParams.get('q')
     const wantsMap = searchParams.get('view') === 'map'
-    if (!q && !wantsMap) return
-    if (q) {
-      setSearch(q)
+    const wantsLease = searchParams.get('layer') === 'lease'
+    if (!q && !wantsMap && !wantsLease) return
+    // Both deep links are "show me exactly this set", so the sticky filters that would
+    // silently exclude it get cleared first.
+    const resetFilters = () => {
       setStatus('all')
       setDealType('all')
       setPtype('all')
@@ -237,6 +282,20 @@ export function PropertiesPage() {
       setPolygon(null)
       setPage(0)
     }
+    if (q) {
+      setSearch(q)
+      resetFilters()
+    }
+    if (wantsLease) {
+      // Arriving from the dashboard graph: paint by run-off and narrow to the window
+      // that was clicked. Search is cleared too — a leftover query would cut the set.
+      setSearch('')
+      resetFilters()
+      setColorBy('lease')
+      setLeaseMin(searchParams.get('expMin') ?? '')
+      setLeaseMax(searchParams.get('expMax') ?? '')
+      setLeaseMonth(searchParams.get('expMonth') ?? '')
+    }
     if (wantsMap) setView('map')
     setSearchParams({}, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -245,7 +304,6 @@ export function PropertiesPage() {
   // Guard against a tampered/legacy localStorage value that isn't an array.
   const safeColumns = Array.isArray(columns) ? columns : DEFAULT_COLUMNS
   // Render in registry order, filtered to the chosen set (so 'size'->'acres' is just a swap).
-  const visibleColumns = COLUMN_DEFS.filter((c) => safeColumns.includes(c.id))
   const toggleColumn = (id: ColumnId) =>
     setColumns((cur) => {
       const arr = Array.isArray(cur) ? cur : DEFAULT_COLUMNS
@@ -283,6 +341,67 @@ export function PropertiesPage() {
     return map
   }, [properties])
 
+  /**
+   * Soonest still-running lease per parcel, in months. Drives pin colour on the lease
+   * lens, and is deliberately independent of the window filter — a building shown
+   * because it expires in 9 months should still be painted as a 9-month building.
+   */
+  const leaseSoonest = useMemo(() => {
+    const m = new Map<string, LeaseExpiration>()
+    for (const l of leases) {
+      const months = l.months_to_expiry
+      if (months == null || months < 0 || !l.property_id) continue
+      const cur = m.get(l.property_id)
+      if (cur == null || months < (cur.months_to_expiry ?? Infinity)) m.set(l.property_id, l)
+    }
+    return m
+  }, [leases])
+
+  /**
+   * Parcels with at least one lease inside the requested window, or null when no window
+   * is set (meaning "don't filter on leases at all"). A month pick beats min/max.
+   */
+  const leaseMatch = useMemo(() => {
+    const num = (v: string) => {
+      const n = Number(v)
+      return v !== '' && Number.isFinite(n) ? n : null
+    }
+    const monthPicked = /^\d{4}-\d{2}$/.test(leaseMonth)
+    if (!monthPicked && leaseMin === '' && leaseMax === '') return null
+    // An empty minimum means "from today", not "since the beginning of time". Without
+    // this floor, "expires within 3 months" also drags in all 700-odd leases that ran
+    // out years ago. Chasing an expired lease is a real use, so a negative minimum
+    // still reaches back — it just has to be asked for.
+    const lo = num(leaseMin) ?? 0
+    const hi = num(leaseMax)
+    const ids = new Set<string>()
+    // The lease that put the parcel on the list — so the Tenant column names the tenant
+    // you are here about, not whichever of the building's leases sorts first.
+    const top = new Map<string, LeaseExpiration>()
+    for (const l of leases) {
+      if (!l.property_id || !l.expiration_date) continue
+      const hit = monthPicked
+        ? l.expiration_date.slice(0, 7) === leaseMonth
+        : withinMonths(l, lo, hi)
+      if (!hit) continue
+      ids.add(l.property_id)
+      const cur = top.get(l.property_id)
+      if (!cur || (cur.expiration_date ?? '') > l.expiration_date) top.set(l.property_id, l)
+    }
+    return { ids, top }
+  }, [leases, leaseMin, leaseMax, leaseMonth])
+  const leaseMatchIds = leaseMatch?.ids ?? null
+
+  // Tenant + expiry ride along whenever a lease window is filtering, so the list answers
+  // "who is leaving" without a trip to the column menu. Appended rather than saved: the
+  // moment the window clears, the chosen columns are exactly as they were left. (Declared
+  // here because it reads leaseMatchIds above.)
+  const visibleColumns = COLUMN_DEFS.filter(
+    (c) =>
+      (safeColumns.includes(c.id) && !LEASE_COLUMNS.includes(c.id)) ||
+      (leaseMatchIds != null && LEASE_COLUMNS.includes(c.id)),
+  )
+
   const filtered = useMemo(() => {
     const tokens = searchTokens(search)
     const n = (v: string) => {
@@ -314,6 +433,7 @@ export function PropertiesPage() {
         if (ownerFilter === 'verified' && !verified) return false
         if (ownerFilter === 'unverified' && verified) return false
       }
+      if (leaseMatchIds && !leaseMatchIds.has(p.id)) return false
       if (ptype !== 'all' && p.property_type !== ptype) return false
       if (county !== 'all' && p.county !== county) return false
       if (sfLo != null && (p.building_sf == null || p.building_sf < sfLo)) return false
@@ -329,12 +449,12 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [properties, haystacks, askingMap, ownerCtx, ownerFilter, executedIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [properties, haystacks, askingMap, ownerCtx, ownerFilter, executedIds, leaseMatchIds, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon, leaseMatchIds])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -450,7 +570,8 @@ export function PropertiesPage() {
     (county !== 'all' ? 1 : 0) +
     (sfMin || sfMax ? 1 : 0) +
     (acMin || acMax ? 1 : 0) +
-    (priceMin || priceMax ? 1 : 0)
+    (priceMin || priceMax ? 1 : 0) +
+    (leaseMatchIds ? 1 : 0)
 
   // Map pins are opt-in: nothing preloads (Alex 2026-08-07 — plotting the whole book made
   // the map take forever to appear). A search, any filter, or a drawn shape is the signal
@@ -471,6 +592,9 @@ export function PropertiesPage() {
     setAcMax('')
     setPriceMin('')
     setPriceMax('')
+    setLeaseMin('')
+    setLeaseMax('')
+    setLeaseMonth('')
   }
 
   const openCreate = () => {
@@ -579,6 +703,15 @@ export function PropertiesPage() {
                 title="Colour pins by whether we can reach the owner"
               >
                 Owner
+              </Button>
+              <Button
+                variant={colorBy === 'lease' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="rounded-none border-l"
+                onClick={() => setColorBy('lease')}
+                title="Colour pins by how soon the lease runs out"
+              >
+                Lease
               </Button>
             </div>
           )}
@@ -691,6 +824,46 @@ export function PropertiesPage() {
                   <Input type="number" inputMode="numeric" placeholder="Max" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
                 </div>
               </div>
+              <div className="space-y-1.5 border-t pt-3">
+                <Label>Lease expires (months)</Label>
+                {/^\d{4}-\d{2}$/.test(leaseMonth) ? (
+                  // Arrived by clicking a bar on the dashboard graph. That is one calendar
+                  // month, which a rolling min/max cannot express — so show it as its own
+                  // removable state instead of pretending the number inputs describe it.
+                  <div className="flex items-center justify-between rounded-md border px-2 py-1.5">
+                    <span className="text-sm">
+                      Expiring {format(new Date(`${leaseMonth}-01T00:00:00`), 'MMMM yyyy')}
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => setLeaseMonth('')}>
+                      Clear
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" inputMode="numeric" placeholder="Now" value={leaseMin} onChange={(e) => setLeaseMin(e.target.value)} />
+                      <span className="text-muted-foreground">–</span>
+                      <Input type="number" inputMode="numeric" placeholder="Max" value={leaseMax} onChange={(e) => setLeaseMax(e.target.value)} />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[1, 3, 6, 12].map((n) => (
+                        <Button
+                          key={n}
+                          variant={leaseMin === '' && leaseMax === String(n) ? 'secondary' : 'outline'}
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            setLeaseMin('')
+                            setLeaseMax(String(n))
+                          }}
+                        >
+                          ≤ {n === 12 ? '1 yr' : `${n} mo`}
+                        </Button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
               <div className="flex justify-end border-t pt-2">
                 <Button variant="ghost" size="sm" onClick={clearFilters} disabled={activeFilterCount === 0}>
                   Clear all
@@ -709,7 +882,9 @@ export function PropertiesPage() {
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel>Columns (up to {MAX_COLUMNS})</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {COLUMN_DEFS.map((c) => {
+              {/* Lease columns are driven by the lease window, not chosen here — offering
+                  a checkbox that the filter overrides would just be a lie. */}
+              {COLUMN_DEFS.filter((c) => !LEASE_COLUMNS.includes(c.id)).map((c) => {
                 const checked = safeColumns.includes(c.id)
                 return (
                   <DropdownMenuCheckboxItem
@@ -824,6 +999,7 @@ export function PropertiesPage() {
             executedIds={executedIds}
             ownerContext={ownerCtx}
             colorBy={colorBy}
+            leaseInfo={leaseSoonest}
             polygon={polygon}
             draft={draft}
             drawMode={drawMode}
@@ -893,7 +1069,12 @@ export function PropertiesPage() {
                     </TableCell>
                     {visibleColumns.map((c) => (
                       <TableCell key={c.id} className={c.className}>
-                        {c.cell(property, askingMap?.get(property.id), ownerCtx?.get(property.id))}
+                        {c.cell(
+                          property,
+                          askingMap?.get(property.id),
+                          ownerCtx?.get(property.id),
+                          leaseMatch?.top.get(property.id),
+                        )}
                       </TableCell>
                     ))}
                     <TableCell>{rowMenu(property)}</TableCell>

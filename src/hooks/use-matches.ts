@@ -200,11 +200,29 @@ export async function resolvePursuitSide(
   return boardSide
 }
 
+/**
+ * `sort_order` and `deal_type` are NOT NULL on pursuits with no column default: a BEFORE
+ * INSERT trigger fills each one when it arrives null. Codegen cannot see triggers, so it
+ * marks both required and every caller would have to invent a value.
+ *
+ * Adding real column defaults would be the worse fix — both triggers key off NULL, so a
+ * default would satisfy the generator by permanently stopping the triggers from firing.
+ */
+export type NewPursuit = Omit<TablesInsert<'pursuits'>, 'sort_order' | 'deal_type'> &
+  Partial<Pick<TablesInsert<'pursuits'>, 'sort_order' | 'deal_type'>>
+
+/** Widen a trigger-completed pursuit to the generated Insert type. See NewPursuit. */
+export const asPursuitInsert = (v: NewPursuit) => v as TablesInsert<'pursuits'>
+
 export function useCreateMatch() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: TablesInsert<'pursuits'>) => {
-      const { data, error } = await supabase.from('pursuits').insert(values).select().single()
+    mutationFn: async (values: NewPursuit) => {
+      const { data, error } = await supabase
+        .from('pursuits')
+        .insert(asPursuitInsert(values))
+        .select()
+        .single()
       if (error) throw error
       return data
     },

@@ -27,7 +27,7 @@ import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
 import { leadSourceLabels } from '@/components/source-badge'
 import { useUnits, useSetPursuitUnits, unitSizeLabel } from '@/hooks/use-units'
-import { resolvePursuitSide } from '@/hooks/use-matches'
+import { asPursuitInsert, resolvePursuitSide } from '@/hooks/use-matches'
 import { formatPsf } from '@/lib/format'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase'
@@ -158,13 +158,15 @@ export function AddTenantMatchDialog({
       )
       const { data: pursuit, error: mErr } = await supabase
         .from('pursuits')
-        .insert({
-          property_id: propertyId,
-          client_id: clientId,
-          owner_id: session.user.id,
-          inquiry_date: inquiryDate || undefined,
-          deal_type: pursuitSide,
-        })
+        .insert(
+          asPursuitInsert({
+            property_id: propertyId,
+            client_id: clientId,
+            owner_id: session.user.id,
+            inquiry_date: inquiryDate || undefined,
+            deal_type: pursuitSide,
+          }),
+        )
         .select('id')
         .single()
       if (mErr) throw mErr

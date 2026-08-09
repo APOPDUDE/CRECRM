@@ -14,6 +14,189 @@ export type Database = {
   }
   public: {
     Tables: {
+      _rollback_replay_20260708: {
+        Row: {
+          address: string | null
+          appraiser_data: Json | null
+          appraiser_updated_at: string | null
+          assessed_value: number | null
+          broker_company: string | null
+          broker_email: string | null
+          broker_name: string | null
+          broker_phone: string | null
+          building_class: string | null
+          building_far: string | null
+          building_sf: number | null
+          city: string | null
+          construction_status: string | null
+          county: string | null
+          created_at: string | null
+          days_on_market: number | null
+          dor_use_code: string | null
+          gross_leasable_area: string | null
+          id: string | null
+          is_auction: boolean | null
+          just_value: number | null
+          land_acres: number | null
+          last_seen_in_sweep: string | null
+          lat: number | null
+          listed_at: string | null
+          listing_status:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          listing_url: string | null
+          lng: number | null
+          num_units: number | null
+          occupancy: string | null
+          on_ground_lease: boolean | null
+          opportunity_zone: boolean | null
+          owner_mailing_address: string | null
+          owner_name: string | null
+          parcel_number: string | null
+          parking_ratio: string | null
+          photo_urls: string[] | null
+          property_sub_types: string[] | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          sale_conditions: string | null
+          sale_status: number | null
+          sale_type: string | null
+          scraped_at: string | null
+          source: string | null
+          source_key: string | null
+          source_last_updated: string | null
+          specs: string | null
+          state: string | null
+          stories: number | null
+          title: string | null
+          updated_at: string | null
+          year_built: number | null
+          year_renovated: number | null
+          zip: string | null
+          zoning_description: string | null
+          zoning_district: string | null
+        }
+        Insert: {
+          address?: string | null
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
+          assessed_value?: number | null
+          broker_company?: string | null
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
+          building_class?: string | null
+          building_far?: string | null
+          building_sf?: number | null
+          city?: string | null
+          construction_status?: string | null
+          county?: string | null
+          created_at?: string | null
+          days_on_market?: number | null
+          dor_use_code?: string | null
+          gross_leasable_area?: string | null
+          id?: string | null
+          is_auction?: boolean | null
+          just_value?: number | null
+          land_acres?: number | null
+          last_seen_in_sweep?: string | null
+          lat?: number | null
+          listed_at?: string | null
+          listing_status?:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          listing_url?: string | null
+          lng?: number | null
+          num_units?: number | null
+          occupancy?: string | null
+          on_ground_lease?: boolean | null
+          opportunity_zone?: boolean | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          parcel_number?: string | null
+          parking_ratio?: string | null
+          photo_urls?: string[] | null
+          property_sub_types?: string[] | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          sale_conditions?: string | null
+          sale_status?: number | null
+          sale_type?: string | null
+          scraped_at?: string | null
+          source?: string | null
+          source_key?: string | null
+          source_last_updated?: string | null
+          specs?: string | null
+          state?: string | null
+          stories?: number | null
+          title?: string | null
+          updated_at?: string | null
+          year_built?: number | null
+          year_renovated?: number | null
+          zip?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
+        }
+        Update: {
+          address?: string | null
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
+          assessed_value?: number | null
+          broker_company?: string | null
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
+          building_class?: string | null
+          building_far?: string | null
+          building_sf?: number | null
+          city?: string | null
+          construction_status?: string | null
+          county?: string | null
+          created_at?: string | null
+          days_on_market?: number | null
+          dor_use_code?: string | null
+          gross_leasable_area?: string | null
+          id?: string | null
+          is_auction?: boolean | null
+          just_value?: number | null
+          land_acres?: number | null
+          last_seen_in_sweep?: string | null
+          lat?: number | null
+          listed_at?: string | null
+          listing_status?:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          listing_url?: string | null
+          lng?: number | null
+          num_units?: number | null
+          occupancy?: string | null
+          on_ground_lease?: boolean | null
+          opportunity_zone?: boolean | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          parcel_number?: string | null
+          parking_ratio?: string | null
+          photo_urls?: string[] | null
+          property_sub_types?: string[] | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          sale_conditions?: string | null
+          sale_status?: number | null
+          sale_type?: string | null
+          scraped_at?: string | null
+          source?: string | null
+          source_key?: string | null
+          source_last_updated?: string | null
+          specs?: string | null
+          state?: string | null
+          stories?: number | null
+          title?: string | null
+          updated_at?: string | null
+          year_built?: number | null
+          year_renovated?: number | null
+          zip?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           actual_fee: number | null
@@ -129,6 +312,114 @@ export type Database = {
           },
         ]
       }
+      communications: {
+        Row: {
+          body: string | null
+          channel: Database["public"]["Enums"]["comm_channel"]
+          contact_id: string | null
+          created_at: string
+          direction: Database["public"]["Enums"]["comm_direction"]
+          disposition: string | null
+          external_id: string | null
+          id: string
+          occurred_at: string
+          owner_id: string | null
+          phone: string | null
+          property_id: string | null
+          raw: Json | null
+          recording_bytes: number | null
+          recording_error: string | null
+          recording_path: string | null
+          recording_synced_at: string | null
+          source: Database["public"]["Enums"]["comm_source"]
+          subject: string | null
+          tags: string[] | null
+          transcript: string | null
+        }
+        Insert: {
+          body?: string | null
+          channel: Database["public"]["Enums"]["comm_channel"]
+          contact_id?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["comm_direction"]
+          disposition?: string | null
+          external_id?: string | null
+          id?: string
+          occurred_at: string
+          owner_id?: string | null
+          phone?: string | null
+          property_id?: string | null
+          raw?: Json | null
+          recording_bytes?: number | null
+          recording_error?: string | null
+          recording_path?: string | null
+          recording_synced_at?: string | null
+          source: Database["public"]["Enums"]["comm_source"]
+          subject?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+        }
+        Update: {
+          body?: string | null
+          channel?: Database["public"]["Enums"]["comm_channel"]
+          contact_id?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["comm_direction"]
+          disposition?: string | null
+          external_id?: string | null
+          id?: string
+          occurred_at?: string
+          owner_id?: string | null
+          phone?: string | null
+          property_id?: string | null
+          raw?: Json | null
+          recording_bytes?: number | null
+          recording_error?: string | null
+          recording_path?: string | null
+          recording_synced_at?: string | null
+          source?: Database["public"]["Enums"]["comm_source"]
+          subject?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communications_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           created_at: string
@@ -167,12 +458,11 @@ export type Database = {
       }
       comps: {
         Row: {
+          as_of_date: string | null
           asking_lease_rate_psf: number | null
           cap_rate_pct: number | null
-          as_of_date: string | null
-          commission_fee: number | null
-          opex_psf: number | null
           commencement_date: string | null
+          commission_fee: number | null
           created_at: string
           deal_type: Database["public"]["Enums"]["deal_type"]
           escalations: string | null
@@ -185,6 +475,7 @@ export type Database = {
           land_acres: number | null
           lease_structure: Database["public"]["Enums"]["lease_structure"] | null
           notes: string | null
+          opex_psf: number | null
           owner_id: string | null
           price_per_acre: number | null
           price_per_sf: number | null
@@ -203,12 +494,11 @@ export type Database = {
           verified: boolean
         }
         Insert: {
+          as_of_date?: string | null
           asking_lease_rate_psf?: number | null
           cap_rate_pct?: number | null
-          as_of_date?: string | null
-          commission_fee?: number | null
-          opex_psf?: number | null
           commencement_date?: string | null
+          commission_fee?: number | null
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
           escalations?: string | null
@@ -223,6 +513,7 @@ export type Database = {
             | Database["public"]["Enums"]["lease_structure"]
             | null
           notes?: string | null
+          opex_psf?: number | null
           owner_id?: string | null
           price_per_acre?: number | null
           price_per_sf?: number | null
@@ -241,12 +532,11 @@ export type Database = {
           verified?: boolean
         }
         Update: {
+          as_of_date?: string | null
           asking_lease_rate_psf?: number | null
           cap_rate_pct?: number | null
-          as_of_date?: string | null
-          commission_fee?: number | null
-          opex_psf?: number | null
           commencement_date?: string | null
+          commission_fee?: number | null
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
           escalations?: string | null
@@ -261,6 +551,7 @@ export type Database = {
             | Database["public"]["Enums"]["lease_structure"]
             | null
           notes?: string | null
+          opex_psf?: number | null
           owner_id?: string | null
           price_per_acre?: number | null
           price_per_sf?: number | null
@@ -287,6 +578,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+          {
             foreignKeyName: "comps_pursuit_id_fkey"
             columns: ["pursuit_id"]
             isOneToOne: false
@@ -298,197 +603,6 @@ export type Database = {
             columns: ["tenant_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      owners: {
-        Row: {
-          created_at: string
-          display_name: string
-          id: string
-          kind: Database["public"]["Enums"]["owner_kind"]
-          mailing_address: string | null
-          mailing_city: string | null
-          mailing_state: string | null
-          mailing_zip: string | null
-          normalized_name: string | null
-          notes: string | null
-          updated_at: string
-          verification_note: string | null
-          verification_status: Database["public"]["Enums"]["owner_verification_status"]
-          verification_updated_at: string | null
-          tags: string[] | null
-        }
-        Insert: {
-          created_at?: string
-          display_name: string
-          id?: string
-          kind?: Database["public"]["Enums"]["owner_kind"]
-          mailing_address?: string | null
-          mailing_city?: string | null
-          mailing_state?: string | null
-          mailing_zip?: string | null
-          notes?: string | null
-          updated_at?: string
-          verification_note?: string | null
-          verification_status?: Database["public"]["Enums"]["owner_verification_status"]
-          verification_updated_at?: string | null
-          tags?: string[] | null
-        }
-        Update: {
-          created_at?: string
-          display_name?: string
-          id?: string
-          kind?: Database["public"]["Enums"]["owner_kind"]
-          mailing_address?: string | null
-          mailing_city?: string | null
-          mailing_state?: string | null
-          mailing_zip?: string | null
-          notes?: string | null
-          updated_at?: string
-          verification_note?: string | null
-          verification_status?: Database["public"]["Enums"]["owner_verification_status"]
-          verification_updated_at?: string | null
-          tags?: string[] | null
-        }
-        Relationships: []
-      }
-      owner_contacts: {
-        Row: {
-          confidence: Database["public"]["Enums"]["owner_contact_confidence"]
-          contact_id: string
-          created_at: string
-          id: string
-          match_basis: string | null
-          notes: string | null
-          owner_id: string
-          role: string | null
-          updated_at: string
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          confidence?: Database["public"]["Enums"]["owner_contact_confidence"]
-          contact_id: string
-          created_at?: string
-          id?: string
-          match_basis?: string | null
-          notes?: string | null
-          owner_id: string
-          role?: string | null
-          updated_at?: string
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          confidence?: Database["public"]["Enums"]["owner_contact_confidence"]
-          contact_id?: string
-          created_at?: string
-          id?: string
-          match_basis?: string | null
-          notes?: string | null
-          owner_id?: string
-          role?: string | null
-          updated_at?: string
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "owner_contacts_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "owners"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "owner_contacts_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      communications: {
-        Row: {
-          body: string | null
-          channel: Database["public"]["Enums"]["comm_channel"]
-          contact_id: string | null
-          created_at: string
-          direction: Database["public"]["Enums"]["comm_direction"]
-          disposition: string | null
-          external_id: string | null
-          id: string
-          occurred_at: string
-          owner_id: string | null
-          phone: string | null
-          property_id: string | null
-          raw: Json | null
-          source: Database["public"]["Enums"]["comm_source"]
-          subject: string | null
-          tags: string[] | null
-          transcript: string | null
-        }
-        Insert: {
-          body?: string | null
-          channel: Database["public"]["Enums"]["comm_channel"]
-          contact_id?: string | null
-          created_at?: string
-          direction?: Database["public"]["Enums"]["comm_direction"]
-          disposition?: string | null
-          external_id?: string | null
-          id?: string
-          occurred_at: string
-          owner_id?: string | null
-          phone?: string | null
-          property_id?: string | null
-          raw?: Json | null
-          source: Database["public"]["Enums"]["comm_source"]
-          subject?: string | null
-          tags?: string[] | null
-          transcript?: string | null
-        }
-        Update: {
-          body?: string | null
-          channel?: Database["public"]["Enums"]["comm_channel"]
-          contact_id?: string | null
-          created_at?: string
-          direction?: Database["public"]["Enums"]["comm_direction"]
-          disposition?: string | null
-          external_id?: string | null
-          id?: string
-          occurred_at?: string
-          owner_id?: string | null
-          phone?: string | null
-          property_id?: string | null
-          raw?: Json | null
-          source?: Database["public"]["Enums"]["comm_source"]
-          subject?: string | null
-          tags?: string[] | null
-          transcript?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "communications_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "communications_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "owners"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "communications_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
@@ -567,6 +681,21 @@ export type Database = {
           },
         ]
       }
+      county_lookup: {
+        Row: {
+          city_key: string
+          county: string
+        }
+        Insert: {
+          city_key: string
+          county: string
+        }
+        Update: {
+          city_key?: string
+          county?: string
+        }
+        Relationships: []
+      }
       deal_flags: {
         Row: {
           created_at: string
@@ -606,22 +735,21 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_flags_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_flags_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
         ]
-      }
-      county_lookup: {
-        Row: {
-          city_key: string
-          county: string
-        }
-        Insert: {
-          city_key: string
-          county: string
-        }
-        Update: {
-          city_key?: string
-          county?: string
-        }
-        Relationships: []
       }
       files: {
         Row: {
@@ -696,11 +824,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "files_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+          {
             foreignKeyName: "files_pursuit_id_fkey"
             columns: ["pursuit_id"]
             isOneToOne: false
             referencedRelation: "pursuits"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      listing_parcels: {
+        Row: {
+          created_at: string
+          is_primary: boolean
+          listing_id: string
+          property_id: string
+        }
+        Insert: {
+          created_at?: string
+          is_primary?: boolean
+          listing_id: string
+          property_id: string
+        }
+        Update: {
+          created_at?: string
+          is_primary?: boolean
+          listing_id?: string
+          property_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_parcels_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_parcels_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_parcels_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_parcels_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -822,144 +1014,54 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      listing_parcels: {
-        Row: {
-          created_at: string
-          is_primary: boolean
-          listing_id: string
-          property_id: string
-        }
-        Insert: {
-          created_at?: string
-          is_primary?: boolean
-          listing_id: string
-          property_id: string
-        }
-        Update: {
-          created_at?: string
-          is_primary?: boolean
-          listing_id?: string
-          property_id?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "listing_parcels_listing_id_fkey"
-            columns: ["listing_id"]
-            isOneToOne: false
-            referencedRelation: "listings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "listing_parcels_property_id_fkey"
+            foreignKeyName: "listings_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
-            referencedRelation: "properties"
+            referencedRelation: "v_property_market_position"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
           },
         ]
       }
-      units: {
+      news_items: {
         Row: {
+          created_at: string
+          feed_url: string | null
           id: string
-          property_id: string
-          label: string | null
-          size_sf: number | null
-          size_acres: number | null
-          asking_rate_psf: number | null
-          status: string
-          office_sf: number | null
-          dock_high_doors: number | null
-          grade_level_doors: number | null
-          dock_levelers: number | null
-          clear_height_ft: number | null
-          three_phase_power: boolean | null
-          volts: string | null
-          amps: number | null
-          notes: string | null
-          created_at: string
+          keywords: string[] | null
+          published_at: string | null
+          source: string | null
+          title: string
+          url: string
         }
         Insert: {
-          id?: string
-          property_id: string
-          label?: string | null
-          size_sf?: number | null
-          size_acres?: number | null
-          asking_rate_psf?: number | null
-          status?: string
-          office_sf?: number | null
-          dock_high_doors?: number | null
-          grade_level_doors?: number | null
-          dock_levelers?: number | null
-          clear_height_ft?: number | null
-          three_phase_power?: boolean | null
-          volts?: string | null
-          amps?: number | null
-          notes?: string | null
           created_at?: string
+          feed_url?: string | null
+          id?: string
+          keywords?: string[] | null
+          published_at?: string | null
+          source?: string | null
+          title: string
+          url: string
         }
         Update: {
+          created_at?: string
+          feed_url?: string | null
           id?: string
-          property_id?: string
-          label?: string | null
-          size_sf?: number | null
-          size_acres?: number | null
-          asking_rate_psf?: number | null
-          status?: string
-          office_sf?: number | null
-          dock_high_doors?: number | null
-          grade_level_doors?: number | null
-          dock_levelers?: number | null
-          clear_height_ft?: number | null
-          three_phase_power?: boolean | null
-          volts?: string | null
-          amps?: number | null
-          notes?: string | null
-          created_at?: string
+          keywords?: string[] | null
+          published_at?: string | null
+          source?: string | null
+          title?: string
+          url?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "units_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pursuit_units: {
-        Row: {
-          pursuit_id: string
-          unit_id: string
-          created_at: string
-        }
-        Insert: {
-          pursuit_id: string
-          unit_id: string
-          created_at?: string
-        }
-        Update: {
-          pursuit_id?: string
-          unit_id?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pursuit_units_pursuit_id_fkey"
-            columns: ["pursuit_id"]
-            isOneToOne: false
-            referencedRelation: "pursuits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pursuit_units_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       notes: {
         Row: {
@@ -1023,10 +1125,124 @@ export type Database = {
           },
         ]
       }
+      owner_contacts: {
+        Row: {
+          confidence: Database["public"]["Enums"]["owner_contact_confidence"]
+          contact_id: string
+          created_at: string
+          id: string
+          match_basis: string | null
+          notes: string | null
+          owner_id: string
+          role: string | null
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          confidence?: Database["public"]["Enums"]["owner_contact_confidence"]
+          contact_id: string
+          created_at?: string
+          id?: string
+          match_basis?: string | null
+          notes?: string | null
+          owner_id: string
+          role?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          confidence?: Database["public"]["Enums"]["owner_contact_confidence"]
+          contact_id?: string
+          created_at?: string
+          id?: string
+          match_basis?: string | null
+          notes?: string | null
+          owner_id?: string
+          role?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_contacts_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owners: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          kind: Database["public"]["Enums"]["owner_kind"]
+          mailing_address: string | null
+          mailing_city: string | null
+          mailing_state: string | null
+          mailing_zip: string | null
+          normalized_name: string | null
+          notes: string | null
+          tags: string[] | null
+          updated_at: string
+          verification_note: string | null
+          verification_status: Database["public"]["Enums"]["owner_verification_status"]
+          verification_updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          kind?: Database["public"]["Enums"]["owner_kind"]
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
+          normalized_name?: string | null
+          notes?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          verification_note?: string | null
+          verification_status?: Database["public"]["Enums"]["owner_verification_status"]
+          verification_updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["owner_kind"]
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
+          normalized_name?: string | null
+          notes?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          verification_note?: string | null
+          verification_status?: Database["public"]["Enums"]["owner_verification_status"]
+          verification_updated_at?: string | null
+        }
+        Relationships: []
+      }
       properties: {
         Row: {
-          amps: number | null
           address: string
+          amps: number | null
+          appraiser_data: Json | null
+          appraiser_updated_at: string | null
+          assessed_value: number | null
           broker_company: string | null
           broker_email: string | null
           broker_name: string | null
@@ -1038,60 +1254,57 @@ export type Database = {
           clear_height_ft: number | null
           column_spacing: string | null
           construction_material: string | null
-          cross_docks: boolean | null
           construction_status: string | null
           county: string | null
           created_at: string
+          cross_docks: boolean | null
           days_on_market: number | null
-          dock_levelers: number | null
-          dock_high_doors: number | null
           description: string | null
+          dock_high_doors: number | null
+          dock_levelers: number | null
+          dor_use_code: string | null
           grade_level_doors: number | null
           gross_leasable_area: string | null
           id: string
           is_auction: boolean | null
+          just_value: number | null
           land_acres: number | null
-          lat: number | null
-          listed_at: string | null
-          listing_status: Database["public"]["Enums"]["listing_market_status"]
           last_sale_date: string | null
           last_sale_price: number | null
           last_seen_in_sweep: string | null
-          owner_name: string | null
-          owner_mailing_address: string | null
-          just_value: number | null
-          assessed_value: number | null
-          dor_use_code: string | null
-          appraiser_data: Json | null
-          appraiser_updated_at: string | null
+          lat: number | null
+          listed_at: string | null
+          listing_status: Database["public"]["Enums"]["listing_market_status"]
           listing_url: string | null
           lng: number | null
           num_units: number | null
           occupancy: string | null
-          owner_id: string | null
           on_ground_lease: boolean | null
           opportunity_zone: boolean | null
+          owner_id: string | null
+          owner_mailing_address: string | null
+          owner_name: string | null
           parcel_number: string | null
-          parking_spaces: number | null
           parking_ratio: string | null
+          parking_spaces: number | null
           photo_urls: string[] | null
           property_sub_types: string[] | null
           property_type: Database["public"]["Enums"]["property_kind"] | null
           sale_conditions: string | null
           sale_status: number | null
           sale_type: string | null
-          scraped_at: string | null
           scrape_facts: Json | null
-          sprinkler_system: string | null
+          scraped_at: string | null
           source: string | null
           source_key: string | null
           source_last_updated: string | null
           specs: string | null
+          sprinkler_system: string | null
           state: string | null
           stories: number | null
           three_phase_power: boolean | null
-          truck_court_ft: number | null
           title: string | null
+          truck_court_ft: number | null
           updated_at: string
           usable_acres: number | null
           volts: string | null
@@ -1103,83 +1316,10 @@ export type Database = {
         }
         Insert: {
           address: string
-          broker_company?: string | null
-          broker_email?: string | null
-          broker_name?: string | null
-          broker_phone?: string | null
-          building_class?: string | null
-          building_far?: string | null
-          building_sf?: number | null
-          city?: string | null
-          clear_height_ft?: number | null
-          column_spacing?: string | null
-          construction_material?: string | null
-          cross_docks?: boolean | null
-          construction_status?: string | null
-          county?: string | null
-          created_at?: string
-          days_on_market?: number | null
-          dock_levelers?: number | null
-          dock_high_doors?: number | null
-          description?: string | null
-          grade_level_doors?: number | null
-          gross_leasable_area?: string | null
-          id?: string
-          is_auction?: boolean | null
-          land_acres?: number | null
-          lat?: number | null
-          listed_at?: string | null
-          listing_status?: Database["public"]["Enums"]["listing_market_status"]
-          last_sale_date?: string | null
-          last_sale_price?: number | null
-          last_seen_in_sweep?: string | null
-          owner_name?: string | null
-          owner_mailing_address?: string | null
-          just_value?: number | null
-          assessed_value?: number | null
-          dor_use_code?: string | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
-          listing_url?: string | null
-          lng?: number | null
-          num_units?: number | null
-          occupancy?: string | null
-          owner_id?: string | null
-          on_ground_lease?: boolean | null
-          opportunity_zone?: boolean | null
-          parcel_number?: string | null
-          parking_spaces?: number | null
-          parking_ratio?: string | null
-          photo_urls?: string[] | null
-          property_sub_types?: string[] | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions?: string | null
-          sale_status?: number | null
-          sale_type?: string | null
-          scraped_at?: string | null
-          scrape_facts?: Json | null
-          sprinkler_system?: string | null
-          source?: string | null
-          source_key?: string | null
-          source_last_updated?: string | null
-          specs?: string | null
-          state?: string | null
-          stories?: number | null
-          three_phase_power?: boolean | null
-          truck_court_ft?: number | null
-          title?: string | null
-          updated_at?: string
-          usable_acres?: number | null
-          volts?: string | null
-          year_built?: number | null
-          year_renovated?: number | null
-          zip?: string | null
-          zoning_description?: string | null
-          zoning_district?: string | null
-        }
-        Update: {
           amps?: number | null
-          address?: string
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
+          assessed_value?: number | null
           broker_company?: string | null
           broker_email?: string | null
           broker_name?: string | null
@@ -1191,60 +1331,57 @@ export type Database = {
           clear_height_ft?: number | null
           column_spacing?: string | null
           construction_material?: string | null
-          cross_docks?: boolean | null
           construction_status?: string | null
           county?: string | null
           created_at?: string
+          cross_docks?: boolean | null
           days_on_market?: number | null
-          dock_levelers?: number | null
-          dock_high_doors?: number | null
           description?: string | null
+          dock_high_doors?: number | null
+          dock_levelers?: number | null
+          dor_use_code?: string | null
           grade_level_doors?: number | null
           gross_leasable_area?: string | null
           id?: string
           is_auction?: boolean | null
+          just_value?: number | null
           land_acres?: number | null
-          lat?: number | null
-          listed_at?: string | null
-          listing_status?: Database["public"]["Enums"]["listing_market_status"]
           last_sale_date?: string | null
           last_sale_price?: number | null
           last_seen_in_sweep?: string | null
-          owner_name?: string | null
-          owner_mailing_address?: string | null
-          just_value?: number | null
-          assessed_value?: number | null
-          dor_use_code?: string | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
+          lat?: number | null
+          listed_at?: string | null
+          listing_status?: Database["public"]["Enums"]["listing_market_status"]
           listing_url?: string | null
           lng?: number | null
           num_units?: number | null
           occupancy?: string | null
-          owner_id?: string | null
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
+          owner_id?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
           parcel_number?: string | null
-          parking_spaces?: number | null
           parking_ratio?: string | null
+          parking_spaces?: number | null
           photo_urls?: string[] | null
           property_sub_types?: string[] | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
           sale_conditions?: string | null
           sale_status?: number | null
           sale_type?: string | null
-          scraped_at?: string | null
           scrape_facts?: Json | null
-          sprinkler_system?: string | null
+          scraped_at?: string | null
           source?: string | null
           source_key?: string | null
           source_last_updated?: string | null
           specs?: string | null
+          sprinkler_system?: string | null
           state?: string | null
           stories?: number | null
           three_phase_power?: boolean | null
-          truck_court_ft?: number | null
           title?: string | null
+          truck_court_ft?: number | null
           updated_at?: string
           usable_acres?: number | null
           volts?: string | null
@@ -1254,58 +1391,89 @@ export type Database = {
           zoning_description?: string | null
           zoning_district?: string | null
         }
-        Relationships: []
-      }
-      prospects: {
-        Row: {
-          company_id: string | null
-          contact_id: string | null
-          converted_at: string | null
-          converted_to: string | null
-          created_at: string
-          description: string | null
-          id: string
-          owner_id: string
-          status: Database["public"]["Enums"]["prospect_status"]
-          updated_at: string
-        }
-        Insert: {
-          company_id?: string | null
-          contact_id?: string | null
-          converted_at?: string | null
-          converted_to?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          owner_id: string
-          status?: Database["public"]["Enums"]["prospect_status"]
-          updated_at?: string
-        }
         Update: {
-          company_id?: string | null
-          contact_id?: string | null
-          converted_at?: string | null
-          converted_to?: string | null
+          address?: string
+          amps?: number | null
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
+          assessed_value?: number | null
+          broker_company?: string | null
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
+          building_class?: string | null
+          building_far?: string | null
+          building_sf?: number | null
+          city?: string | null
+          clear_height_ft?: number | null
+          column_spacing?: string | null
+          construction_material?: string | null
+          construction_status?: string | null
+          county?: string | null
           created_at?: string
+          cross_docks?: boolean | null
+          days_on_market?: number | null
           description?: string | null
+          dock_high_doors?: number | null
+          dock_levelers?: number | null
+          dor_use_code?: string | null
+          grade_level_doors?: number | null
+          gross_leasable_area?: string | null
           id?: string
-          owner_id?: string
-          status?: Database["public"]["Enums"]["prospect_status"]
+          is_auction?: boolean | null
+          just_value?: number | null
+          land_acres?: number | null
+          last_sale_date?: string | null
+          last_sale_price?: number | null
+          last_seen_in_sweep?: string | null
+          lat?: number | null
+          listed_at?: string | null
+          listing_status?: Database["public"]["Enums"]["listing_market_status"]
+          listing_url?: string | null
+          lng?: number | null
+          num_units?: number | null
+          occupancy?: string | null
+          on_ground_lease?: boolean | null
+          opportunity_zone?: boolean | null
+          owner_id?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          parcel_number?: string | null
+          parking_ratio?: string | null
+          parking_spaces?: number | null
+          photo_urls?: string[] | null
+          property_sub_types?: string[] | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          sale_conditions?: string | null
+          sale_status?: number | null
+          sale_type?: string | null
+          scrape_facts?: Json | null
+          scraped_at?: string | null
+          source?: string | null
+          source_key?: string | null
+          source_last_updated?: string | null
+          specs?: string | null
+          sprinkler_system?: string | null
+          state?: string | null
+          stories?: number | null
+          three_phase_power?: boolean | null
+          title?: string | null
+          truck_court_ft?: number | null
           updated_at?: string
+          usable_acres?: number | null
+          volts?: string | null
+          year_built?: number | null
+          year_renovated?: number | null
+          zip?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "prospects_company_id_fkey"
-            columns: ["company_id"]
+            foreignKeyName: "properties_owner_id_fkey"
+            columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "prospects_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
+            referencedRelation: "owners"
             referencedColumns: ["id"]
           },
         ]
@@ -1335,11 +1503,128 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "prospect_properties_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_properties_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+          {
             foreignKeyName: "prospect_properties_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: false
             referencedRelation: "prospects"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospects: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          converted_at: string | null
+          converted_to: string | null
+          created_at: string
+          description: string | null
+          details: Json | null
+          id: string
+          lead_type: string | null
+          owner_id: string
+          sourced_by: string | null
+          status: Database["public"]["Enums"]["prospect_status"]
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          converted_at?: string | null
+          converted_to?: string | null
+          created_at?: string
+          description?: string | null
+          details?: Json | null
+          id?: string
+          lead_type?: string | null
+          owner_id: string
+          sourced_by?: string | null
+          status?: Database["public"]["Enums"]["prospect_status"]
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          converted_at?: string | null
+          converted_to?: string | null
+          created_at?: string
+          description?: string | null
+          details?: Json | null
+          id?: string
+          lead_type?: string | null
+          owner_id?: string
+          sourced_by?: string | null
+          status?: Database["public"]["Enums"]["prospect_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospects_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pursuit_units: {
+        Row: {
+          created_at: string
+          pursuit_id: string
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string
+          pursuit_id: string
+          unit_id: string
+        }
+        Update: {
+          created_at?: string
+          pursuit_id?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pursuit_units_pursuit_id_fkey"
+            columns: ["pursuit_id"]
+            isOneToOne: false
+            referencedRelation: "pursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pursuit_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pursuit_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_specs"
+            referencedColumns: ["unit_id"]
           },
         ]
       }
@@ -1365,7 +1650,9 @@ export type Database = {
           payment_received: boolean
           property_id: string
           proposed_commencement: string | null
-          proposed_lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          proposed_lease_structure:
+            | Database["public"]["Enums"]["lease_structure"]
+            | null
           proposed_opex_psf: number | null
           proposed_price: number | null
           proposed_rate_psf: number | null
@@ -1387,7 +1674,7 @@ export type Database = {
           created_at?: string
           dd_days?: number | null
           dd_expiration_date?: string | null
-          deal_type?: Database["public"]["Enums"]["deal_type"]
+          deal_type: Database["public"]["Enums"]["deal_type"]
           earnest_deposit?: number | null
           escalation_pct?: number | null
           executed_date?: string | null
@@ -1401,14 +1688,16 @@ export type Database = {
           payment_received?: boolean
           property_id: string
           proposed_commencement?: string | null
-          proposed_lease_structure?: Database["public"]["Enums"]["lease_structure"] | null
+          proposed_lease_structure?:
+            | Database["public"]["Enums"]["lease_structure"]
+            | null
           proposed_opex_psf?: number | null
           proposed_price?: number | null
           proposed_rate_psf?: number | null
           proposed_sf?: number | null
           renewal_terms?: string | null
           security_deposit?: number | null
-          sort_order?: number
+          sort_order: number
           special_provisions?: string | null
           stage?: Database["public"]["Enums"]["pursuit_stage"]
           ti_allowance_psf?: number | null
@@ -1437,7 +1726,9 @@ export type Database = {
           payment_received?: boolean
           property_id?: string
           proposed_commencement?: string | null
-          proposed_lease_structure?: Database["public"]["Enums"]["lease_structure"] | null
+          proposed_lease_structure?:
+            | Database["public"]["Enums"]["lease_structure"]
+            | null
           proposed_opex_psf?: number | null
           proposed_price?: number | null
           proposed_rate_psf?: number | null
@@ -1466,6 +1757,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pursuits_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pursuits_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -1506,7 +1811,39 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "suggestions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggestions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
         ]
+      }
+      sweep_meta: {
+        Row: {
+          id: boolean
+          last_run_at: string | null
+          last_seen_count: number | null
+        }
+        Insert: {
+          id?: boolean
+          last_run_at?: string | null
+          last_seen_count?: number | null
+        }
+        Update: {
+          id?: boolean
+          last_run_at?: string | null
+          last_seen_count?: number | null
+        }
+        Relationships: []
       }
       tasks: {
         Row: {
@@ -1602,6 +1939,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tasks_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_pursuit_id_fkey"
             columns: ["pursuit_id"]
             isOneToOne: false
@@ -1610,172 +1954,358 @@ export type Database = {
           },
         ]
       }
-      sweep_meta: {
+      units: {
         Row: {
-          id: boolean
-          last_run_at: string | null
-          last_seen_count: number | null
+          amps: number | null
+          asking_rate_psf: number | null
+          clear_height_ft: number | null
+          created_at: string
+          dock_high_doors: number | null
+          dock_levelers: number | null
+          grade_level_doors: number | null
+          id: string
+          label: string | null
+          notes: string | null
+          office_sf: number | null
+          property_id: string
+          size_acres: number | null
+          size_sf: number | null
+          status: string
+          three_phase_power: boolean | null
+          volts: string | null
         }
         Insert: {
-          id?: boolean
-          last_run_at?: string | null
-          last_seen_count?: number | null
+          amps?: number | null
+          asking_rate_psf?: number | null
+          clear_height_ft?: number | null
+          created_at?: string
+          dock_high_doors?: number | null
+          dock_levelers?: number | null
+          grade_level_doors?: number | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          office_sf?: number | null
+          property_id: string
+          size_acres?: number | null
+          size_sf?: number | null
+          status?: string
+          three_phase_power?: boolean | null
+          volts?: string | null
         }
         Update: {
-          id?: boolean
-          last_run_at?: string | null
-          last_seen_count?: number | null
+          amps?: number | null
+          asking_rate_psf?: number | null
+          clear_height_ft?: number | null
+          created_at?: string
+          dock_high_doors?: number | null
+          dock_levelers?: number | null
+          grade_level_doors?: number | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          office_sf?: number | null
+          property_id?: string
+          size_acres?: number | null
+          size_sf?: number | null
+          status?: string
+          three_phase_power?: boolean | null
+          volts?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
       }
     }
     Views: {
-      v_property_owner_context: {
-        Row: {
-          property_id: string | null
-          owner_id: string | null
-          owner_name: string | null
-          owner_kind: Database['public']['Enums']['owner_kind'] | null
-          owner_mailing_address: string | null
-          owner_property_count: number | null
-          owner_verification_status:
-            | Database["public"]["Enums"]["owner_verification_status"]
-            | null
-          was_on_market: boolean | null
-          off_market_since: string | null
-          off_market_days: number | null
-          best_contact_name: string | null
-          best_contact_phone: string | null
-          best_contact_email: string | null
-          best_contact_confidence:
-            | Database["public"]["Enums"]["owner_contact_confidence"]
-            | null
-          owner_tags: string[] | null
-          owner_portfolio_sf: number | null
-          owner_portfolio_acres: number | null
-          owner_contact_count: number | null
-          owner_confirmed_contact_count: number | null
-          owner_contact_verified: boolean | null
-          owner_do_not_call: boolean | null
-          comm_count: number | null
-          last_contacted_at: string | null
-        }
-        Relationships: []
-      }
       v_county_market_stats: {
         Row: {
+          avg_dom: number | null
           county: string | null
-          property_type: string | null
-          lease_n: number | null
-          lease_avg_psf: number | null
-          lease_median_psf: number | null
-          lease_p25_psf: number | null
-          lease_p75_psf: number | null
-          sale_n: number | null
-          sale_avg_psf: number | null
-          sale_median_psf: number | null
-          sale_p25_psf: number | null
-          sale_p75_psf: number | null
-          sale_avg_cap: number | null
-          sale_cap_n: number | null
-          land_n: number | null
           land_avg_per_acre: number | null
           land_median_per_acre: number | null
+          land_n: number | null
+          lease_avg_psf: number | null
+          lease_median_psf: number | null
+          lease_n: number | null
+          lease_p25_psf: number | null
+          lease_p75_psf: number | null
           listing_n: number | null
-          avg_dom: number | null
-        }
-        Relationships: []
-      }
-      v_property_market_position: {
-        Row: {
-          id: string | null
-          county: string | null
           property_type: string | null
-          asking_rate_psf: number | null
-          lease_baseline_median: number | null
-          lease_baseline_n: number | null
-          lease_vs_market_pct: number | null
-          good_lease_deal: boolean | null
-          sale_psf: number | null
-          sale_baseline_median: number | null
-          sale_baseline_n: number | null
-          sale_vs_market_pct: number | null
-          good_sale_deal: boolean | null
-          land_per_acre: number | null
-          land_baseline_median: number | null
-          land_baseline_n: number | null
-          land_vs_market_pct: number | null
-          good_land_deal: boolean | null
-        }
-        Relationships: []
-      }
-      v_unit_specs: {
-        Row: {
-          unit_id: string | null
-          property_id: string | null
-          label: string | null
-          size_sf: number | null
-          size_acres: number | null
-          asking_rate_psf: number | null
-          status: string | null
-          notes: string | null
-          office_sf: number | null
-          warehouse_sf: number | null
-          dock_high_doors: number | null
-          grade_level_doors: number | null
-          dock_levelers: number | null
-          clear_height_ft: number | null
-          three_phase_power: boolean | null
-          volts: string | null
-          amps: number | null
-          dock_high_doors_inherited: boolean | null
-          grade_level_doors_inherited: boolean | null
-          dock_levelers_inherited: boolean | null
-          clear_height_ft_inherited: boolean | null
-          three_phase_power_inherited: boolean | null
-          volts_inherited: boolean | null
-          amps_inherited: boolean | null
-        }
-        Relationships: []
-      }
-      v_property_current_asking: {
-        Row: {
-          property_id: string | null
-          deal_type: Database["public"]["Enums"]["deal_type"] | null
-          asking_lease_rate_psf: number | null
-          sale_price: number | null
-          cap_rate_pct: number | null
-          sf: number | null
-          as_of_date: string | null
-          comp_id: string | null
+          sale_avg_cap: number | null
+          sale_avg_psf: number | null
+          sale_cap_n: number | null
+          sale_median_psf: number | null
+          sale_n: number | null
+          sale_p25_psf: number | null
+          sale_p75_psf: number | null
         }
         Relationships: []
       }
       v_fs_entity: {
         Row: {
-          entity_type: string | null
-          entity_id: string | null
-          prefix: string | null
           crm_id: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          prefix: string | null
         }
         Relationships: []
+      }
+      v_lease_expirations: {
+        Row: {
+          address: string | null
+          building_sf: number | null
+          city: string | null
+          commencement_date: string | null
+          comp_id: string | null
+          county: string | null
+          days_to_expiry: number | null
+          executed_lease_rate_psf: number | null
+          expiration_date: string | null
+          land_acres: number | null
+          lat: number | null
+          lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          lng: number | null
+          months_to_expiry: number | null
+          property_id: string | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          sf: number | null
+          state: string | null
+          tenant_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
+      v_property_current_asking: {
+        Row: {
+          as_of_date: string | null
+          asking_lease_rate_psf: number | null
+          cap_rate_pct: number | null
+          comp_id: string | null
+          deal_type: Database["public"]["Enums"]["deal_type"] | null
+          property_id: string | null
+          sale_price: number | null
+          sf: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
+      v_property_market_position: {
+        Row: {
+          asking_rate_psf: number | null
+          county: string | null
+          good_land_deal: boolean | null
+          good_lease_deal: boolean | null
+          good_sale_deal: boolean | null
+          id: string | null
+          land_baseline_median: number | null
+          land_baseline_n: number | null
+          land_per_acre: number | null
+          land_vs_market_pct: number | null
+          lease_baseline_median: number | null
+          lease_baseline_n: number | null
+          lease_vs_market_pct: number | null
+          property_type: string | null
+          sale_baseline_median: number | null
+          sale_baseline_n: number | null
+          sale_psf: number | null
+          sale_vs_market_pct: number | null
+        }
+        Relationships: []
+      }
+      v_property_owner_context: {
+        Row: {
+          best_contact_confidence:
+            | Database["public"]["Enums"]["owner_contact_confidence"]
+            | null
+          best_contact_email: string | null
+          best_contact_name: string | null
+          best_contact_phone: string | null
+          comm_count: number | null
+          last_contacted_at: string | null
+          off_market_days: number | null
+          off_market_since: string | null
+          owner_confirmed_contact_count: number | null
+          owner_contact_count: number | null
+          owner_contact_verified: boolean | null
+          owner_do_not_call: boolean | null
+          owner_id: string | null
+          owner_kind: Database["public"]["Enums"]["owner_kind"] | null
+          owner_mailing_address: string | null
+          owner_name: string | null
+          owner_portfolio_acres: number | null
+          owner_portfolio_sf: number | null
+          owner_property_count: number | null
+          owner_tags: string[] | null
+          owner_verification_status:
+            | Database["public"]["Enums"]["owner_verification_status"]
+            | null
+          property_id: string | null
+          was_on_market: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_recordings_to_archive: {
+        Row: {
+          id: string | null
+          occurred_at: string | null
+          phone: string | null
+          source_url: string | null
+        }
+        Relationships: []
+      }
+      v_unit_specs: {
+        Row: {
+          amps: number | null
+          amps_inherited: boolean | null
+          asking_rate_psf: number | null
+          clear_height_ft: number | null
+          clear_height_ft_inherited: boolean | null
+          dock_high_doors: number | null
+          dock_high_doors_inherited: boolean | null
+          dock_levelers: number | null
+          dock_levelers_inherited: boolean | null
+          grade_level_doors: number | null
+          grade_level_doors_inherited: boolean | null
+          label: string | null
+          notes: string | null
+          office_sf: number | null
+          property_id: string | null
+          size_acres: number | null
+          size_sf: number | null
+          status: string | null
+          three_phase_power: boolean | null
+          three_phase_power_inherited: boolean | null
+          unit_id: string | null
+          volts: string | null
+          volts_inherited: boolean | null
+          warehouse_sf: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
       }
     }
     Functions: {
       add_parcel_to_listing: {
         Args: {
+          p_is_primary?: boolean
           p_listing_id: string
           p_property_id: string
-          p_is_primary?: boolean
         }
-        Returns: Database["public"]["Tables"]["listing_parcels"]["Row"]
+        Returns: {
+          created_at: string
+          is_primary: boolean
+          listing_id: string
+          property_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "listing_parcels"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       approve_suggestion: {
-        Args: { p_suggestion_id: string; p_client_id?: string | null }
+        Args: { p_client_id?: string; p_suggestion_id: string }
         Returns: string
       }
       convert_prospect: {
-        Args: { p_prospect_id: string; p_target: string; p_deal_type?: Database["public"]["Enums"]["deal_type"] }
+        Args: {
+          p_deal_type?: Database["public"]["Enums"]["deal_type"]
+          p_prospect_id: string
+          p_target: string
+        }
         Returns: Json
       }
       create_property_and_listing: {
@@ -1792,40 +2322,152 @@ export type Database = {
           p_source?: Database["public"]["Enums"]["lead_source"]
           p_state?: string
         }
-        Returns: Database["public"]["Tables"]["listings"]["Row"]
+        Returns: {
+          actual_fee: number | null
+          asking_price: number | null
+          asking_rate_psf: number | null
+          broker_contact_id: string | null
+          co_broke_split_pct: number | null
+          commission_pct: number | null
+          created_at: string
+          deal_type: Database["public"]["Enums"]["deal_type"]
+          estimated_fee: number | null
+          id: string
+          landlord_company_id: string | null
+          landlord_contact_id: string | null
+          landlord_requirements: string | null
+          lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          listing_expiration: string | null
+          lost_reason: string | null
+          next_action_date: string | null
+          next_action_description: string | null
+          opex_psf: number | null
+          owner_id: string
+          probability_pct: number | null
+          property_id: string
+          source: Database["public"]["Enums"]["lead_source"] | null
+          stage: Database["public"]["Enums"]["listing_stage"]
+          status: Database["public"]["Enums"]["engagement_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "listings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       cross_reference: { Args: { p_property_ids: string[] }; Returns: Json }
-      ensure_payment_checks: { Args: Record<PropertyKey, never>; Returns: Json }
-      flag_deal_candidates: {
-        Args: { p_property_ids?: string[] | null; p_days?: number }
-        Returns: Json
+      derive_pursuit_deal_type: {
+        Args: { p_client_id: string; p_property_id: string }
+        Returns: Database["public"]["Enums"]["deal_type"]
       }
+      ensure_payment_checks: { Args: never; Returns: Json }
       execute_pursuit: {
         Args: { p?: Json; p_pursuit_id: string }
         Returns: Json
       }
+      flag_deal_candidates: {
+        Args: { p_days?: number; p_property_ids?: string[] }
+        Returns: Json
+      }
+      format_phone: { Args: { p: string }; Returns: string }
       fs_entity_path: {
-        Args: { p_type: string; p_id: string }
+        Args: { p_id: string; p_type: string }
         Returns: string
       }
       fs_safe_name: { Args: { p: string }; Returns: string }
+      ghl_verify_owner: { Args: { p: Json }; Returns: Json }
+      import_county_parcels: { Args: { p: Json }; Returns: Json }
+      import_hubspot_batch: { Args: { p: Json }; Returns: Json }
+      import_lease_comps: { Args: { p: Json }; Returns: Json }
+      import_owner_addresses: { Args: { p: Json }; Returns: Json }
+      import_sale_history: { Args: { p: Json }; Returns: Json }
       import_scraped_listings: {
         Args: { p_client_id?: string; p_flagged_new?: boolean; p_props: Json }
         Returns: Json
+      }
+      import_terrakotta_batch: { Args: { p: Json }; Returns: Json }
+      import_terrakotta_evidence_upgrade: {
+        Args: { p_contact: string }
+        Returns: undefined
       }
       intake_client: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_landlord_listing: {
         Args: { p: Json; p_owner: string }
         Returns: Json
       }
+      intake_prospect: { Args: { p: Json; p_owner: string }; Returns: Json }
+      mark_owners_exported: {
+        Args: { p_property_ids: string[] }
+        Returns: Json
+      }
+      match_addresses: { Args: { p: Json }; Returns: Json }
+      normalize_owner_name: { Args: { p_name: string }; Returns: string }
+      normalize_phone: { Args: { p: string }; Returns: string }
+      normalize_street: { Args: { p_addr: string }; Returns: string }
+      normalize_street_loose: { Args: { p_addr: string }; Returns: string }
+      pending_geocode: { Args: { p?: Json }; Returns: Json }
       promote_client: {
         Args: { p_client_id: string }
-        Returns: Database["public"]["Tables"]["clients"]["Row"]
+        Returns: {
+          actual_fee: number | null
+          broker_contact_id: string | null
+          budget: string | null
+          building_sf_max: number | null
+          building_sf_min: number | null
+          cap_rate_min: number | null
+          commission_pct: number | null
+          company_id: string | null
+          contact_id: string
+          created_at: string
+          deal_type: Database["public"]["Enums"]["deal_type"]
+          id: string
+          intended_use: string | null
+          is_rep: boolean
+          land_acres_max: number | null
+          land_acres_min: number | null
+          lost_reason: string | null
+          move_in_date: string | null
+          must_haves: string | null
+          next_action: string | null
+          next_action_date: string | null
+          owner_id: string
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          purpose: Database["public"]["Enums"]["client_purpose"] | null
+          source: Database["public"]["Enums"]["lead_source"] | null
+          status: Database["public"]["Enums"]["client_status"]
+          target_markets: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "clients"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      ghl_verify_owner: { Args: { p: Json }; Returns: Json }
-      mark_owners_exported: { Args: { p_property_ids: string[] }; Returns: Json }
+      property_kind_from_dor: {
+        Args: { p_code: string }
+        Returns: Database["public"]["Enums"]["property_kind"]
+      }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
+      relink_owner_contacts: { Args: { p?: Json }; Returns: Json }
+      set_property_coords: { Args: { p: Json }; Returns: Json }
+      strip_html: { Args: { p: string }; Returns: string }
+      suggest_properties_to_client: {
+        Args: { p_client_id: string; p_property_ids: string[] }
+        Returns: Json
+      }
+      sweep_finalize_off_market: {
+        Args: { p_counties?: string[] }
+        Returns: Json
+      }
       sweep_mark_off_market: {
+        Args: { p_seen_property_ids: string[] }
+        Returns: Json
+      }
+      sweep_stamp_seen: {
         Args: { p_seen_property_ids: string[] }
         Returns: Json
       }
@@ -1836,21 +2478,22 @@ export type Database = {
         | "first_location"
         | "relocation"
         | "investment"
-      client_status: "prospect" | "searching" | "negotiating" | "closed" | "lost"
+      client_status:
+        | "prospect"
+        | "searching"
+        | "negotiating"
+        | "closed"
+        | "lost"
       comm_channel: "call" | "sms" | "email" | "note" | "meeting" | "other"
       comm_direction: "inbound" | "outbound" | "unknown"
-      comm_source: "hubspot" | "terrakotta" | "smartercontact" | "ghl" | "manual"
+      comm_source:
+        | "hubspot"
+        | "terrakotta"
+        | "smartercontact"
+        | "ghl"
+        | "manual"
       comp_kind: "asking" | "executed"
       company_type: "landlord" | "tenant" | "broker" | "other" | "vendor"
-      owner_contact_confidence: "confirmed" | "likely" | "unconfirmed"
-      owner_kind: "individual" | "entity" | "government" | "unknown"
-      owner_verification_status:
-        | "unverified"
-        | "exported"
-        | "calling"
-        | "verified"
-        | "unreachable"
-        | "do_not_call"
       deal_flag_status: "pending" | "dismissed"
       deal_type: "lease" | "sale" | "both"
       engagement_status: "active" | "lost"
@@ -1859,7 +2502,6 @@ export type Database = {
         | "rep_agreement"
         | "marketing"
         | "loi"
-        | "rfp"
         | "lease"
         | "psa"
         | "coi_insurance"
@@ -1867,6 +2509,7 @@ export type Database = {
         | "financials"
         | "invoice"
         | "other"
+        | "rfp"
       lead_source:
         | "loopnet"
         | "sign_call"
@@ -1880,6 +2523,15 @@ export type Database = {
       listing_market_status: "on_market" | "off_market"
       listing_stage: "proposal" | "listed" | "closed"
       note_kind: "note" | "call" | "text" | "email" | "meeting"
+      owner_contact_confidence: "confirmed" | "likely" | "unconfirmed"
+      owner_kind: "individual" | "entity" | "government" | "unknown"
+      owner_verification_status:
+        | "unverified"
+        | "exported"
+        | "calling"
+        | "verified"
+        | "unreachable"
+        | "do_not_call"
       property_kind: "industrial" | "office" | "retail" | "land" | "other"
       prospect_status: "open" | "converted" | "dead"
       pursuit_stage:
@@ -2027,8 +2679,12 @@ export const Constants = {
         "investment",
       ],
       client_status: ["prospect", "searching", "negotiating", "closed", "lost"],
+      comm_channel: ["call", "sms", "email", "note", "meeting", "other"],
+      comm_direction: ["inbound", "outbound", "unknown"],
+      comm_source: ["hubspot", "terrakotta", "smartercontact", "ghl", "manual"],
       comp_kind: ["asking", "executed"],
       company_type: ["landlord", "tenant", "broker", "other", "vendor"],
+      deal_flag_status: ["pending", "dismissed"],
       deal_type: ["lease", "sale", "both"],
       engagement_status: ["active", "lost"],
       file_category: [
@@ -2036,7 +2692,6 @@ export const Constants = {
         "rep_agreement",
         "marketing",
         "loi",
-        "rfp",
         "lease",
         "psa",
         "coi_insurance",
@@ -2044,6 +2699,7 @@ export const Constants = {
         "financials",
         "invoice",
         "other",
+        "rfp",
       ],
       lead_source: [
         "loopnet",
@@ -2059,6 +2715,16 @@ export const Constants = {
       listing_market_status: ["on_market", "off_market"],
       listing_stage: ["proposal", "listed", "closed"],
       note_kind: ["note", "call", "text", "email", "meeting"],
+      owner_contact_confidence: ["confirmed", "likely", "unconfirmed"],
+      owner_kind: ["individual", "entity", "government", "unknown"],
+      owner_verification_status: [
+        "unverified",
+        "exported",
+        "calling",
+        "verified",
+        "unreachable",
+        "do_not_call",
+      ],
       property_kind: ["industrial", "office", "retail", "land", "other"],
       prospect_status: ["open", "converted", "dead"],
       pursuit_stage: [

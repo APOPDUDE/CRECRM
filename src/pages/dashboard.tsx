@@ -4,6 +4,7 @@ import { SuggestionsWidget } from '@/components/suggestions-widget'
 import { DealFlagsWidget } from '@/components/deal-flags-widget'
 import { NewListingsWidget } from '@/components/new-listings-widget'
 import { OffMarketWidget } from '@/components/off-market-widget'
+import { LeaseExpirationsWidget } from '@/components/lease-expirations-widget'
 import { CountyAverages } from '@/components/county-averages'
 
 export function DashboardPage() {
@@ -20,6 +21,8 @@ export function DashboardPage() {
       <NewListingsWidget />
 
       <OffMarketWidget />
+
+      <LeaseExpirationsWidget />
 
       <DashboardActivity matches={dashMatches} />
 

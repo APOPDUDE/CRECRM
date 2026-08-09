@@ -8,6 +8,7 @@ import type { Property } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import type { CurrentAsking } from '@/hooks/use-comps'
+import type { LeaseExpiration } from '@/hooks/use-lease-expirations'
 import type { LatLng } from '@/lib/geo'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
@@ -357,10 +358,49 @@ const OWNER_PIN = {
   unverified: '#94a3b8',
 } as const
 
-export type MapColorBy = 'market' | 'owner'
+/**
+ * The lease lens answers "how soon does this building come available".
+ *
+ * That is a magnitude, not a set of categories, so it gets a sequential ramp: one hue,
+ * dark for imminent through pale for distant, with a neutral for leases running past
+ * the year. Reading it needs no legend lookup — darker simply means sooner.
+ */
+const LEASE_PIN = {
+  m1: '#7f1d1d',
+  m3: '#b91c1c',
+  m6: '#ef4444',
+  m12: '#fca5a5',
+  beyond: '#94a3b8',
+} as const
+
+export type MapColorBy = 'market' | 'owner' | 'lease'
 
 function ownerPin(ctx: OwnerContext | undefined): string {
   return ctx?.owner_contact_verified ? OWNER_PIN.verified : OWNER_PIN.unverified
+}
+
+/** "Expires 14 Sep 2026 · 4,500 SF" — the one line that says what is coming free. */
+function leaseLabel(l: LeaseExpiration): string {
+  const parts: string[] = []
+  if (l.expiration_date) {
+    const d = new Date(`${l.expiration_date}T00:00:00`)
+    const m = l.months_to_expiry
+    // 0 is floored months, i.e. "under a month out" — not "this calendar month".
+    const rel = m == null ? '' : m === 0 ? ' (<1 mo)' : m > 0 ? ` (${m} mo)` : ''
+    parts.push(`Expires ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}${rel}`)
+  }
+  if (l.sf) parts.push(`${l.sf.toLocaleString()} SF`)
+  return parts.join(' · ')
+}
+
+/** Months to the soonest expiry on the parcel -> its step on the ramp. */
+function leasePin(months: number | undefined): string {
+  if (months == null) return LEASE_PIN.beyond
+  if (months < 1) return LEASE_PIN.m1
+  if (months < 3) return LEASE_PIN.m3
+  if (months < 6) return LEASE_PIN.m6
+  if (months < 12) return LEASE_PIN.m12
+  return LEASE_PIN.beyond
 }
 
 const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
@@ -373,6 +413,13 @@ const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
     { c: OWNER_PIN.verified, label: 'Verified owner' },
     { c: OWNER_PIN.unverified, label: 'Not verified' },
   ],
+  lease: [
+    { c: LEASE_PIN.m1, label: '< 1 mo' },
+    { c: LEASE_PIN.m3, label: '1-3 mo' },
+    { c: LEASE_PIN.m6, label: '3-6 mo' },
+    { c: LEASE_PIN.m12, label: '6-12 mo' },
+    { c: LEASE_PIN.beyond, label: '1 yr+' },
+  ],
 }
 
 export function PropertiesMap({
@@ -383,6 +430,7 @@ export function PropertiesMap({
   executedIds,
   ownerContext,
   colorBy = 'market',
+  leaseInfo,
   polygon,
   draft,
   drawMode = false,
@@ -402,6 +450,12 @@ export function PropertiesMap({
   executedIds?: Set<string>
   ownerContext?: Map<string, OwnerContext>
   colorBy?: MapColorBy
+  /**
+   * Property id -> its soonest still-running lease. Colours the pin on the lease lens and
+   * names the outgoing tenant on hover. The parent owns the windowing, because the same
+   * filter drives the table.
+   */
+  leaseInfo?: Map<string, LeaseExpiration>
   /** Completed search shape; the parent owns it because it also filters the table + export. */
   polygon?: LatLng[] | null
   /** Vertices of a shape mid-draw (draw mode active while non-null). */
@@ -428,14 +482,16 @@ export function PropertiesMap({
   // Executed wins over market status — a closed deal is usually off-market too.
   const colorOf = useCallback(
     (id: string, p: Property) =>
-      colorBy === 'owner'
-        ? ownerPin(ownerContext?.get(id))
-        : executedIds?.has(id)
-          ? PIN.executed
-          : p.listing_status === 'off_market'
-            ? PIN.off
-            : PIN.on,
-    [colorBy, ownerContext, executedIds],
+      colorBy === 'lease'
+        ? leasePin(leaseInfo?.get(id)?.months_to_expiry ?? undefined)
+        : colorBy === 'owner'
+          ? ownerPin(ownerContext?.get(id))
+          : executedIds?.has(id)
+            ? PIN.executed
+            : p.listing_status === 'off_market'
+              ? PIN.off
+              : PIN.on,
+    [colorBy, ownerContext, executedIds, leaseInfo],
   )
 
   // Same colour the dot would have used, keyed by property, so the parcel outline can
@@ -596,6 +652,14 @@ export function PropertiesMap({
                     <div className="font-medium">{p.address}</div>
                     {loc && <div className="opacity-70">{loc}</div>}
                     {bits.length > 0 && <div className="opacity-70">{bits.join(' · ')}</div>}
+                    {colorBy === 'lease' && leaseInfo?.get(id) && (
+                      <div className="mt-1 border-t pt-1">
+                        <div className="font-medium">
+                          {leaseInfo.get(id)!.tenant_name || 'Tenant not named'}
+                        </div>
+                        <div className="opacity-70">{leaseLabel(leaseInfo.get(id)!)}</div>
+                      </div>
+                    )}
                     {ctx?.owner_name && (
                       <div className="mt-1 border-t pt-1">
                         <div className="font-medium">{ctx.owner_name}</div>
