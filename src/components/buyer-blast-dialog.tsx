@@ -216,7 +216,18 @@ export function BuyerBlastDialog({
         }),
       })
       if (!res.ok) throw new Error(`blast failed (${res.status})`)
-      const r = (await res.json()) as BlastResult
+      // n8n answers 200 with an EMPTY body when the workflow dies before its Respond node,
+      // so a raw res.json() surfaces "Unexpected end of JSON input" and hides the real cause.
+      const raw = await res.text()
+      if (!raw.trim()) {
+        throw new Error('the automation errored before it finished — check the n8n execution log')
+      }
+      let r: BlastResult
+      try {
+        r = JSON.parse(raw) as BlastResult
+      } catch {
+        throw new Error(`unexpected reply from the automation: ${raw.slice(0, 120)}`)
+      }
       const n = r.drafted
       toast.success(
         mode === 'send'
