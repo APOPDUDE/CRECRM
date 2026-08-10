@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -75,8 +76,22 @@ function CompList({
                   >
                     {c.deal_type === 'sale' ? 'Sale' : 'Lease'}
                   </Badge>
-                  <span className="font-medium">{compMetrics(c) || '—'}</span>
+                  {/* The tenant is the door into the deal: name -> company -> contacts ->
+                      decision maker. A comp without that chain is a rate with no one
+                      attached, which is why this links rather than merely labels. */}
+                  {c.tenant_name &&
+                    (c.tenant_company_id ? (
+                      <Link
+                        to={`/companies/${c.tenant_company_id}`}
+                        className="font-medium hover:text-primary hover:underline"
+                      >
+                        {c.tenant_name}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{c.tenant_name}</span>
+                    ))}
                 </div>
+                <div className="mt-0.5 text-sm">{compMetrics(c) || '—'}</div>
                 <div className="text-xs text-muted-foreground">
                   {formatDate(c.as_of_date ?? c.executed_at) ?? 'No date'}
                   {kind === 'executed' && c.pursuit?.client ? ` · ${clientLabel(c.pursuit.client)}` : ''}

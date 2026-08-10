@@ -77,3 +77,65 @@ export function useDeleteCompany() {
     },
   })
 }
+
+/**
+ * The people at a company, decision makers first.
+ *
+ * Ordering is the point: when a lease is expiring, the question is "who makes the
+ * call", so verified decision makers sort to the top, suspected next, everyone else
+ * after, alphabetical within each band.
+ */
+export function useCompanyContacts(companyId: string | undefined) {
+  return useQuery({
+    queryKey: ['company-contacts', companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('id, first_name, last_name, title, email, phone, decision_maker')
+        .eq('company_id', companyId!)
+        .not('archived', 'is', true)
+        .order('first_name')
+      if (error) throw error
+      const rank = { verified: 0, suspected: 1, none: 2 } as const
+      return [...data].sort((a, b) => rank[a.decision_maker] - rank[b.decision_maker])
+    },
+  })
+}
+
+export type CompanyLease = {
+  id: string
+  property_id: string
+  sf: number | null
+  executed_lease_rate_psf: number | null
+  lease_structure: string | null
+  commencement_date: string | null
+  expiration_date: string | null
+  property: { address: string; city: string | null; state: string | null } | null
+}
+
+/**
+ * Everywhere this tenant holds (or held) space — their footprint across the book.
+ * Soonest expiry first, because that is the lease you can still do something about.
+ */
+export function useCompanyLeases(companyId: string | undefined) {
+  return useQuery({
+    queryKey: ['company-leases', companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('comps')
+        .select(
+          'id, property_id, sf, executed_lease_rate_psf, lease_structure, ' +
+            'commencement_date, expiration_date, ' +
+            'property:properties!comps_property_id_fkey(address, city, state)',
+        )
+        .eq('tenant_company_id', companyId!)
+        .eq('deal_type', 'lease')
+        .eq('kind', 'executed')
+        .order('expiration_date', { ascending: true, nullsFirst: false })
+      if (error) throw error
+      return data as unknown as CompanyLease[]
+    },
+  })
+}

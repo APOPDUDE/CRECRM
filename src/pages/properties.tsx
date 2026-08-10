@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, Send, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, Send, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -48,7 +48,7 @@ import { useLeaseComps, withinMonths, signedWithinMonths, type LeaseComp } from 
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { supabase } from '@/lib/supabase'
 import { friendlyDbError } from '@/lib/db-errors'
-import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
+import { formatCurrency, formatPhone, formatPsf, formatSf } from '@/lib/format'
 import { pointInPolygon, type LatLng } from '@/lib/geo'
 import { buildHaystack, matchesTokens, searchTokens } from '@/lib/address-search'
 import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
@@ -85,10 +85,10 @@ type ColumnId =
   | 'land_acres' | 'asking' | 'deals' | 'market_status' | 'days_on_market'
   | 'year_built' | 'zoning' | 'occupancy'
   | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted' | 'off_market_days'
-  | 'tenant' | 'leased_sf' | 'lease_signed' | 'lease_rate' | 'lease_expiry'
+  | 'tenant' | 'decision_maker' | 'leased_sf' | 'lease_signed' | 'lease_rate' | 'lease_expiry'
 
 /** Columns that only mean anything while a lease window is filtering the list. */
-const LEASE_COLUMNS: ColumnId[] = ['tenant', 'leased_sf', 'lease_signed', 'lease_rate', 'lease_expiry']
+const LEASE_COLUMNS: ColumnId[] = ['tenant', 'decision_maker', 'leased_sf', 'lease_signed', 'lease_rate', 'lease_expiry']
 
 type ColumnDef = {
   id: ColumnId
@@ -157,7 +157,43 @@ const COLUMN_DEFS: ColumnDef[] = [
     id: 'tenant',
     label: 'Tenant',
     className: MUTED,
-    cell: (_p, _a, _o, lease) => lease?.tenant_name ?? '',
+    // The name opens the company — that page holds the contacts and the DM toggle, so
+    // the table is two clicks from "lease expiring" to "person to call".
+    cell: (_p, _a, _o, lease) =>
+      lease?.tenant_name ? (
+        lease.tenant_company_id ? (
+          <Link
+            to={`/companies/${lease.tenant_company_id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="hover:text-primary hover:underline"
+          >
+            {lease.tenant_name}
+          </Link>
+        ) : (
+          lease.tenant_name
+        )
+      ) : (
+        ''
+      ),
+  },
+  {
+    id: 'decision_maker',
+    label: 'Decision maker',
+    className: MUTED,
+    cell: (_p, _a, _o, lease) => {
+      if (!lease?.dm_name) return ''
+      return (
+        <span className="inline-flex items-center gap-1 whitespace-nowrap">
+          {lease.dm_verified && (
+            <BadgeCheck className="size-3.5 shrink-0 text-blue-600" aria-label="Verified" />
+          )}
+          {lease.dm_name}
+          {lease.dm_phone && (
+            <span className="ml-1 text-xs opacity-70">{formatPhone(lease.dm_phone)}</span>
+          )}
+        </span>
+      )
+    },
   },
   {
     id: 'leased_sf',
@@ -287,6 +323,10 @@ export function PropertiesPage() {
   // silent change of question rather than a convenience.
   const [leaseSfMin, setLeaseSfMin] = usePersistentState('properties:leaseSfMin', '')
   const [leaseSfMax, setLeaseSfMax] = usePersistentState('properties:leaseSfMax', '')
+  // Decision maker at the tenant company: verified = someone Alex has actually spoken
+  // to who makes the real-estate call. The tenant-side mirror of the owner filter.
+  const [dmFilterRaw, setDmFilter] = usePersistentState('properties:leaseDm', 'all')
+  const dmFilter = ['all', 'verified', 'unverified'].includes(dmFilterRaw) ? dmFilterRaw : 'all'
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [pushOpen, setPushOpen] = useState(false)
@@ -331,6 +371,9 @@ export function PropertiesPage() {
       setLeaseMonth('')
       setSignMin('')
       setSignMax('')
+      setLeaseSfMin('')
+      setLeaseSfMax('')
+      setDmFilter('all')
       setPage(0)
     }
     if (q) {
@@ -471,7 +514,10 @@ export function PropertiesPage() {
     const expiryOn = monthPicked || leaseMin !== '' || leaseMax !== ''
     const signOn = signMin !== '' || signMax !== ''
     const sfOn = leaseSfMin !== '' || leaseSfMax !== ''
-    if (!expiryOn && !signOn && !sfOn) return null
+    // The DM filter activates lease matching by itself: "every lease where I can reach
+    // the decision maker" is a real question with no date window attached.
+    const dmOn = dmFilter !== 'all'
+    if (!expiryOn && !signOn && !sfOn && !dmOn) return null
     const sfLo = num(leaseSfMin)
     const sfHi = num(leaseSfMax)
     // An empty expiry minimum means "from today", not "since the beginning of time".
@@ -502,6 +548,12 @@ export function PropertiesPage() {
         if (sfLo != null && l.sf < sfLo) continue
         if (sfHi != null && l.sf > sfHi) continue
       }
+      // Binary on verified, same as the owner lens: a suspected DM is a lead to work,
+      // not a person you can call today.
+      if (dmOn) {
+        if (dmFilter === 'verified' && !l.dm_verified) continue
+        if (dmFilter === 'unverified' && l.dm_verified) continue
+      }
       ids.add(l.property_id)
       const cur = top.get(l.property_id)
       // Most recently signed wins when pricing; soonest to expire when hunting vacancy.
@@ -511,7 +563,7 @@ export function PropertiesPage() {
       if (better) top.set(l.property_id, l)
     }
     return { ids, top }
-  }, [leases, leaseMin, leaseMax, leaseMonth, signMin, signMax, leaseSfMin, leaseSfMax])
+  }, [leases, leaseMin, leaseMax, leaseMonth, signMin, signMax, leaseSfMin, leaseSfMax, dmFilter])
   const leaseMatchIds = leaseMatch?.ids ?? null
 
   // Tenant + expiry ride along whenever a lease window is filtering, so the list answers
@@ -699,7 +751,8 @@ export function PropertiesPage() {
     // 1 for all of them would understate how narrow the list has become.
     (applies.lease && (leaseMonth || leaseMin || leaseMax) ? 1 : 0) +
     (applies.lease && (signMin || signMax) ? 1 : 0) +
-    (applies.lease && (leaseSfMin || leaseSfMax) ? 1 : 0)
+    (applies.lease && (leaseSfMin || leaseSfMax) ? 1 : 0) +
+    (applies.lease && dmFilter !== 'all' ? 1 : 0)
 
   // Map pins are opt-in: nothing preloads (Alex 2026-08-07 — plotting the whole book made
   // the map take forever to appear). A search, any filter, or a drawn shape is the signal
@@ -727,6 +780,7 @@ export function PropertiesPage() {
     setSignMax('')
     setLeaseSfMin('')
     setLeaseSfMax('')
+    setDmFilter('all')
   }
 
   const openCreate = () => {
@@ -1048,6 +1102,22 @@ export function PropertiesPage() {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Recent comps for pricing. Includes leases that have already expired.
+                </p>
+              </div>
+              <div className="space-y-1.5 border-t pt-3">
+                <Label>Decision maker</Label>
+                <Select value={dmFilter} onValueChange={setDmFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any</SelectItem>
+                    <SelectItem value="verified">Verified decision maker</SelectItem>
+                    <SelectItem value="unverified">No verified decision maker</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Verified = you spoke to the person at the tenant who makes the call.
                 </p>
               </div>
               </>

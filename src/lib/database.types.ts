@@ -458,6 +458,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          source: string | null
           type: Database["public"]["Enums"]["company_type"]
           updated_at: string
           website: string | null
@@ -469,6 +470,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          source?: string | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
           website?: string | null
@@ -480,6 +482,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          source?: string | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
           website?: string | null
@@ -645,6 +648,7 @@ export type Database = {
           campaign_lists: string[] | null
           company_id: string | null
           created_at: string
+          decision_maker: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call: boolean
           email: string | null
           first_name: string
@@ -669,6 +673,7 @@ export type Database = {
           campaign_lists?: string[] | null
           company_id?: string | null
           created_at?: string
+          decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call?: boolean
           email?: string | null
           first_name: string
@@ -693,6 +698,7 @@ export type Database = {
           campaign_lists?: string[] | null
           company_id?: string | null
           created_at?: string
+          decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call?: boolean
           email?: string | null
           first_name?: string
@@ -2146,6 +2152,10 @@ export type Database = {
           comp_id: string | null
           county: string | null
           days_to_expiry: number | null
+          dm_name: string | null
+          dm_phone: string | null
+          dm_status: Database["public"]["Enums"]["decision_maker_status"] | null
+          dm_verified: boolean | null
           executed_lease_rate_psf: number | null
           expiration_date: string | null
           land_acres: number | null
@@ -2159,6 +2169,8 @@ export type Database = {
           sf: number | null
           signed_date: string | null
           state: string | null
+          tenant_company_id: string | null
+          tenant_company_name: string | null
           tenant_name: string | null
           term_months: number | null
         }
@@ -2183,6 +2195,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_property_owner_context"
             referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "comps_tenant_company_id_fkey"
+            columns: ["tenant_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2629,6 +2648,7 @@ export type Database = {
       company_type: "landlord" | "tenant" | "broker" | "other" | "vendor"
       deal_flag_status: "pending" | "dismissed"
       deal_type: "lease" | "sale" | "both"
+      decision_maker_status: "none" | "suspected" | "verified"
       engagement_status: "active" | "lost"
       file_category:
         | "listing_agreement"
@@ -2835,6 +2855,7 @@ export const Constants = {
       company_type: ["landlord", "tenant", "broker", "other", "vendor"],
       deal_flag_status: ["pending", "dismissed"],
       deal_type: ["lease", "sale", "both"],
+      decision_maker_status: ["none", "suspected", "verified"],
       engagement_status: ["active", "lost"],
       file_category: [
         "listing_agreement",

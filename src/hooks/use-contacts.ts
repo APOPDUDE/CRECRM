@@ -124,6 +124,10 @@ export function useUpdateContact() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      // company page roster + the lease map's decision-maker fields both read contact
+      // rows — a DM change must reach them without a reload
+      queryClient.invalidateQueries({ queryKey: ['company-contacts'] })
+      queryClient.invalidateQueries({ queryKey: ['lease-comps'] })
       // the contact name shows as tenant/landlord/broker contact across many joined
       // queries — refresh those so a rename shows immediately everywhere it appears
       queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })

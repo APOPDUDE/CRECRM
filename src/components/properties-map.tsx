@@ -697,6 +697,19 @@ export function PropertiesMap({
                             {line}
                           </div>
                         ))}
+                        {/* The person, not just the building: hover answers "who do I
+                            call" without leaving the map. */}
+                        {leaseInfo.get(id)!.dm_name && (
+                          <div
+                            className={
+                              leaseInfo.get(id)!.dm_verified ? 'font-medium text-blue-700' : 'opacity-70'
+                            }
+                          >
+                            {leaseInfo.get(id)!.dm_verified ? 'DM ✓ ' : 'DM? '}
+                            {leaseInfo.get(id)!.dm_name}
+                            {leaseInfo.get(id)!.dm_phone ? ` · ${leaseInfo.get(id)!.dm_phone}` : ''}
+                          </div>
+                        )}
                       </div>
                     )}
                     {ctx?.owner_name && (
