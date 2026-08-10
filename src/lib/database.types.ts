@@ -1918,6 +1918,7 @@ export type Database = {
           details: string | null
           due_at: string | null
           due_date: string | null
+          hubspot_id: string | null
           id: string
           kind: Database["public"]["Enums"]["task_kind"]
           listing_id: string | null
@@ -1939,6 +1940,7 @@ export type Database = {
           details?: string | null
           due_at?: string | null
           due_date?: string | null
+          hubspot_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
           listing_id?: string | null
@@ -1960,6 +1962,7 @@ export type Database = {
           details?: string | null
           due_at?: string | null
           due_date?: string | null
+          hubspot_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
           listing_id?: string | null
