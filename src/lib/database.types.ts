@@ -639,6 +639,9 @@ export type Database = {
       }
       contacts: {
         Row: {
+          archived: boolean
+          archived_at: string | null
+          archived_reason: string | null
           campaign_lists: string[] | null
           company_id: string | null
           created_at: string
@@ -660,6 +663,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived?: boolean
+          archived_at?: string | null
+          archived_reason?: string | null
           campaign_lists?: string[] | null
           company_id?: string | null
           created_at?: string
@@ -681,6 +687,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived?: boolean
+          archived_at?: string | null
+          archived_reason?: string | null
           campaign_lists?: string[] | null
           company_id?: string | null
           created_at?: string
