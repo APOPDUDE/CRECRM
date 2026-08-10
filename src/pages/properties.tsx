@@ -84,10 +84,10 @@ type ColumnId =
   | 'land_acres' | 'asking' | 'deals' | 'market_status' | 'days_on_market'
   | 'year_built' | 'zoning' | 'occupancy'
   | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted' | 'off_market_days'
-  | 'tenant' | 'lease_signed' | 'lease_rate' | 'lease_expiry'
+  | 'tenant' | 'leased_sf' | 'lease_signed' | 'lease_rate' | 'lease_expiry'
 
 /** Columns that only mean anything while a lease window is filtering the list. */
-const LEASE_COLUMNS: ColumnId[] = ['tenant', 'lease_signed', 'lease_rate', 'lease_expiry']
+const LEASE_COLUMNS: ColumnId[] = ['tenant', 'leased_sf', 'lease_signed', 'lease_rate', 'lease_expiry']
 
 type ColumnDef = {
   id: ColumnId
@@ -157,6 +157,13 @@ const COLUMN_DEFS: ColumnDef[] = [
     label: 'Tenant',
     className: MUTED,
     cell: (_p, _a, _o, lease) => lease?.tenant_name ?? '',
+  },
+  {
+    id: 'leased_sf',
+    label: 'Leased SF',
+    className: MUTED,
+    // The unit, not the shell — the Size column already carries the building.
+    cell: (_p, _a, _o, lease) => formatSf(lease?.sf) ?? '',
   },
   {
     id: 'lease_signed',
@@ -274,6 +281,11 @@ export function PropertiesPage() {
   // is 0-12. This is the pricing filter — recent comps are the ones worth quoting.
   const [signMin, setSignMin] = usePersistentState('properties:signMin', '')
   const [signMax, setSignMax] = usePersistentState('properties:signMax', '')
+  // Leased-unit SF, kept apart from the building-SF boxes: they measure different things,
+  // so carrying a 200,000 typed against a shell over into "leased 200,000 SF" would be a
+  // silent change of question rather than a convenience.
+  const [leaseSfMin, setLeaseSfMin] = usePersistentState('properties:leaseSfMin', '')
+  const [leaseSfMax, setLeaseSfMax] = usePersistentState('properties:leaseSfMax', '')
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [pushOpen, setPushOpen] = useState(false)
@@ -396,12 +408,22 @@ export function PropertiesPage() {
    */
   const applies = useMemo(() => {
     const onMap = view === 'map'
+    const leaseLens = onMap && colorBy === 'lease'
     return {
       county: !onMap,
       dealType: !onMap || colorBy === 'market',
       price: !onMap || colorBy === 'market',
       owner: !onMap || colorBy === 'owner',
       lease: !onMap || colorBy === 'lease',
+      // On the lease lens, square feet means the UNIT that was let, not the shell around
+      // it: a 4,000 SF suite in a 200,000 SF building is a 4,000 SF comp. Building SF
+      // steps aside there rather than sitting beside it, so there is only ever one SF
+      // box and no doubt about which one is being answered.
+      buildingSf: !leaseLens,
+      leasedSf: leaseLens,
+      // Whether the shell is listed today says nothing about a lease signed in 2021, so
+      // the market status filter sits out the comp lens.
+      status: !leaseLens,
     }
   }, [view, colorBy])
 
@@ -434,10 +456,10 @@ export function PropertiesPage() {
 
   /**
    * Parcels with at least one lease satisfying every active lease criterion, or null when
-   * none is set (meaning "don't filter on leases at all"). Expiry and sign date are
-   * ANDed, and both must hold on the SAME lease — a building with an old lease that
-   * expires soon and a new one signed last month is not a match for "expires within 3
-   * months AND signed this year".
+   * none is set (meaning "don't filter on leases at all"). Expiry, sign date and leased
+   * size are ANDed, and all must hold on the SAME lease — a building with an old lease
+   * that expires soon and a new 5,000 SF one signed last month is not a match for
+   * "expires within 3 months AND 5,000 SF AND signed this year".
    */
   const leaseMatch = useMemo(() => {
     const num = (v: string) => {
@@ -447,7 +469,10 @@ export function PropertiesPage() {
     const monthPicked = /^\d{4}-\d{2}$/.test(leaseMonth)
     const expiryOn = monthPicked || leaseMin !== '' || leaseMax !== ''
     const signOn = signMin !== '' || signMax !== ''
-    if (!expiryOn && !signOn) return null
+    const sfOn = leaseSfMin !== '' || leaseSfMax !== ''
+    if (!expiryOn && !signOn && !sfOn) return null
+    const sfLo = num(leaseSfMin)
+    const sfHi = num(leaseSfMax)
     // An empty expiry minimum means "from today", not "since the beginning of time".
     // Without this floor, "expires within 3 months" also drags in the 700-odd leases
     // that ran out years ago. Reaching back is a real use — it just has to be asked
@@ -470,6 +495,12 @@ export function PropertiesPage() {
         if (!hit) continue
       }
       if (signOn && !signedWithinMonths(l, sLo, sHi)) continue
+      if (sfOn) {
+        // A lease with no recorded size cannot satisfy a size question.
+        if (l.sf == null) continue
+        if (sfLo != null && l.sf < sfLo) continue
+        if (sfHi != null && l.sf > sfHi) continue
+      }
       ids.add(l.property_id)
       const cur = top.get(l.property_id)
       // Most recently signed wins when pricing; soonest to expire when hunting vacancy.
@@ -479,7 +510,7 @@ export function PropertiesPage() {
       if (better) top.set(l.property_id, l)
     }
     return { ids, top }
-  }, [leases, leaseMin, leaseMax, leaseMonth, signMin, signMax])
+  }, [leases, leaseMin, leaseMax, leaseMonth, signMin, signMax, leaseSfMin, leaseSfMax])
   const leaseMatchIds = leaseMatch?.ids ?? null
 
   // Tenant + expiry ride along whenever a lease window is filtering, so the list answers
@@ -507,9 +538,9 @@ export function PropertiesPage() {
       // zip live in different columns.
       if (tokens.length && !matchesTokens(haystacks.get(p.id) ?? '', tokens)) return false
       // 'executed' is a lens on OUR deals, not a listing_status value — hence its own branch.
-      if (status === 'executed') {
+      if (applies.status && status === 'executed') {
         if (!executedIds?.has(p.id)) return false
-      } else if (status !== 'all' && (p.listing_status ?? 'on_market') !== status) return false
+      } else if (applies.status && status !== 'all' && (p.listing_status ?? 'on_market') !== status) return false
       // For lease / for sale comes from the current asking comp (a property can be both).
       if (applies.dealType && dealType !== 'all') {
         const ask = askingMap?.get(p.id)
@@ -526,8 +557,8 @@ export function PropertiesPage() {
       if (applies.lease && leaseMatchIds && !leaseMatchIds.has(p.id)) return false
       if (ptype !== 'all' && p.property_type !== ptype) return false
       if (applies.county && county !== 'all' && p.county !== county) return false
-      if (sfLo != null && (p.building_sf == null || p.building_sf < sfLo)) return false
-      if (sfHi != null && (p.building_sf == null || p.building_sf > sfHi)) return false
+      if (applies.buildingSf && sfLo != null && (p.building_sf == null || p.building_sf < sfLo)) return false
+      if (applies.buildingSf && sfHi != null && (p.building_sf == null || p.building_sf > sfHi)) return false
       if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) return false
       if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) return false
       if (applies.price && (prLo != null || prHi != null)) {
@@ -655,15 +686,19 @@ export function PropertiesPage() {
   // Counts only what is actually biting: a dormant filter narrows nothing, so badging it
   // would send you hunting through the panel for a number that is not there.
   const activeFilterCount =
-    (status !== 'all' ? 1 : 0) +
+    (applies.status && status !== 'all' ? 1 : 0) +
     (applies.dealType && dealType !== 'all' ? 1 : 0) +
     (ptype !== 'all' ? 1 : 0) +
     (applies.owner && ownerFilter !== 'all' ? 1 : 0) +
     (applies.county && county !== 'all' ? 1 : 0) +
-    (sfMin || sfMax ? 1 : 0) +
+    (applies.buildingSf && (sfMin || sfMax) ? 1 : 0) +
     (acMin || acMax ? 1 : 0) +
     (applies.price && (priceMin || priceMax) ? 1 : 0) +
-    (applies.lease && leaseMatchIds ? 1 : 0)
+    // The three lease windows count separately: they are three questions, and a badge of
+    // 1 for all of them would understate how narrow the list has become.
+    (applies.lease && (leaseMonth || leaseMin || leaseMax) ? 1 : 0) +
+    (applies.lease && (signMin || signMax) ? 1 : 0) +
+    (applies.lease && (leaseSfMin || leaseSfMax) ? 1 : 0)
 
   // Map pins are opt-in: nothing preloads (Alex 2026-08-07 — plotting the whole book made
   // the map take forever to appear). A search, any filter, or a drawn shape is the signal
@@ -689,6 +724,8 @@ export function PropertiesPage() {
     setLeaseMonth('')
     setSignMin('')
     setSignMax('')
+    setLeaseSfMin('')
+    setLeaseSfMax('')
   }
 
   const openCreate = () => {
@@ -822,6 +859,7 @@ export function PropertiesPage() {
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80 space-y-3">
+              {applies.status && (
               <div className="space-y-1.5">
                 <Label>Market status</Label>
                 <Select value={status} onValueChange={setStatus}>
@@ -836,6 +874,7 @@ export function PropertiesPage() {
                   </SelectContent>
                 </Select>
               </div>
+              )}
               {applies.dealType && (
                 <div className="space-y-1.5">
                   <Label>Lease / sale</Label>
@@ -900,14 +939,29 @@ export function PropertiesPage() {
                   </Select>
                 </div>
               )}
-              <div className="space-y-1.5">
-                <Label>Building SF</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="number" inputMode="numeric" placeholder="Min" value={sfMin} onChange={(e) => setSfMin(e.target.value)} />
-                  <span className="text-muted-foreground">–</span>
-                  <Input type="number" inputMode="numeric" placeholder="Max" value={sfMax} onChange={(e) => setSfMax(e.target.value)} />
+              {applies.buildingSf && (
+                <div className="space-y-1.5">
+                  <Label>Building SF</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" inputMode="numeric" placeholder="Min" value={sfMin} onChange={(e) => setSfMin(e.target.value)} />
+                    <span className="text-muted-foreground">–</span>
+                    <Input type="number" inputMode="numeric" placeholder="Max" value={sfMax} onChange={(e) => setSfMax(e.target.value)} />
+                  </div>
                 </div>
-              </div>
+              )}
+              {applies.leasedSf && (
+                <div className="space-y-1.5">
+                  <Label>Leased SF</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" inputMode="numeric" placeholder="Min" value={leaseSfMin} onChange={(e) => setLeaseSfMin(e.target.value)} />
+                    <span className="text-muted-foreground">–</span>
+                    <Input type="number" inputMode="numeric" placeholder="Max" value={leaseSfMax} onChange={(e) => setLeaseSfMax(e.target.value)} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The unit that was let, not the building around it.
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Land acres</Label>
                 <div className="flex items-center gap-2">

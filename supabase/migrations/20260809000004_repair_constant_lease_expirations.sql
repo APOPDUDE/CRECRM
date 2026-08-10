@@ -15,9 +15,14 @@
 -- the lease, it is the fake expiry wearing a different hat, and start + term simply
 -- launders it back. Those rows are detected by that fingerprint and get null.
 --
--- Terms beyond 25 years are not treated as terms either: the import appears to have put
--- tenure ("time in building") into term_months for some rows, and 1,135 months is 94
--- years, not a lease.
+-- Terms beyond 10 years are not treated as terms either: the import put tenure ("time in
+-- building") into term_months for some rows. A first pass allowed up to 25 years and let
+-- through a 16-year lease on a 500 SF unit -- and the tell was that those rebuilt dates
+-- all landed in AUGUST (2038, 2039, 2041, 2042, 2048), because the term had been measured
+-- from the real start to the import's own 2025-08-01. Those rows escape the fingerprint
+-- above only because commencement_date had itself been overwritten with the signature
+-- date, so the fingerprint had no true start to add the term to. 10 years is the ceiling
+-- that separates a lease term from a tenancy length in this data.
 --
 -- Null is the honest outcome where nothing survives. v_lease_comps still carries the
 -- comp with its rate, size, commencement and signature date -- everything pricing needs
@@ -27,7 +32,7 @@
 update comps
 set expiration_date = case
       when coalesce(commencement_date, executed_at) is not null
-       and term_months between 1 and 300
+       and term_months between 1 and 120
        -- reject a back-derived term: adding it to the start lands on the constant
        and (coalesce(commencement_date, executed_at)
             + make_interval(months => term_months))::date <> date '2025-08-01'
