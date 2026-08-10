@@ -19,6 +19,8 @@ import { ListErrorState } from '@/components/list-error-state'
 import { MatchSlideOver } from '@/components/match-slide-over'
 import { StageDateDialog } from '@/components/stage-date-dialog'
 import type { DatedStage } from '@/components/stage-date-dialog'
+import { TourOutcomeDialog, type TourOutcome } from '@/components/tour-outcome-dialog'
+import { useCreateTourNote } from '@/hooks/use-notes'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { useListingDetail } from '@/hooks/use-listings'
 import { useListingParcels } from '@/hooks/use-listing-parcels'
@@ -83,6 +85,11 @@ export function PropertyBoardPage() {
     null,
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
+  const [outcomeMove, setOutcomeMove] = useState<{
+    match: MatchWithRelations
+    outcome: TourOutcome
+  } | null>(null)
+  const createTourNote = useCreateTourNote()
 
   // A listing offered for lease OR sale runs two boards — the pipelines differ (PSA
   // negotiation + Due diligence on the sale side) — so the board flips between them
@@ -119,19 +126,8 @@ export function PropertyBoardPage() {
   // Removing a prospect from the board is SOFT: it moves to the Passed rail on the left,
   // where it can be restored — a hard delete only happens from inside the rail.
   const passed = sideMatches.filter((m) => m.stage === 'passed')
-  const softPass = (m: MatchWithRelations) => {
-    const from = m.stage
-    updateStage.mutate(
-      { id: m.id, stage: 'passed' },
-      {
-        onSuccess: () =>
-          toast.success('Moved to Passed', {
-            action: { label: 'Undo', onClick: () => updateStage.mutate({ id: m.id, stage: from }) },
-          }),
-        onError: () => toast.error('Could not move it'),
-      },
-    )
-  }
+  // Same prompt as a drag onto Passed: "why did they pass" is asked once, in one place.
+  const softPass = (m: MatchWithRelations) => setOutcomeMove({ match: m, outcome: 'passed' })
   const restorePassed = (id: string) =>
     updateStage.mutate(
       { id, stage: 'inquiring' },
@@ -218,9 +214,47 @@ export function PropertyBoardPage() {
       setDateMove({ match, stage: 'due_diligence' })
     } else if (toStage === 'executed') {
       setExecutedMove({ match, toStage })
+    } else if (toStage === 'interested') {
+      // The two outcome moves ask why; everything else stays a silent drag.
+      setOutcomeMove({ match, outcome: 'interested' })
+    } else if (toStage === 'passed') {
+      setOutcomeMove({ match, outcome: 'passed' })
     } else {
       plainMove(match, toStage)
     }
+  }
+
+  /**
+   * Record the outcome, then file the reason against the PROPERTY this board is about.
+   * The note carries the pursuit id so the property page can name the deal it came from.
+   */
+  const confirmOutcome = (reason: string) => {
+    if (!outcomeMove) return
+    const { match, outcome } = outcomeMove
+    const fromStage = match.stage
+    updateStage.mutate(
+      { id: match.id, stage: outcome },
+      {
+        onSuccess: () => {
+          if (match.property_id) {
+            const label = outcome === 'interested' ? 'Interested' : 'Not interested'
+            createTourNote.mutate({
+              propertyId: match.property_id,
+              pursuitId: match.id,
+              body: reason ? `${label} — ${reason}` : label,
+            })
+          }
+          toast.success(outcome === 'interested' ? 'Marked interested' : 'Moved to Passed', {
+            action: {
+              label: 'Undo',
+              onClick: () => updateStage.mutate({ id: match.id, stage: fromStage }),
+            },
+          })
+          setOutcomeMove(null)
+        },
+        onError: () => toast.error('Could not move pursuit'),
+      },
+    )
   }
 
   const confirmDate = (patch: Partial<TablesUpdate<'pursuits'>>) => {
@@ -377,6 +411,7 @@ export function PropertyBoardPage() {
                     m.tenant_company?.name ??
                     (m.tenant_contact ? contactNameOf(m.tenant_contact) : 'Tenant'),
                   subtitle: m.inquiry_date ? `Inquired ${formatDate(m.inquiry_date)}` : null,
+                  toured: !!m.tour_date,
                 }))}
                 onRestore={restorePassed}
                 onDelete={deletePassed}
@@ -813,6 +848,14 @@ export function PropertyBoardPage() {
         onConfirm={confirmExecuted}
       />
       <ListingTermsDialog open={termsOpen} onOpenChange={setTermsOpen} listing={listing} />
+      <TourOutcomeDialog
+        outcome={outcomeMove?.outcome ?? null}
+        propertyLabel={listing.property?.address ?? null}
+        open={!!outcomeMove}
+        onOpenChange={(open) => !open && setOutcomeMove(null)}
+        pending={updateStage.isPending}
+        onConfirm={confirmOutcome}
+      />
     </div>
   )
 }

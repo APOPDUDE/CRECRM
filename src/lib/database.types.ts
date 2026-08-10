@@ -1072,6 +1072,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["note_kind"]
           listing_id: string | null
+          property_id: string | null
           pursuit_id: string | null
         }
         Insert: {
@@ -1082,6 +1083,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["note_kind"]
           listing_id?: string | null
+          property_id?: string | null
           pursuit_id?: string | null
         }
         Update: {
@@ -1092,6 +1094,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["note_kind"]
           listing_id?: string | null
+          property_id?: string | null
           pursuit_id?: string | null
         }
         Relationships: [
@@ -1115,6 +1118,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "listings"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "notes_pursuit_id_fkey"
@@ -2525,7 +2549,7 @@ export type Database = {
       lease_structure: "NNN" | "NN" | "MG" | "FS" | "IG"
       listing_market_status: "on_market" | "off_market"
       listing_stage: "proposal" | "listed" | "closed"
-      note_kind: "note" | "call" | "text" | "email" | "meeting"
+      note_kind: "note" | "call" | "text" | "email" | "meeting" | "tour"
       owner_contact_confidence: "confirmed" | "likely" | "unconfirmed"
       owner_kind: "individual" | "entity" | "government" | "unknown"
       owner_verification_status:
@@ -2541,6 +2565,7 @@ export type Database = {
         | "inquiring"
         | "confirmed"
         | "touring"
+        | "interested"
         | "negotiation"
         | "due_diligence"
         | "executed"
@@ -2717,7 +2742,7 @@ export const Constants = {
       lease_structure: ["NNN", "NN", "MG", "FS", "IG"],
       listing_market_status: ["on_market", "off_market"],
       listing_stage: ["proposal", "listed", "closed"],
-      note_kind: ["note", "call", "text", "email", "meeting"],
+      note_kind: ["note", "call", "text", "email", "meeting", "tour"],
       owner_contact_confidence: ["confirmed", "likely", "unconfirmed"],
       owner_kind: ["individual", "entity", "government", "unknown"],
       owner_verification_status: [
@@ -2734,6 +2759,7 @@ export const Constants = {
         "inquiring",
         "confirmed",
         "touring",
+        "interested",
         "negotiation",
         "due_diligence",
         "executed",

@@ -44,7 +44,11 @@ export const clientOverviewStages: StageDef<Enums<'client_status'>>[] = [
 export const pursuitStageLabels: Record<Enums<'pursuit_stage'>, string> = {
   inquiring: 'Inquiring',
   confirmed: 'Confirmed',
-  touring: 'Touring',
+  // Label only — the enum value is still `touring`, so every stamped tour_date, tour task
+  // and stage rank keeps working. The column says when the tour is BOOKED; whether they
+  // liked the place is the next column's job.
+  touring: 'Scheduled',
+  interested: 'Interested',
   negotiation: 'Negotiation',
   due_diligence: 'Due diligence',
   executed: 'Executed',
@@ -57,7 +61,8 @@ export const pursuitStageLabels: Record<Enums<'pursuit_stage'>, string> = {
 export const pursuitStageSaleLabels: Record<Enums<'pursuit_stage'>, string> = {
   inquiring: 'Inquiring',
   confirmed: 'Confirmed',
-  touring: 'Touring',
+  touring: 'Scheduled',
+  interested: 'Interested',
   negotiation: 'PSA negotiation',
   due_diligence: 'Due diligence',
   executed: 'Closed',
@@ -80,8 +85,8 @@ export function pursuitBoardStages(
   const labels = pursuitLabelsFor(dealType)
   const order: Enums<'pursuit_stage'>[] =
     dealType === 'sale'
-      ? ['inquiring', 'confirmed', 'touring', 'negotiation', 'due_diligence', 'executed']
-      : ['inquiring', 'confirmed', 'touring', 'negotiation', 'executed']
+      ? ['inquiring', 'confirmed', 'touring', 'interested', 'negotiation', 'due_diligence', 'executed']
+      : ['inquiring', 'confirmed', 'touring', 'interested', 'negotiation', 'executed']
   return order.map((value) => ({ value, label: labels[value] }))
 }
 
@@ -129,9 +134,10 @@ const pursuitStageRank: Record<Enums<'pursuit_stage'>, number> = {
   inquiring: 0,
   confirmed: 1,
   touring: 2,
-  negotiation: 3,
-  due_diligence: 4,
-  executed: 5,
+  interested: 3,
+  negotiation: 4,
+  due_diligence: 5,
+  executed: 6,
   passed: -1,
 }
 

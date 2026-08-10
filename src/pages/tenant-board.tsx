@@ -31,6 +31,8 @@ import { PropertyPreview } from '@/components/property-preview'
 import { DraftDocDialog } from '@/components/draft-doc-dialog'
 import { StageDateDialog } from '@/components/stage-date-dialog'
 import type { DatedStage } from '@/components/stage-date-dialog'
+import { TourOutcomeDialog, type TourOutcome } from '@/components/tour-outcome-dialog'
+import { useCreateTourNote } from '@/hooks/use-notes'
 import { contactNameOf, type Contact } from '@/hooks/use-contacts'
 import type { Company } from '@/hooks/use-companies'
 import {
@@ -91,6 +93,11 @@ export function TenantBoardPage() {
     null,
   )
   const [executedMove, setExecutedMove] = useState<PendingMove | null>(null)
+  const [outcomeMove, setOutcomeMove] = useState<{
+    match: MatchWithRelations
+    outcome: TourOutcome
+  } | null>(null)
+  const createTourNote = useCreateTourNote()
   const [infoCollapsed, toggleInfo] = useInfoPanelCollapsed()
 
   // A client looking to lease OR buy runs two boards — the pipelines differ (PSA
@@ -128,19 +135,9 @@ export function TenantBoardPage() {
   // Removing a property from the board is SOFT: it moves to the Passed rail on the left,
   // where it can be restored — a hard delete only happens from inside the rail.
   const passed = sideMatches.filter((m) => m.stage === 'passed')
-  const softPass = (m: MatchWithRelations) => {
-    const from = m.stage
-    updateStage.mutate(
-      { id: m.id, stage: 'passed' },
-      {
-        onSuccess: () =>
-          toast.success('Moved to Passed', {
-            action: { label: 'Undo', onClick: () => updateStage.mutate({ id: m.id, stage: from }) },
-          }),
-        onError: () => toast.error('Could not move it'),
-      },
-    )
-  }
+  // Goes through the same prompt as a drag onto Passed, so "why did they pass" is asked
+  // once, in one place, however the card got there.
+  const softPass = (m: MatchWithRelations) => setOutcomeMove({ match: m, outcome: 'passed' })
   const restorePassed = (id: string) =>
     updateStage.mutate(
       { id, stage: 'inquiring' },
@@ -235,9 +232,51 @@ export function TenantBoardPage() {
       setDateMove({ match, stage: 'due_diligence' })
     } else if (toStage === 'executed') {
       setExecutedMove({ match, toStage })
+    } else if (toStage === 'interested') {
+      // The two outcome moves ask why; everything else stays a silent drag.
+      setOutcomeMove({ match, outcome: 'interested' })
+    } else if (toStage === 'passed') {
+      setOutcomeMove({ match, outcome: 'passed' })
     } else {
       plainMove(match, toStage)
     }
+  }
+
+  /**
+   * Record the outcome, then file the reason against the PROPERTY.
+   *
+   * The note is written even when the reason is blank — a tenant walking a building and
+   * passing is worth knowing on its own — and it carries the pursuit id, so the property
+   * page can name the deal it came from. A failed note must not strand the card in the
+   * old column, so the move is what gets awaited and the note rides after it.
+   */
+  const confirmOutcome = (reason: string) => {
+    if (!outcomeMove) return
+    const { match, outcome } = outcomeMove
+    const fromStage = match.stage
+    updateStage.mutate(
+      { id: match.id, stage: outcome },
+      {
+        onSuccess: () => {
+          if (match.property_id) {
+            const label = outcome === 'interested' ? 'Interested' : 'Not interested'
+            createTourNote.mutate({
+              propertyId: match.property_id,
+              pursuitId: match.id,
+              body: reason ? `${label} — ${reason}` : label,
+            })
+          }
+          toast.success(outcome === 'interested' ? 'Marked interested' : 'Moved to Passed', {
+            action: {
+              label: 'Undo',
+              onClick: () => updateStage.mutate({ id: match.id, stage: fromStage }),
+            },
+          })
+          setOutcomeMove(null)
+        },
+        onError: () => toast.error('Could not move pursuit'),
+      },
+    )
   }
 
   const confirmDate = (patch: Partial<TablesUpdate<'pursuits'>>) => {
@@ -397,6 +436,7 @@ export function TenantBoardPage() {
                   title: m.property?.address ?? 'Property',
                   subtitle:
                     [m.property?.city, m.property?.state].filter(Boolean).join(', ') || null,
+                  toured: !!m.tour_date,
                 }))}
                 onRestore={restorePassed}
                 onDelete={deletePassed}
@@ -632,6 +672,14 @@ export function TenantBoardPage() {
         onOpenChange={(open) => !open && setDateMove(null)}
         pending={updateStage.isPending}
         onConfirm={confirmDate}
+      />
+      <TourOutcomeDialog
+        outcome={outcomeMove?.outcome ?? null}
+        propertyLabel={outcomeMove?.match.property?.address ?? null}
+        open={!!outcomeMove}
+        onOpenChange={(open) => !open && setOutcomeMove(null)}
+        pending={updateStage.isPending}
+        onConfirm={confirmOutcome}
       />
       <ExecutedMatchDialog
         open={!!executedMove}
