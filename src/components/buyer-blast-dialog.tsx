@@ -30,11 +30,13 @@ export type BlastBuyer = {
 type BlastMode = 'draft' | 'send'
 
 type BlastResult = {
-  total: number
-  created: number
-  tagged: number
-  drafted: number
+  total?: number
+  created?: number
+  tagged?: number
+  drafted?: number
   tag: string
+  /** send mode answers immediately, before any message has gone out */
+  queued?: number
 }
 
 /** Deal facts the composer can pull in. Everything is optional — a line only appears
@@ -228,19 +230,19 @@ export function BuyerBlastDialog({
       } catch {
         throw new Error(`unexpected reply from the automation: ${raw.slice(0, 120)}`)
       }
-      const n = r.drafted
-      toast.success(
-        mode === 'send'
-          ? `Sent to ${n} buyer${n === 1 ? '' : 's'} over iMessage`
-          : `Drafted for ${n} buyer${n === 1 ? '' : 's'}`,
-        {
-          description:
-            `${r.created} created, ${r.tagged} already in GoHighLevel. Tag: ${r.tag}. ` +
-            (mode === 'send'
-              ? 'Paced one every 2.5s — check Conversations.'
-              : 'Nothing was sent.'),
-        },
-      )
+      if (mode === 'send') {
+        const n = r.queued ?? reach.length
+        // 45-120s apart, so quote the middle of the range rather than a number that will be wrong.
+        const mins = Math.round((n * 82.5) / 60)
+        toast.success(`Queued ${n} iMessage${n === 1 ? '' : 's'}`, {
+          description: `Going out over roughly the next ${mins} minute${mins === 1 ? '' : 's'}, 45s to 2min apart. Tag: ${r.tag}. Watch Conversations.`,
+        })
+      } else {
+        const n = r.drafted ?? reach.length
+        toast.success(`Drafted for ${n} buyer${n === 1 ? '' : 's'}`, {
+          description: `${r.created} created, ${r.tagged} already in GoHighLevel. Tag: ${r.tag}. Nothing was sent.`,
+        })
+      }
       onOpenChange(false)
     } catch (e) {
       toast.error('Could not push the blast', {
@@ -393,7 +395,11 @@ export function BuyerBlastDialog({
           {(
             [
               ['draft', 'Draft only', 'Writes the text on each contact as a note. Nothing leaves.'],
-              ['send', 'Send now over iMessage', 'Goes out through Blooio, one every 2.5 seconds.'],
+              [
+                'send',
+                'Send now over iMessage',
+                'Goes out through Blooio, 45 seconds to 2 minutes apart so it reads as typed, not blasted.',
+              ],
             ] as [BlastMode, string, string][]
           ).map(([v, label, hint]) => (
             <label key={v} className="flex cursor-pointer items-start gap-2.5 text-sm">
