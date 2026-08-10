@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapPin, Plus, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
+import { MapPin, MessageSquare, Plus, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { AddBuyerDialog } from '@/components/add-buyer-dialog'
+import { BuyerBlastDialog, type BlastBuyer } from '@/components/buyer-blast-dialog'
 import { ChipRow } from '@/components/buyer-criteria-fields'
 import { ListErrorState } from '@/components/list-error-state'
 import { useTenantReps } from '@/hooks/use-tenant-reps'
@@ -143,6 +144,7 @@ export function BuyersPage() {
   const buyersQ = useTenantReps()
 
   const [addOpen, setAddOpen] = useState(false)
+  const [blastOpen, setBlastOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [subclasses, setSubclasses] = usePersistentState<Subclass[]>('buyers:subclasses', [])
   const [strategies, setStrategies] = usePersistentState<StrategyPick[]>('buyers:strategies2', [])
@@ -266,6 +268,21 @@ export function BuyersPage() {
     search,
   ])
 
+  // Whoever survived the filters is the segment — that is the whole point of the roster.
+  const blastList: BlastBuyer[] = useMemo(
+    () =>
+      filtered
+        .filter((b) => b.contact?.phone)
+        .map((b) => ({
+          clientId: b.id,
+          phone: b.contact!.phone!,
+          first: b.contact?.first_name ?? null,
+          last: b.contact?.last_name ?? null,
+          company: b.company?.name ?? null,
+        })),
+    [filtered],
+  )
+
   // Coverage matrix: how many live buyers want each product × strategy combination, and
   // just as usefully, where the roster is empty.
   const matrix = useMemo(() => {
@@ -324,10 +341,16 @@ export function BuyersPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Buyers</h1>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="size-4" />
-          Add buyer
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setBlastOpen(true)} disabled={filtered.length === 0}>
+            <MessageSquare className="size-4" />
+            Text these {filtered.length}
+          </Button>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="size-4" />
+            Add buyer
+          </Button>
+        </div>
       </div>
 
       {/* Deal just hit: name the property, get the buyers whose areas cover it. */}
@@ -716,6 +739,12 @@ export function BuyersPage() {
       )}
 
       <AddBuyerDialog open={addOpen} onOpenChange={setAddOpen} />
+      <BuyerBlastDialog
+        open={blastOpen}
+        onOpenChange={setBlastOpen}
+        buyers={blastList}
+        noPhoneCount={filtered.length - blastList.length}
+      />
     </div>
   )
 }

@@ -5,7 +5,7 @@ import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.t
 /** A client (tenant/buyer) with the relations the overview board + cards need. */
 export type TenantRepWithRelations = Tables<'clients'> & {
   company: Pick<Tables<'companies'>, 'id' | 'name'> | null
-  contact: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
+  contact: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name' | 'phone'> | null
   broker: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
   pursuits: { id: string; stage: Enums<'pursuit_stage'> }[]
   /** alias of pursuits for existing call sites */
@@ -15,7 +15,7 @@ export type TenantRepWithRelations = Tables<'clients'> & {
 const TENANT_REP_SELECT = `
   *,
   company:companies!clients_company_id_fkey(id, name),
-  contact:contacts!clients_contact_id_fkey(id, first_name, last_name),
+  contact:contacts!clients_contact_id_fkey(id, first_name, last_name, phone),
   broker:contacts!clients_broker_contact_id_fkey(id, first_name, last_name),
   pursuits(id, stage)
 `
