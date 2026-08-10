@@ -16,6 +16,17 @@ alter table notes
 
 create index if not exists notes_property_idx on notes(property_id, created_at desc);
 
+-- notes_one_parent counted only the DEAL parents and demanded exactly one, so a note
+-- about a building and nothing else was rejected outright — the column above would have
+-- been unreachable except alongside a deal. The rule that actually matters is that a note
+-- cannot belong to two deals at once, and that it must belong to something.
+alter table notes drop constraint if exists notes_one_parent;
+
+alter table notes add constraint notes_one_parent check (
+  num_nonnulls(client_id, listing_id, pursuit_id) <= 1
+  and num_nonnulls(client_id, listing_id, pursuit_id, property_id) >= 1
+);
+
 comment on column notes.property_id is
   'The building this note is about. Set alongside pursuit_id for tour feedback, so a '
   'note surfaced on the property can still name the deal that produced it.';
