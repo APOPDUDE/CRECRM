@@ -13,7 +13,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useAuth } from '@/hooks/use-auth'
 import { usePropertyPointSearch, type PropertyPoint } from '@/hooks/use-buyers'
+import { useLogBlastPursuits } from '@/hooks/use-matches'
 import { formatCurrency, formatSf } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -42,6 +44,7 @@ type BlastResult = {
 /** Deal facts the composer can pull in. Everything is optional — a line only appears
  *  when we actually hold the number. */
 export type BlastDeal = {
+  propertyId: string
   address: string
   city: string | null
   buildingSf: number | null
@@ -134,6 +137,9 @@ export function BuyerBlastDialog({
   const [mode, setMode] = useState<BlastMode>('draft')
   const [busy, setBusy] = useState(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
+  const logPursuits = useLogBlastPursuits()
+  const { session } = useAuth()
+  const userId = session?.user.id
   const results = usePropertyPointSearch(dealQuery)
 
   useEffect(() => {
@@ -166,6 +172,7 @@ export function BuyerBlastDialog({
         .limit(1),
     ])
     setDeal({
+      propertyId: p.id,
       address: prop?.address ?? p.address,
       city: prop?.city ?? p.city,
       buildingSf: prop?.building_sf ?? null,
@@ -232,10 +239,32 @@ export function BuyerBlastDialog({
       }
       if (mode === 'send') {
         const n = r.queued ?? reach.length
+        // The pursuit is the record of "this buyer was shown this property". Without it the
+        // blast leaves no trace to mark Touring or Passed against later.
+        let logged = 0
+        if (deal) {
+          try {
+            const res2 = await logPursuits.mutateAsync({
+              propertyId: deal.propertyId,
+              clientIds: buyers.filter((b) => b.phone).map((b) => b.clientId),
+              note: `Texted in "${segment.trim()}" on ${new Date().toISOString().slice(0, 10)}.`,
+              ownerId: userId!,
+            })
+            logged = res2.added
+          } catch {
+            toast.warning('Texts queued, but the deal was not added to their lists', {
+              description: 'Add it by hand from each buyer’s board, or tell Claude to retry.',
+            })
+          }
+        }
         // 45-120s apart, so quote the middle of the range rather than a number that will be wrong.
         const mins = Math.round((n * 82.5) / 60)
         toast.success(`Queued ${n} iMessage${n === 1 ? '' : 's'}`, {
-          description: `Going out over roughly the next ${mins} minute${mins === 1 ? '' : 's'}, 45s to 2min apart. Tag: ${r.tag}. Watch Conversations.`,
+          description:
+            `Going out over roughly the next ${mins} minute${mins === 1 ? '' : 's'}, 45s to 2min apart. ` +
+            (deal
+              ? `${logged} buyer${logged === 1 ? '' : 's'} now have ${deal.address} inquiring on their board.`
+              : `Tag: ${r.tag}.`),
         })
       } else {
         const n = r.drafted ?? reach.length
