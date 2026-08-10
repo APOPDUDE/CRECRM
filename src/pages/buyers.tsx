@@ -4,6 +4,7 @@ import { MapPin, Plus, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
@@ -42,7 +43,7 @@ import {
   parseTargetAreas,
 } from '@/lib/clients'
 import type { Enums } from '@/lib/database.types'
-import { formatCurrency, formatSf } from '@/lib/format'
+import { formatCurrency, formatSf, numOrNull } from '@/lib/format'
 import { clientStatusLabels, livePursuits } from '@/lib/stages'
 import { cn } from '@/lib/utils'
 
@@ -81,7 +82,7 @@ function sizeRange(b: TenantRepWithRelations): string | null {
 const toggle = <T,>(list: T[], v: T): T[] =>
   list.includes(v) ? list.filter((x) => x !== v) : [...list, v]
 
-const num = (v: string): number | null => (v.trim() === '' ? null : Number(v))
+const num = (v: string): number | null => numOrNull(v)
 
 /** Small badge list that collapses past three so a row stays one line. */
 function BadgeList({ items }: { items: string[] }) {
@@ -512,29 +513,23 @@ export function BuyersPage() {
             <div className="space-y-1.5">
               <Label>Deal price</Label>
               <div className="grid grid-cols-2 gap-2">
-                <Input
-                  type="number"
+                <CurrencyInput
                   placeholder="Min $"
-                  value={priceMin}
-                  onChange={(e) => setPriceMin(e.target.value)}
-                />
-                <Input
-                  type="number"
+                  
+                value={priceMin} onValueChange={setPriceMin} />
+                <CurrencyInput
                   placeholder="Max $"
-                  value={priceMax}
-                  onChange={(e) => setPriceMax(e.target.value)}
-                />
+                  
+                value={priceMax} onValueChange={setPriceMax} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label>Building SF</Label>
-                <Input
-                  type="number"
+                <CurrencyInput
                   placeholder="e.g. 25000"
-                  value={sfMin}
-                  onChange={(e) => setSfMin(e.target.value)}
-                />
+                  
+                value={sfMin} onValueChange={setSfMin} />
               </div>
               <div className="space-y-1.5">
                 <Label>Acres</Label>

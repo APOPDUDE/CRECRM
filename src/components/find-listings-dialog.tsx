@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { useSearchListingsForTenant } from '@/hooks/use-automation'
@@ -104,12 +105,16 @@ export function FindListingsDialog({
     )
   }
 
-  const Num = ({ k, label, step }: { k: string; label: string; step?: string }) => (
+  const Num = ({ k, label, step , grouped }: { k: string; label: string; step?: string ; grouped?: boolean }) => (
     <div className="space-y-1.5">
       <Label htmlFor={`fl-${k}`} className="text-xs">
         {label}
       </Label>
-      <Input id={`fl-${k}`} type="number" step={step} value={f[k] ?? ''} onChange={setk(k)} />
+      {grouped ? (
+        <CurrencyInput id={`fl-${k}`} value={f[k] ?? ''} onValueChange={(v) => setk(k)({ target: { value: v } })} />
+      ) : (
+        <Input id={`fl-${k}`} type="number" step={step} value={f[k] ?? ''} onChange={setk(k)} />
+      )}
     </div>
   )
 
@@ -163,14 +168,14 @@ export function FindListingsDialog({
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Num k="sf_min" label="Min SF" />
-            <Num k="sf_max" label="Max SF" />
+            <Num grouped k="sf_min" label="Min SF" />
+            <Num grouped k="sf_max" label="Max SF" />
             <Num k="ac_min" label="Min acres" step="0.1" />
             <Num k="ac_max" label="Max acres" step="0.1" />
             <Num k="cap_min" label="Min cap %" step="0.1" />
             <Num k="cap_max" label="Max cap %" step="0.1" />
-            <Num k="price_min" label="Min price $" />
-            <Num k="price_max" label="Max price $" />
+            <Num grouped k="price_min" label="Min price $" />
+            <Num grouped k="price_max" label="Max price $" />
           </div>
           <DialogFooter>
             <Button

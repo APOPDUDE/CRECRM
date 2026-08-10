@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -105,12 +106,10 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="terms-sf">Building SF</Label>
-            <Input
+            <CurrencyInput
               id="terms-sf"
-              type="number"
-              inputMode="numeric"
               value={buildingSf}
-              onChange={(e) => setBuildingSf(e.target.value)}
+              onValueChange={setBuildingSf}
               placeholder="e.g. 25000"
             />
             <p className="text-xs text-muted-foreground">Needed to estimate the lease commission.</p>
@@ -118,12 +117,10 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
           {showSale && (
             <div className="space-y-2">
               <Label htmlFor="terms-price">Asking price</Label>
-              <Input
+              <CurrencyInput
                 id="terms-price"
-                type="number"
-                inputMode="numeric"
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                onValueChange={setPrice}
                 placeholder="$"
               />
             </div>
@@ -132,22 +129,18 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="terms-rate">Asking rate $/SF</Label>
-                <Input
+                <CurrencyInput
                   id="terms-rate"
-                  type="number"
-                  inputMode="decimal"
                   value={rate}
-                  onChange={(e) => setRate(e.target.value)}
+                  onValueChange={setRate}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="terms-opex">OpEx $/SF</Label>
-                <Input
+                <CurrencyInput
                   id="terms-opex"
-                  type="number"
-                  inputMode="decimal"
                   value={opex}
-                  onChange={(e) => setOpex(e.target.value)}
+                  onValueChange={setOpex}
                 />
               </div>
               <div className="space-y-2">

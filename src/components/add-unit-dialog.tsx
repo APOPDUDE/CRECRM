@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -137,7 +138,7 @@ export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange }
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label htmlFor="unit-sf">SF</Label>
-              <Input id="unit-sf" type="number" inputMode="numeric" value={sf} onChange={(e) => setSf(e.target.value)} />
+              <CurrencyInput id="unit-sf" value={sf} onValueChange={setSf} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="unit-acres">Acres</Label>
@@ -145,7 +146,7 @@ export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange }
             </div>
             <div className="space-y-2">
               <Label htmlFor="unit-rate">Rate $/SF</Label>
-              <Input id="unit-rate" type="number" inputMode="decimal" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} />
+              <CurrencyInput id="unit-rate" value={rate} onValueChange={setRate} />
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Enter a SF and/or acreage for the unit.</p>
@@ -161,7 +162,7 @@ export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange }
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="unit-office">Office SF</Label>
-                <Input id="unit-office" type="number" inputMode="numeric" value={officeSf} onChange={(e) => setOfficeSf(e.target.value)} />
+                <CurrencyInput id="unit-office" value={officeSf} onValueChange={setOfficeSf} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="unit-dock">Dock high</Label>

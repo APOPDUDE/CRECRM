@@ -27,7 +27,6 @@ export const industrialSubclassLabels: Record<Enums<'industrial_subclass'>, stri
 }
 
 export const investmentStrategyLabels: Record<Enums<'investment_strategy'>, string> = {
-  stnl: 'STNL',
   value_add: 'Value add',
   core_stabilized: 'Core / stabilized',
   development: 'Development',

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { useQueryClient } from '@tanstack/react-query'
 import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
@@ -76,12 +77,10 @@ export function TenantCommissionDialog({ open, onOpenChange, tenantRep }: Tenant
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="tc-fee">Fee earned ($)</Label>
-            <Input
+            <CurrencyInput
               id="tc-fee"
-              type="number"
-              inputMode="numeric"
               value={fee}
-              onChange={(e) => setFee(e.target.value)}
+              onValueChange={setFee}
               placeholder="$"
               autoFocus
             />

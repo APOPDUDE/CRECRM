@@ -25,6 +25,29 @@ export function formatSf(value: number | null | undefined): string | null {
 }
 
 /**
+ * Group an IN-PROGRESS numeric string with thousands commas — 1000 reads as 1,000
+ * while you are still typing it. Keeps a trailing decimal point and partial decimals
+ * so "12." and "12.5" survive the keystroke they are typed in.
+ */
+export function groupDigits(raw: string | number | null | undefined): string {
+  let s = String(raw ?? '').replace(/,/g, '').replace(/[^0-9.\-]/g, '')
+  const neg = s.startsWith('-')
+  s = s.replace(/-/g, '')
+  const dot = s.indexOf('.')
+  if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '')
+  let [intPart = '', decPart] = s.split('.')
+  intPart = intPart.replace(/^0+(?=\d)/, '')
+  let out = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  if (s.includes('.')) out += '.' + (decPart ?? '')
+  return (neg ? '-' : '') + out
+}
+
+/** Drop the display commas so the value can be parsed as a number. */
+export function ungroupDigits(raw: string): string {
+  return raw.replace(/,/g, '')
+}
+
+/**
  * Digits-only 10-digit US phone (drops a leading country-code 1), or null.
  * Mirrors the SQL normalize_phone() so the UI dedupes the same way the DB does.
  */
@@ -52,9 +75,16 @@ export function formatBytes(bytes: number | null | undefined): string | null {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-/** Parse a form text field into a number for a DB write: blank -> null, else Number(v). */
+/**
+ * Parse a form text field into a number for a DB write: blank -> null, else Number(v).
+ * Strips thousands commas first — money fields display grouped, and Number("1,500")
+ * is NaN, which would otherwise write silently-wrong values.
+ */
 export function numOrNull(v: string): number | null {
-  return v.trim() === '' ? null : Number(v)
+  const t = ungroupDigits(v).trim()
+  if (t === '') return null
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
 }
 
 /** Rate for a lease listing, price for a sale listing, both for a 'both' listing. */

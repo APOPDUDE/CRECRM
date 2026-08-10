@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -64,6 +65,7 @@ function MinMax({
   step,
   values,
   set,
+  grouped,
 }: {
   label: string
   minKey: string
@@ -71,27 +73,32 @@ function MinMax({
   step?: string
   values: Record<string, string>
   set: SetHandler
+  /** Big values (SF, money) read better with thousands separators while typing. */
+  grouped?: boolean
 }) {
+  const field = (key: string, placeholder: string) =>
+    grouped ? (
+      <CurrencyInput
+        placeholder={placeholder}
+        value={values[key] ?? ''}
+        onValueChange={(v) => set(key)({ target: { value: v } })}
+      />
+    ) : (
+      <Input
+        type="number"
+        inputMode="decimal"
+        step={step}
+        placeholder={placeholder}
+        value={values[key] ?? ''}
+        onChange={set(key)}
+      />
+    )
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
       <div className="grid grid-cols-2 gap-2">
-        <Input
-          type="number"
-          inputMode="decimal"
-          step={step}
-          placeholder="Min"
-          value={values[minKey] ?? ''}
-          onChange={set(minKey)}
-        />
-        <Input
-          type="number"
-          inputMode="decimal"
-          step={step}
-          placeholder="Max"
-          value={values[maxKey] ?? ''}
-          onChange={set(maxKey)}
-        />
+        {field(minKey, 'Min')}
+        {field(maxKey, 'Max')}
       </div>
     </div>
   )
@@ -327,7 +334,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
             </div>
           )}
 
-          <MinMax label="Building SF" minKey="building_sf_min" maxKey="building_sf_max" values={f} set={set} />
+          <MinMax label="Building SF" minKey="building_sf_min" maxKey="building_sf_max" values={f} set={set} grouped />
           <MinMax label="Land (acres)" minKey="land_acres_min" maxKey="land_acres_max" step="0.1" values={f} set={set} />
 
           <div className="space-y-2">

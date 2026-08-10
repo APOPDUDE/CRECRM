@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pencil } from 'lucide-react'
-import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
+import { formatCurrency, formatPsf, formatSf, groupDigits } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 
 export type InlineFieldKind =
@@ -24,22 +24,6 @@ export interface InlineOption {
 const NUMERIC: InlineFieldKind[] = ['currency', 'psf', 'sf', 'percent', 'acres', 'number']
 // Kinds that get live thousands separators while typing (big / money values).
 const GROUPED: InlineFieldKind[] = ['currency', 'psf', 'sf']
-
-/** Format an in-progress numeric string with thousands commas, preserving a
- *  trailing decimal point and partial decimals as the user types. */
-function formatWithCommas(raw: string): string {
-  let s = String(raw ?? '').replace(/,/g, '').replace(/[^0-9.\-]/g, '')
-  const neg = s.startsWith('-')
-  s = s.replace(/-/g, '')
-  const dot = s.indexOf('.')
-  if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '')
-  let [intPart = '', decPart] = s.split('.')
-  intPart = intPart.replace(/^0+(?=\d)/, '')
-  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-  let out = grouped
-  if (s.includes('.')) out += '.' + (decPart ?? '')
-  return (neg ? '-' : '') + out
-}
 
 function displayValue(kind: InlineFieldKind, value: Val, options?: InlineOption[]): string | null {
   if (value == null || value === '') return null
@@ -71,7 +55,7 @@ function toDraft(kind: InlineFieldKind, value: Val): string {
   if (value == null) return ''
   if (kind === 'boolean') return value ? 'true' : 'false'
   if (kind === 'date') return String(value).slice(0, 10)
-  if (GROUPED.includes(kind)) return formatWithCommas(String(value))
+  if (GROUPED.includes(kind)) return groupDigits(String(value))
   return String(value)
 }
 
@@ -200,7 +184,7 @@ export function InlineEditField({ label, value, kind, options, onSave, full, not
               className={inputCls}
               value={draft}
               onChange={(e) =>
-                setDraft(GROUPED.includes(kind) ? formatWithCommas(e.target.value) : e.target.value)
+                setDraft(GROUPED.includes(kind) ? groupDigits(e.target.value) : e.target.value)
               }
               onBlur={() => void commit()}
               onKeyDown={(e) => {

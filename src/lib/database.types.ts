@@ -2629,7 +2629,6 @@ export type Database = {
         | "flex"
         | "land_development"
       investment_strategy:
-        | "stnl"
         | "value_add"
         | "core_stabilized"
         | "development"
@@ -2837,7 +2836,6 @@ export const Constants = {
         "land_development",
       ],
       investment_strategy: [
-        "stnl",
         "value_add",
         "core_stabilized",
         "development",

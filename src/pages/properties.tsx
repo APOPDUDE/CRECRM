@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
@@ -943,9 +944,9 @@ export function PropertiesPage() {
                 <div className="space-y-1.5">
                   <Label>Building SF</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="number" inputMode="numeric" placeholder="Min" value={sfMin} onChange={(e) => setSfMin(e.target.value)} />
+                    <CurrencyInput placeholder="Min"  value={sfMin} onValueChange={setSfMin} />
                     <span className="text-muted-foreground">–</span>
-                    <Input type="number" inputMode="numeric" placeholder="Max" value={sfMax} onChange={(e) => setSfMax(e.target.value)} />
+                    <CurrencyInput placeholder="Max"  value={sfMax} onValueChange={setSfMax} />
                   </div>
                 </div>
               )}
@@ -953,9 +954,9 @@ export function PropertiesPage() {
                 <div className="space-y-1.5">
                   <Label>Leased SF</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="number" inputMode="numeric" placeholder="Min" value={leaseSfMin} onChange={(e) => setLeaseSfMin(e.target.value)} />
+                    <CurrencyInput placeholder="Min"  value={leaseSfMin} onValueChange={setLeaseSfMin} />
                     <span className="text-muted-foreground">–</span>
-                    <Input type="number" inputMode="numeric" placeholder="Max" value={leaseSfMax} onChange={(e) => setLeaseSfMax(e.target.value)} />
+                    <CurrencyInput placeholder="Max"  value={leaseSfMax} onValueChange={setLeaseSfMax} />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     The unit that was let, not the building around it.
@@ -974,9 +975,9 @@ export function PropertiesPage() {
                 <div className="space-y-1.5">
                   <Label>Asking price</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="number" inputMode="numeric" placeholder="Min" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} />
+                    <CurrencyInput placeholder="Min"  value={priceMin} onValueChange={setPriceMin} />
                     <span className="text-muted-foreground">–</span>
-                    <Input type="number" inputMode="numeric" placeholder="Max" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
+                    <CurrencyInput placeholder="Max"  value={priceMax} onValueChange={setPriceMax} />
                   </div>
                 </div>
               )}

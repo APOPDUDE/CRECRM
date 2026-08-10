@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,6 +20,7 @@ import {
 } from '@/lib/clients'
 import type { TargetArea } from '@/lib/clients'
 import type { Enums } from '@/lib/database.types'
+import { numOrNull } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export const NO_KIND = '__none__'
@@ -150,19 +152,15 @@ export function BuyerCriteriaFields({
       <div className="space-y-2">
         <Label>Purchase price</Label>
         <div className="grid grid-cols-2 gap-2">
-          <Input
-            type="number"
-            inputMode="decimal"
+          <CurrencyInput
             placeholder="Min $"
             value={value.price_min}
-            onChange={(e) => patch({ price_min: e.target.value })}
+            onValueChange={(v) => patch({ price_min: v })}
           />
-          <Input
-            type="number"
-            inputMode="decimal"
+          <CurrencyInput
             placeholder="Max $"
             value={value.price_max}
-            onChange={(e) => patch({ price_max: e.target.value })}
+            onValueChange={(v) => patch({ price_max: v })}
           />
         </div>
       </div>
@@ -210,7 +208,7 @@ export function BuyerCriteriaFields({
   )
 }
 
-const num = (v: string) => (v.trim() === '' ? null : Number(v))
+const num = (v: string) => numOrNull(v)
 
 /** Criteria form state → the clients columns it writes. */
 export function buyerCriteriaToRow(c: BuyerCriteria) {
