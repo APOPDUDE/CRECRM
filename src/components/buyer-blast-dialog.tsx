@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { usePropertyPointSearch, type PropertyPoint } from '@/hooks/use-buyers'
 import { formatCurrency, formatSf } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 const BLAST_URL = 'https://n8n.ayxco.com/webhook/buyer-blast'
 
@@ -25,6 +26,8 @@ export type BlastBuyer = {
   last: string | null
   company: string | null
 }
+
+type BlastMode = 'draft' | 'send'
 
 type BlastResult = {
   total: number
@@ -126,6 +129,7 @@ export function BuyerBlastDialog({
   const [dealUrl, setDealUrl] = useState('')
   const [message, setMessage] = useState('')
   const [touched, setTouched] = useState(false)
+  const [mode, setMode] = useState<BlastMode>('draft')
   const [busy, setBusy] = useState(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
   const results = usePropertyPointSearch(dealQuery)
@@ -138,6 +142,7 @@ export function BuyerBlastDialog({
     setDealUrl('')
     setMessage('')
     setTouched(false)
+    setMode('draft')
   }, [open])
 
   // Retype the message whenever the deal changes, until the user edits it themselves.
@@ -206,14 +211,25 @@ export function BuyerBlastDialog({
           segmentName: segment.trim(),
           message: message.trim(),
           dealUrl: dealUrl.trim() || null,
+          mode,
           buyers: reach,
         }),
       })
       if (!res.ok) throw new Error(`blast failed (${res.status})`)
       const r = (await res.json()) as BlastResult
-      toast.success(`Drafted for ${r.drafted} buyer${r.drafted === 1 ? '' : 's'}`, {
-        description: `${r.created} created, ${r.tagged} already in GoHighLevel. Tag: ${r.tag}. Nothing was sent.`,
-      })
+      const n = r.drafted
+      toast.success(
+        mode === 'send'
+          ? `Sent to ${n} buyer${n === 1 ? '' : 's'} over iMessage`
+          : `Drafted for ${n} buyer${n === 1 ? '' : 's'}`,
+        {
+          description:
+            `${r.created} created, ${r.tagged} already in GoHighLevel. Tag: ${r.tag}. ` +
+            (mode === 'send'
+              ? 'Paced one every 2.5s — check Conversations.'
+              : 'Nothing was sent.'),
+        },
+      )
       onOpenChange(false)
     } catch (e) {
       toast.error('Could not push the blast', {
@@ -362,6 +378,31 @@ export function BuyerBlastDialog({
           </p>
         )}
 
+        <div className="space-y-1.5 rounded-lg border p-3">
+          {(
+            [
+              ['draft', 'Draft only', 'Writes the text on each contact as a note. Nothing leaves.'],
+              ['send', 'Send now over iMessage', 'Goes out through Blooio, one every 2.5 seconds.'],
+            ] as [BlastMode, string, string][]
+          ).map(([v, label, hint]) => (
+            <label key={v} className="flex cursor-pointer items-start gap-2.5 text-sm">
+              <input
+                type="radio"
+                name="blast-mode"
+                className="mt-1 size-4 accent-primary"
+                checked={mode === v}
+                onChange={() => setMode(v)}
+              />
+              <span>
+                <span className={cn('font-medium', v === 'send' && mode === 'send' && 'text-amber-700')}>
+                  {label}
+                </span>
+                <span className="block text-xs text-muted-foreground">{hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
@@ -371,7 +412,13 @@ export function BuyerBlastDialog({
             disabled={busy || !segment.trim() || !message.trim() || reach.length === 0}
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            {busy ? 'Drafting…' : `Draft for ${reach.length.toLocaleString()}`}
+            {busy
+              ? mode === 'send'
+                ? 'Sending…'
+                : 'Drafting…'
+              : mode === 'send'
+                ? `Send to ${reach.length.toLocaleString()}`
+                : `Draft for ${reach.length.toLocaleString()}`}
           </Button>
         </DialogFooter>
       </DialogContent>
