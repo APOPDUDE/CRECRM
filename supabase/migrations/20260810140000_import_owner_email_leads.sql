@@ -6,12 +6,13 @@
 -- owner_contacts link: match the address to a property, the property to its owner, and
 -- attach the person.
 --
--- Confidence, not verification. A reply about selling THIS building ("interested" /
--- "not interested") is strong evidence the person really is its owner, so those links
--- land as confirmed; everyone else is likely. verified_at is NEVER set here: that
--- column means "spoke to them on the phone", it feeds the map's verified-owner filter,
--- and an email reply is not a phone conversation. The email's own deliverability goes
--- where it belongs -- contacts.email_verified_at.
+-- Confidence, not verification. Every link lands as LIKELY -- including repliers.
+-- The first design set repliers to confirmed and the schema itself refused:
+-- owner_contacts_confirmed_needs_stamp requires confirmed links to carry verified_at,
+-- the guard added after the terrakotta over-confirmation problem. It is right: an
+-- email reply is evidence, not a conversation. The reply rides in match_basis
+-- (':replied') where the next phone call can start from it, and the address's own
+-- deliverability goes where it belongs -- contacts.email_verified_at.
 --
 -- Same identity rules as every import before it: fill only nulls, one contact per
 -- normalized phone (a taken number stays where it is), and a person with no reachable
@@ -25,7 +26,7 @@ returns jsonb language plpgsql security definer set search_path to 'public' as $
 declare
   r jsonb;
   v_ct uuid; v_phone text; v_email text;
-  v_prop uuid; v_owner uuid; v_conf owner_contact_confidence;
+  v_prop uuid; v_owner uuid; v_basis text;
   n_in int := 0; n_ct_new int := 0; n_ct_upd int := 0; n_verified int := 0;
   n_phone_dropped int := 0; n_no_identity int := 0;
   n_prop_matched int := 0; n_owner_linked int := 0; n_no_prop int := 0; n_no_owner int := 0;
@@ -37,7 +38,6 @@ begin
     -- personal phone only if free, or already on this same person (matched below)
     v_phone := nullif(btrim(coalesce(r->>'phone', '')), '');
 
-    -- the person: email match anywhere, else same-name-same-phone
     v_ct := null;
     if v_email is not null then
       select id into v_ct from contacts
@@ -50,10 +50,16 @@ begin
       limit 1;
     end if;
 
-    if v_ct is null and v_phone is not null and exists (
-      select 1 from contacts c2 where normalize_phone(c2.phone) = normalize_phone(v_phone)
+    -- The phone stays only if nobody ELSE owns it -- checked on BOTH paths. The first
+    -- version guarded only inserts, so two spouses sharing the family number could
+    -- collide when the second one arrived via an email match and took the same phone
+    -- through the update.
+    if v_phone is not null and exists (
+      select 1 from contacts c2
+      where normalize_phone(c2.phone) = normalize_phone(v_phone)
+        and (v_ct is null or c2.id <> v_ct)
     ) then
-      v_phone := null;  -- number belongs to someone else already
+      v_phone := null;
       n_phone_dropped := n_phone_dropped + 1;
     end if;
 
@@ -100,17 +106,20 @@ begin
     n_prop_matched := n_prop_matched + 1;
     if v_owner is null then n_no_owner := n_no_owner + 1; continue; end if;
 
-    -- a reply about the building is evidence of ownership; silence is only likely
-    v_conf := case when (r->>'replied')::boolean then 'confirmed' else 'likely' end;
+    -- the reply is evidence, not verification; it rides in match_basis
+    v_basis := 'email_campaign:' || coalesce(r->>'list', '?')
+               || case when (r->>'replied')::boolean then ':replied' else '' end;
     insert into owner_contacts (owner_id, contact_id, confidence, match_basis)
-    values (v_owner, v_ct, v_conf, 'email_campaign:' || coalesce(r->>'list', '?'))
+    values (v_owner, v_ct, 'likely', v_basis)
     on conflict (owner_id, contact_id) do update
-      -- an existing link only ever moves UP in confidence, and verified_at is untouched
-      set confidence = case
-        when owner_contacts.confidence = 'confirmed' then owner_contacts.confidence
-        when excluded.confidence = 'confirmed' then excluded.confidence
-        when owner_contacts.confidence = 'likely' then owner_contacts.confidence
-        else excluded.confidence end;
+      set match_basis = case
+            when owner_contacts.match_basis is null then excluded.match_basis
+            when position(excluded.match_basis in owner_contacts.match_basis) > 0
+              then owner_contacts.match_basis
+            else owner_contacts.match_basis || '; ' || excluded.match_basis end,
+          confidence = case
+            when owner_contacts.confidence = 'unconfirmed' then 'likely'
+            else owner_contacts.confidence end;
     n_owner_linked := n_owner_linked + 1;
   end loop;
   return jsonb_build_object('ok', true, 'received', n_in,
