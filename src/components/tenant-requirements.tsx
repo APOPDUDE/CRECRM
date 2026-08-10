@@ -1,7 +1,13 @@
 import { rangeSummary } from '@/components/tenant-rep-card'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { Tables } from '@/lib/database.types'
-import { formatSf } from '@/lib/format'
+import {
+  buyerKindLabels,
+  industrialSubclassLabels,
+  investmentStrategyLabels,
+  parseTargetAreas,
+} from '@/lib/clients'
+import { formatCurrency, formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 
 type TenantRep = Tables<'clients'> & {
@@ -27,11 +33,40 @@ function Row({ label, value }: { label: string; value: string | null | undefined
   )
 }
 
+function priceRange(min: number | null, max: number | null): string | null {
+  const lo = formatCurrency(min)
+  const hi = formatCurrency(max)
+  if (lo && hi) return `${lo} – ${hi}`
+  return lo ? `${lo}+` : hi ? `Up to ${hi}` : null
+}
+
 /** Read-only requirement breakdown shown on the tenant board sidebar. */
 export function TenantRequirements({ tenantRep }: { tenantRep: TenantRep }) {
+  const areas = parseTargetAreas(tenantRep.target_areas)
   const rows: { label: string; value: string | null }[] = [
     { label: 'Industry', value: tenantRep.company?.industry ?? null },
     { label: 'Purpose', value: tenantRep.purpose ? purposeLabels[tenantRep.purpose] : null },
+    {
+      label: 'Buyer type',
+      value: tenantRep.buyer_kind ? buyerKindLabels[tenantRep.buyer_kind] : null,
+    },
+    {
+      label: 'Product',
+      value:
+        tenantRep.product_subclasses?.map((s) => industrialSubclassLabels[s]).join(', ') || null,
+    },
+    {
+      label: 'Strategy',
+      value: tenantRep.strategies?.map((s) => investmentStrategyLabels[s]).join(', ') || null,
+    },
+    { label: 'Price', value: priceRange(tenantRep.price_min, tenantRep.price_max) },
+    {
+      label: '1031 deadline',
+      value: tenantRep.exchange_1031
+        ? (formatDate(tenantRep.exchange_deadline) ?? 'No date set')
+        : null,
+    },
+    { label: 'Areas', value: areas.map((a) => a.name).join(', ') || null },
     { label: 'Move-in', value: formatDate(tenantRep.move_in_date) },
     {
       label: 'Type',

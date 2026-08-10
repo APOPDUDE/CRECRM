@@ -24,7 +24,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { propertyKindLabels, tenantPropertyTypeOptions } from '@/components/property-form-dialog'
 import { ContactSelect } from '@/components/contact-select'
 import { leadSourceLabels } from '@/components/source-badge'
+import {
+  BuyerCriteriaFields,
+  buyerCriteriaToRow,
+  emptyBuyerCriteria,
+} from '@/components/buyer-criteria-fields'
+import type { BuyerCriteria } from '@/components/buyer-criteria-fields'
 import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
+import { parseTargetAreas } from '@/lib/clients'
 import type { Enums, Tables } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
 
@@ -159,10 +166,21 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
   const updateTenantRep = useUpdateTenantRep()
   const [f, setF] = useState<Record<string, string>>({})
   const [brokerId, setBrokerId] = useState<string | null>(null)
+  const [criteria, setCriteria] = useState<BuyerCriteria>(emptyBuyerCriteria)
 
   useEffect(() => {
     if (!open) return
     setBrokerId(tenantRep.broker_contact_id ?? null)
+    setCriteria({
+      buyer_kind: tenantRep.buyer_kind,
+      product_subclasses: tenantRep.product_subclasses ?? [],
+      strategies: tenantRep.strategies ?? [],
+      price_min: s(tenantRep.price_min),
+      price_max: s(tenantRep.price_max),
+      exchange_1031: tenantRep.exchange_1031,
+      exchange_deadline: s(tenantRep.exchange_deadline),
+      target_areas: parseTargetAreas(tenantRep.target_areas),
+    })
     setF({
       deal_type: tenantRep.deal_type ?? 'lease',
       source: tenantRep.source ?? NONE,
@@ -183,11 +201,16 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
   const set = (k: string) => (e: { target: { value: string } }) =>
     setF((prev) => ({ ...prev, [k]: e.target.value }))
 
+  // Buyer criteria only apply to the buy side; a pure lease client keeps whatever was
+  // stored rather than having it wiped by a form that never showed the fields.
+  const isBuySide = (f.deal_type ?? 'lease') !== 'lease'
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     updateTenantRep.mutate(
       {
         id: tenantRep.id,
+        ...(isBuySide ? buyerCriteriaToRow(criteria) : {}),
         deal_type: (f.deal_type as Enums<'deal_type'>) || 'lease',
         source: f.source === NONE ? null : (f.source as Enums<'lead_source'>),
         broker_contact_id: f.source === 'broker' ? brokerId : null,
@@ -296,6 +319,13 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
               </Select>
             </div>
           </div>
+
+          {isBuySide && (
+            <div className="space-y-4 rounded-lg border p-3">
+              <p className="text-sm font-medium">Buy-side criteria</p>
+              <BuyerCriteriaFields value={criteria} onChange={setCriteria} idPrefix="tr-buyer" />
+            </div>
+          )}
 
           <MinMax label="Building SF" minKey="building_sf_min" maxKey="building_sf_max" values={f} set={set} />
           <MinMax label="Land (acres)" minKey="land_acres_min" maxKey="land_acres_max" step="0.1" values={f} set={set} />

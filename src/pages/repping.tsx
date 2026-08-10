@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
 import {
   Columns3,
   MoreHorizontal,
@@ -24,7 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -54,6 +53,7 @@ import {
   useUpdateClientStatus,
 } from '@/hooks/use-tenant-reps'
 import type { TenantRepWithRelations } from '@/hooks/use-tenant-reps'
+import { isTenantClient } from '@/lib/clients'
 import { formatListingPrice } from '@/lib/format'
 import { getReppingSide, setReppingSide } from '@/lib/repping-side'
 import {
@@ -117,9 +117,15 @@ function RowActions({
   )
 }
 
-export function ReppingPage() {
+/** /repping is a legacy entry point — send it to whichever pipeline you were last on. */
+export function ReppingRedirect() {
+  return <Navigate to={`/pipelines/${getReppingSide()}`} replace />
+}
+
+export function ReppingPage({ side }: { side: Side }) {
   const navigate = useNavigate()
-  const [side, setSide] = useState<Side>(getReppingSide)
+  // Remembered so the legacy /repping link (and any old bookmark) lands where you left off.
+  useEffect(() => setReppingSide(side), [side])
   const [status, setStatus] = useState<StatusFilter>('active')
   const [view, setView] = useState<'board' | 'table'>('board')
   // Adding a property or tenant opens the n8n-hosted intake form (a new tab),
@@ -146,11 +152,12 @@ export function ReppingPage() {
   )
   // The tenant board shows only ELECTED tenant reps (is_rep=true), in any status incl.
   // Prospect. Landlord-side prospects (is_rep=false) live on the landlord board only and
-  // appear here once elected as a rep. The top filter then gates 'lost'.
+  // appear here once elected as a rep. Sale-only clients are buyers and live on the
+  // Buyers pipeline; deal_type 'both' shows in both places. The top filter gates 'lost'.
   const filteredTenants = useMemo(
     () =>
       (tenantsQ.data ?? []).filter((t) => {
-        if (!t.is_rep) return false
+        if (!isTenantClient(t)) return false
         return status === 'all' ? true : status === 'lost' ? t.status === 'lost' : t.status !== 'lost'
       }),
     [tenantsQ.data, status],
@@ -247,7 +254,9 @@ export function ReppingPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Repping</h1>
+        <h1 className="text-xl font-semibold">
+          {isLandlord ? 'Landlord pipeline' : 'Tenant pipeline'}
+        </h1>
         {isLandlord ? (
           <Button onClick={openLandlordForm}>
             <Plus className="size-4" />
@@ -261,21 +270,7 @@ export function ReppingPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs
-          value={side}
-          onValueChange={(v) => {
-            const next = v as Side
-            setSide(next)
-            setReppingSide(next)
-          }}
-        >
-          <TabsList>
-            <TabsTrigger value="landlord">Landlord repping</TabsTrigger>
-            <TabsTrigger value="tenant">Tenant repping</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-2">
           <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
             <SelectTrigger className="w-32" size="sm">

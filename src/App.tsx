@@ -8,7 +8,8 @@ import { AuthProvider } from '@/hooks/use-auth'
 import { BreadcrumbProvider } from '@/hooks/use-breadcrumb'
 import { LoginPage } from '@/pages/login'
 import { DashboardPage } from '@/pages/dashboard'
-import { ReppingPage } from '@/pages/repping'
+import { ReppingPage, ReppingRedirect } from '@/pages/repping'
+import { BuyersPage } from '@/pages/buyers'
 import { ProspectingPage } from '@/pages/prospecting'
 import { PropertyBoardPage } from '@/pages/property-board'
 import { TenantBoardPage } from '@/pages/tenant-board'
@@ -51,11 +52,16 @@ export default function App() {
               >
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/activity" element={<ActivityPage />} />
-                <Route path="/repping" element={<ReppingPage />} />
+                <Route path="/pipelines" element={<Navigate to="/pipelines/landlord" replace />} />
+                <Route path="/pipelines/landlord" element={<ReppingPage side="landlord" />} />
+                <Route path="/pipelines/tenant" element={<ReppingPage side="tenant" />} />
+                <Route path="/pipelines/buyers" element={<BuyersPage />} />
+                {/* Legacy entry points: /repping restores whichever side you were last on. */}
+                <Route path="/repping" element={<ReppingRedirect />} />
                 <Route path="/prospecting" element={<ProspectingPage />} />
-                <Route path="/landlord-rep" element={<Navigate to="/repping" replace />} />
+                <Route path="/landlord-rep" element={<Navigate to="/pipelines/landlord" replace />} />
                 <Route path="/landlord-rep/:listingId" element={<PropertyBoardPage />} />
-                <Route path="/tenant-rep" element={<Navigate to="/repping" replace />} />
+                <Route path="/tenant-rep" element={<Navigate to="/pipelines/tenant" replace />} />
                 <Route path="/tenant-rep/:tenantRepId" element={<TenantBoardPage />} />
                 <Route path="/tasks" element={<TasksPage />} />
                 <Route path="/contacts" element={<ContactsPage />} />
