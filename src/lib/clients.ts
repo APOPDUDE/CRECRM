@@ -27,6 +27,19 @@ export const industrialSubclassLabels: Record<Enums<'industrial_subclass'>, stri
   land_development: 'Land / development',
 }
 
+/**
+ * How a subclass reads inside a sentence: "you're after IOS around Seminole".
+ * The display labels don't survive lowercasing — IOS is an acronym, not a word.
+ */
+export const industrialSubclassPhrases: Record<Enums<'industrial_subclass'>, string> = {
+  ios: 'IOS',
+  small_bay: 'small bay',
+  big_box: 'big box',
+  cold_storage: 'cold storage',
+  flex: 'flex',
+  land_development: 'land',
+}
+
 export const industrialSubclassHints: Partial<Record<Enums<'industrial_subclass'>, string>> = {
   small_bay: 'Under 10,000 SF',
   big_box: '10,000 SF and up',

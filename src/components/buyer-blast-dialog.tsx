@@ -17,6 +17,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { usePropertyPointSearch, type PropertyPoint } from '@/hooks/use-buyers'
 import { useLogBlastPursuits } from '@/hooks/use-matches'
 import { formatCurrency, formatSf } from '@/lib/format'
+import { renderFor, variantCount } from '@/lib/message-template'
 import { cn } from '@/lib/utils'
 
 const BLAST_URL = 'https://n8n.ayxco.com/webhook/buyer-blast'
@@ -27,6 +28,8 @@ export type BlastBuyer = {
   first: string | null
   last: string | null
   company: string | null
+  /** token values only this buyer's record can produce — what stops a blast reading as one */
+  ctx?: Record<string, string | null>
 }
 
 type BlastMode = 'draft' | 'send'
@@ -61,22 +64,22 @@ export type BlastDeal = {
  */
 export const MERGE_FIELDS: { label: string; token: string }[] = [
   { label: 'First name', token: '{{contact.first_name || "there"}}' },
-  { label: 'Full name', token: '{{contact.full_name}}' },
   { label: 'Company', token: '{{contact.company_name}}' },
+  { label: 'What they buy', token: '{{buyer.product}}' },
+  { label: 'Their areas', token: '{{buyer.areas}}' },
+  { label: 'Their budget', token: '{{buyer.price}}' },
+  { label: 'Either/or', token: '{a|b}' },
 ]
 
-const MERGE_RE = /\{\{\s*contact\.(\w+)\s*(?:\|\|\s*["']([^"']*)["'])?\s*\}\}/g
-
-/** Render a template the way GHL will, so the preview is not a guess. */
+/** Render exactly the way the workflow will, so a preview is proof rather than a guess. */
 export function renderMerge(template: string, b: BlastBuyer | undefined): string {
-  return template.replace(MERGE_RE, (_m, field: string, fallback: string | undefined) => {
-    const values: Record<string, string | null> = {
-      first_name: b?.first ?? null,
-      last_name: b?.last ?? null,
-      full_name: [b?.first, b?.last].filter(Boolean).join(' ') || null,
-      company_name: b?.company ?? null,
-    }
-    return values[field] || fallback || ''
+  if (!b) return template
+  return renderFor(template, b.clientId || b.phone, {
+    'contact.first_name': b.first,
+    'contact.last_name': b.last,
+    'contact.full_name': [b.first, b.last].filter(Boolean).join(' ') || null,
+    'contact.company_name': b.company,
+    ...(b.ctx ?? {}),
   })
 }
 
@@ -99,10 +102,13 @@ export function composeMessage(deal: BlastDeal | null, dealUrl: string): string 
   const link = dealUrl.trim()
 
   return [
-    `${MERGE_FIELDS[0].token} — Alex here. New industrial deal: ${where}.`,
+    // References what they told us they buy, and no two recipients read the same words.
+    `{Hey|Hi} ${MERGE_FIELDS[0].token} — Alex. You mentioned you're {looking for|after} ` +
+      `{{buyer.product || "industrial"}} around {{buyer.areas || "the bay"}}, so this one ` +
+      `{came to mind|seemed worth sending}: ${where}.`,
     facts,
     link ? `Details: ${link}` : null,
-    'Want the numbers before it moves?',
+    '{Worth a look?|Want the numbers?|Any interest?}',
   ]
     .filter(Boolean)
     .join('\n')
@@ -187,10 +193,9 @@ export function BuyerBlastDialog({
   // Preview against someone who HAS a first name where possible — a blank-name buyer
   // would show the fallback and hide what the token actually does.
   const preview = useMemo(() => reach.find((b) => b.first) ?? reach[0], [reach])
-  const previewName = preview
-    ? [preview.first, preview.last].filter(Boolean).join(' ') || preview.company || 'this buyer'
-    : ''
   const missingFirstName = useMemo(() => reach.filter((b) => !b.first).length, [reach])
+  const variants = useMemo(() => variantCount(message), [message])
+  const second = useMemo(() => reach.find((b) => b.clientId !== preview?.clientId), [reach, preview])
 
   const insertToken = (token: string) => {
     const el = messageRef.current
@@ -388,18 +393,35 @@ export function BuyerBlastDialog({
             }}
             placeholder="Pick a deal above and this writes itself — or type your own."
           />
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {message.length} characters
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="tabular-nums">{message.length} characters</span>
+            <span className="tabular-nums">
+              {variants === 1
+                ? 'every recipient gets identical wording'
+                : `${variants.toLocaleString()} wordings in rotation`}
+            </span>
+          </div>
+          {variants === 1 && reach.length > 3 && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+              Identical text to {reach.length} numbers is what gets a line flagged. Add a choice
+              like <code>{'{Hey|Hi}'}</code>, and reference something only they would know — the
+              buttons above insert both.
+            </p>
+          )}
 
           {/* What one real recipient actually sees. GHL fills these in at send time; this
               renders the same substitution locally so the tokens are not taken on faith. */}
-          {message.includes('{{') && preview && (
-            <div className="rounded-md border bg-muted/40 p-2.5">
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                Preview — as {previewName} receives it
-              </p>
-              <p className="whitespace-pre-wrap text-sm">{renderMerge(message, preview)}</p>
+          {message.trim() && preview && (
+            <div className="space-y-2">
+              {[preview, second].filter(Boolean).map((b, i) => (
+                <div key={b!.clientId || i} className="rounded-md border bg-muted/40 p-2.5">
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">
+                    As {[b!.first, b!.last].filter(Boolean).join(' ') || b!.company || 'this buyer'}{' '}
+                    receives it
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm">{renderMerge(message, b!)}</p>
+                </div>
+              ))}
             </div>
           )}
 
