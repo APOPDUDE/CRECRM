@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,33 @@ export type BlastDeal = {
   url: string | null
 }
 
+/**
+ * GoHighLevel merge fields. These stay as literal {{...}} in the drafted message —
+ * GHL substitutes them per contact at send time, so the text we store is the template,
+ * not the finished message. The `|| "…"` fallback is GHL's own syntax and is what keeps
+ * a contact with no first name from getting "Hi ,".
+ */
+export const MERGE_FIELDS: { label: string; token: string }[] = [
+  { label: 'First name', token: '{{contact.first_name || "there"}}' },
+  { label: 'Full name', token: '{{contact.full_name}}' },
+  { label: 'Company', token: '{{contact.company_name}}' },
+]
+
+const MERGE_RE = /\{\{\s*contact\.(\w+)\s*(?:\|\|\s*["']([^"']*)["'])?\s*\}\}/g
+
+/** Render a template the way GHL will, so the preview is not a guess. */
+export function renderMerge(template: string, b: BlastBuyer | undefined): string {
+  return template.replace(MERGE_RE, (_m, field: string, fallback: string | undefined) => {
+    const values: Record<string, string | null> = {
+      first_name: b?.first ?? null,
+      last_name: b?.last ?? null,
+      full_name: [b?.first, b?.last].filter(Boolean).join(' ') || null,
+      company_name: b?.company ?? null,
+    }
+    return values[field] || fallback || ''
+  })
+}
+
 export function composeMessage(deal: BlastDeal | null, dealUrl: string): string {
   if (!deal) return ''
   const where = [deal.address, deal.city].filter(Boolean).join(', ')
@@ -64,7 +91,7 @@ export function composeMessage(deal: BlastDeal | null, dealUrl: string): string 
   const link = dealUrl.trim()
 
   return [
-    `Alex here. New industrial deal: ${where}.`,
+    `${MERGE_FIELDS[0].token} — Alex here. New industrial deal: ${where}.`,
     facts,
     link ? `Details: ${link}` : null,
     'Want the numbers before it moves?',
@@ -100,6 +127,7 @@ export function BuyerBlastDialog({
   const [message, setMessage] = useState('')
   const [touched, setTouched] = useState(false)
   const [busy, setBusy] = useState(false)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
   const results = usePropertyPointSearch(dealQuery)
 
   useEffect(() => {
@@ -141,6 +169,31 @@ export function BuyerBlastDialog({
   }
 
   const reach = useMemo(() => buyers.filter((b) => b.phone), [buyers])
+
+  // Preview against someone who HAS a first name where possible — a blank-name buyer
+  // would show the fallback and hide what the token actually does.
+  const preview = useMemo(() => reach.find((b) => b.first) ?? reach[0], [reach])
+  const previewName = preview
+    ? [preview.first, preview.last].filter(Boolean).join(' ') || preview.company || 'this buyer'
+    : ''
+  const missingFirstName = useMemo(() => reach.filter((b) => !b.first).length, [reach])
+
+  const insertToken = (token: string) => {
+    const el = messageRef.current
+    setTouched(true)
+    if (!el) {
+      setMessage((m) => m + token)
+      return
+    }
+    const start = el.selectionStart ?? message.length
+    const end = el.selectionEnd ?? start
+    const next = message.slice(0, start) + token + message.slice(end)
+    setMessage(next)
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(start + token.length, start + token.length)
+    })
+  }
 
   const push = async () => {
     if (!segment.trim() || !message.trim() || reach.length === 0) return
@@ -249,9 +302,26 @@ export function BuyerBlastDialog({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="blast-message">Message</Label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label htmlFor="blast-message">Message</Label>
+            <div className="flex flex-wrap gap-1">
+              {MERGE_FIELDS.map((f) => (
+                <Button
+                  key={f.token}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-xs font-normal"
+                  onClick={() => insertToken(f.token)}
+                >
+                  + {f.label}
+                </Button>
+              ))}
+            </div>
+          </div>
           <Textarea
             id="blast-message"
+            ref={messageRef}
             rows={6}
             value={message}
             onChange={(e) => {
@@ -263,6 +333,26 @@ export function BuyerBlastDialog({
           <p className="text-xs text-muted-foreground tabular-nums">
             {message.length} characters
           </p>
+
+          {/* What one real recipient actually sees. GHL fills these in at send time; this
+              renders the same substitution locally so the tokens are not taken on faith. */}
+          {message.includes('{{') && preview && (
+            <div className="rounded-md border bg-muted/40 p-2.5">
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                Preview — as {previewName} receives it
+              </p>
+              <p className="whitespace-pre-wrap text-sm">{renderMerge(message, preview)}</p>
+            </div>
+          )}
+
+          {message.includes('{{contact.first_name') && missingFirstName > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {missingFirstName} of the {reach.length} ticked{' '}
+              {missingFirstName === 1 ? 'has' : 'have'} no first name on file, so{' '}
+              {missingFirstName === 1 ? 'that one falls' : 'those fall'} back to the wording after{' '}
+              <code>||</code>.
+            </p>
+          )}
         </div>
 
         {noPhoneCount > 0 && (
