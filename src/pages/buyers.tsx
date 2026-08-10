@@ -39,6 +39,7 @@ import {
   daysUntil,
   industrialSubclassHints,
   industrialSubclassLabels,
+  industrialSubclassPhrases,
   industrialSubclasses,
   investmentStrategies,
   investmentStrategyLabels,
@@ -306,6 +307,16 @@ export function BuyersPage() {
           first: b.contact?.first_name ?? null,
           last: b.contact?.last_name ?? null,
           company: b.company?.name ?? null,
+          // What they told us they want. A message that quotes this reads as a follow-up
+          // rather than a blast, which is the difference the carriers are scoring.
+          ctx: {
+            'buyer.product':
+              b.product_subclasses.map((sc) => industrialSubclassPhrases[sc]).join(' / ') || null,
+            'buyer.areas': parseTargetAreas(b.target_areas).map((a) => a.name).join(', ') || null,
+            'buyer.price': priceRange(b.price_min, b.price_max),
+            'buyer.strategy':
+              b.strategies.map((st) => investmentStrategyLabels[st].toLowerCase()).join(' / ') || null,
+          },
         })),
     [filtered, deselected],
   )
