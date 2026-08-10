@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -236,12 +237,10 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="property-building-sf">Building SF</Label>
-                <Input
+                <CurrencyInput
                   id="property-building-sf"
-                  type="number"
-                  inputMode="numeric"
                   value={buildingSf}
-                  onChange={(e) => setBuildingSf(e.target.value)}
+                  onValueChange={setBuildingSf}
                 />
               </div>
               <div className="space-y-2">

@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -166,12 +167,10 @@ export function ExecutedMatchDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="executed-price">Sale price</Label>
-                  <Input
+                  <CurrencyInput
                     id="executed-price"
-                    type="number"
-                    inputMode="numeric"
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onValueChange={setPrice}
                     placeholder="$"
                   />
                 </div>
@@ -192,12 +191,10 @@ export function ExecutedMatchDialog({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="executed-rate">Rate $/SF</Label>
-                    <Input
+                    <CurrencyInput
                       id="executed-rate"
-                      type="number"
-                      inputMode="decimal"
                       value={rate}
-                      onChange={(e) => setRate(e.target.value)}
+                      onValueChange={setRate}
                       placeholder="$/SF"
                     />
                   </div>
@@ -233,12 +230,10 @@ export function ExecutedMatchDialog({
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="executed-ti">TI $/SF</Label>
-                    <Input
+                    <CurrencyInput
                       id="executed-ti"
-                      type="number"
-                      inputMode="decimal"
                       value={tiPsf}
-                      onChange={(e) => setTiPsf(e.target.value)}
+                      onValueChange={setTiPsf}
                     />
                   </div>
                   <div className="space-y-2">
@@ -295,15 +290,13 @@ export function ExecutedMatchDialog({
 
           <div className="space-y-2">
             <Label htmlFor="executed-fee">Actual fee</Label>
-            <Input
+            <CurrencyInput
               id="executed-fee"
-              type="number"
-              inputMode="numeric"
               value={fee}
-              onChange={(e) => {
-                setFee(e.target.value)
+              onValueChange={(v) => {
+                setFee(v)
                 setFeeTouched(true)
-                if (e.target.value.trim()) setConfirmNoFee(false)
+                if (v.trim()) setConfirmNoFee(false)
               }}
               placeholder="$"
               aria-invalid={confirmNoFee && !fee.trim()}

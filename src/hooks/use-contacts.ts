@@ -27,14 +27,20 @@ export function findContactByPhone<T extends { phone: string | null }>(
   return contacts.find((c) => normalizePhone(c.phone) === n)
 }
 
-export function useContacts() {
+/**
+ * The live contact book. Archived rows are import padding with no relationship
+ * evidence (see migration 20260810000001) — they stay in the table because comps,
+ * owner guesses and campaign history still point at them, but they never surface
+ * in the UI. Pass includeArchived to see the whole book.
+ */
+export function useContacts(opts: { includeArchived?: boolean } = {}) {
+  const includeArchived = opts.includeArchived ?? false
   return useQuery({
-    queryKey: ['contacts'],
+    queryKey: ['contacts', { includeArchived }],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('contacts')
-        .select(CONTACT_SELECT)
-        .order('first_name')
+      let q = supabase.from('contacts').select(CONTACT_SELECT)
+      if (!includeArchived) q = q.eq('archived', false)
+      const { data, error } = await q.order('first_name')
       if (error) throw error
       return data as Contact[]
     },

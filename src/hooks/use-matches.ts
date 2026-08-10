@@ -162,7 +162,7 @@ export function useMatch(id: string | undefined) {
   })
 }
 
-function invalidateMatchViews(queryClient: ReturnType<typeof useQueryClient>) {
+export function invalidateMatchViews(queryClient: ReturnType<typeof useQueryClient>) {
   // pursuits drive both boards' cards and the level-1 boards' aggregate counts
   queryClient.invalidateQueries({ queryKey: ['matches'] })
   queryClient.invalidateQueries({ queryKey: ['match'] })
@@ -225,6 +225,52 @@ export function useCreateMatch() {
         .single()
       if (error) throw error
       return data
+    },
+    onSuccess: () => invalidateMatchViews(queryClient),
+  })
+}
+
+/**
+ * Log a texted deal onto every buyer who received it.
+ *
+ * The pursuit IS the record of "this buyer was shown this property", so a blast that
+ * leaves no pursuit behind is a conversation you cannot report on later. Each one lands
+ * at `inquiring` (the column default) and moves from there as they react.
+ *
+ * `(client_id, property_id)` is unique and the upsert IGNORES conflicts on purpose: if a
+ * buyer already has this property — perhaps already at Touring — re-texting them must not
+ * drag it back to inquiring or overwrite what you learned.
+ */
+export function useLogBlastPursuits() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      propertyId,
+      clientIds,
+      note,
+      ownerId,
+    }: {
+      propertyId: string
+      clientIds: string[]
+      note: string
+      ownerId: string
+    }) => {
+      if (!clientIds.length) return { added: 0 }
+      const rows = clientIds.map((client_id) =>
+        asPursuitInsert({
+          owner_id: ownerId,
+          client_id,
+          property_id: propertyId,
+          stage: 'inquiring',
+          notes: note,
+        }),
+      )
+      const { data, error } = await supabase
+        .from('pursuits')
+        .upsert(rows, { onConflict: 'client_id,property_id', ignoreDuplicates: true })
+        .select('id')
+      if (error) throw error
+      return { added: data?.length ?? 0 }
     },
     onSuccess: () => invalidateMatchViews(queryClient),
   })

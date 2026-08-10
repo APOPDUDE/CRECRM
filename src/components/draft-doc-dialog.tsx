@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -322,13 +323,11 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
               </div>
               <div className="space-y-2">
                 <Label htmlFor="doc-sf">Size (SF)</Label>
-                <Input
+                <CurrencyInput
                   id="doc-sf"
-                  type="number"
-                  min={1}
                   placeholder="e.g. 10000"
                   value={proposedSf}
-                  onChange={(e) => setProposedSf(e.target.value)}
+                  onValueChange={setProposedSf}
                 />
               </div>
             </div>
@@ -389,24 +388,18 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="doc-price">Purchase price ($)</Label>
-                  <Input
+                  <CurrencyInput
                     id="doc-price"
-                    type="number"
-                    min={0}
-                    step="any"
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onValueChange={setPrice}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="doc-earnest">Earnest deposit ($)</Label>
-                  <Input
+                  <CurrencyInput
                     id="doc-earnest"
-                    type="number"
-                    min={0}
-                    step="any"
                     value={earnest}
-                    onChange={(e) => setEarnest(e.target.value)}
+                    onValueChange={setEarnest}
                   />
                 </div>
                 <div className="space-y-2">
@@ -437,13 +430,10 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="doc-rate">Base rent ($/SF/yr)</Label>
-                    <Input
+                    <CurrencyInput
                       id="doc-rate"
-                      type="number"
-                      min={0}
-                      step="any"
                       value={ratePsf}
-                      onChange={(e) => setRatePsf(e.target.value)}
+                      onValueChange={setRatePsf}
                     />
                   </div>
                   <div className="space-y-2">
@@ -464,13 +454,10 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="doc-opex">Opex ($/SF/yr)</Label>
-                    <Input
+                    <CurrencyInput
                       id="doc-opex"
-                      type="number"
-                      min={0}
-                      step="any"
                       value={opexPsf}
-                      onChange={(e) => setOpexPsf(e.target.value)}
+                      onValueChange={setOpexPsf}
                     />
                   </div>
                   <div className="space-y-2">
@@ -517,24 +504,18 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="doc-ti">TI allowance ($/SF)</Label>
-                    <Input
+                    <CurrencyInput
                       id="doc-ti"
-                      type="number"
-                      min={0}
-                      step="any"
                       value={tiAllowance}
-                      onChange={(e) => setTiAllowance(e.target.value)}
+                      onValueChange={setTiAllowance}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="doc-dep">Security deposit ($)</Label>
-                    <Input
+                    <CurrencyInput
                       id="doc-dep"
-                      type="number"
-                      min={0}
-                      step="any"
                       value={deposit}
-                      onChange={(e) => setDeposit(e.target.value)}
+                      onValueChange={setDeposit}
                     />
                   </div>
                 </div>

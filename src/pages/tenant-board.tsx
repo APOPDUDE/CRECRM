@@ -106,6 +106,8 @@ export function TenantBoardPage() {
   // pursuit sitting on an unexpected side can never hide.
   const sides = boardSides(tenantRep?.deal_type, matches)
   const [side, setSide] = useBoardSide(tenantRepId, sides)
+  // A client on the sale board is a buyer; the sidebar should say so.
+  const isBuySide = side === 'sale'
   const flipSide = useUpdatePursuitDealSide(tenantRepMatchesKey(tenantRepId ?? ''))
   const reorder = useReorderPursuit(tenantRepMatchesKey(tenantRepId ?? ''))
   const sideMatches = sides.length > 1 ? matches.filter((m) => m.deal_type === side) : matches
@@ -540,7 +542,7 @@ export function TenantBoardPage() {
             )}
 
             {contact && (
-              <SidebarSection title="Tenant contact">
+              <SidebarSection title={isBuySide ? 'Buyer contact' : 'Tenant contact'}>
                 <div className="group/edit relative rounded-lg border bg-card p-3 text-sm">
                   <button
                     type="button"
@@ -559,7 +561,7 @@ export function TenantBoardPage() {
             )}
 
             {tenantRep.company && (
-              <SidebarSection title="Tenant company">
+              <SidebarSection title={isBuySide ? 'Buyer company' : 'Tenant company'}>
                 <div className="group/edit relative space-y-1 rounded-lg border bg-card p-3 text-sm transition-colors hover:bg-accent">
                   <button
                     type="button"

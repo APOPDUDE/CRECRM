@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -146,26 +147,25 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
             {isSale ? (
               <div className="space-y-2">
                 <Label>Sale price</Label>
-                <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+                <CurrencyInput value={price} onValueChange={setPrice} />
               </div>
             ) : (
               <div className="space-y-2">
                 <Label>{isExecuted ? 'Executed' : 'Asking'} rate $/SF/yr</Label>
-                <Input type="number" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} />
+                <CurrencyInput value={rate} onValueChange={setRate} />
               </div>
             )}
             {!isSale && (
               <div className="space-y-2">
                 <Label>Opex / SF/yr</Label>
-                <Input type="number" step="0.01" value={opex} onChange={(e) => setOpex(e.target.value)} />
+                <CurrencyInput value={opex} onValueChange={setOpex} />
               </div>
             )}
             <div className="space-y-2">
               <Label>Space SF{!isSale && ' (this deal)'}</Label>
-              <Input
-                type="number"
+              <CurrencyInput
                 value={sf}
-                onChange={(e) => setSf(e.target.value)}
+                onValueChange={setSf}
                 placeholder={isSale ? 'building SF' : 'leased area'}
               />
             </div>
@@ -176,7 +176,7 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
             {isExecuted && (
               <div className="space-y-2">
                 <Label>Commission booked</Label>
-                <Input type="number" value={fee} onChange={(e) => setFee(e.target.value)} />
+                <CurrencyInput value={fee} onValueChange={setFee} />
               </div>
             )}
           </div>
@@ -209,7 +209,7 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
               </div>
               <div className="space-y-2">
                 <Label>TI $/SF</Label>
-                <Input type="number" value={ti} onChange={(e) => setTi(e.target.value)} />
+                <CurrencyInput value={ti} onValueChange={setTi} />
               </div>
               <div className="space-y-2">
                 <Label>Commencement</Label>
