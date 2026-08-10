@@ -7,6 +7,7 @@ import { CompanyFormDialog } from '@/components/company-form-dialog'
 import { CompanyPeopleAndLeases } from '@/components/company-people-and-leases'
 import { CompanyTypeBadge } from '@/pages/companies'
 import { useCompany } from '@/hooks/use-companies'
+import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
@@ -78,6 +79,16 @@ export function CompanyDetailPage() {
         <Field label="Phone" value={company.phone} />
         <Field label="Website" value={company.website} />
         <Field label="Industry" value={company.industry} />
+        <Field
+          label="Employees"
+          value={company.employee_count != null ? company.employee_count.toLocaleString() : null}
+        />
+        <Field
+          label="Annual revenue"
+          value={company.annual_revenue != null ? formatCurrency(company.annual_revenue) : null}
+        />
+        <Field label="NAICS" value={company.naics} />
+        <Field label="SIC" value={company.sic} />
         <div className="sm:col-span-2">
           <Field label="Notes" value={company.notes} />
         </div>

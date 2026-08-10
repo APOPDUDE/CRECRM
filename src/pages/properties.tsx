@@ -718,7 +718,8 @@ export function PropertiesPage() {
     downloadCsv(`skiptrace-${todayStamp()}-${rows.length}.csv`, toCsv(headers, rows))
     // Stamp the pipeline: these owners are now "out for skip-trace", so the map can show
     // what's already in flight and the next export can exclude them. Fire-and-forget —
-    // the download must not hinge on the write.
+    // the download must not hinge on the write. ONLY the owner export stamps: a market or
+    // lease export is research, not a skip-trace hand-off, and must not mark anyone.
     void supabase
       .rpc('mark_owners_exported', { p_property_ids: filtered.map((p) => p.id) })
       .then(({ data, error }) => {
@@ -730,6 +731,70 @@ export function PropertiesPage() {
         }
       })
   }
+
+  /** Market lens: the building and how it is priced, with the listing to click into. */
+  const exportMarket = () => {
+    const headers = [
+      'Address', 'City', 'State', 'Zip', 'County', 'Property Type',
+      'Building SF', 'Acres', 'Year Built',
+      'Market Status', 'Days On Market', 'Asking Rate $/SF', 'Asking Price',
+      'Listing URL', 'CRM Property ID',
+    ]
+    const rows = filtered.map((p) => {
+      const ask = askingMap?.get(p.id)
+      return [
+        p.address, p.city, p.state, p.zip, p.county,
+        p.property_type ? propertyKindLabels[p.property_type] : null,
+        p.building_sf, p.land_acres, p.year_built,
+        p.listing_status === 'off_market' ? 'off market' : 'on market',
+        p.days_on_market, ask?.rate ?? null, ask?.price ?? null,
+        p.listing_url, p.id,
+      ]
+    })
+    downloadCsv(`market-${todayStamp()}-${rows.length}.csv`, toCsv(headers, rows))
+  }
+
+  /**
+   * Lease lens: the building, the tenancy, and the person to call. One row per
+   * property, carrying the same representative lease the table shows — the one the
+   * active window matched, or the soonest-running one when no window is set. Properties
+   * in the filter with no lease on file are left out rather than exported as empty rows.
+   */
+  const exportLeases = () => {
+    const headers = [
+      'Address', 'City', 'State', 'Zip', 'County', 'Property Type', 'Building SF', 'Acres',
+      'Tenant Company', 'Leased SF', 'Rate $/SF', 'Structure', 'Term (mo)',
+      'Signed', 'Commencement', 'Expiration', 'Months To Expiry',
+      'DM Status', 'DM Name', 'DM Title', 'DM Phone', 'DM Email', 'CRM Property ID',
+    ]
+    const rows: (string | number | null)[][] = []
+    for (const p of filtered) {
+      const l = leaseMatch?.top.get(p.id) ?? leaseSoonest.get(p.id)
+      if (!l) continue
+      rows.push([
+        p.address, p.city, p.state, p.zip, p.county,
+        p.property_type ? propertyKindLabels[p.property_type] : null,
+        p.building_sf, p.land_acres,
+        l.tenant_company_name ?? l.tenant_name, l.sf, l.executed_lease_rate_psf,
+        l.lease_structure, l.term_months,
+        l.signed_date, l.commencement_date, l.expiration_date, l.months_to_expiry,
+        l.dm_status, l.dm_name, l.dm_title, l.dm_phone, l.dm_email, p.id,
+      ])
+    }
+    downloadCsv(`leases-${todayStamp()}-${rows.length}.csv`, toCsv(headers, rows))
+    if (rows.length < filtered.length) {
+      toast.info(`${filtered.length - rows.length} filtered propert${filtered.length - rows.length === 1 ? 'y has' : 'ies have'} no lease on file and were left out`)
+    }
+  }
+
+  // The button follows the lens: each map view answers a different question, so its
+  // export carries that question's columns. The table has no lens and keeps the
+  // skip-trace export it has always produced.
+  const runExport = view === 'map' && colorBy === 'market'
+    ? exportMarket
+    : view === 'map' && colorBy === 'lease'
+      ? exportLeases
+      : exportCsv
 
   // Paginate the table display (data is fully loaded; this just bounds the DOM).
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -1228,7 +1293,7 @@ export function PropertiesPage() {
                       ? 'Loading properties in the background…'
                       : `${(properties ?? []).length.toLocaleString()} loaded — pins appear when you search or filter`}
             </span>
-            <Button size="sm" variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
+            <Button size="sm" variant="outline" onClick={runExport} disabled={filtered.length === 0}>
               <Download className="size-4" />
               Export CSV
             </Button>

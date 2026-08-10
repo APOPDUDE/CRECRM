@@ -452,36 +452,48 @@ export type Database = {
       }
       companies: {
         Row: {
+          annual_revenue: number | null
           created_at: string
+          employee_count: number | null
           id: string
           industry: string | null
+          naics: string | null
           name: string
           notes: string | null
           phone: string | null
+          sic: string | null
           source: string | null
           type: Database["public"]["Enums"]["company_type"]
           updated_at: string
           website: string | null
         }
         Insert: {
+          annual_revenue?: number | null
           created_at?: string
+          employee_count?: number | null
           id?: string
           industry?: string | null
+          naics?: string | null
           name: string
           notes?: string | null
           phone?: string | null
+          sic?: string | null
           source?: string | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
           website?: string | null
         }
         Update: {
+          annual_revenue?: number | null
           created_at?: string
+          employee_count?: number | null
           id?: string
           industry?: string | null
+          naics?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
+          sic?: string | null
           source?: string | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
@@ -651,6 +663,7 @@ export type Database = {
           decision_maker: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call: boolean
           email: string | null
+          email_verified_at: string | null
           first_name: string
           hubspot_id: string | null
           id: string
@@ -676,6 +689,7 @@ export type Database = {
           decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call?: boolean
           email?: string | null
+          email_verified_at?: string | null
           first_name: string
           hubspot_id?: string | null
           id?: string
@@ -701,6 +715,7 @@ export type Database = {
           decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call?: boolean
           email?: string | null
+          email_verified_at?: string | null
           first_name?: string
           hubspot_id?: string | null
           id?: string
@@ -2152,9 +2167,11 @@ export type Database = {
           comp_id: string | null
           county: string | null
           days_to_expiry: number | null
+          dm_email: string | null
           dm_name: string | null
           dm_phone: string | null
           dm_status: Database["public"]["Enums"]["decision_maker_status"] | null
+          dm_title: string | null
           dm_verified: boolean | null
           executed_lease_rate_psf: number | null
           expiration_date: string | null
