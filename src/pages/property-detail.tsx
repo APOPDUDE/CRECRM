@@ -15,6 +15,7 @@ import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
 import { PropertyTasks } from '@/components/property-tasks'
 import { PropertyComps } from '@/components/property-comps'
+import { PropertyTourNotes } from '@/components/property-tour-notes'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { EnrichParcelDialog } from '@/components/enrich-parcel-dialog'
 import { PropertyTypeBadge } from '@/pages/properties'
@@ -335,6 +336,11 @@ export function PropertyDetailPage() {
           <PropertyTasks propertyId={property.id} />
         </section>
       </div>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Tenant feedback</h2>
+        <PropertyTourNotes propertyId={property.id} />
+      </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="space-y-2">

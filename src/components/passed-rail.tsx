@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, RotateCcw, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Footprints, RotateCcw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { usePersistentState } from '@/hooks/use-persistent-state'
@@ -8,6 +8,12 @@ export interface PassedRailItem {
   id: string
   title: string
   subtitle?: string | null
+  /**
+   * They actually walked the building before passing. Worth seeing at a glance: a deal
+   * that died after a tour is real market feedback on the address, where one that died
+   * at Inquiring is usually just a bad fit on paper.
+   */
+  toured?: boolean
 }
 
 interface PassedRailProps {
@@ -70,6 +76,15 @@ export function PassedRail({ items, onRestore, onDelete, deletePending }: Passed
             <div className="truncate text-sm font-medium">{item.title}</div>
             {item.subtitle && (
               <div className="truncate text-xs text-muted-foreground">{item.subtitle}</div>
+            )}
+            {item.toured && (
+              <span
+                className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                title="They toured this before passing"
+              >
+                <Footprints className="size-3" />
+                Toured
+              </span>
             )}
             <div className="mt-1.5 flex items-center gap-1">
               <Button
