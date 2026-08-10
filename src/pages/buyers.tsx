@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { MapPin, MessageSquare, Plus, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
@@ -145,6 +146,7 @@ export function BuyersPage() {
 
   const [addOpen, setAddOpen] = useState(false)
   const [blastOpen, setBlastOpen] = useState(false)
+  const [deselected, setDeselected] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [subclasses, setSubclasses] = usePersistentState<Subclass[]>('buyers:subclasses', [])
   const [strategies, setStrategies] = usePersistentState<StrategyPick[]>('buyers:strategies2', [])
@@ -268,11 +270,33 @@ export function BuyersPage() {
     search,
   ])
 
-  // Whoever survived the filters is the segment — that is the whole point of the roster.
+  const isSelected = (id: string) => !deselected.has(id)
+  const toggleOne = (id: string) =>
+    setDeselected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const textable = useMemo(() => filtered.filter((b) => b.contact?.phone), [filtered])
+  const selectedCount = useMemo(
+    () => textable.filter((b) => isSelected(b.id)).length,
+    [textable, deselected],
+  )
+  const allSelected = textable.length > 0 && selectedCount === textable.length
+  const toggleAll = () =>
+    setDeselected((prev) => {
+      const next = new Set(prev)
+      if (allSelected) textable.forEach((b) => next.add(b.id))
+      else textable.forEach((b) => next.delete(b.id))
+      return next
+    })
+
+  // Whoever survived the filters AND is still ticked is the segment.
   const blastList: BlastBuyer[] = useMemo(
     () =>
       filtered
-        .filter((b) => b.contact?.phone)
+        .filter((b) => b.contact?.phone && !deselected.has(b.id))
         .map((b) => ({
           clientId: b.id,
           phone: b.contact!.phone!,
@@ -280,7 +304,7 @@ export function BuyersPage() {
           last: b.contact?.last_name ?? null,
           company: b.company?.name ?? null,
         })),
-    [filtered],
+    [filtered, deselected],
   )
 
   // Coverage matrix: how many live buyers want each product × strategy combination, and
@@ -342,9 +366,9 @@ export function BuyersPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Buyers</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setBlastOpen(true)} disabled={filtered.length === 0}>
+          <Button variant="outline" onClick={() => setBlastOpen(true)} disabled={blastList.length === 0}>
             <MessageSquare className="size-4" />
-            Text these {filtered.length}
+            Text these {blastList.length}
           </Button>
           <Button onClick={() => setAddOpen(true)}>
             <Plus className="size-4" />
@@ -644,6 +668,14 @@ export function BuyersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleAll}
+                      aria-label={allSelected ? 'Clear all' : 'Select all'}
+                      disabled={textable.length === 0}
+                    />
+                  </TableHead>
                   <TableHead>Buyer</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Product</TableHead>
@@ -663,6 +695,22 @@ export function BuyersPage() {
                     className="cursor-pointer"
                     onClick={() => navigate(`/tenant-rep/${b.id}`)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {b.contact?.phone ? (
+                        <Checkbox
+                          checked={isSelected(b.id)}
+                          onCheckedChange={() => toggleOne(b.id)}
+                          aria-label={`Text ${buyerName(b)}`}
+                        />
+                      ) : (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          title="No phone number — cannot be texted"
+                        >
+                          —
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">{buyerName(b)}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {b.buyer_kind ? buyerKindLabels[b.buyer_kind] : '—'}
@@ -712,7 +760,23 @@ export function BuyersPage() {
                 className="w-full rounded-lg border p-3 text-left"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{buyerName(b)}</span>
+                  <span className="flex items-center gap-2 font-medium">
+                    {b.contact?.phone && (
+                      <span
+                        role="presentation"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleOne(b.id)
+                        }}
+                      >
+                        <Checkbox
+                          checked={isSelected(b.id)}
+                          aria-label={`Text ${buyerName(b)}`}
+                        />
+                      </span>
+                    )}
+                    {buyerName(b)}
+                  </span>
                   {b.exchange_1031 && <ExchangeBadge deadline={b.exchange_deadline} />}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">

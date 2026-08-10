@@ -177,9 +177,9 @@ export function BuyerBlastDialog({
         <DialogHeader>
           <DialogTitle>Text these buyers</DialogTitle>
           <DialogDescription>
-            {reach.length.toLocaleString()} buyer{reach.length === 1 ? '' : 's'} get tagged into a
-            segment in GoHighLevel and the message is saved on each contact as a draft. Nothing
-            sends — you fire it from the Smart List when it reads right.
+            The {reach.length.toLocaleString()} buyer{reach.length === 1 ? '' : 's'} you ticked get
+            tagged into a segment in GoHighLevel and the message is saved on each contact as a
+            draft. Nothing sends — you fire it from the Smart List when it reads right.
           </DialogDescription>
         </DialogHeader>
 
