@@ -146,7 +146,10 @@ export function BuyersPage() {
 
   const [addOpen, setAddOpen] = useState(false)
   const [blastOpen, setBlastOpen] = useState(false)
-  const [deselected, setDeselected] = useState<Set<string>>(new Set())
+  const [deselectedIds, setDeselectedIds] = usePersistentState<string[]>('buyers:deselected', [])
+  const deselected = useMemo(() => new Set(deselectedIds), [deselectedIds])
+  const setDeselected = (fn: (prev: Set<string>) => Set<string>) =>
+    setDeselectedIds((prev) => [...fn(new Set(prev))])
   const [search, setSearch] = useState('')
   const [subclasses, setSubclasses] = usePersistentState<Subclass[]>('buyers:subclasses', [])
   const [strategies, setStrategies] = usePersistentState<StrategyPick[]>('buyers:strategies2', [])
@@ -807,7 +810,7 @@ export function BuyersPage() {
         open={blastOpen}
         onOpenChange={setBlastOpen}
         buyers={blastList}
-        noPhoneCount={filtered.length - blastList.length}
+        noPhoneCount={filtered.filter((b) => !b.contact?.phone).length}
       />
     </div>
   )
