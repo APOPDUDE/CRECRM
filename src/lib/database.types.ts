@@ -2634,6 +2634,7 @@ export type Database = {
         | "development"
         | "sale_leaseback"
         | "covered_land"
+        | "schmuck"
       lead_source:
         | "loopnet"
         | "sign_call"
@@ -2841,6 +2842,7 @@ export const Constants = {
         "development",
         "sale_leaseback",
         "covered_land",
+        "schmuck",
       ],
       lead_source: [
         "loopnet",

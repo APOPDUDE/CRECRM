@@ -35,6 +35,7 @@ import {
   buyerKindLabels,
   buyerKinds,
   daysUntil,
+  industrialSubclassHints,
   industrialSubclassLabels,
   industrialSubclasses,
   investmentStrategies,
@@ -54,6 +55,15 @@ type StatusFilter = 'open' | 'lost' | 'all'
 
 /** Strategy column for buyers who never named one — mostly owner-users. */
 const ANY_STRATEGY = '__any__'
+type StrategyPick = Strategy | typeof ANY_STRATEGY
+
+/** All / only the 1031 buyers / everyone except them. */
+type ExchangeFilter = 'all' | 'only' | 'exclude'
+
+const strategyPickLabels: Record<StrategyPick, string> = {
+  ...investmentStrategyLabels,
+  [ANY_STRATEGY]: 'No strategy',
+}
 
 function buyerName(b: TenantRepWithRelations): string {
   if (b.company?.name) return b.company.name
@@ -135,9 +145,9 @@ export function BuyersPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [subclasses, setSubclasses] = usePersistentState<Subclass[]>('buyers:subclasses', [])
-  const [strategies, setStrategies] = usePersistentState<Strategy[]>('buyers:strategies', [])
+  const [strategies, setStrategies] = usePersistentState<StrategyPick[]>('buyers:strategies2', [])
   const [kinds, setKinds] = usePersistentState<Kind[]>('buyers:kinds', [])
-  const [only1031, setOnly1031] = usePersistentState('buyers:only1031', false)
+  const [exchange, setExchange] = usePersistentState<ExchangeFilter>('buyers:exchange', 'all')
   const [status, setStatus] = usePersistentState<StatusFilter>('buyers:status', 'open')
   const [priceMin, setPriceMin] = usePersistentState('buyers:priceMin', '')
   const [priceMax, setPriceMax] = usePersistentState('buyers:priceMax', '')
@@ -195,9 +205,17 @@ export function BuyersPage() {
 
     return inScope.filter((b) => {
       if (subclasses.length && !subclasses.some((s) => b.product_subclasses.includes(s))) return false
-      if (strategies.length && !strategies.some((s) => b.strategies.includes(s))) return false
+      // "No strategy" is a pick like any other, so a row can be read as
+      // value-add OR stabilized OR nobody-said.
+      if (strategies.length) {
+        const hit = strategies.some((s) =>
+          s === ANY_STRATEGY ? b.strategies.length === 0 : b.strategies.includes(s),
+        )
+        if (!hit) return false
+      }
       if (kinds.length && !(b.buyer_kind && kinds.includes(b.buyer_kind))) return false
-      if (only1031 && !b.exchange_1031) return false
+      if (exchange === 'only' && !b.exchange_1031) return false
+      if (exchange === 'exclude' && b.exchange_1031) return false
 
       // Price filters describe the DEAL: keep buyers whose range can absorb it.
       if (pMin != null && b.price_max != null && b.price_max < pMin) return false
@@ -238,7 +256,7 @@ export function BuyersPage() {
     subclasses,
     strategies,
     kinds,
-    only1031,
+    exchange,
     priceMin,
     priceMax,
     sfMin,
@@ -262,27 +280,26 @@ export function BuyersPage() {
     return counts
   }, [inScope])
 
-  const matrixColumns: (Strategy | typeof ANY_STRATEGY)[] = [...investmentStrategies, ANY_STRATEGY]
+  const matrixColumns: StrategyPick[] = [...investmentStrategies, ANY_STRATEGY]
 
-  const selectCell = (sub: Subclass, col: Strategy | typeof ANY_STRATEGY) => {
-    const already =
-      subclasses.length === 1 &&
-      subclasses[0] === sub &&
-      (col === ANY_STRATEGY ? strategies.length === 0 : strategies.length === 1 && strategies[0] === col)
-    if (already) {
-      setSubclasses([])
-      setStrategies([])
-      return
-    }
-    setSubclasses([sub])
-    setStrategies(col === ANY_STRATEGY ? [] : [col])
+  /**
+   * Cells accumulate rather than replace: click small bay × value add, then small bay ×
+   * no strategy, and you are looking at both. Clicking a lit cell takes its strategy
+   * back out; the product stays until you clear its chip.
+   */
+  const toggleCell = (sub: Subclass, col: StrategyPick) => {
+    setSubclasses((prev) => (prev.includes(sub) ? prev : [...prev, sub]))
+    setStrategies((prev) => (prev.includes(col) ? prev.filter((x) => x !== col) : [...prev, col]))
   }
+
+  const cellActive = (sub: Subclass, col: StrategyPick) =>
+    subclasses.includes(sub) && strategies.includes(col)
 
   const clearAll = () => {
     setSubclasses([])
     setStrategies([])
     setKinds([])
-    setOnly1031(false)
+    setExchange('all')
     setStatus('open')
     setPriceMin('')
     setPriceMax('')
@@ -299,7 +316,7 @@ export function BuyersPage() {
     subclasses.length > 0 ||
     strategies.length > 0 ||
     kinds.length > 0 ||
-    only1031 ||
+    exchange !== 'all' ||
     !!place ||
     !!search
 
@@ -312,28 +329,6 @@ export function BuyersPage() {
           Add buyer
         </Button>
       </div>
-
-      {exchangeBuyers.length > 0 && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Timer className="size-4 text-amber-700" />
-            <span className="text-sm font-medium text-amber-900">
-              1031 buyers on the clock
-            </span>
-            {exchangeBuyers.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => navigate(`/tenant-rep/${b.id}`)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
-              >
-                {buyerName(b)}
-                <ExchangeBadge deadline={b.exchange_deadline} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Deal just hit: name the property, get the buyers whose areas cover it. */}
       <div className="rounded-lg border p-3">
@@ -392,6 +387,39 @@ export function BuyersPage() {
       </div>
 
       {/* Coverage matrix — where the buyer list is deep, and where it's empty. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Click cells to stack them — a row reads as value add <em>or</em> stabilized{' '}
+          <em>or</em> nobody-said.
+        </p>
+        <div className="flex items-center rounded-md border p-0.5">
+          {(
+            [
+              ['all', 'All buyers'],
+              ['only', '1031 only'],
+              ['exclude', 'Hide 1031'],
+            ] as [ExchangeFilter, string][]
+          ).map(([v, label]) => (
+            <Button
+              key={v}
+              type="button"
+              variant={exchange === v ? 'secondary' : 'ghost'}
+              size="sm"
+              className={cn('h-7 px-2.5 text-xs', exchange === v && 'font-medium')}
+              onClick={() => setExchange(v)}
+            >
+              {v === 'only' && <Timer className="size-3.5" />}
+              {label}
+              {v === 'only' && exchangeBuyers.length > 0 && (
+                <span className="ml-1 tabular-nums text-muted-foreground">
+                  {exchangeBuyers.length}
+                </span>
+              )}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full min-w-[42rem] text-sm">
           <thead>
@@ -407,20 +435,22 @@ export function BuyersPage() {
           <tbody>
             {industrialSubclasses.map((sub) => (
               <tr key={sub} className="border-b last:border-0">
-                <td className="px-3 py-1.5 font-medium">{industrialSubclassLabels[sub]}</td>
+                <td className="px-3 py-1.5 font-medium">
+                  {industrialSubclassLabels[sub]}
+                  {industrialSubclassHints[sub] && (
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                      {industrialSubclassHints[sub]}
+                    </span>
+                  )}
+                </td>
                 {matrixColumns.map((col) => {
                   const count = matrix.get(`${sub}|${col}`) ?? 0
-                  const active =
-                    subclasses.length === 1 &&
-                    subclasses[0] === sub &&
-                    (col === ANY_STRATEGY
-                      ? strategies.length === 0
-                      : strategies.length === 1 && strategies[0] === col)
+                  const active = cellActive(sub, col)
                   return (
                     <td key={col} className="px-1 py-1 text-center">
                       <button
                         type="button"
-                        onClick={() => selectCell(sub, col)}
+                        onClick={() => toggleCell(sub, col)}
                         className={cn(
                           'w-full rounded px-2 py-1 text-sm tabular-nums transition-colors',
                           count === 0
@@ -448,8 +478,8 @@ export function BuyersPage() {
           onToggle={(v) => setSubclasses(toggle(subclasses, v))}
         />
         <ChipRow
-          values={investmentStrategies}
-          labels={investmentStrategyLabels}
+          values={matrixColumns}
+          labels={strategyPickLabels}
           selected={strategies}
           onToggle={(v) => setStrategies(toggle(strategies, v))}
         />
@@ -472,17 +502,6 @@ export function BuyersPage() {
           selected={kinds}
           onToggle={(v) => setKinds(toggle(kinds, v))}
         />
-
-        <Button
-          type="button"
-          variant={only1031 ? 'secondary' : 'outline'}
-          size="sm"
-          onClick={() => setOnly1031(!only1031)}
-          className={cn('h-7 rounded-full px-3 text-xs font-normal', only1031 && 'font-medium')}
-        >
-          <Timer className="size-3.5" />
-          1031 clock
-        </Button>
 
         <Popover>
           <PopoverTrigger asChild>

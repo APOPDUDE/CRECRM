@@ -17,6 +17,7 @@ export function isBuyerClient(c: ClientSides): boolean {
   return c.is_rep && c.deal_type !== 'lease'
 }
 
+/** Size rule, mirrored in the industrial_subclass comment: small bay is under 10k SF. */
 export const industrialSubclassLabels: Record<Enums<'industrial_subclass'>, string> = {
   ios: 'IOS / yard',
   small_bay: 'Small bay',
@@ -26,12 +27,19 @@ export const industrialSubclassLabels: Record<Enums<'industrial_subclass'>, stri
   land_development: 'Land / development',
 }
 
+export const industrialSubclassHints: Partial<Record<Enums<'industrial_subclass'>, string>> = {
+  small_bay: 'Under 10,000 SF',
+  big_box: '10,000 SF and up',
+}
+
 export const investmentStrategyLabels: Record<Enums<'investment_strategy'>, string> = {
   value_add: 'Value add',
   core_stabilized: 'Core / stabilized',
   development: 'Development',
   sale_leaseback: 'Sale leaseback',
   covered_land: 'Covered land',
+  // Wants to own a building, doesn't know CRE. Changes how the deal gets explained.
+  schmuck: 'Schmuck',
 }
 
 export const buyerKindLabels: Record<Enums<'buyer_kind'>, string> = {

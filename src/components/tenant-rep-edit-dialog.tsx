@@ -221,17 +221,23 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
         deal_type: (f.deal_type as Enums<'deal_type'>) || 'lease',
         source: f.source === NONE ? null : (f.source as Enums<'lead_source'>),
         broker_contact_id: f.source === 'broker' ? brokerId : null,
-        purpose: f.purpose === NONE ? null : (f.purpose as Enums<'client_purpose'>),
-        move_in_date: f.move_in_date || null,
         property_type: f.property_type === NONE ? null : (f.property_type as Enums<'property_kind'>),
         building_sf_min: int(f.building_sf_min),
         building_sf_max: int(f.building_sf_max),
         land_acres_min: num(f.land_acres_min),
         land_acres_max: num(f.land_acres_max),
         cap_rate_min: num(f.cap_rate_min),
-        target_markets: str(f.target_markets),
-        budget: str(f.budget),
         must_haves: str(f.must_haves),
+        // Tenant-only fields. The buy side never shows them, so it must not write them
+        // either — otherwise a save would resurrect the prose the migration folded away.
+        ...(isBuySide
+          ? {}
+          : {
+              purpose: f.purpose === NONE ? null : (f.purpose as Enums<'client_purpose'>),
+              move_in_date: f.move_in_date || null,
+              target_markets: str(f.target_markets),
+              budget: str(f.budget),
+            }),
       },
       {
         onSuccess: () => {
@@ -288,6 +294,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
               <ContactSelect value={brokerId} onChange={setBrokerId} placeholder="Select or create broker" />
             </div>
           )}
+          {!isBuySide && (
           <div className="space-y-2">
             <Label htmlFor="tr-purpose">Purpose</Label>
             <Select value={f.purpose ?? NONE} onValueChange={(v) => setF((p) => ({ ...p, purpose: v }))}>
@@ -304,11 +311,14 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
               </SelectContent>
             </Select>
           </div>
+          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {!isBuySide && (
             <div className="space-y-2">
               <Label htmlFor="tr-movein">Move-in date</Label>
               <Input id="tr-movein" type="date" value={f.move_in_date ?? ''} onChange={set('move_in_date')} />
             </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="tr-type">Property type</Label>
               <Select value={f.property_type ?? NONE} onValueChange={(v) => setF((p) => ({ ...p, property_type: v }))}>
@@ -342,18 +352,22 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
             <Input id="tr-cap-rate" type="number" inputMode="decimal" step="0.01" value={f.cap_rate_min ?? ''} onChange={set('cap_rate_min')} placeholder="e.g. 6.5" />
           </div>
 
-          <div className="space-y-2">
-            <Label>Target markets</Label>
-            <CityTagsInput
-              value={f.target_markets ?? ''}
-              onChange={(v) => setF((p) => ({ ...p, target_markets: v }))}
-            />
-          </div>
+          {!isBuySide && (
+            <div className="space-y-2">
+              <Label>Target markets</Label>
+              <CityTagsInput
+                value={f.target_markets ?? ''}
+                onChange={(v) => setF((p) => ({ ...p, target_markets: v }))}
+              />
+            </div>
+          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="tr-budget">Budget</Label>
-            <Input id="tr-budget" value={f.budget ?? ''} onChange={set('budget')} placeholder="e.g. $13–15 PSF NNN" />
-          </div>
+          {!isBuySide && (
+            <div className="space-y-2">
+              <Label htmlFor="tr-budget">Budget</Label>
+              <Input id="tr-budget" value={f.budget ?? ''} onChange={set('budget')} placeholder="e.g. $13–15 PSF NNN" />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="tr-musthaves">Other requirements / notes</Label>
