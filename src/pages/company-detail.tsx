@@ -4,6 +4,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CompanyFormDialog } from '@/components/company-form-dialog'
+import { CompanyPeopleAndLeases } from '@/components/company-people-and-leases'
 import { CompanyTypeBadge } from '@/pages/companies'
 import { useCompany } from '@/hooks/use-companies'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
@@ -82,9 +83,7 @@ export function CompanyDetailPage() {
         </div>
       </dl>
 
-      <p className="text-xs text-muted-foreground">
-        Linked contacts, listings and tenant reps appear here in a later phase.
-      </p>
+      <CompanyPeopleAndLeases companyId={company.id} />
 
       <CompanyFormDialog open={editOpen} onOpenChange={setEditOpen} company={company} />
     </div>

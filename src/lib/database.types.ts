@@ -204,12 +204,15 @@ export type Database = {
           budget: string | null
           building_sf_max: number | null
           building_sf_min: number | null
+          buyer_kind: Database["public"]["Enums"]["buyer_kind"] | null
           cap_rate_min: number | null
           commission_pct: number | null
           company_id: string | null
           contact_id: string
           created_at: string
           deal_type: Database["public"]["Enums"]["deal_type"]
+          exchange_1031: boolean
+          exchange_deadline: string | null
           id: string
           intended_use: string | null
           is_rep: boolean
@@ -221,10 +224,17 @@ export type Database = {
           next_action: string | null
           next_action_date: string | null
           owner_id: string
+          price_max: number | null
+          price_min: number | null
+          product_subclasses: Database["public"]["Enums"]["industrial_subclass"][]
           property_type: Database["public"]["Enums"]["property_kind"] | null
           purpose: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max: number | null
+          rent_budget_min: number | null
           source: Database["public"]["Enums"]["lead_source"] | null
           status: Database["public"]["Enums"]["client_status"]
+          strategies: Database["public"]["Enums"]["investment_strategy"][]
+          target_areas: Json
           target_markets: string | null
           updated_at: string
         }
@@ -234,12 +244,15 @@ export type Database = {
           budget?: string | null
           building_sf_max?: number | null
           building_sf_min?: number | null
+          buyer_kind?: Database["public"]["Enums"]["buyer_kind"] | null
           cap_rate_min?: number | null
           commission_pct?: number | null
           company_id?: string | null
           contact_id: string
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
+          exchange_1031?: boolean
+          exchange_deadline?: string | null
           id?: string
           intended_use?: string | null
           is_rep?: boolean
@@ -251,10 +264,17 @@ export type Database = {
           next_action?: string | null
           next_action_date?: string | null
           owner_id: string
+          price_max?: number | null
+          price_min?: number | null
+          product_subclasses?: Database["public"]["Enums"]["industrial_subclass"][]
           property_type?: Database["public"]["Enums"]["property_kind"] | null
           purpose?: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max?: number | null
+          rent_budget_min?: number | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["client_status"]
+          strategies?: Database["public"]["Enums"]["investment_strategy"][]
+          target_areas?: Json
           target_markets?: string | null
           updated_at?: string
         }
@@ -264,12 +284,15 @@ export type Database = {
           budget?: string | null
           building_sf_max?: number | null
           building_sf_min?: number | null
+          buyer_kind?: Database["public"]["Enums"]["buyer_kind"] | null
           cap_rate_min?: number | null
           commission_pct?: number | null
           company_id?: string | null
           contact_id?: string
           created_at?: string
           deal_type?: Database["public"]["Enums"]["deal_type"]
+          exchange_1031?: boolean
+          exchange_deadline?: string | null
           id?: string
           intended_use?: string | null
           is_rep?: boolean
@@ -281,10 +304,17 @@ export type Database = {
           next_action?: string | null
           next_action_date?: string | null
           owner_id?: string
+          price_max?: number | null
+          price_min?: number | null
+          product_subclasses?: Database["public"]["Enums"]["industrial_subclass"][]
           property_type?: Database["public"]["Enums"]["property_kind"] | null
           purpose?: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max?: number | null
+          rent_budget_min?: number | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["client_status"]
+          strategies?: Database["public"]["Enums"]["investment_strategy"][]
+          target_areas?: Json
           target_markets?: string | null
           updated_at?: string
         }
@@ -428,6 +458,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          source: string | null
           type: Database["public"]["Enums"]["company_type"]
           updated_at: string
           website: string | null
@@ -439,6 +470,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          source?: string | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
           website?: string | null
@@ -450,6 +482,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          source?: string | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
           website?: string | null
@@ -609,9 +642,13 @@ export type Database = {
       }
       contacts: {
         Row: {
+          archived: boolean
+          archived_at: string | null
+          archived_reason: string | null
           campaign_lists: string[] | null
           company_id: string | null
           created_at: string
+          decision_maker: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call: boolean
           email: string | null
           first_name: string
@@ -630,9 +667,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived?: boolean
+          archived_at?: string | null
+          archived_reason?: string | null
           campaign_lists?: string[] | null
           company_id?: string | null
           created_at?: string
+          decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call?: boolean
           email?: string | null
           first_name: string
@@ -651,9 +692,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived?: boolean
+          archived_at?: string | null
+          archived_reason?: string | null
           campaign_lists?: string[] | null
           company_id?: string | null
           created_at?: string
+          decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call?: boolean
           email?: string | null
           first_name?: string
@@ -1879,6 +1924,7 @@ export type Database = {
           details: string | null
           due_at: string | null
           due_date: string | null
+          hubspot_id: string | null
           id: string
           kind: Database["public"]["Enums"]["task_kind"]
           listing_id: string | null
@@ -1900,6 +1946,7 @@ export type Database = {
           details?: string | null
           due_at?: string | null
           due_date?: string | null
+          hubspot_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
           listing_id?: string | null
@@ -1921,6 +1968,7 @@ export type Database = {
           details?: string | null
           due_at?: string | null
           due_date?: string | null
+          hubspot_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
           listing_id?: string | null
@@ -2104,6 +2152,10 @@ export type Database = {
           comp_id: string | null
           county: string | null
           days_to_expiry: number | null
+          dm_name: string | null
+          dm_phone: string | null
+          dm_status: Database["public"]["Enums"]["decision_maker_status"] | null
+          dm_verified: boolean | null
           executed_lease_rate_psf: number | null
           expiration_date: string | null
           land_acres: number | null
@@ -2117,6 +2169,8 @@ export type Database = {
           sf: number | null
           signed_date: string | null
           state: string | null
+          tenant_company_id: string | null
+          tenant_company_name: string | null
           tenant_name: string | null
           term_months: number | null
         }
@@ -2141,6 +2195,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_property_owner_context"
             referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "comps_tenant_company_id_fkey"
+            columns: ["tenant_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2327,6 +2388,55 @@ export type Database = {
         Args: { p_client_id?: string; p_suggestion_id: string }
         Returns: string
       }
+      buyers_covering_point: {
+        Args: { p_lat: number; p_lng: number }
+        Returns: {
+          actual_fee: number | null
+          broker_contact_id: string | null
+          budget: string | null
+          building_sf_max: number | null
+          building_sf_min: number | null
+          buyer_kind: Database["public"]["Enums"]["buyer_kind"] | null
+          cap_rate_min: number | null
+          commission_pct: number | null
+          company_id: string | null
+          contact_id: string
+          created_at: string
+          deal_type: Database["public"]["Enums"]["deal_type"]
+          exchange_1031: boolean
+          exchange_deadline: string | null
+          id: string
+          intended_use: string | null
+          is_rep: boolean
+          land_acres_max: number | null
+          land_acres_min: number | null
+          lost_reason: string | null
+          move_in_date: string | null
+          must_haves: string | null
+          next_action: string | null
+          next_action_date: string | null
+          owner_id: string
+          price_max: number | null
+          price_min: number | null
+          product_subclasses: Database["public"]["Enums"]["industrial_subclass"][]
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          purpose: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max: number | null
+          rent_budget_min: number | null
+          source: Database["public"]["Enums"]["lead_source"] | null
+          status: Database["public"]["Enums"]["client_status"]
+          strategies: Database["public"]["Enums"]["investment_strategy"][]
+          target_areas: Json
+          target_markets: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "clients"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       convert_prospect: {
         Args: {
           p_deal_type?: Database["public"]["Enums"]["deal_type"]
@@ -2435,6 +2545,10 @@ export type Database = {
       normalize_street: { Args: { p_addr: string }; Returns: string }
       normalize_street_loose: { Args: { p_addr: string }; Returns: string }
       pending_geocode: { Args: { p?: Json }; Returns: Json }
+      point_in_ring: {
+        Args: { p_lat: number; p_lng: number; ring: Json }
+        Returns: boolean
+      }
       promote_client: {
         Args: { p_client_id: string }
         Returns: {
@@ -2443,12 +2557,15 @@ export type Database = {
           budget: string | null
           building_sf_max: number | null
           building_sf_min: number | null
+          buyer_kind: Database["public"]["Enums"]["buyer_kind"] | null
           cap_rate_min: number | null
           commission_pct: number | null
           company_id: string | null
           contact_id: string
           created_at: string
           deal_type: Database["public"]["Enums"]["deal_type"]
+          exchange_1031: boolean
+          exchange_deadline: string | null
           id: string
           intended_use: string | null
           is_rep: boolean
@@ -2460,10 +2577,17 @@ export type Database = {
           next_action: string | null
           next_action_date: string | null
           owner_id: string
+          price_max: number | null
+          price_min: number | null
+          product_subclasses: Database["public"]["Enums"]["industrial_subclass"][]
           property_type: Database["public"]["Enums"]["property_kind"] | null
           purpose: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max: number | null
+          rent_budget_min: number | null
           source: Database["public"]["Enums"]["lead_source"] | null
           status: Database["public"]["Enums"]["client_status"]
+          strategies: Database["public"]["Enums"]["investment_strategy"][]
+          target_areas: Json
           target_markets: string | null
           updated_at: string
         }
@@ -2500,6 +2624,7 @@ export type Database = {
       }
     }
     Enums: {
+      buyer_kind: "investor" | "owner_user" | "developer"
       client_purpose:
         | "expansion"
         | "first_location"
@@ -2523,6 +2648,7 @@ export type Database = {
       company_type: "landlord" | "tenant" | "broker" | "other" | "vendor"
       deal_flag_status: "pending" | "dismissed"
       deal_type: "lease" | "sale" | "both"
+      decision_maker_status: "none" | "suspected" | "verified"
       engagement_status: "active" | "lost"
       file_category:
         | "listing_agreement"
@@ -2537,6 +2663,20 @@ export type Database = {
         | "invoice"
         | "other"
         | "rfp"
+      industrial_subclass:
+        | "ios"
+        | "small_bay"
+        | "big_box"
+        | "cold_storage"
+        | "flex"
+        | "land_development"
+      investment_strategy:
+        | "value_add"
+        | "core_stabilized"
+        | "development"
+        | "sale_leaseback"
+        | "covered_land"
+        | "schmuck"
       lead_source:
         | "loopnet"
         | "sign_call"
@@ -2700,6 +2840,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      buyer_kind: ["investor", "owner_user", "developer"],
       client_purpose: [
         "expansion",
         "first_location",
@@ -2714,6 +2855,7 @@ export const Constants = {
       company_type: ["landlord", "tenant", "broker", "other", "vendor"],
       deal_flag_status: ["pending", "dismissed"],
       deal_type: ["lease", "sale", "both"],
+      decision_maker_status: ["none", "suspected", "verified"],
       engagement_status: ["active", "lost"],
       file_category: [
         "listing_agreement",
@@ -2728,6 +2870,22 @@ export const Constants = {
         "invoice",
         "other",
         "rfp",
+      ],
+      industrial_subclass: [
+        "ios",
+        "small_bay",
+        "big_box",
+        "cold_storage",
+        "flex",
+        "land_development",
+      ],
+      investment_strategy: [
+        "value_add",
+        "core_stabilized",
+        "development",
+        "sale_leaseback",
+        "covered_land",
+        "schmuck",
       ],
       lead_source: [
         "loopnet",
