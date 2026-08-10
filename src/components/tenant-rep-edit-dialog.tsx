@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent, KeyboardEvent } from 'react'
-import { X } from 'lucide-react'
+import type { FormEvent } from 'react'
 import { toast } from 'sonner'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -32,7 +30,9 @@ import {
 } from '@/components/buyer-criteria-fields'
 import type { BuyerCriteria } from '@/components/buyer-criteria-fields'
 import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
+import { AreaDrawMap } from '@/components/area-draw-map'
 import { parseTargetAreas } from '@/lib/clients'
+import type { TargetArea } from '@/lib/clients'
 import type { Enums, Tables } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
 
@@ -104,65 +104,6 @@ function MinMax({
   )
 }
 
-/**
- * Multi-city input for the target area. Cities are stored comma-separated in the
- * single text column; type a city + Enter to add a chip, click × to remove one.
- * Module scope so the input keeps focus across renders.
- */
-function CityTagsInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [draft, setDraft] = useState('')
-  const cities = value
-    .split(',')
-    .map((c) => c.trim())
-    .filter(Boolean)
-
-  const add = () => {
-    const c = draft.trim()
-    if (c && !cities.some((x) => x.toLowerCase() === c.toLowerCase())) {
-      onChange([...cities, c].join(', '))
-    }
-    setDraft('')
-  }
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      add()
-    } else if (e.key === 'Backspace' && !draft && cities.length) {
-      onChange(cities.slice(0, -1).join(', '))
-    }
-  }
-
-  return (
-    <div className="space-y-1.5">
-      {cities.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {cities.map((c) => (
-            <Badge key={c} variant="secondary" className="gap-1 font-normal">
-              {c}
-              <button
-                type="button"
-                onClick={() => onChange(cities.filter((x) => x !== c).join(', '))}
-                className="text-muted-foreground hover:text-foreground"
-                aria-label={`Remove ${c}`}
-              >
-                <X className="size-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-      )}
-      <Input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onBlur={add}
-        placeholder="Add a city, press Enter"
-      />
-    </div>
-  )
-}
-
 interface TenantRepEditDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -174,10 +115,12 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
   const [f, setF] = useState<Record<string, string>>({})
   const [brokerId, setBrokerId] = useState<string | null>(null)
   const [criteria, setCriteria] = useState<BuyerCriteria>(emptyBuyerCriteria)
+  const [areas, setAreas] = useState<TargetArea[]>([])
 
   useEffect(() => {
     if (!open) return
     setBrokerId(tenantRep.broker_contact_id ?? null)
+    setAreas(parseTargetAreas(tenantRep.target_areas))
     setCriteria({
       buyer_kind: tenantRep.buyer_kind,
       product_subclasses: tenantRep.product_subclasses ?? [],
@@ -199,8 +142,8 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
       land_acres_min: s(tenantRep.land_acres_min),
       land_acres_max: s(tenantRep.land_acres_max),
       cap_rate_min: s(tenantRep.cap_rate_min),
-      target_markets: s(tenantRep.target_markets),
-      budget: s(tenantRep.budget),
+      rent_budget_min: s(tenantRep.rent_budget_min),
+      rent_budget_max: s(tenantRep.rent_budget_max),
       must_haves: s(tenantRep.must_haves),
     })
   }, [open, tenantRep])
@@ -230,13 +173,15 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
         must_haves: str(f.must_haves),
         // Tenant-only fields. The buy side never shows them, so it must not write them
         // either — otherwise a save would resurrect the prose the migration folded away.
+        // Geography is one thing for every client, drawn, never prose.
+        target_areas: areas as unknown as never,
         ...(isBuySide
           ? {}
           : {
               purpose: f.purpose === NONE ? null : (f.purpose as Enums<'client_purpose'>),
               move_in_date: f.move_in_date || null,
-              target_markets: str(f.target_markets),
-              budget: str(f.budget),
+              rent_budget_min: num(f.rent_budget_min),
+              rent_budget_max: num(f.rent_budget_max),
             }),
       },
       {
@@ -340,7 +285,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
           {isBuySide && (
             <div className="space-y-4 rounded-lg border p-3">
               <p className="text-sm font-medium">Buy-side criteria</p>
-              <BuyerCriteriaFields value={criteria} onChange={setCriteria} idPrefix="tr-buyer" />
+              <BuyerCriteriaFields value={criteria} onChange={setCriteria} idPrefix="tr-buyer" showAreas={false} />
             </div>
           )}
 
@@ -353,21 +298,26 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
           </div>
 
           {!isBuySide && (
-            <div className="space-y-2">
-              <Label>Target markets</Label>
-              <CityTagsInput
-                value={f.target_markets ?? ''}
-                onChange={(v) => setF((p) => ({ ...p, target_markets: v }))}
-              />
-            </div>
+            <MinMax
+              label="Monthly rent budget ($)"
+              minKey="rent_budget_min"
+              maxKey="rent_budget_max"
+              values={f}
+              set={set}
+              grouped
+            />
           )}
 
-          {!isBuySide && (
-            <div className="space-y-2">
-              <Label htmlFor="tr-budget">Budget</Label>
-              <Input id="tr-budget" value={f.budget ?? ''} onChange={set('budget')} placeholder="e.g. $13–15 PSF NNN" />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label>Where they're looking</Label>
+            <p className="text-xs text-muted-foreground">
+              Draw the areas. An address is either inside one or it isn't — no city spelling to get
+              wrong when something comes up.
+            </p>
+            <AreaDrawMap areas={areas} onChange={setAreas} />
+          </div>
+
+
 
           <div className="space-y-2">
             <Label htmlFor="tr-musthaves">Other requirements / notes</Label>

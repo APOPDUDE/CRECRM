@@ -387,39 +387,6 @@ export function BuyersPage() {
       </div>
 
       {/* Coverage matrix — where the buyer list is deep, and where it's empty. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Click cells to stack them — a row reads as value add <em>or</em> stabilized{' '}
-          <em>or</em> nobody-said.
-        </p>
-        <div className="flex items-center rounded-md border p-0.5">
-          {(
-            [
-              ['all', 'All buyers'],
-              ['only', '1031 only'],
-              ['exclude', 'Hide 1031'],
-            ] as [ExchangeFilter, string][]
-          ).map(([v, label]) => (
-            <Button
-              key={v}
-              type="button"
-              variant={exchange === v ? 'secondary' : 'ghost'}
-              size="sm"
-              className={cn('h-7 px-2.5 text-xs', exchange === v && 'font-medium')}
-              onClick={() => setExchange(v)}
-            >
-              {v === 'only' && <Timer className="size-3.5" />}
-              {label}
-              {v === 'only' && exchangeBuyers.length > 0 && (
-                <span className="ml-1 tabular-nums text-muted-foreground">
-                  {exchangeBuyers.length}
-                </span>
-              )}
-            </Button>
-          ))}
-        </div>
-      </div>
-
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full min-w-[42rem] text-sm">
           <thead>
@@ -502,6 +469,38 @@ export function BuyersPage() {
           selected={kinds}
           onToggle={(v) => setKinds(toggle(kinds, v))}
         />
+
+        {/* Same row as the buyer kinds, because that is what it is — one more facet.
+            Three states so it can also take the 1031 buyers OUT of the list. */}
+        <div className="flex items-center rounded-full border p-0.5">
+          {(
+            [
+              ['all', 'All'],
+              ['only', '1031 only'],
+              ['exclude', 'Hide 1031'],
+            ] as [ExchangeFilter, string][]
+          ).map(([v, label]) => (
+            <Button
+              key={v}
+              type="button"
+              variant={exchange === v ? 'secondary' : 'ghost'}
+              size="sm"
+              className={cn(
+                'h-6 rounded-full px-2.5 text-xs font-normal',
+                exchange === v && 'font-medium',
+              )}
+              onClick={() => setExchange(v)}
+            >
+              {v === 'only' && <Timer className="size-3.5" />}
+              {label}
+              {v === 'only' && exchangeBuyers.length > 0 && (
+                <span className="ml-1 tabular-nums text-muted-foreground">
+                  {exchangeBuyers.length}
+                </span>
+              )}
+            </Button>
+          ))}
+        </div>
 
         <Popover>
           <PopoverTrigger asChild>

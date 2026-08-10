@@ -84,8 +84,7 @@ export function TenantRequirements({ tenantRep }: { tenantRep: TenantRep }) {
       label: 'Min cap rate',
       value: tenantRep.cap_rate_min != null ? `${tenantRep.cap_rate_min}%` : null,
     },
-    { label: 'Target markets', value: tenantRep.target_markets },
-    { label: 'Budget', value: tenantRep.budget },
+    { label: 'Rent budget', value: priceRange(tenantRep.rent_budget_min, tenantRep.rent_budget_max) },
   ]
   const populated = rows.filter((r) => r.value)
 

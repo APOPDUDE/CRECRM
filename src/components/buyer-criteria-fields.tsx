@@ -98,10 +98,13 @@ export function BuyerCriteriaFields({
   value,
   onChange,
   idPrefix = 'buyer',
+  showAreas = true,
 }: {
   value: BuyerCriteria
   onChange: (next: BuyerCriteria) => void
   idPrefix?: string
+  /** Off where the parent form already renders one area map for every client. */
+  showAreas?: boolean
 }) {
   const patch = (p: Partial<BuyerCriteria>) => onChange({ ...value, ...p })
 
@@ -196,14 +199,16 @@ export function BuyerCriteriaFields({
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label>Where they'll buy</Label>
-        <p className="text-xs text-muted-foreground">
-          Draw the areas. An address is either inside one or it isn't — no city spelling to get
-          wrong when a deal comes in.
-        </p>
-        <AreaDrawMap areas={value.target_areas} onChange={(a) => patch({ target_areas: a })} />
-      </div>
+      {showAreas && (
+        <div className="space-y-2">
+          <Label>Where they'll buy</Label>
+          <p className="text-xs text-muted-foreground">
+            Draw the areas. An address is either inside one or it isn't — no city spelling to get
+            wrong when a deal comes in.
+          </p>
+          <AreaDrawMap areas={value.target_areas} onChange={(a) => patch({ target_areas: a })} />
+        </div>
+      )}
     </div>
   )
 }

@@ -229,6 +229,8 @@ export type Database = {
           product_subclasses: Database["public"]["Enums"]["industrial_subclass"][]
           property_type: Database["public"]["Enums"]["property_kind"] | null
           purpose: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max: number | null
+          rent_budget_min: number | null
           source: Database["public"]["Enums"]["lead_source"] | null
           status: Database["public"]["Enums"]["client_status"]
           strategies: Database["public"]["Enums"]["investment_strategy"][]
@@ -267,6 +269,8 @@ export type Database = {
           product_subclasses?: Database["public"]["Enums"]["industrial_subclass"][]
           property_type?: Database["public"]["Enums"]["property_kind"] | null
           purpose?: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max?: number | null
+          rent_budget_min?: number | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["client_status"]
           strategies?: Database["public"]["Enums"]["investment_strategy"][]
@@ -305,6 +309,8 @@ export type Database = {
           product_subclasses?: Database["public"]["Enums"]["industrial_subclass"][]
           property_type?: Database["public"]["Enums"]["property_kind"] | null
           purpose?: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max?: number | null
+          rent_budget_min?: number | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["client_status"]
           strategies?: Database["public"]["Enums"]["investment_strategy"][]
@@ -2384,6 +2390,8 @@ export type Database = {
           product_subclasses: Database["public"]["Enums"]["industrial_subclass"][]
           property_type: Database["public"]["Enums"]["property_kind"] | null
           purpose: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max: number | null
+          rent_budget_min: number | null
           source: Database["public"]["Enums"]["lead_source"] | null
           status: Database["public"]["Enums"]["client_status"]
           strategies: Database["public"]["Enums"]["investment_strategy"][]
@@ -2543,6 +2551,8 @@ export type Database = {
           product_subclasses: Database["public"]["Enums"]["industrial_subclass"][]
           property_type: Database["public"]["Enums"]["property_kind"] | null
           purpose: Database["public"]["Enums"]["client_purpose"] | null
+          rent_budget_max: number | null
+          rent_budget_min: number | null
           source: Database["public"]["Enums"]["lead_source"] | null
           status: Database["public"]["Enums"]["client_status"]
           strategies: Database["public"]["Enums"]["investment_strategy"][]
