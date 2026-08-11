@@ -21,6 +21,13 @@ interface ContactSelectProps {
   /** When set, a contact created from the picker is attached to this company. */
   companyId?: string | null
   placeholder?: string
+  /**
+   * Name to show when `value` points at a contact the picker hasn't loaded. The list is one
+   * capped query over ~10k contacts, so a contact chosen elsewhere (e.g. a buyer prefilled
+   * from the GHL tag queue) is often absent — without this the trigger reads "Select
+   * contact" and looks unset even though it is set.
+   */
+  fallbackLabel?: string | null
 }
 
 export function ContactSelect({
@@ -28,6 +35,7 @@ export function ContactSelect({
   onChange,
   companyId,
   placeholder = 'Select contact',
+  fallbackLabel,
 }: ContactSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -35,6 +43,7 @@ export function ContactSelect({
   const { data: contacts = [], isLoading, isError, refetch } = useContacts()
 
   const selected = contacts.find((c) => c.id === value)
+  const label = selected ? contactNameOf(selected) : value && fallbackLabel ? fallbackLabel : null
 
   return (
     <>
@@ -47,9 +56,7 @@ export function ContactSelect({
             aria-expanded={open}
             className="w-full justify-between font-normal"
           >
-            <span className={cn(!selected && 'text-muted-foreground')}>
-              {selected ? contactNameOf(selected) : placeholder}
-            </span>
+            <span className={cn(!label && 'text-muted-foreground')}>{label ?? placeholder}</span>
             <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>

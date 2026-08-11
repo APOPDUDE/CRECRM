@@ -1,6 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapPin, MessageSquare, Plus, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
+import {
+  MapPin,
+  MessageSquare,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Timer,
+  UserPlus,
+  X,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -30,7 +39,14 @@ import { ChipRow } from '@/components/buyer-criteria-fields'
 import { ListErrorState } from '@/components/list-error-state'
 import { useTenantReps } from '@/hooks/use-tenant-reps'
 import type { TenantRepWithRelations } from '@/hooks/use-tenant-reps'
-import { usePropertyPointSearch, type PropertyPoint } from '@/hooks/use-buyers'
+import {
+  useApproveBuyerIntake,
+  useDismissBuyerIntake,
+  usePendingBuyerIntakes,
+  usePropertyPointSearch,
+  type BuyerIntake,
+  type PropertyPoint,
+} from '@/hooks/use-buyers'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import {
   areasCoverPoint,
@@ -144,6 +160,12 @@ function ExchangeBadge({ deadline }: { deadline: string | null }) {
 export function BuyersPage() {
   const navigate = useNavigate()
   const buyersQ = useTenantReps()
+  const intakesQ = usePendingBuyerIntakes()
+  const pendingIntakes = intakesQ.data ?? []
+  const approveIntake = useApproveBuyerIntake()
+  const dismissIntake = useDismissBuyerIntake()
+  /** Which queue entry the Add buyer dialog is currently filling in, if any. */
+  const [intakeBeingFilled, setIntakeBeingFilled] = useState<BuyerIntake | null>(null)
 
   const [addOpen, setAddOpen] = useState(false)
   const [blastOpen, setBlastOpen] = useState(false)
@@ -390,6 +412,67 @@ export function BuyersPage() {
           </Button>
         </div>
       </div>
+
+      {/* Tagged "buyer" in GHL, not a buyer here yet. Sits above everything because it is the
+          one thing on this page that is waiting on you. */}
+      {pendingIntakes.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/30">
+          <div className="mb-2 flex items-center gap-2">
+            <UserPlus className="size-4 text-amber-700 dark:text-amber-500" />
+            <span className="text-sm font-medium">
+              {pendingIntakes.length} tagged buyer{pendingIntakes.length === 1 ? '' : 's'} need
+              {pendingIntakes.length === 1 ? 's' : ''} their buying criteria
+            </span>
+          </div>
+          <ul className="space-y-1.5">
+            {pendingIntakes.map((intake) => {
+              const name =
+                [intake.first_name, intake.last_name].filter(Boolean).join(' ') ||
+                intake.phone ||
+                intake.email ||
+                'Unnamed contact'
+              return (
+                <li
+                  key={intake.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-background px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium">{name}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {[intake.phone, intake.email, intake.company_name].filter(Boolean).join(' · ') ||
+                        'no contact details'}
+                    </span>
+                    {!intake.contact_id && (
+                      <Badge variant="outline" className="ml-2 font-normal">
+                        new contact
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setIntakeBeingFilled(intake)
+                        setAddOpen(true)
+                      }}
+                    >
+                      Fill in buyer info
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => dismissIntake.mutate({ intakeId: intake.id })}
+                      disabled={dismissIntake.isPending}
+                    >
+                      Not a buyer
+                    </Button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Deal just hit: name the property, get the buyers whose areas cover it. */}
       <div className="rounded-lg border p-3">
@@ -816,7 +899,30 @@ export function BuyersPage() {
         </>
       )}
 
-      <AddBuyerDialog open={addOpen} onOpenChange={setAddOpen} />
+      <AddBuyerDialog
+        open={addOpen}
+        onOpenChange={(next) => {
+          setAddOpen(next)
+          if (!next) setIntakeBeingFilled(null)
+        }}
+        prefill={
+          intakeBeingFilled
+            ? {
+                contactId: intakeBeingFilled.contact_id,
+                contactLabel:
+                  [intakeBeingFilled.first_name, intakeBeingFilled.last_name]
+                    .filter(Boolean)
+                    .join(' ') || intakeBeingFilled.phone,
+              }
+            : null
+        }
+        onCreated={(clientId) => {
+          // Only now does the queue entry become a real buyer — approving is what closes it.
+          if (intakeBeingFilled) {
+            approveIntake.mutate({ intakeId: intakeBeingFilled.id, clientId })
+          }
+        }}
+      />
       <BuyerBlastDialog
         open={blastOpen}
         onOpenChange={setBlastOpen}

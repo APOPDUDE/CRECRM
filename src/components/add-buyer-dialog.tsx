@@ -42,9 +42,23 @@ const NONE = '__none__'
 export function AddBuyerDialog({
   open,
   onOpenChange,
+  prefill,
+  onCreated,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /**
+   * Seed the form when the buyer came from somewhere that already knows who they are —
+   * today that's the GHL buyer-tag queue on the Buyers page.
+   */
+  prefill?: {
+    contactId?: string | null
+    companyId?: string | null
+    /** Shown on the contact picker, which can't always resolve a name from its capped list. */
+    contactLabel?: string | null
+  } | null
+  /** The client that was just created, so a caller can link its queue entry to it. */
+  onCreated?: (clientId: string) => void
 }) {
   const { session } = useAuth()
   const userId = session?.user.id
@@ -59,13 +73,13 @@ export function AddBuyerDialog({
 
   useEffect(() => {
     if (!open) return
-    setContactId(null)
-    setCompanyId(null)
+    setContactId(prefill?.contactId ?? null)
+    setCompanyId(prefill?.companyId ?? null)
     setSource(NONE)
     setCapRate('')
     setNotes('')
     setCriteria(emptyBuyerCriteria())
-  }, [open])
+  }, [open, prefill?.contactId, prefill?.companyId])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -84,8 +98,9 @@ export function AddBuyerDialog({
         ...buyerCriteriaToRow(criteria),
       },
       {
-        onSuccess: () => {
+        onSuccess: (created) => {
           toast.success('Buyer added')
+          if (created?.id) onCreated?.(created.id)
           onOpenChange(false)
         },
         onError: (error) => toast.error(friendlyDbError(error, 'Could not add buyer')),
@@ -107,6 +122,7 @@ export function AddBuyerDialog({
               onChange={setContactId}
               companyId={companyId ?? undefined}
               placeholder="Select or create contact"
+              fallbackLabel={contactId && contactId === prefill?.contactId ? prefill?.contactLabel : null}
             />
           </div>
           <div className="space-y-2">
