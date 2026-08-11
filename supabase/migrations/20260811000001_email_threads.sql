@@ -28,7 +28,7 @@ returns jsonb language plpgsql security definer set search_path to 'public' as $
 declare
   r jsonb;
   v_ct uuid; v_owner uuid; v_prop uuid; v_ext text; v_dir comm_direction;
-  v_email text; v_phone text;
+  v_email text; v_phone text; v_n int;
   n_in int := 0; n_ins int := 0; n_ct_new int := 0; n_skipped int := 0;
   n_owner int := 0; n_prop int := 0;
 begin
@@ -69,12 +69,16 @@ begin
     order by (oc.confidence = 'confirmed') desc limit 1;
     if v_owner is not null then
       n_owner := n_owner + 1;
-      -- Exactly-one test as a single aggregate. "select id ... having count(*) = 1" is
-      -- NOT valid without a GROUP BY, and it only errors on the owner path -- which a
-      -- contact with no owner link never reaches, so it survived single-row testing.
-      select case when count(*) = 1 then min(p2.id) end into v_prop
-      from properties p2 where p2.owner_id = v_owner;
-      if v_prop is not null then n_prop := n_prop + 1; end if;
+      -- Count first, then take the row. Postgres has no min(uuid), and
+      -- "select id ... having count(*) = 1" needs a GROUP BY -- both of which fail ONLY
+      -- HERE, on the owner path, which a contact with no owner link never reaches. Two
+      -- rewrites passed single-row tests and died in bulk before this one was verified
+      -- against a contact that actually has an owner.
+      select count(*) into v_n from properties where owner_id = v_owner;
+      if v_n = 1 then
+        select id into v_prop from properties where owner_id = v_owner limit 1;
+        n_prop := n_prop + 1;
+      end if;
     end if;
 
     v_dir := case when upper(coalesce(r->>'type','')) = 'REPLY'
