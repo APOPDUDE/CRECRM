@@ -197,6 +197,66 @@ export type Database = {
         }
         Relationships: []
       }
+      buyer_intakes: {
+        Row: {
+          client_id: string | null
+          company_name: string | null
+          contact_id: string | null
+          created_at: string
+          dismissed_reason: string | null
+          email: string | null
+          first_name: string | null
+          ghl_contact_id: string
+          id: string
+          last_name: string | null
+          phone: string | null
+          raw: Json | null
+          reviewed_at: string | null
+          source: Database["public"]["Enums"]["lead_source"] | null
+          status: Database["public"]["Enums"]["buyer_intake_status"]
+          tagged_at: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          company_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          dismissed_reason?: string | null
+          email?: string | null
+          first_name?: string | null
+          ghl_contact_id: string
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          raw?: Json | null
+          reviewed_at?: string | null
+          source?: Database["public"]["Enums"]["lead_source"] | null
+          status?: Database["public"]["Enums"]["buyer_intake_status"]
+          tagged_at?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          company_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          dismissed_reason?: string | null
+          email?: string | null
+          first_name?: string | null
+          ghl_contact_id?: string
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          raw?: Json | null
+          reviewed_at?: string | null
+          source?: Database["public"]["Enums"]["lead_source"] | null
+          status?: Database["public"]["Enums"]["buyer_intake_status"]
+          tagged_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           actual_fee: number | null
@@ -1347,6 +1407,7 @@ export type Database = {
           dock_high_doors: number | null
           dock_levelers: number | null
           dor_use_code: string | null
+          folio: string | null
           grade_level_doors: number | null
           gross_leasable_area: string | null
           id: string
@@ -1379,6 +1440,7 @@ export type Database = {
           sale_type: string | null
           scrape_facts: Json | null
           scraped_at: string | null
+          site_address: string | null
           source: string | null
           source_key: string | null
           source_last_updated: string | null
@@ -1424,6 +1486,7 @@ export type Database = {
           dock_high_doors?: number | null
           dock_levelers?: number | null
           dor_use_code?: string | null
+          folio?: string | null
           grade_level_doors?: number | null
           gross_leasable_area?: string | null
           id?: string
@@ -1456,6 +1519,7 @@ export type Database = {
           sale_type?: string | null
           scrape_facts?: Json | null
           scraped_at?: string | null
+          site_address?: string | null
           source?: string | null
           source_key?: string | null
           source_last_updated?: string | null
@@ -1501,6 +1565,7 @@ export type Database = {
           dock_high_doors?: number | null
           dock_levelers?: number | null
           dor_use_code?: string | null
+          folio?: string | null
           grade_level_doors?: number | null
           gross_leasable_area?: string | null
           id?: string
@@ -1533,6 +1598,7 @@ export type Database = {
           sale_type?: string | null
           scrape_facts?: Json | null
           scraped_at?: string | null
+          site_address?: string | null
           source?: string | null
           source_key?: string | null
           source_last_updated?: string | null
@@ -2404,9 +2470,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      approve_buyer_intake: {
+        Args: { p_client_id: string; p_intake_id: string }
+        Returns: Json
+      }
       approve_suggestion: {
         Args: { p_client_id?: string; p_suggestion_id: string }
         Returns: string
+      }
+      dismiss_buyer_intake: {
+        Args: { p_intake_id: string; p_reason?: string }
+        Returns: Json
       }
       buyers_covering_point: {
         Args: { p_lat: number; p_lng: number }
@@ -2655,6 +2729,7 @@ export type Database = {
       }
     }
     Enums: {
+      buyer_intake_status: "pending" | "approved" | "dismissed"
       buyer_kind: "investor" | "owner_user" | "developer"
       client_purpose:
         | "expansion"

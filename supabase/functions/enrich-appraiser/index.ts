@@ -149,6 +149,9 @@ const COUNTIES: Record<string, Adapter> = {
       owner_name: str(a.OWNER),
       owner_mailing_address: joinAddr(a.ADDR_1, a.ADDR_2, a.CITY, a.STATE, a.ZIP),
       site_address: str(a.SITE_ADDR),
+      // Hillsborough issues two ids per parcel. We usually store the PIN, but GHL, skip
+      // traces and dial sheets carry the FOLIO — keep both so either one resolves.
+      folio: str(a.FOLIO),
       dor_use_code: str(a.DOR_CODE),
       just_value: num(a.JUST),
       assessed_value: num(a.ASD_VAL),
@@ -235,8 +238,14 @@ async function enrichOne(supa: any, p: any) {
   if (p.building_sf == null && m.building_sf != null) upd.building_sf = m.building_sf;
   if (p.year_built == null && m.year_built != null) upd.year_built = m.year_built;
   if (p.land_acres == null && m.land_acres != null) upd.land_acres = m.land_acres;
-  // Fill the address from the appraiser's situs address ONLY when ours is blank or a
-  // parcel-only placeholder ("Parcel <id>" / "Address unavailable") — never clobber a real one.
+  // The county situs address is authoritative, so always keep it — properties.address may
+  // hold a listing-site marketing range ("4428-4450 Eagle Falls Pl") while the county, every
+  // caller and every skip trace say "4456 Eagle Falls Pl". Discarding it used to make such a
+  // property unfindable by its real address; the app now displays site_address when present.
+  if (m.site_address) upd.site_address = m.site_address;
+  if (m.folio) upd.folio = String(m.folio).replace(/[^0-9]/g, "") || null;
+  // properties.address still only gets filled when ours is blank or a parcel-only placeholder
+  // ("Parcel <id>" / "Address unavailable") — never clobber what the source gave us.
   const addr = str(p.address);
   const isPlaceholder = !addr || /^parcel\b/i.test(addr) || addr.toLowerCase() === "address unavailable";
   if (isPlaceholder && m.site_address) upd.address = m.site_address;

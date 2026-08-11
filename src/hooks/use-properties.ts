@@ -56,11 +56,20 @@ export function useGeocodeMissing(enabled = true) {
 export type Property = Pick<
   Tables<'properties'>,
   | 'id' | 'address' | 'city' | 'state' | 'zip' | 'county' | 'parcel_number'
+  | 'site_address' | 'folio'
   | 'property_type' | 'building_sf' | 'land_acres' | 'specs' | 'listing_status'
   | 'days_on_market' | 'year_built' | 'zoning_description' | 'zoning_district'
   | 'occupancy' | 'lat' | 'lng' | 'owner_id' | 'owner_name' | 'owner_mailing_address'
   | 'last_sale_date' | 'last_sale_price' | 'listing_url' | 'created_at' | 'updated_at'
->
+> & {
+  /**
+   * `address` exactly as the source gave it to us, before the county situs address wins.
+   * Listing sites market a building by a range ("4428-4450 Eagle Falls Pl") while the county,
+   * every caller and every skip trace use one situs address ("4456 Eagle Falls Pl"). The edit
+   * form writes this back, so opening and saving a property never silently swaps the two.
+   */
+  source_address: string | null
+}
 
 /** Property plus embedded linked-deal counts (listings + pursuits). */
 export type PropertyWithCounts = Property & {
@@ -86,7 +95,8 @@ export function useProperties() {
       // explicit FK hints: listing_parcels adds a 2nd properties<->listings relationship,
       // so a bare listings(count) is ambiguous (PGRST201) and 300s the whole query.
       const SELECT =
-        'id, address, city, state, zip, county, parcel_number, property_type, building_sf, ' +
+        'id, address, city, state, zip, county, parcel_number, site_address, folio, ' +
+        'property_type, building_sf, ' +
         'land_acres, specs, listing_status, days_on_market, year_built, zoning_description, ' +
         'zoning_district, occupancy, lat, lng, owner_id, owner_name, owner_mailing_address, ' +
         'last_sale_date, last_sale_price, listing_url, created_at, updated_at, ' +
@@ -116,7 +126,14 @@ export function useProperties() {
         if (r.error) throw r.error
         all.push(...((r.data ?? []) as unknown as PropertyWithCounts[]))
       }
-      return all
+      // County records are the source of truth (Alex 2026-08-11), so the situs address is what
+      // the whole app shows, searches, maps and exports — one swap here rather than a
+      // `site_address ?? address` at every read site. The original stays on source_address.
+      return all.map((p) => ({
+        ...p,
+        address: p.site_address ?? p.address,
+        source_address: p.address,
+      }))
     },
   })
 }
@@ -198,7 +215,9 @@ export function useProperty(id: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase.from('properties').select('*').eq('id', id!).single()
       if (error) throw error
-      return data
+      // same county-first swap the list book does, so the detail page, its dialogs and the
+      // owner card all show the situs address rather than a listing site's marketing range
+      return { ...data, address: data.site_address ?? data.address, source_address: data.address }
     },
   })
 }

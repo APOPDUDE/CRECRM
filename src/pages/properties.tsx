@@ -430,11 +430,18 @@ export function PropertiesPage() {
         p.id,
         buildHaystack([
           p.address,
+          // the marketing address the listing site gave us, when it differs from the county's —
+          // brokers know this building as "4428-4450 Eagle Falls Pl" even though the county
+          // (and every caller) calls it 4456
+          p.source_address,
           p.city,
           p.state,
           p.zip,
           p.specs,
           p.county,
+          // both county parcel ids, so a folio or PIN pasted from GHL finds the property
+          p.parcel_number,
+          p.folio,
           p.property_type ? propertyKindLabels[p.property_type] : null,
         ]),
       )

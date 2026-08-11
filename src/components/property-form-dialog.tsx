@@ -71,7 +71,10 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
 
   useEffect(() => {
     if (open) {
-      setAddress(property?.address ?? '')
+      // the form edits properties.address itself, so it shows the source address rather than
+      // the county situs address the rest of the app displays — otherwise opening a property
+      // and saving it would silently overwrite the source address with the county's.
+      setAddress(property?.source_address ?? property?.address ?? '')
       setParcelNumber(property?.parcel_number ?? '')
       setCounty(property?.county ?? '')
       setCity(property?.city ?? '')
