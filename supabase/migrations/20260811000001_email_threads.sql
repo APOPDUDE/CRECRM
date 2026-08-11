@@ -28,33 +28,53 @@ returns jsonb language plpgsql security definer set search_path to 'public' as $
 declare
   r jsonb;
   v_ct uuid; v_owner uuid; v_prop uuid; v_ext text; v_dir comm_direction;
-  n_in int := 0; n_ins int := 0; n_upd int := 0; n_no_contact int := 0;
+  v_email text; v_phone text;
+  n_in int := 0; n_ins int := 0; n_ct_new int := 0; n_skipped int := 0;
   n_owner int := 0; n_prop int := 0;
 begin
   for r in select * from jsonb_array_elements(p) loop
     n_in := n_in + 1;
-
+    v_email := lower(nullif(btrim(coalesce(r->>'lead_email','')), ''));
     v_ct := null; v_owner := null; v_prop := null;
-    if nullif(btrim(coalesce(r->>'lead_email','')), '') is not null then
-      select id into v_ct from contacts
-      where lower(btrim(email)) = lower(btrim(r->>'lead_email')) limit 1;
-    end if;
-    if v_ct is null then n_no_contact := n_no_contact + 1; end if;
 
-    if v_ct is not null then
-      select oc.owner_id into v_owner from owner_contacts oc
-      where oc.contact_id = v_ct
-      order by (oc.confidence = 'confirmed') desc limit 1;
-      if v_owner is not null then
-        n_owner := n_owner + 1;
-        -- Only when the owner holds exactly ONE property. Pinning a thread to the wrong
-        -- building of a portfolio is worse than pinning it to none: the owner link still
-        -- surfaces it on every one of their properties either way.
-        select p2.id into v_prop
-        from properties p2 where p2.owner_id = v_owner
-        having count(*) = 1;
-        if v_prop is not null then n_prop := n_prop + 1; end if;
+    if v_email is not null then
+      select id into v_ct from contacts where lower(btrim(email)) = v_email limit 1;
+    end if;
+
+    -- communications_needs_identity demands a contact or a phone, and an email thread has
+    -- neither when the address is one we never imported -- the lead lists picked ONE
+    -- address per person, so a second address arrives orphaned. Creating the contact is
+    -- the only way to keep the message, and 74 of these are REPLIES. It may add a second
+    -- row for someone already in the book under another address: a merge to make later,
+    -- not a thread to lose.
+    if v_ct is null and v_email is not null then
+      v_phone := nullif(btrim(coalesce(r->>'lead_phone','')), '');
+      if v_phone is not null and exists (
+        select 1 from contacts c2 where normalize_phone(c2.phone) = normalize_phone(v_phone)
+      ) then
+        v_phone := null;   -- one contact per number; a thread does not get to steal it
       end if;
+      insert into contacts (first_name, last_name, email, phone, source_system)
+      values (coalesce(nullif(btrim(coalesce(r->>'lead_first','')), ''), split_part(v_email,'@',1)),
+              nullif(btrim(coalesce(r->>'lead_last','')), ''),
+              v_email, v_phone, 'smartlead')
+      returning id into v_ct;
+      n_ct_new := n_ct_new + 1;
+    end if;
+
+    if v_ct is null then n_skipped := n_skipped + 1; continue; end if;
+
+    select oc.owner_id into v_owner from owner_contacts oc
+    where oc.contact_id = v_ct
+    order by (oc.confidence = 'confirmed') desc limit 1;
+    if v_owner is not null then
+      n_owner := n_owner + 1;
+      -- Exactly-one test as a single aggregate. "select id ... having count(*) = 1" is
+      -- NOT valid without a GROUP BY, and it only errors on the owner path -- which a
+      -- contact with no owner link never reaches, so it survived single-row testing.
+      select case when count(*) = 1 then min(p2.id) end into v_prop
+      from properties p2 where p2.owner_id = v_owner;
+      if v_prop is not null then n_prop := n_prop + 1; end if;
     end if;
 
     v_dir := case when upper(coalesce(r->>'type','')) = 'REPLY'
@@ -82,8 +102,9 @@ begin
           owner_id = coalesce(communications.owner_id, excluded.owner_id),
           property_id = coalesce(communications.property_id, excluded.property_id),
           raw = coalesce(communications.raw, '{}'::jsonb) || excluded.raw;
-    if found then n_ins := n_ins + 1; else n_upd := n_upd + 1; end if;
+    n_ins := n_ins + 1;
   end loop;
   return jsonb_build_object('ok', true, 'received', n_in, 'written', n_ins,
-    'no_contact_match', n_no_contact, 'linked_owner', n_owner, 'linked_property', n_prop);
+    'contacts_created', n_ct_new, 'skipped_no_identity', n_skipped,
+    'linked_owner', n_owner, 'linked_property', n_prop);
 end $$;
