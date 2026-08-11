@@ -10,6 +10,7 @@ import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { useContactConversations } from '@/hooks/use-communications'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
 import { ContactAssociations } from '@/components/contact-associations'
+import { EmailVerifiedBadge } from '@/components/verified-badge'
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null
@@ -76,7 +77,17 @@ export function ContactDetailPage() {
 
       <dl className="grid max-w-lg grid-cols-1 gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
         <Field label="Title" value={contact.title} />
-        <Field label="Email" value={contact.email} />
+        {contact.email && (
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">Email</dt>
+            {/* The badge sits on the ADDRESS, not the person: a reply proves the mail
+                arrives and nothing more, so the phone below stays unmarked. */}
+            <dd className="mt-0.5 flex items-center gap-1.5 text-sm">
+              {contact.email}
+              {contact.email_verified_at && <EmailVerifiedBadge label={false} />}
+            </dd>
+          </div>
+        )}
         <Field label="Phone" value={contact.phone} />
         {contact.company && (
           <div>

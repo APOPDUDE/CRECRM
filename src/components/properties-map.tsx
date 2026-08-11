@@ -355,6 +355,11 @@ const PIN = {
  */
 const OWNER_PIN = {
   verified: '#2563eb',
+  // Reachable by EMAIL only — a reply came back, but nobody has had a conversation.
+  // Its own colour rather than folding into verified: both are "worth contacting", but
+  // one you can call today and the other you can only write to, and the map should not
+  // blur that into a single dot.
+  emailOnly: '#0d9488',
   unverified: '#94a3b8',
 } as const
 
@@ -379,7 +384,9 @@ const LEASE_PIN = {
 export type MapColorBy = 'market' | 'owner' | 'lease'
 
 function ownerPin(ctx: OwnerContext | undefined): string {
-  return ctx?.owner_contact_verified ? OWNER_PIN.verified : OWNER_PIN.unverified
+  if (ctx?.owner_contact_verified) return OWNER_PIN.verified
+  if (ctx?.owner_email_verified) return OWNER_PIN.emailOnly
+  return OWNER_PIN.unverified
 }
 
 const shortDate = (iso: string) =>
@@ -445,6 +452,7 @@ const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
   ],
   owner: [
     { c: OWNER_PIN.verified, label: 'Verified owner' },
+    { c: OWNER_PIN.emailOnly, label: 'Email verified' },
     { c: OWNER_PIN.unverified, label: 'Not verified' },
   ],
   lease: [

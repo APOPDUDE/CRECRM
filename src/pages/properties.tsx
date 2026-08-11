@@ -135,9 +135,13 @@ const COLUMN_DEFS: ColumnDef[] = [
   {
     id: 'owner_contact',
     label: 'Verified owner',
+    // Names the channel rather than a bare "Verified": one you can call today, the other
+    // you can only write to, and the export/push behave differently for each.
     cell: (_p, _a, o) =>
       o?.owner_contact_verified ? (
-        <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">Verified</Badge>
+        <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">Call</Badge>
+      ) : o?.owner_email_verified ? (
+        <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-700">Email</Badge>
       ) : (
         <span className="text-xs text-muted-foreground">—</span>
       ),
@@ -602,12 +606,15 @@ export function PropertiesPage() {
         if (dealType === 'lease' && ask?.rate == null) return false
         if (dealType === 'sale' && ask?.price == null) return false
       }
-      // Binary on purpose (Alex): either we can call the owner today, or the parcel goes on
-      // the next skip-trace list — county-known-but-uncalled is still "not verified".
+      // Binary on purpose (Alex): either we can reach the owner today, or the parcel goes
+      // on the next skip-trace list — county-known-but-uncontacted is still "not verified".
+      // Reachable spans BOTH channels: a confirmed conversation OR an email address proven
+      // to arrive. An owner you can only write to is still an owner you can work.
       if (applies.owner && ownerFilter !== 'all') {
-        const verified = !!ownerCtx?.get(p.id)?.owner_contact_verified
-        if (ownerFilter === 'verified' && !verified) return false
-        if (ownerFilter === 'unverified' && verified) return false
+        const ctx = ownerCtx?.get(p.id)
+        const reachable = !!ctx?.owner_reachable
+        if (ownerFilter === 'verified' && !reachable) return false
+        if (ownerFilter === 'unverified' && reachable) return false
       }
       if (applies.lease && leaseMatchIds && !leaseMatchIds.has(p.id)) return false
       if (ptype !== 'all' && p.property_type !== ptype) return false
@@ -1067,7 +1074,7 @@ export function PropertiesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Any</SelectItem>
-                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="verified">Verified (call or email)</SelectItem>
                       <SelectItem value="unverified">Not verified</SelectItem>
                     </SelectContent>
                   </Select>
