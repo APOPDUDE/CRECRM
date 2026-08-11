@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, X } from 'lucide-react'
+import { MapPin, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -131,10 +131,16 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
               />
             </form>
           )}
-          {portfolioCount > 1 && (
-            <span className="text-xs text-muted-foreground">
-              {portfolioCount} properties in portfolio
-            </span>
+          {portfolioCount > 1 && ownerId && (
+            // A portfolio is a shape on a map before it is a number — one owner holding
+            // eight parcels along the same corridor is a different conversation than eight
+            // scattered ones, and you can only see that by looking.
+            <Button asChild variant="outline" size="sm" className="h-7 px-2.5 text-xs font-normal">
+              <Link to={`/properties?owner=${ownerId}&view=map`}>
+                <MapPin className="size-3.5" />
+                See all {portfolioCount} on the map
+              </Link>
+            </Button>
           )}
         </div>
         {property.owner_mailing_address && (
