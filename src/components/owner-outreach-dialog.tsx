@@ -13,6 +13,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { formatDate } from '@/lib/dates'
+import { formatPhone } from '@/lib/format'
 import { renderFor, variantCount } from '@/lib/message-template'
 import { cn } from '@/lib/utils'
 
@@ -20,10 +23,14 @@ const BLAST_URL = 'https://n8n.ayxco.com/webhook/buyer-blast'
 
 export type OwnerRecipient = {
   recipientId: string
-  phone: string
+  /** null when we hold no number — shown in the list anyway, so the gap is visible */
+  phone: string | null
   first: string | null
   last: string | null
   company: string | null
+  address: string | null
+  /** last call/note/meeting on this owner, from v_property_owner_context */
+  lastContactedAt: string | null
   /** what makes the message theirs: the building they own */
   ctx: Record<string, string | null>
   /** GHL custom fields, so the owner record stays as rich as the tag-only push made it */
@@ -82,13 +89,10 @@ export function OwnerOutreachDialog({
   open,
   onOpenChange,
   recipients,
-  skippedCount,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   recipients: OwnerRecipient[]
-  /** owners in view with no reachable phone */
-  skippedCount: number
 }) {
   const [segment, setSegment] = useState('')
   const [templateId, setTemplateId] = useState(OWNER_TEMPLATES[0].id)
@@ -96,6 +100,8 @@ export function OwnerOutreachDialog({
   const [tenant, setTenant] = useState('')
   const [comp, setComp] = useState('')
   const [mode, setMode] = useState<Mode>('draft')
+  const [activity, setActivity] = useState<'all' | 'recent' | 'quiet'>('all')
+  const [deselected, setDeselected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
 
@@ -107,6 +113,8 @@ export function OwnerOutreachDialog({
     setTenant('')
     setComp('')
     setMode('draft')
+    setActivity('all')
+    setDeselected(new Set())
   }, [open])
 
   const pickTemplate = (id: string) => {
@@ -125,12 +133,42 @@ export function OwnerOutreachDialog({
     r ? renderFor(message, r.recipientId, { ...r.ctx, ...campaignCtx }) : ''
 
   const variants = useMemo(() => variantCount(message), [message])
-  const shown = recipients.slice(0, 2)
+
+  // "Recent" is 30 days of ANY logged contact — call, note or meeting. Which side you
+  // want depends on the message: a market-news touch suits people you have spoken to,
+  // a cold opener is wasted on someone you rang last week.
+  const DAYS = 30
+  const cutoff = useMemo(() => Date.now() - DAYS * 86400000, [])
+  const isRecent = (r: OwnerRecipient) =>
+    r.lastContactedAt != null && new Date(r.lastContactedAt).getTime() >= cutoff
+
+  const inScope = useMemo(
+    () =>
+      recipients.filter((r) =>
+        activity === 'all' ? true : activity === 'recent' ? isRecent(r) : !isRecent(r),
+      ),
+    [recipients, activity, cutoff],
+  )
+  const textable = useMemo(() => inScope.filter((r) => r.phone), [inScope])
+  const noPhone = useMemo(() => inScope.filter((r) => !r.phone), [inScope])
+  const sending = useMemo(
+    () => textable.filter((r) => !deselected.has(r.recipientId)),
+    [textable, deselected],
+  )
+  const allOn = textable.length > 0 && sending.length === textable.length
+  const toggleAll = () =>
+    setDeselected((prev) => {
+      const next = new Set(prev)
+      if (allOn) textable.forEach((r) => next.add(r.recipientId))
+      else textable.forEach((r) => next.delete(r.recipientId))
+      return next
+    })
+  const shown = sending.slice(0, 2)
   const needsTenant = message.includes('{{campaign.tenant') && !tenant.trim()
   const needsComp = message.includes('{{campaign.comp') && !comp.trim()
 
   const push = async () => {
-    if (!segment.trim() || !message.trim() || recipients.length === 0) return
+    if (!segment.trim() || !message.trim() || sending.length === 0) return
     setBusy(true)
     try {
       const res = await fetch(BLAST_URL, {
@@ -141,7 +179,7 @@ export function OwnerOutreachDialog({
           message: message.trim(),
           mode,
           audienceTag: 'owner-verified',
-          recipients: recipients.map((r) => ({
+          recipients: sending.map((r) => ({
             ...r,
             ctx: { ...r.ctx, ...campaignCtx },
           })),
@@ -153,7 +191,7 @@ export function OwnerOutreachDialog({
         throw new Error('the automation errored before it finished — check the n8n execution log')
       }
       const r = JSON.parse(raw) as { tag: string; queued?: number; drafted?: number }
-      const n = r.queued ?? r.drafted ?? recipients.length
+      const n = r.queued ?? r.drafted ?? sending.length
       toast.success(
         mode === 'send' ? `Queued ${n} iMessage${n === 1 ? '' : 's'}` : `Drafted for ${n} owner${n === 1 ? '' : 's'}`,
         {
@@ -179,8 +217,7 @@ export function OwnerOutreachDialog({
         <DialogHeader>
           <DialogTitle>Message these owners</DialogTitle>
           <DialogDescription>
-            {recipients.length.toLocaleString()} owner{recipients.length === 1 ? '' : 's'} in this
-            view get tagged in GoHighLevel and the message written on their contact. Everything goes
+            {sending.length.toLocaleString()} owner{sending.length === 1 ? '' : 's'} get tagged in GoHighLevel and the message written on their contact. Everything goes
             over the Blooio line — there is no separate SMS lane on this account.
           </DialogDescription>
         </DialogHeader>
@@ -284,12 +321,103 @@ export function OwnerOutreachDialog({
           </div>
         )}
 
-        {skippedCount > 0 && (
-          <p className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-            {skippedCount.toLocaleString()} owner{skippedCount === 1 ? '' : 's'} in this view have no
-            reachable phone and cannot be messaged.
-          </p>
-        )}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label>Who gets it</Label>
+            <div className="flex items-center rounded-full border p-0.5">
+              {(
+                [
+                  ['all', 'Everyone'],
+                  ['recent', 'Touched in 30d'],
+                  ['quiet', 'Quiet 30d+'],
+                ] as ['all' | 'recent' | 'quiet', string][]
+              ).map(([v, label]) => (
+                <Button
+                  key={v}
+                  type="button"
+                  variant={activity === v ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-6 rounded-full px-2.5 text-xs font-normal"
+                  onClick={() => setActivity(v)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="max-h-56 overflow-y-auto rounded-lg border">
+            {inScope.length === 0 ? (
+              <p className="p-3 text-sm text-muted-foreground">
+                Nobody matches that filter.
+              </p>
+            ) : (
+              <>
+                <label className="flex items-center gap-2 border-b bg-muted/40 px-2.5 py-1.5 text-xs">
+                  <Checkbox
+                    checked={allOn}
+                    onCheckedChange={toggleAll}
+                    disabled={textable.length === 0}
+                    aria-label={allOn ? 'Clear all' : 'Select all'}
+                  />
+                  <span className="text-muted-foreground">
+                    {sending.length} of {textable.length} textable
+                    {noPhone.length > 0 && ` · ${noPhone.length} with no number`}
+                  </span>
+                </label>
+                <ul className="divide-y">
+                  {inScope.map((r) => {
+                    const on = !!r.phone && !deselected.has(r.recipientId)
+                    return (
+                      <li
+                        key={r.recipientId}
+                        className={cn(
+                          'flex items-center gap-2 px-2.5 py-1.5 text-sm',
+                          !r.phone && 'bg-muted/30',
+                        )}
+                      >
+                        {r.phone ? (
+                          <Checkbox
+                            checked={on}
+                            onCheckedChange={() =>
+                              setDeselected((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(r.recipientId)) next.delete(r.recipientId)
+                                else next.add(r.recipientId)
+                                return next
+                              })
+                            }
+                            aria-label={`Text ${r.first ?? r.company ?? 'this owner'}`}
+                          />
+                        ) : (
+                          <span className="w-4 text-center text-[10px] text-muted-foreground">—</span>
+                        )}
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className={cn(!r.phone && 'text-muted-foreground')}>
+                            {[r.first, r.last].filter(Boolean).join(' ') || r.company || 'Unknown'}
+                          </span>
+                          <span className="text-muted-foreground"> · {r.address ?? 'no address'}</span>
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {r.phone ? formatPhone(r.phone) : 'no number'}
+                        </span>
+                        <span className="w-20 shrink-0 text-right text-[10px] text-muted-foreground">
+                          {r.lastContactedAt ? formatDate(r.lastContactedAt) : 'never'}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
+            )}
+          </div>
+          {noPhone.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {noPhone.length} owner{noPhone.length === 1 ? '' : 's'} here {noPhone.length === 1 ? 'has' : 'have'} no
+              number — verified by email only. Export them from the War Room to skip-trace.
+            </p>
+          )}
+        </div>
 
         <div className="space-y-1.5 rounded-lg border p-3">
           {(
@@ -299,10 +427,10 @@ export function OwnerOutreachDialog({
                 'send',
                 'Send now over iMessage',
                 `Goes out through Blooio, 5 to 15 minutes apart — about ${
-                  Math.round(recipients.length * 10) >= 90
-                    ? `${(Math.round(recipients.length * 10) / 60).toFixed(1)} hours`
-                    : `${Math.round(recipients.length * 10)} minutes`
-                } for ${recipients.length}.`,
+                  Math.round(sending.length * 10) >= 90
+                    ? `${(Math.round(sending.length * 10) / 60).toFixed(1)} hours`
+                    : `${Math.round(sending.length * 10)} minutes`
+                } for ${sending.length}.`,
               ],
             ] as [Mode, string, string][]
           ).map(([v, label, hint]) => (
@@ -330,7 +458,7 @@ export function OwnerOutreachDialog({
           </Button>
           <Button
             onClick={() => void push()}
-            disabled={busy || !segment.trim() || !message.trim() || recipients.length === 0}
+            disabled={busy || !segment.trim() || !message.trim() || sending.length === 0}
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             {busy
@@ -338,8 +466,8 @@ export function OwnerOutreachDialog({
                 ? 'Sending…'
                 : 'Drafting…'
               : mode === 'send'
-                ? `Send to ${recipients.length.toLocaleString()}`
-                : `Draft for ${recipients.length.toLocaleString()}`}
+                ? `Send to ${sending.length.toLocaleString()}`
+                : `Draft for ${sending.length.toLocaleString()}`}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -689,35 +689,48 @@ export function PropertiesPage() {
     return { pushable: [...byPhone.values()], skippedIds: skipped }
   }, [filtered, ownerCtx])
 
-  // The building they own IS the context. "Noticed you own 1602 N 43rd St" is the line that
-  // separates a message worth reading from the blast that gets a line flagged.
-  const ownerRecipients: OwnerRecipient[] = useMemo(
-    () =>
-      pushable.map((c) => {
-        const street = (c.address ?? '').replace(/^\d+\s+/, '').trim() || null
-        return {
-          recipientId: c.propertyId,
-          phone: c.phone,
-          first: c.first,
-          last: c.last,
-          company: c.ownerName,
-          ctx: {
-            'property.address': c.address,
-            'property.city': c.city,
-            'property.street': street,
-            // reads as ", in Tampa" only when we actually know the city
-            'property.city_suffix': c.city ? ` in ${c.city}` : '',
-          },
-          cf: [
-            c.parcel ? { id: 'VxEwTurixSyHFqlqV2O8', field_value: c.parcel } : null,
-            c.address ? { id: 'iUJbtzcHw0ShIXkzoBpp', field_value: c.address } : null,
-            c.city ? { id: 'FLoZeiY2w6wJt4tw3Fe0', field_value: c.city } : null,
-            c.ownerName ? { id: 'a4vHj26a4Kn657PnYCnI', field_value: c.ownerName } : null,
-          ].filter(Boolean) as { id: string; field_value: string }[],
-        }
-      }),
-    [pushable],
-  )
+  // Every verified owner in view, INCLUDING the ones with no number. A list that
+  // silently drops them answers "who is getting this" but not "who is missing", and the
+  // second question is the one that sends you skip-tracing.
+  const ownerRecipients: OwnerRecipient[] = useMemo(() => {
+    const seen = new Set<string>()
+    const out: OwnerRecipient[] = []
+    for (const p of filtered) {
+      const o = ownerCtx?.get(p.id)
+      if (!o?.owner_contact_verified && !o?.owner_email_verified) continue
+      const digits = String(o?.best_contact_phone ?? '').replace(/\D/g, '')
+      const ten = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+      const phone = ten.length === 10 ? ten : null
+      const key = phone ?? `prop:${p.id}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const name = (o.best_contact_name ?? '').trim()
+      const sp = name.indexOf(' ')
+      const street = (p.address ?? '').replace(/^\d+\s+/, '').trim() || null
+      out.push({
+        recipientId: p.id,
+        phone,
+        first: sp > 0 ? name.slice(0, sp) : name || null,
+        last: sp > 0 ? name.slice(sp + 1) : null,
+        company: o.owner_name ?? p.owner_name ?? null,
+        address: p.address ?? null,
+        lastContactedAt: o.last_contacted_at ?? null,
+        ctx: {
+          'property.address': p.address,
+          'property.city': p.city,
+          'property.street': street,
+          'property.city_suffix': p.city ? ` in ${p.city}` : '',
+        },
+        cf: [
+          p.parcel_number ? { id: 'VxEwTurixSyHFqlqV2O8', field_value: p.parcel_number } : null,
+          p.address ? { id: 'iUJbtzcHw0ShIXkzoBpp', field_value: p.address } : null,
+          p.city ? { id: 'FLoZeiY2w6wJt4tw3Fe0', field_value: p.city } : null,
+          o.owner_name ? { id: 'a4vHj26a4Kn657PnYCnI', field_value: o.owner_name } : null,
+        ].filter(Boolean) as { id: string; field_value: string }[],
+      })
+    }
+    return out
+  }, [filtered, ownerCtx])
 
   /** The rows the push cannot take — same shape as the main export, for skip-tracing. */
   const exportSkipped = () => {
@@ -1584,7 +1597,6 @@ export function PropertiesPage() {
         open={ownerMsgOpen}
         onOpenChange={setOwnerMsgOpen}
         recipients={ownerRecipients}
-        skippedCount={skippedIds.length}
       />
 
       <PushToGhlDialog
