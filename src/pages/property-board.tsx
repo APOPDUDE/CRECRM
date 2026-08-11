@@ -11,6 +11,7 @@ import { ListingTermsDialog } from '@/components/listing-terms-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { MatchCard } from '@/components/match-card'
 import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
+import { TaskFocusBanner } from '@/components/task-focus-banner'
 import { AddListingParcelDialog } from '@/components/add-listing-parcel-dialog'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import { ContactActions } from '@/components/contact-actions'
@@ -354,6 +355,7 @@ export function PropertyBoardPage() {
 
   return (
     <div className="space-y-4">
+      <TaskFocusBanner />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button

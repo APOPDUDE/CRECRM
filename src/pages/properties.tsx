@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MessageSquare, MoreHorizontal, Pencil, Plus, Search, Send, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MessageSquare, MoreHorizontal, Pencil, Plus, Search, Send, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -582,6 +582,16 @@ export function PropertiesPage() {
       (leaseMatchIds != null && LEASE_COLUMNS.includes(c.id)),
   )
 
+  // ?owner=<id> shows one owner's whole portfolio. It behaves as a filter rather than a
+  // separate mode, so the map, the table, the columns and the export all keep working.
+  const portfolioOwnerId = searchParams.get('owner')
+  const portfolioAll = useMemo(
+    () => (portfolioOwnerId ? (properties ?? []).filter((p) => p.owner_id === portfolioOwnerId) : []),
+    [properties, portfolioOwnerId],
+  )
+  const portfolioTotal = portfolioAll.length
+  const portfolioOwnerName = portfolioAll[0]?.owner_name ?? null
+
   const filtered = useMemo(() => {
     const tokens = searchTokens(search)
     const n = (v: string) => {
@@ -592,6 +602,7 @@ export function PropertiesPage() {
     const acLo = n(acMin), acHi = n(acMax)
     const prLo = n(priceMin), prHi = n(priceMax)
     return (properties ?? []).filter((p) => {
+      if (portfolioOwnerId && p.owner_id !== portfolioOwnerId) return false
       // Every token must appear somewhere in the property's combined text, so a full
       // "3206 Sydney Rd Plant City, FL 33566" matches even though the street, city, state and
       // zip live in different columns.
@@ -864,6 +875,7 @@ export function PropertiesPage() {
   const hasQuery =
     searchTokens(search).length > 0 ||
     activeFilterCount > 0 ||
+    portfolioOwnerId != null ||
     (polygon != null && polygon.length >= 3)
 
   const clearFilters = () => {
@@ -1074,8 +1086,8 @@ export function PropertiesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Any</SelectItem>
-                      <SelectItem value="verified">Verified (call or email)</SelectItem>
-                      <SelectItem value="unverified">Not verified</SelectItem>
+                      <SelectItem value="verified">Reachable — call or email</SelectItem>
+                      <SelectItem value="unverified">No way in yet</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1358,7 +1370,32 @@ export function PropertiesPage() {
               </>
             )}
           </div>
-          <PropertiesMap
+          {portfolioOwnerId && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-accent/40 p-2.5">
+          <p className="text-sm">
+            <span className="font-medium">{portfolioOwnerName ?? 'Portfolio'}</span>
+            <span className="text-muted-foreground">
+              {' — '}
+              {filtered.length} propert{filtered.length === 1 ? 'y' : 'ies'} owned
+              {portfolioTotal > filtered.length ? ` (${portfolioTotal} before other filters)` : ''}
+            </span>
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams)
+              next.delete('owner')
+              setSearchParams(next, { replace: true })
+            }}
+          >
+            <X className="size-4" />
+            Leave portfolio
+          </Button>
+        </div>
+      )}
+
+      <PropertiesMap
             properties={hasQuery ? filtered : []}
             parcelProperties={filtered}
             emptyHint={

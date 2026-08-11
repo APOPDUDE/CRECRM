@@ -111,7 +111,15 @@ export function useVerifiedContactIds() {
 export type OwnerContactRow = Tables<'owner_contacts'> & {
   contact: Pick<
     Tables<'contacts'>,
-    'id' | 'first_name' | 'last_name' | 'phone' | 'email' | 'title' | 'do_not_call' | 'campaign_lists'
+    | 'id'
+    | 'first_name'
+    | 'last_name'
+    | 'phone'
+    | 'email'
+    | 'title'
+    | 'do_not_call'
+    | 'campaign_lists'
+    | 'email_verified_at'
   > | null
 }
 
@@ -124,7 +132,7 @@ export function useOwnerContacts(ownerId: string | null | undefined) {
       const { data, error } = await supabase
         .from('owner_contacts')
         .select(
-          '*, contact:contacts!owner_contacts_contact_id_fkey(id, first_name, last_name, phone, email, title, do_not_call, campaign_lists)',
+          '*, contact:contacts!owner_contacts_contact_id_fkey(id, first_name, last_name, phone, email, title, do_not_call, campaign_lists, email_verified_at)',
         )
         .eq('owner_id', ownerId!)
       if (error) throw error
@@ -232,6 +240,60 @@ export function useRemoveOwnerContact() {
 
 
 /** Replace the owner's outcome tags (the card's chip editor writes the whole array). */
+/**
+ * Mark a number verified or not. Verified means "someone had a conversation on this
+ * line" — the DB enforces it too: confidence 'confirmed' requires a verified_at stamp.
+ *
+ * The owner's own status follows its contacts: confirming one verifies the owner,
+ * and un-confirming the last one drops the owner back, the same rule unlinking uses.
+ */
+export function useSetPhoneVerified() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { linkId: string; ownerId: string; verified: boolean }) => {
+      const { error } = await supabase
+        .from('owner_contacts')
+        .update(
+          v.verified
+            ? { confidence: 'confirmed', verified_at: new Date().toISOString(), verified_by: 'Alex (manual)' }
+            : { confidence: 'likely', verified_at: null, verified_by: null },
+        )
+        .eq('id', v.linkId)
+      if (error) throw error
+
+      const { count, error: e2 } = await supabase
+        .from('owner_contacts')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', v.ownerId)
+        .eq('confidence', 'confirmed')
+      if (e2) throw e2
+      await supabase
+        .from('owners')
+        .update({
+          verification_status: (count ?? 0) > 0 ? 'verified' : 'unverified',
+          verification_updated_at: new Date().toISOString(),
+        })
+        .eq('id', v.ownerId)
+    },
+    onSuccess: () => invalidateOwnerViews(qc),
+  })
+}
+
+/** Mark an email verified or not — the address is proven to reach a human. */
+export function useSetEmailVerified() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { contactId: string; verified: boolean }) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ email_verified_at: v.verified ? new Date().toISOString() : null })
+        .eq('id', v.contactId)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateOwnerViews(qc),
+  })
+}
+
 export function useUpdateOwnerTags() {
   const qc = useQueryClient()
   return useMutation({

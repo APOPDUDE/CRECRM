@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { addDays, endOfWeek, format, parseISO } from 'date-fns'
+import { Check } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { TaskCompleteDialog } from '@/components/task-complete-dialog'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import { matchFee, type DashMatch } from '@/hooks/use-dashboard'
@@ -12,7 +15,7 @@ import { toast } from 'sonner'
 import { PaymentCheckActions } from '@/components/payment-check-actions'
 import {
   paymentRungMessage,
-  taskDealPath,
+  taskHref,
   taskKindLabels,
   usePaymentCheckAnswer,
   useTasks,
@@ -227,8 +230,9 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: TaskTone }) {
   const navigate = useNavigate()
   const toggle = useToggleTask()
   const paymentAnswer = usePaymentCheckAnswer()
-  // Fall back to the Tasks page so match-attached tasks (no standalone route) never dead-end.
-  const path = taskDealPath(task) ?? '/tasks'
+  const [completing, setCompleting] = useState(false)
+  // Fall back to the Tasks page so a task attached to nothing never dead-ends.
+  const path = taskHref(task) ?? '/tasks'
   const who = task.contact ? contactNameOf(task.contact) : null
   const isPaymentCheck = task.source === 'payment_check' && task.status === 'open' && !!task.pursuit_id
   return (
@@ -281,7 +285,23 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: TaskTone }) {
       >
         {task.due_date ? formatDate(task.due_date) : ''}
       </span>
-      <PaymentCheckActions task={task} />
+      {isPaymentCheck ? (
+        <PaymentCheckActions task={task} />
+      ) : (
+        task.status === 'open' && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 shrink-0"
+            onClick={() => setCompleting(true)}
+            title="Log the outcome and close this task"
+          >
+            <Check className="size-3.5" />
+            <span className="hidden sm:inline">Log</span>
+          </Button>
+        )
+      )}
+      <TaskCompleteDialog task={task} open={completing} onOpenChange={setCompleting} />
     </li>
   )
 }

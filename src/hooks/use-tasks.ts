@@ -24,16 +24,49 @@ export const taskKindLabels: Record<Enums<'task_kind'>, string> = {
   tour: 'Tour',
 }
 
-/** Route into the deal a task is attached to, for the "click task -> open deal" flow. */
-export function taskDealPath(
-  task: Pick<Tables<'tasks'>, 'client_id' | 'listing_id' | 'pursuit_id'> & {
-    pursuit?: { client_id: string } | null
-  },
-): string | null {
-  if (task.client_id) return `/tenant-rep/${task.client_id}`
-  if (task.listing_id) return `/landlord-rep/${task.listing_id}`
-  if (task.pursuit?.client_id) return `/tenant-rep/${task.pursuit.client_id}`
+/** Anything a task can be routed to, so a task row never dead-ends. */
+export type TaskTarget = { href: string; label: string }
+
+type RoutableTask = Pick<Tables<'tasks'>, 'client_id' | 'listing_id' | 'pursuit_id' | 'contact_id'> & {
+  pursuit?: { client_id: string } | null
+}
+
+/**
+ * Where clicking a task should take you — the record whose history explains why the
+ * task exists. Deals win over the contact when both are set (a deal page carries the
+ * contact anyway); the contact fallback matters most, since the bulk of the imported
+ * HubSpot tasks hang off a person and nothing else.
+ */
+export function taskTarget(task: RoutableTask): TaskTarget | null {
+  if (task.client_id) return { href: `/tenant-rep/${task.client_id}`, label: 'Open deal' }
+  if (task.listing_id) return { href: `/landlord-rep/${task.listing_id}`, label: 'Open listing' }
+  if (task.pursuit?.client_id)
+    return { href: `/tenant-rep/${task.pursuit.client_id}`, label: 'Open deal' }
+  if (task.contact_id) return { href: `/contacts/${task.contact_id}`, label: 'Open contact' }
   return null
+}
+
+/**
+ * The link a task row navigates to: the target record with `?task=<id>` so the page
+ * can surface the task itself (see `TaskFocusBanner`) instead of dropping you on a
+ * page and leaving you to remember what you came for.
+ */
+export function taskHref(task: RoutableTask & Pick<Tables<'tasks'>, 'id'>): string | null {
+  const target = taskTarget(task)
+  return target ? `${target.href}?task=${task.id}` : null
+}
+
+/** One task with its contact, for the focus banner on a record page. */
+export function useTask(id: string | undefined) {
+  return useQuery({
+    queryKey: ['tasks', 'one', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('tasks').select(TASK_SELECT).eq('id', id!).single()
+      if (error) throw error
+      return data as unknown as TaskWithContact
+    },
+  })
 }
 
 export function useTasks() {
@@ -383,6 +416,111 @@ export function usePaymentCheckAnswer() {
       queryClient.invalidateQueries({ queryKey: ['matches'] })
       queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-matches'] })
+    },
+  })
+}
+
+/** How the outcome was logged — the same vocabulary the conversation log already shows. */
+const NOTE_CHANNEL: Record<Enums<'note_kind'>, Enums<'comm_channel'>> = {
+  note: 'note',
+  call: 'call',
+  text: 'sms',
+  email: 'email',
+  meeting: 'meeting',
+  tour: 'meeting',
+}
+
+export interface CompleteTaskArgs {
+  task: Tables<'tasks'>
+  /** What happened. Blank is allowed — sometimes a task is just done. */
+  note: string
+  kind: Enums<'note_kind'>
+  /** The next step, created with the same attachments as the task just closed. */
+  followUp: { title: string; dueDate: string | null } | null
+}
+
+/**
+ * The "I did this" flow: log the outcome, tick the task off, and optionally put the
+ * next step on the list — one round trip from wherever the task is shown.
+ *
+ * The outcome is written wherever the task is attached, so it lands in the history
+ * that explains the next task: a contact-attached task writes a `communications`
+ * entry (the contact's conversation feed), a deal-attached task writes a `notes` row
+ * on that deal. A task attached to neither keeps its outcome in `details`.
+ */
+export function useCompleteTask() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ task, note, kind, followUp }: CompleteTaskArgs) => {
+      const body = note.trim()
+      const dealColumn = task.client_id
+        ? 'client_id'
+        : task.listing_id
+          ? 'listing_id'
+          : task.pursuit_id
+            ? 'pursuit_id'
+            : null
+
+      if (body) {
+        if (task.contact_id) {
+          const { error } = await supabase.from('communications').insert({
+            contact_id: task.contact_id,
+            channel: NOTE_CHANNEL[kind],
+            direction: kind === 'note' ? 'unknown' : 'outbound',
+            source: 'manual',
+            subject: task.title,
+            body,
+            occurred_at: new Date().toISOString(),
+          })
+          if (error) throw error
+        }
+        if (dealColumn) {
+          const { error } = await supabase.from('notes').insert({
+            [dealColumn]: task[dealColumn],
+            contact_id: task.contact_id,
+            kind,
+            body,
+          } as TablesInsert<'notes'>)
+          if (error) throw error
+        }
+        if (!task.contact_id && !dealColumn) {
+          // nothing to file it against — keep it on the task rather than lose it
+          const stamp = format(new Date(), 'yyyy-MM-dd')
+          const { error } = await supabase
+            .from('tasks')
+            .update({ details: [task.details, `${stamp}: ${body}`].filter(Boolean).join('\n\n') })
+            .eq('id', task.id)
+          if (error) throw error
+        }
+      }
+
+      const { error: doneErr } = await supabase
+        .from('tasks')
+        .update({ status: 'done', completed_at: new Date().toISOString() })
+        .eq('id', task.id)
+      if (doneErr) throw doneErr
+
+      if (followUp?.title.trim()) {
+        const { error } = await supabase.from('tasks').insert({
+          owner_id: task.owner_id,
+          title: followUp.title.trim(),
+          kind: 'follow_up',
+          status: 'open',
+          due_date: followUp.dueDate || null,
+          contact_id: task.contact_id,
+          client_id: task.client_id,
+          listing_id: task.listing_id,
+          pursuit_id: task.pursuit_id,
+          prospect_id: task.prospect_id,
+          auto_generated: false,
+        })
+        if (error) throw error
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
     },
   })
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, X } from 'lucide-react'
+import { MapPin, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input'
 import {
   useAddVerifiedContact,
   useOwnerContacts,
+  useSetEmailVerified,
+  useSetPhoneVerified,
   useOwnerConversations,
   useOwnerProperties,
   useOwnerRecord,
@@ -16,6 +18,8 @@ import {
 } from '@/hooks/use-owners'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
 import type { Property } from '@/hooks/use-properties'
+import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/dates'
 import { formatPhone, normalizePhone } from '@/lib/format'
 
 /**
@@ -26,6 +30,8 @@ import { formatPhone, normalizePhone } from '@/lib/format'
 export function PropertyOwnerCard({ property }: { property: Property }) {
   const ownerId = property.owner_id
   const { data: contacts } = useOwnerContacts(ownerId)
+  const setPhone = useSetPhoneVerified()
+  const setEmail = useSetEmailVerified()
   const { data: portfolio } = useOwnerProperties(ownerId)
   const contactIds = (contacts ?? []).map((c) => c.contact?.id).filter((v): v is string => !!v)
   const { data: comms } = useOwnerConversations(ownerId, contactIds)
@@ -131,10 +137,16 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
               />
             </form>
           )}
-          {portfolioCount > 1 && (
-            <span className="text-xs text-muted-foreground">
-              {portfolioCount} properties in portfolio
-            </span>
+          {portfolioCount > 1 && ownerId && (
+            // A portfolio is a shape on a map before it is a number — one owner holding
+            // eight parcels along the same corridor is a different conversation than eight
+            // scattered ones, and you can only see that by looking.
+            <Button asChild variant="outline" size="sm" className="h-7 px-2.5 text-xs font-normal">
+              <Link to={`/properties?owner=${ownerId}&view=map`}>
+                <MapPin className="size-3.5" />
+                See all {portfolioCount} on the map
+              </Link>
+            </Button>
           )}
         </div>
         {property.owner_mailing_address && (
@@ -159,23 +171,88 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                   <Link to={`/contacts/${oc.contact?.id}`} className="font-medium hover:underline">
                     {name}
                   </Link>
+                  {/* Verification belongs to the CHANNEL, not the person: a confirmed number
+                      and a proven email are different facts. Each badge is the control that
+                      sets it — click to flip, because the person who just made the call is
+                      the one who knows. */}
                   {oc.contact?.phone && (
-                    <a
-                      href={`tel:${oc.contact.phone}`}
-                      className="text-muted-foreground hover:underline"
-                    >
-                      {formatPhone(oc.contact.phone) ?? oc.contact.phone}
-                    </a>
+                    <span className="inline-flex items-center gap-1">
+                      <a
+                        href={`tel:${oc.contact.phone}`}
+                        className={cn(
+                          'hover:underline',
+                          oc.confidence === 'confirmed'
+                            ? 'font-medium text-blue-700'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        {formatPhone(oc.contact.phone) ?? oc.contact.phone}
+                      </a>
+                      <button
+                        type="button"
+                        disabled={setPhone.isPending}
+                        title={
+                          oc.confidence === 'confirmed'
+                            ? `Verified${oc.verified_at ? ` ${formatDate(oc.verified_at)}` : ''} — click to unverify`
+                            : 'Click to mark this number verified'
+                        }
+                        onClick={() =>
+                          ownerId &&
+                          setPhone.mutate({
+                            linkId: oc.id,
+                            ownerId,
+                            verified: oc.confidence !== 'confirmed',
+                          })
+                        }
+                        className={cn(
+                          'rounded-full border px-1.5 py-px text-[10px] transition-colors',
+                          oc.confidence === 'confirmed'
+                            ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                            : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent',
+                        )}
+                      >
+                        {oc.confidence === 'confirmed' ? 'verified' : 'unverified'}
+                      </button>
+                    </span>
                   )}
                   {oc.contact?.email && (
-                    <span className="text-xs text-muted-foreground">{oc.contact.email}</span>
-                  )}
-                  {oc.confidence === 'confirmed' ? (
-                    <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 text-[10px]">
-                      verified
-                    </Badge>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">unverified</span>
+                    <span className="inline-flex items-center gap-1">
+                      <a
+                        href={`mailto:${oc.contact.email}`}
+                        className={cn(
+                          'text-xs hover:underline',
+                          oc.contact.email_verified_at
+                            ? 'font-medium text-teal-700'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        {oc.contact.email}
+                      </a>
+                      <button
+                        type="button"
+                        disabled={setEmail.isPending}
+                        title={
+                          oc.contact.email_verified_at
+                            ? `Verified ${formatDate(oc.contact.email_verified_at)} — click to unverify`
+                            : 'Click to mark this email verified'
+                        }
+                        onClick={() =>
+                          oc.contact &&
+                          setEmail.mutate({
+                            contactId: oc.contact.id,
+                            verified: !oc.contact.email_verified_at,
+                          })
+                        }
+                        className={cn(
+                          'rounded-full border px-1.5 py-px text-[10px] transition-colors',
+                          oc.contact.email_verified_at
+                            ? 'border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100'
+                            : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent',
+                        )}
+                      >
+                        {oc.contact.email_verified_at ? 'verified' : 'unverified'}
+                      </button>
+                    </span>
                   )}
                   {oc.contact?.do_not_call && (
                     <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 text-[10px]">

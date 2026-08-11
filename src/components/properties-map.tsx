@@ -451,8 +451,8 @@ const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
     { c: PIN.executed, label: 'Executed' },
   ],
   owner: [
-    { c: OWNER_PIN.verified, label: 'Verified owner' },
-    { c: OWNER_PIN.emailOnly, label: 'Email verified' },
+    { c: OWNER_PIN.verified, label: 'Spoken to — number confirmed' },
+    { c: OWNER_PIN.emailOnly, label: 'Email only — no call yet' },
     { c: OWNER_PIN.unverified, label: 'Not verified' },
   ],
   lease: [
