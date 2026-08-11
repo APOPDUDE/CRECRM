@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input'
 import {
   useAddVerifiedContact,
   useOwnerContacts,
+  useSetEmailVerified,
+  useSetPhoneVerified,
   useOwnerConversations,
   useOwnerProperties,
   useOwnerRecord,
@@ -28,6 +30,8 @@ import { formatPhone, normalizePhone } from '@/lib/format'
 export function PropertyOwnerCard({ property }: { property: Property }) {
   const ownerId = property.owner_id
   const { data: contacts } = useOwnerContacts(ownerId)
+  const setPhone = useSetPhoneVerified()
+  const setEmail = useSetEmailVerified()
   const { data: portfolio } = useOwnerProperties(ownerId)
   const contactIds = (contacts ?? []).map((c) => c.contact?.id).filter((v): v is string => !!v)
   const { data: comms } = useOwnerConversations(ownerId, contactIds)
@@ -168,8 +172,9 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                     {name}
                   </Link>
                   {/* Verification belongs to the CHANNEL, not the person: a confirmed number
-                      and a replied-to email are different facts, and one row-level badge
-                      forced them into a single yes/no that answered neither. */}
+                      and a proven email are different facts. Each badge is the control that
+                      sets it — click to flip, because the person who just made the call is
+                      the one who knows. */}
                   {oc.contact?.phone && (
                     <span className="inline-flex items-center gap-1">
                       <a
@@ -183,17 +188,31 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                       >
                         {formatPhone(oc.contact.phone) ?? oc.contact.phone}
                       </a>
-                      {oc.confidence === 'confirmed' ? (
-                        <Badge
-                          variant="outline"
-                          className="border-blue-200 bg-blue-50 text-[10px] text-blue-700"
-                          title={oc.verified_at ? `Confirmed ${formatDate(oc.verified_at)}` : 'Confirmed on a call'}
-                        >
-                          spoke to
-                        </Badge>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">{oc.confidence}</span>
-                      )}
+                      <button
+                        type="button"
+                        disabled={setPhone.isPending}
+                        title={
+                          oc.confidence === 'confirmed'
+                            ? `Verified${oc.verified_at ? ` ${formatDate(oc.verified_at)}` : ''} — click to unverify`
+                            : 'Click to mark this number verified'
+                        }
+                        onClick={() =>
+                          ownerId &&
+                          setPhone.mutate({
+                            linkId: oc.id,
+                            ownerId,
+                            verified: oc.confidence !== 'confirmed',
+                          })
+                        }
+                        className={cn(
+                          'rounded-full border px-1.5 py-px text-[10px] transition-colors',
+                          oc.confidence === 'confirmed'
+                            ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                            : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent',
+                        )}
+                      >
+                        {oc.confidence === 'confirmed' ? 'verified' : 'unverified'}
+                      </button>
                     </span>
                   )}
                   {oc.contact?.email && (
@@ -209,15 +228,30 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                       >
                         {oc.contact.email}
                       </a>
-                      {oc.contact.email_verified_at && (
-                        <Badge
-                          variant="outline"
-                          className="border-teal-200 bg-teal-50 text-[10px] text-teal-700"
-                          title={`Replied ${formatDate(oc.contact.email_verified_at)}`}
-                        >
-                          replied
-                        </Badge>
-                      )}
+                      <button
+                        type="button"
+                        disabled={setEmail.isPending}
+                        title={
+                          oc.contact.email_verified_at
+                            ? `Verified ${formatDate(oc.contact.email_verified_at)} — click to unverify`
+                            : 'Click to mark this email verified'
+                        }
+                        onClick={() =>
+                          oc.contact &&
+                          setEmail.mutate({
+                            contactId: oc.contact.id,
+                            verified: !oc.contact.email_verified_at,
+                          })
+                        }
+                        className={cn(
+                          'rounded-full border px-1.5 py-px text-[10px] transition-colors',
+                          oc.contact.email_verified_at
+                            ? 'border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100'
+                            : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent',
+                        )}
+                      >
+                        {oc.contact.email_verified_at ? 'verified' : 'unverified'}
+                      </button>
                     </span>
                   )}
                   {oc.contact?.do_not_call && (
