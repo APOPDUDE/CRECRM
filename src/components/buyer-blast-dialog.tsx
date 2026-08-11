@@ -449,7 +449,11 @@ export function BuyerBlastDialog({
               [
                 'send',
                 'Send now over iMessage',
-                'Goes out through Blooio, 45 seconds to 2 minutes apart so it reads as typed, not blasted.',
+                `Goes out through Blooio, 5 to 15 minutes apart — about ${
+                  Math.round(reach.length * 10) >= 90
+                    ? `${(Math.round(reach.length * 10) / 60).toFixed(1)} hours`
+                    : `${Math.round(reach.length * 10)} minutes`
+                } for ${reach.length}.`,
               ],
             ] as [BlastMode, string, string][]
           ).map(([v, label, hint]) => (

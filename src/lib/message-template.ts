@@ -52,8 +52,11 @@ const TOKEN_RE = /\{\{\s*([\w.]+)\s*(?:\|\|\s*["']([^"']*)["'])?\s*\}\}/g
 /** Replace `{{group.field}}`, honouring GHL's `|| "fallback"` syntax. */
 export function renderTokens(text: string, values: TokenValues): string {
   return text.replace(TOKEN_RE, (_m, key: string, fallback?: string) => {
-    const v = values[key]
-    return (v && String(v).trim()) || fallback || ''
+    // Emptiness is decided on the trimmed value, but the RAW value is what gets
+    // substituted — a token like " in Tampa" carries its own leading space, and
+    // trimming it welds the words together: "1100 N 50th Stin Tampa".
+    const raw = values[key] == null ? '' : String(values[key])
+    return raw.trim() ? raw : fallback || ''
   })
 }
 
