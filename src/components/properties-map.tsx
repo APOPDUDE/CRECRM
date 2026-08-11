@@ -103,10 +103,13 @@ function FitToPoints({
     if (isFirst && skipInitial) return
     if (suspended || points.length === 0) return
     const bounds = L.latLngBounds(points.map((pt) => [pt.lat, pt.lng] as [number, number]))
-    // Narrowing to a handful of properties means the user searched for a specific one, so go in
-    // far enough that the county parcel outlines (zoom >= 16) draw. A broad set stays at 14 —
-    // zooming to street level on hundreds of pins would just hide most of them.
-    map.fitBounds(bounds, { padding: [30, 30], maxZoom: points.length <= 3 ? 17 : 14 })
+    // How far apart the pins actually are decides how far to go in — not how many there are.
+    // An assemblage is several parcels on one corner: three pins 30m apart at zoom 17 land on
+    // top of each other and read as one property, which is the opposite of the point. A broad
+    // set stays at 14, since zooming to street level on hundreds of pins hides most of them.
+    const span = bounds.getNorthEast().distanceTo(bounds.getSouthWest())
+    const maxZoom = span < 250 ? 19 : points.length <= 3 ? 17 : 14
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom })
   }, [points, map, suspended])
   return null
 }

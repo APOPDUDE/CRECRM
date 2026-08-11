@@ -589,7 +589,6 @@ export function PropertiesPage() {
     () => (portfolioOwnerId ? (properties ?? []).filter((p) => p.owner_id === portfolioOwnerId) : []),
     [properties, portfolioOwnerId],
   )
-  const portfolioTotal = portfolioAll.length
   const portfolioOwnerName = portfolioAll[0]?.owner_name ?? null
 
   const filtered = useMemo(() => {
@@ -601,8 +600,14 @@ export function PropertiesPage() {
     const sfLo = n(sfMin), sfHi = n(sfMax)
     const acLo = n(acMin), acHi = n(acMax)
     const prLo = n(priceMin), prHi = n(priceMax)
+    // A portfolio is a question about ONE owner, so it answers with all of their
+    // holdings. Letting the sticky filters through means an on-market status quietly
+    // hides the two off-market parcels next door — which is the assemblage you were
+    // trying to see.
+    if (portfolioOwnerId) {
+      return (properties ?? []).filter((p) => p.owner_id === portfolioOwnerId)
+    }
     return (properties ?? []).filter((p) => {
-      if (portfolioOwnerId && p.owner_id !== portfolioOwnerId) return false
       // Every token must appear somewhere in the property's combined text, so a full
       // "3206 Sydney Rd Plant City, FL 33566" matches even though the street, city, state and
       // zip live in different columns.
@@ -1389,8 +1394,8 @@ export function PropertiesPage() {
             <span className="font-medium">{portfolioOwnerName ?? 'Portfolio'}</span>
             <span className="text-muted-foreground">
               {' — '}
-              {filtered.length} propert{filtered.length === 1 ? 'y' : 'ies'} owned
-              {portfolioTotal > filtered.length ? ` (${portfolioTotal} before other filters)` : ''}
+              {filtered.length} propert{filtered.length === 1 ? 'y' : 'ies'} owned — other
+              filters are paused so the whole portfolio shows
             </span>
           </p>
           <Button
