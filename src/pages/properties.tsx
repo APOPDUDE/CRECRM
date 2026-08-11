@@ -1086,8 +1086,8 @@ export function PropertiesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Any</SelectItem>
-                      <SelectItem value="verified">Verified (call or email)</SelectItem>
-                      <SelectItem value="unverified">Not verified</SelectItem>
+                      <SelectItem value="verified">Reachable — call or email</SelectItem>
+                      <SelectItem value="unverified">No way in yet</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
