@@ -38,6 +38,27 @@ export function ConversationLog({ comms }: { comms: Communication[] }) {
   )
 }
 
+/**
+ * Which way a message went. Obvious on a call from context, but unreadable without it on
+ * an email thread (the same subject appears on both sides) or a text (a bare line of text
+ * says nothing about who typed it). Calls and notes carry their own context, so no badge.
+ */
+function directionLabel(c: Communication): string | null {
+  if (c.direction === 'unknown') return null
+  if (c.channel === 'email') return c.direction === 'inbound' ? 'Replied' : 'Sent'
+  if (c.channel === 'sms') return c.direction === 'inbound' ? 'Received' : 'Sent'
+  return null
+}
+
+/**
+ * True when the provider told us the message never landed. GHL reports this per message
+ * and 11 of the imported texts carry it — a text that failed to send is a different fact
+ * from one that was read and ignored, and it is the one worth chasing.
+ */
+function undelivered(c: Communication): boolean {
+  return (((c.raw ?? {}) as { status?: unknown }).status) === 'failed'
+}
+
 /** "from a@b.com -> to c@d.com" for an email row, or null for anything else. */
 function emailEndpoints(c: Communication): string | null {
   if (c.channel !== 'email') return null
@@ -84,9 +105,7 @@ function ConversationItem({ c }: { c: Communication }) {
       <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span>{CHANNEL_ICON[c.channel] ?? '•'}</span>
         <span>{new Date(c.occurred_at).toLocaleDateString()}</span>
-        {/* Which way it went. Obvious on a call from context, but an email thread is
-            unreadable without it — the same subject appears on both sides. */}
-        {c.channel === 'email' && c.direction !== 'unknown' && (
+        {directionLabel(c) && (
           <Badge
             variant="outline"
             className={
@@ -95,7 +114,15 @@ function ConversationItem({ c }: { c: Communication }) {
                 : 'text-[10px] uppercase'
             }
           >
-            {c.direction === 'inbound' ? 'Replied' : 'Sent'}
+            {directionLabel(c)}
+          </Badge>
+        )}
+        {undelivered(c) && (
+          <Badge
+            variant="outline"
+            className="border-red-200 bg-red-50 text-[10px] uppercase text-red-700"
+          >
+            Not delivered
           </Badge>
         )}
         <Badge variant="outline" className="text-[10px] uppercase">{c.source}</Badge>
