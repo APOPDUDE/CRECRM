@@ -19,6 +19,7 @@ import { ListErrorState } from '@/components/list-error-state'
 import { MatchCard } from '@/components/match-card'
 import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
 import { DealTasks } from '@/components/deal-tasks'
+import { TaskFocusBanner } from '@/components/task-focus-banner'
 import { NotesLog } from '@/components/notes-log'
 import { ContactActions } from '@/components/contact-actions'
 import { SourceBadge } from '@/components/source-badge'
@@ -354,6 +355,7 @@ export function TenantBoardPage() {
 
   return (
     <div className="space-y-4">
+      <TaskFocusBanner />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button

@@ -1,6 +1,10 @@
+import { useState } from 'react'
+import { Check } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SidebarSection } from '@/components/board-info-panel'
-import { useTasks, useToggleTask } from '@/hooks/use-tasks'
+import { TaskCompleteDialog } from '@/components/task-complete-dialog'
+import { useTasks, useToggleTask, type TaskWithContact } from '@/hooks/use-tasks'
 import type { ParentType } from '@/hooks/use-notes'
 import { formatDate, isOverdue } from '@/lib/dates'
 import { cn } from '@/lib/utils'
@@ -20,6 +24,7 @@ interface DealTasksProps {
 export function DealTasks({ parentType, parentId }: DealTasksProps) {
   const { data: tasks = [] } = useTasks()
   const toggle = useToggleTask()
+  const [completing, setCompleting] = useState<TaskWithContact | null>(null)
 
   const column = parentColumn(parentType)
   const open = tasks
@@ -61,10 +66,25 @@ export function DealTasks({ parentType, parentId }: DealTasksProps) {
                   </div>
                 )}
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 shrink-0"
+                onClick={() => setCompleting(t)}
+                title="Log the outcome and close this task"
+              >
+                <Check className="size-3.5" />
+                Log
+              </Button>
             </div>
           )
         })}
       </div>
+      <TaskCompleteDialog
+        task={completing}
+        open={!!completing}
+        onOpenChange={(o) => !o && setCompleting(null)}
+      />
     </SidebarSection>
   )
 }
