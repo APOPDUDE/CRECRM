@@ -10,6 +10,8 @@ import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { useContactConversations } from '@/hooks/use-communications'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
 import { ContactAssociations } from '@/components/contact-associations'
+import { ContactTasks } from '@/components/contact-tasks'
+import { TaskFocusBanner } from '@/components/task-focus-banner'
 import { EmailVerifiedBadge } from '@/components/verified-badge'
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
@@ -54,6 +56,7 @@ export function ContactDetailPage() {
 
   return (
     <div className="space-y-6">
+      <TaskFocusBanner />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button
@@ -103,6 +106,8 @@ export function ContactDetailPage() {
           <Field label="Notes" value={contact.notes} />
         </div>
       </dl>
+
+      <ContactTasks contactId={contact.id} />
 
       <section className="max-w-2xl space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">Conversations</h2>

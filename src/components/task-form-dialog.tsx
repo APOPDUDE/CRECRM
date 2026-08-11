@@ -28,9 +28,16 @@ interface TaskFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   task?: TaskWithContact | null
+  /** Record the new task attaches to, so it routes back here from the task list. */
+  attachTo?: {
+    contact_id?: string | null
+    client_id?: string | null
+    listing_id?: string | null
+    pursuit_id?: string | null
+  }
 }
 
-export function TaskFormDialog({ open, onOpenChange, task }: TaskFormDialogProps) {
+export function TaskFormDialog({ open, onOpenChange, task, attachTo }: TaskFormDialogProps) {
   const { session } = useAuth()
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
@@ -72,7 +79,7 @@ export function TaskFormDialog({ open, onOpenChange, task }: TaskFormDialogProps
     } else {
       if (!session?.user.id) return
       createTask.mutate(
-        { ...values, owner_id: session.user.id },
+        { ...values, ...attachTo, owner_id: session.user.id },
         {
           onSuccess: () => {
             toast.success('Task added')
