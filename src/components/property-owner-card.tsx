@@ -16,6 +16,8 @@ import {
 } from '@/hooks/use-owners'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
 import type { Property } from '@/hooks/use-properties'
+import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/dates'
 import { formatPhone, normalizePhone } from '@/lib/format'
 
 /**
@@ -165,23 +167,58 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                   <Link to={`/contacts/${oc.contact?.id}`} className="font-medium hover:underline">
                     {name}
                   </Link>
+                  {/* Verification belongs to the CHANNEL, not the person: a confirmed number
+                      and a replied-to email are different facts, and one row-level badge
+                      forced them into a single yes/no that answered neither. */}
                   {oc.contact?.phone && (
-                    <a
-                      href={`tel:${oc.contact.phone}`}
-                      className="text-muted-foreground hover:underline"
-                    >
-                      {formatPhone(oc.contact.phone) ?? oc.contact.phone}
-                    </a>
+                    <span className="inline-flex items-center gap-1">
+                      <a
+                        href={`tel:${oc.contact.phone}`}
+                        className={cn(
+                          'hover:underline',
+                          oc.confidence === 'confirmed'
+                            ? 'font-medium text-blue-700'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        {formatPhone(oc.contact.phone) ?? oc.contact.phone}
+                      </a>
+                      {oc.confidence === 'confirmed' ? (
+                        <Badge
+                          variant="outline"
+                          className="border-blue-200 bg-blue-50 text-[10px] text-blue-700"
+                          title={oc.verified_at ? `Confirmed ${formatDate(oc.verified_at)}` : 'Confirmed on a call'}
+                        >
+                          spoke to
+                        </Badge>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">{oc.confidence}</span>
+                      )}
+                    </span>
                   )}
                   {oc.contact?.email && (
-                    <span className="text-xs text-muted-foreground">{oc.contact.email}</span>
-                  )}
-                  {oc.confidence === 'confirmed' ? (
-                    <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 text-[10px]">
-                      verified
-                    </Badge>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">unverified</span>
+                    <span className="inline-flex items-center gap-1">
+                      <a
+                        href={`mailto:${oc.contact.email}`}
+                        className={cn(
+                          'text-xs hover:underline',
+                          oc.contact.email_verified_at
+                            ? 'font-medium text-teal-700'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        {oc.contact.email}
+                      </a>
+                      {oc.contact.email_verified_at && (
+                        <Badge
+                          variant="outline"
+                          className="border-teal-200 bg-teal-50 text-[10px] text-teal-700"
+                          title={`Replied ${formatDate(oc.contact.email_verified_at)}`}
+                        >
+                          replied
+                        </Badge>
+                      )}
+                    </span>
                   )}
                   {oc.contact?.do_not_call && (
                     <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 text-[10px]">

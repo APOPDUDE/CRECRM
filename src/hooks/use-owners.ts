@@ -111,7 +111,15 @@ export function useVerifiedContactIds() {
 export type OwnerContactRow = Tables<'owner_contacts'> & {
   contact: Pick<
     Tables<'contacts'>,
-    'id' | 'first_name' | 'last_name' | 'phone' | 'email' | 'title' | 'do_not_call' | 'campaign_lists'
+    | 'id'
+    | 'first_name'
+    | 'last_name'
+    | 'phone'
+    | 'email'
+    | 'title'
+    | 'do_not_call'
+    | 'campaign_lists'
+    | 'email_verified_at'
   > | null
 }
 
@@ -124,7 +132,7 @@ export function useOwnerContacts(ownerId: string | null | undefined) {
       const { data, error } = await supabase
         .from('owner_contacts')
         .select(
-          '*, contact:contacts!owner_contacts_contact_id_fkey(id, first_name, last_name, phone, email, title, do_not_call, campaign_lists)',
+          '*, contact:contacts!owner_contacts_contact_id_fkey(id, first_name, last_name, phone, email, title, do_not_call, campaign_lists, email_verified_at)',
         )
         .eq('owner_id', ownerId!)
       if (error) throw error
