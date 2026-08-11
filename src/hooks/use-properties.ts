@@ -59,7 +59,7 @@ export type Property = Pick<
   | 'property_type' | 'building_sf' | 'land_acres' | 'specs' | 'listing_status'
   | 'days_on_market' | 'year_built' | 'zoning_description' | 'zoning_district'
   | 'occupancy' | 'lat' | 'lng' | 'owner_id' | 'owner_name' | 'owner_mailing_address'
-  | 'last_sale_date' | 'last_sale_price' | 'created_at' | 'updated_at'
+  | 'last_sale_date' | 'last_sale_price' | 'listing_url' | 'created_at' | 'updated_at'
 >
 
 /** Property plus embedded linked-deal counts (listings + pursuits). */
@@ -89,7 +89,7 @@ export function useProperties() {
         'id, address, city, state, zip, county, parcel_number, property_type, building_sf, ' +
         'land_acres, specs, listing_status, days_on_market, year_built, zoning_description, ' +
         'zoning_district, occupancy, lat, lng, owner_id, owner_name, owner_mailing_address, ' +
-        'last_sale_date, last_sale_price, created_at, updated_at, ' +
+        'last_sale_date, last_sale_price, listing_url, created_at, updated_at, ' +
         'listings!listings_property_id_fkey(count), matches:pursuits!pursuits_property_id_fkey(count)'
       // count:'exact' only on the first page — it re-runs the full filtered count per
       // request, so repeating it on all ~14 parallel pages just multiplies server work.

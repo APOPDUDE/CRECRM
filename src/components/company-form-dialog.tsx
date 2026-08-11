@@ -60,6 +60,10 @@ export function CompanyFormDialog({
   const [website, setWebsite] = useState('')
   const [industry, setIndustry] = useState('')
   const [notes, setNotes] = useState('')
+  const [employees, setEmployees] = useState('')
+  const [revenue, setRevenue] = useState('')
+  const [naics, setNaics] = useState('')
+  const [sic, setSic] = useState('')
 
   useEffect(() => {
     if (open) {
@@ -69,6 +73,10 @@ export function CompanyFormDialog({
       setWebsite(company?.website ?? '')
       setIndustry(company?.industry ?? '')
       setNotes(company?.notes ?? '')
+      setEmployees(company?.employee_count?.toString() ?? '')
+      setRevenue(company?.annual_revenue?.toString() ?? '')
+      setNaics(company?.naics ?? '')
+      setSic(company?.sic ?? '')
     }
   }, [open, company, defaultType])
 
@@ -81,6 +89,10 @@ export function CompanyFormDialog({
       website: website.trim() || null,
       industry: industry.trim() || null,
       notes: notes.trim() || null,
+      employee_count: employees.trim() === '' ? null : Number(employees),
+      annual_revenue: revenue.trim() === '' ? null : Number(revenue),
+      naics: naics.trim() || null,
+      sic: sic.trim() || null,
     }
     const onError = (error: unknown) =>
       toast.error(friendlyDbError(error, 'Could not save company'))
@@ -168,6 +180,34 @@ export function CompanyFormDialog({
               onChange={(e) => setIndustry(e.target.value)}
               placeholder="e.g. Logistics, Food distribution"
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="company-employees">Employees</Label>
+              <Input
+                id="company-employees"
+                type="number"
+                value={employees}
+                onChange={(e) => setEmployees(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="company-revenue">Annual revenue $</Label>
+              <Input
+                id="company-revenue"
+                type="number"
+                value={revenue}
+                onChange={(e) => setRevenue(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="company-naics">NAICS</Label>
+              <Input id="company-naics" value={naics} onChange={(e) => setNaics(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="company-sic">SIC</Label>
+              <Input id="company-sic" value={sic} onChange={(e) => setSic(e.target.value)} />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="company-notes">Notes</Label>

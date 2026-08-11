@@ -20,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { CompanySelect } from '@/components/company-select'
+import { useCompanies } from '@/hooks/use-companies'
 import { useUpsertComp, type PropertyComp } from '@/hooks/use-comps'
 import { useAuth } from '@/hooks/use-auth'
 import type { TablesUpdate } from '@/lib/database.types'
@@ -59,6 +61,9 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
   const [commence, setCommence] = useState('')
   const [expire, setExpire] = useState('')
   const [fee, setFee] = useState('')
+  const [tenantCompanyId, setTenantCompanyId] = useState<string | null>(null)
+  // Only to resolve the picked company's name into tenant_name (cached list, no refetch).
+  const { data: companies = [] } = useCompanies()
 
   useEffect(() => {
     if (!open) return
@@ -77,6 +82,7 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
     setCommence(comp?.commencement_date ?? '')
     setExpire(comp?.expiration_date ?? '')
     setFee(comp?.commission_fee?.toString() ?? '')
+    setTenantCompanyId(comp?.tenant_company_id ?? null)
   }, [open, comp, k])
 
   const isSale = dealType === 'sale'
@@ -106,6 +112,14 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
       payload.escalations = !isSale ? escal || null : null
       payload.commencement_date = !isSale ? commence || null : null
       payload.expiration_date = !isSale ? expire || null : null
+      if (!isSale) {
+        // tenant_name follows the picked company so the text column and the FK never
+        // disagree. Clearing the picker keeps the old name but nulls the link — the DB
+        // trigger then re-resolves (or re-creates) the company from the name.
+        payload.tenant_company_id = tenantCompanyId
+        const picked = companies.find((co) => co.id === tenantCompanyId)
+        if (picked) payload.tenant_name = picked.name
+      }
     }
     if (editing) payload.id = comp!.id
 
@@ -183,6 +197,18 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
 
           {isExecuted && !isSale && (
             <div className="grid grid-cols-2 gap-3 border-t pt-3">
+              <div className="col-span-2 space-y-2">
+                <Label>Tenant company</Label>
+                {/* The company is the door to contacts and the decision maker — a comp
+                    without it is a rate with no one attached. Creating from here files
+                    the company as type tenant. */}
+                <CompanySelect
+                  value={tenantCompanyId}
+                  onChange={setTenantCompanyId}
+                  defaultType="tenant"
+                  placeholder="Select or create the tenant"
+                />
+              </div>
               <div className="space-y-2">
                 <Label>Lease structure</Label>
                 <Select value={structure} onValueChange={setStructure}>
