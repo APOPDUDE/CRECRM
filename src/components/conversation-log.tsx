@@ -59,6 +59,43 @@ function undelivered(c: Communication): boolean {
   return (((c.raw ?? {}) as { status?: unknown }).status) === 'failed'
 }
 
+/**
+ * Terrakotta writes its recording into the note as a header line plus a presigned S3 URL,
+ * and that URL is roughly two thousand characters of AWS signature — it buried the two
+ * sentences the caller actually wrote. Strip the whole block for display.
+ *
+ * DISPLAY ONLY. The URL stays in the row: v_recordings_to_archive finds recordings by
+ * regexing this very `body`, so deleting it from the database would cut the archiver off
+ * from every tag-sync row it has not pulled yet.
+ */
+function stripRecordingBlock(body: string): string {
+  return body
+    .replace(/^\s*Terrakotta Recording\b.*$/gim, '')
+    .replace(/^\s*Listen:\s*https?:\/\/\S*/gim, '')
+    .replace(/https?:\/\/\S*\.(?:mp3|wav|m4a)\S*/gi, '')
+    // the '---' that separated note text from the block is now separating nothing
+    .replace(/^\s*-{3,}\s*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/**
+ * How long the call ran, taken from whatever the row already says — Terrakotta states it
+ * in the note, the call logger states it in the body. Better on the button than a file
+ * size: "0:27" tells you whether to bother, "54 KB" does not.
+ */
+function statedDuration(c: Communication): string | null {
+  const body = c.body ?? ''
+  const terrakotta = body.match(/Terrakotta Recording \((\d+):(\d{2})\)/i)
+  if (terrakotta) return `${Number(terrakotta[1])}:${terrakotta[2]}`
+  const ghlCall = body.match(/^\[GHL call\]\s*(\d+)s/i)
+  if (ghlCall) {
+    const s = Number(ghlCall[1])
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  }
+  return null
+}
+
 /** "from a@b.com -> to c@d.com" for an email row, or null for anything else. */
 function emailEndpoints(c: Communication): string | null {
   if (c.channel !== 'email') return null
@@ -76,6 +113,9 @@ function ConversationItem({ c }: { c: Communication }) {
   const deleteComm = useDeleteComm()
   // only manual notes are editable — imported calls/transcripts are records
   const editable = c.source === 'manual' && c.channel === 'note'
+  // The edit draft deliberately uses the RAW body, so editing a note can never silently
+  // delete the recording URL the archiver still reads out of it.
+  const body = stripRecordingBlock(c.body ?? '')
 
   const remove = () => {
     if (!window.confirm('Delete this entry from the conversation history?')) return
@@ -176,14 +216,17 @@ function ConversationItem({ c }: { c: Communication }) {
           </div>
         </div>
       ) : (
-        c.body && <p className="whitespace-pre-line">{c.body}</p>
+        body && <p className="whitespace-pre-line">{body}</p>
       )}
       <RecordingPlayer
         path={c.recording_path}
         bytes={c.recording_bytes}
         error={c.recording_error}
+        durationLabel={statedDuration(c)}
+        transcript={c.transcript}
       />
-      {c.transcript && (
+      {/* Only when there is no player — with audio the transcript rides along inside it. */}
+      {c.transcript && !c.recording_path && (
         <details className="mt-1">
           <summary className="cursor-pointer text-xs text-muted-foreground">
             Call transcript
