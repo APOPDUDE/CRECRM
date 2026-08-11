@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, Send, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MessageSquare, MoreHorizontal, Pencil, Plus, Search, Send, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -53,6 +53,7 @@ import { pointInPolygon, type LatLng } from '@/lib/geo'
 import { buildHaystack, matchesTokens, searchTokens } from '@/lib/address-search'
 import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
 import { PushToGhlDialog, type PushContact } from '@/components/push-to-ghl-dialog'
+import { OwnerOutreachDialog, type OwnerRecipient } from '@/components/owner-outreach-dialog'
 
 /** $14.50 PSF (lease) or $5,200,000 (sale) — from the property's current asking comp. */
 function askingLabel(a: CurrentAsking | undefined): string | null {
@@ -330,6 +331,7 @@ export function PropertiesPage() {
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [pushOpen, setPushOpen] = useState(false)
+  const [ownerMsgOpen, setOwnerMsgOpen] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
   // Shape search: draw a polygon on the map. The completed shape lives here (not in the
@@ -668,6 +670,36 @@ export function PropertiesPage() {
     }
     return { pushable: [...byPhone.values()], skippedIds: skipped }
   }, [filtered, ownerCtx])
+
+  // The building they own IS the context. "Noticed you own 1602 N 43rd St" is the line that
+  // separates a message worth reading from the blast that gets a line flagged.
+  const ownerRecipients: OwnerRecipient[] = useMemo(
+    () =>
+      pushable.map((c) => {
+        const street = (c.address ?? '').replace(/^\d+\s+/, '').trim() || null
+        return {
+          recipientId: c.propertyId,
+          phone: c.phone,
+          first: c.first,
+          last: c.last,
+          company: c.ownerName,
+          ctx: {
+            'property.address': c.address,
+            'property.city': c.city,
+            'property.street': street,
+            // reads as ", in Tampa" only when we actually know the city
+            'property.city_suffix': c.city ? ` in ${c.city}` : '',
+          },
+          cf: [
+            c.parcel ? { id: 'VxEwTurixSyHFqlqV2O8', field_value: c.parcel } : null,
+            c.address ? { id: 'iUJbtzcHw0ShIXkzoBpp', field_value: c.address } : null,
+            c.city ? { id: 'FLoZeiY2w6wJt4tw3Fe0', field_value: c.city } : null,
+            c.ownerName ? { id: 'a4vHj26a4Kn657PnYCnI', field_value: c.ownerName } : null,
+          ].filter(Boolean) as { id: string; field_value: string }[],
+        }
+      }),
+    [pushable],
+  )
 
   /** The rows the push cannot take — same shape as the main export, for skip-tracing. */
   const exportSkipped = () => {
@@ -1237,10 +1269,21 @@ export function PropertiesPage() {
                 matters as much as the value — on the Lease lens the owner filter is
                 dormant, so the list on screen is NOT the verified set it would push. */}
             {applies.owner && ownerFilter === 'verified' && (
-              <Button size="sm" onClick={() => setPushOpen(true)} disabled={pushable.length === 0}>
-                <Send className="size-4" />
-                Push to HighLevel
-              </Button>
+              <>
+                <Button size="sm" onClick={() => setPushOpen(true)} disabled={pushable.length === 0}>
+                  <Send className="size-4" />
+                  Push to HighLevel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setOwnerMsgOpen(true)}
+                  disabled={pushable.length === 0}
+                >
+                  <MessageSquare className="size-4" />
+                  Message {pushable.length}
+                </Button>
+              </>
             )}
           </div>
           <PropertiesMap
@@ -1427,6 +1470,13 @@ export function PropertiesPage() {
           )}
         </>
       )}
+
+      <OwnerOutreachDialog
+        open={ownerMsgOpen}
+        onOpenChange={setOwnerMsgOpen}
+        recipients={ownerRecipients}
+        skippedCount={skippedIds.length}
+      />
 
       <PushToGhlDialog
 
