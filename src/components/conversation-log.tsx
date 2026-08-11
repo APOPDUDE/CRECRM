@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { RecordingPlayer } from '@/components/recording-player'
 import {
   useAddCommNote,
   useDeleteComm,
@@ -150,6 +151,11 @@ function ConversationItem({ c }: { c: Communication }) {
       ) : (
         c.body && <p className="whitespace-pre-line">{c.body}</p>
       )}
+      <RecordingPlayer
+        path={c.recording_path}
+        bytes={c.recording_bytes}
+        error={c.recording_error}
+      />
       {c.transcript && (
         <details className="mt-1">
           <summary className="cursor-pointer text-xs text-muted-foreground">
