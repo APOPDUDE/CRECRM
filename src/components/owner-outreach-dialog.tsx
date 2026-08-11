@@ -159,7 +159,7 @@ export function OwnerOutreachDialog({
         {
           description:
             mode === 'send'
-              ? `Going out 45s to 2min apart. Tag: ${r.tag}.`
+              ? `Going out 5 to 15 minutes apart — about ${Math.round(n * 10) >= 90 ? (Math.round(n * 10) / 60).toFixed(1) + ' hours' : Math.round(n * 10) + ' minutes'} for the batch. Tag: ${r.tag}.`
               : `Written on each contact as a note. Nothing was sent. Tag: ${r.tag}.`,
         },
       )
@@ -295,7 +295,15 @@ export function OwnerOutreachDialog({
           {(
             [
               ['draft', 'Draft only', 'Writes the text on each contact as a note. Nothing leaves.'],
-              ['send', 'Send now over iMessage', 'Goes out through Blooio, 45 seconds to 2 minutes apart.'],
+              [
+                'send',
+                'Send now over iMessage',
+                `Goes out through Blooio, 5 to 15 minutes apart — about ${
+                  Math.round(recipients.length * 10) >= 90
+                    ? `${(Math.round(recipients.length * 10) / 60).toFixed(1)} hours`
+                    : `${Math.round(recipients.length * 10)} minutes`
+                } for ${recipients.length}.`,
+              ],
             ] as [Mode, string, string][]
           ).map(([v, label, hint]) => (
             <label key={v} className="flex cursor-pointer items-start gap-2.5 text-sm">
