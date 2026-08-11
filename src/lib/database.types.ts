@@ -2286,6 +2286,7 @@ export type Database = {
             | Database["public"]["Enums"]["owner_contact_confidence"]
             | null
           best_contact_email: string | null
+          best_contact_email_verified_at: string | null
           best_contact_name: string | null
           best_contact_phone: string | null
           comm_count: number | null
@@ -2296,6 +2297,7 @@ export type Database = {
           owner_contact_count: number | null
           owner_contact_verified: boolean | null
           owner_do_not_call: boolean | null
+          owner_email_verified: boolean | null
           owner_id: string | null
           owner_kind: Database["public"]["Enums"]["owner_kind"] | null
           owner_mailing_address: string | null
@@ -2303,6 +2305,7 @@ export type Database = {
           owner_portfolio_acres: number | null
           owner_portfolio_sf: number | null
           owner_property_count: number | null
+          owner_reachable: boolean | null
           owner_tags: string[] | null
           owner_verification_status:
             | Database["public"]["Enums"]["owner_verification_status"]
@@ -2454,6 +2457,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      classify_owner_kind: {
+        Args: { p_name: string }
+        Returns: Database["public"]["Enums"]["owner_kind"]
+      }
       convert_prospect: {
         Args: {
           p_deal_type?: Database["public"]["Enums"]["deal_type"]
@@ -2516,6 +2523,7 @@ export type Database = {
         Args: { p_client_id: string; p_property_id: string }
         Returns: Database["public"]["Enums"]["deal_type"]
       }
+      enrich_tenant_companies: { Args: { p: Json }; Returns: Json }
       ensure_payment_checks: { Args: never; Returns: Json }
       execute_pursuit: {
         Args: { p?: Json; p_pursuit_id: string }
@@ -2533,9 +2541,11 @@ export type Database = {
       fs_safe_name: { Args: { p: string }; Returns: string }
       ghl_verify_owner: { Args: { p: Json }; Returns: Json }
       import_county_parcels: { Args: { p: Json }; Returns: Json }
+      import_email_leads: { Args: { p: Json }; Returns: Json }
       import_hubspot_batch: { Args: { p: Json }; Returns: Json }
       import_lease_comps: { Args: { p: Json }; Returns: Json }
       import_owner_addresses: { Args: { p: Json }; Returns: Json }
+      import_owner_email_leads: { Args: { p: Json }; Returns: Json }
       import_sale_history: { Args: { p: Json }; Returns: Json }
       import_scraped_listings: {
         Args: { p_client_id?: string; p_flagged_new?: boolean; p_props: Json }
@@ -2552,6 +2562,10 @@ export type Database = {
         Returns: Json
       }
       intake_prospect: { Args: { p: Json; p_owner: string }; Returns: Json }
+      link_appraiser_owner_entities: {
+        Args: { p_county?: string }
+        Returns: Json
+      }
       mark_owners_exported: {
         Args: { p_property_ids: string[] }
         Returns: Json
