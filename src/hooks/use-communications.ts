@@ -23,6 +23,33 @@ export function useContactConversations(contactId: string | undefined) {
 }
 
 /**
+ * Everything logged against a property OR the owner behind it — what you need to decide
+ * whether this person should get the next text. Owner-wide on purpose: a call about one of
+ * their buildings is still context for the one you are about to message them about.
+ */
+export function usePropertyConversations(
+  propertyId: string | undefined,
+  ownerId: string | null | undefined,
+) {
+  return useQuery({
+    queryKey: ['conversations', 'property', propertyId, ownerId ?? null],
+    enabled: !!propertyId,
+    queryFn: async () => {
+      const clauses = [`property_id.eq.${propertyId}`]
+      if (ownerId) clauses.push(`owner_id.eq.${ownerId}`)
+      const { data, error } = await supabase
+        .from('communications')
+        .select('*')
+        .or(clauses.join(','))
+        .order('occurred_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return (data ?? []) as Communication[]
+    },
+  })
+}
+
+/**
  * Manual note into the conversation history. The communications CHECK requires a contact
  * or phone identity, so callers must supply contact_id (owner/property ids are optional
  * context that make the note surface on those pages too).

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { OwnerRecipientDetail } from '@/components/owner-recipient-detail'
 import { formatDate } from '@/lib/dates'
 import { formatPhone } from '@/lib/format'
 import { renderFor, variantCount } from '@/lib/message-template'
@@ -22,7 +23,10 @@ import { cn } from '@/lib/utils'
 const BLAST_URL = 'https://n8n.ayxco.com/webhook/buyer-blast'
 
 export type OwnerRecipient = {
+  /** the property id — one recipient per building, which is what makes the message theirs */
   recipientId: string
+  /** the owner entity behind it, so the context pane can pull their whole history */
+  ownerId: string | null
   /** null when we hold no number — shown in the list anyway, so the gap is visible */
   phone: string | null
   first: string | null
@@ -38,6 +42,21 @@ export type OwnerRecipient = {
 }
 
 type Mode = 'draft' | 'send'
+
+/**
+ * How far apart the texts go out. A blast is one person typing, so it cannot arrive as a
+ * burst — but the right gap depends on the list: a dozen warm owners can go quickly, a few
+ * hundred cold ones should trickle. The workflow randomises within whichever range is
+ * picked, so no two sends are the same distance apart.
+ */
+const PACE_OPTIONS = [
+  { id: '1-3', label: '1–3 min', min: 1, max: 3 },
+  { id: '5-15', label: '5–15 min', min: 5, max: 15 },
+  { id: '15-30', label: '15–30 min', min: 15, max: 30 },
+  { id: '30-60', label: '30–60 min', min: 30, max: 60 },
+] as const
+
+const DEFAULT_PACE = '5-15'
 
 /**
  * Two templates, because a cold owner and one you have already spoken to are not the
@@ -102,6 +121,9 @@ export function OwnerOutreachDialog({
   const [mode, setMode] = useState<Mode>('draft')
   const [activity, setActivity] = useState<'all' | 'recent' | 'quiet'>('all')
   const [deselected, setDeselected] = useState<Set<string>>(new Set())
+  /** recipientId whose property + history is open, or null while showing the list */
+  const [inspecting, setInspecting] = useState<string | null>(null)
+  const [paceId, setPaceId] = useState<string>(DEFAULT_PACE)
   const [busy, setBusy] = useState(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
 
@@ -115,6 +137,7 @@ export function OwnerOutreachDialog({
     setMode('draft')
     setActivity('all')
     setDeselected(new Set())
+    setInspecting(null)
   }, [open])
 
   const pickTemplate = (id: string) => {
@@ -149,6 +172,24 @@ export function OwnerOutreachDialog({
       ),
     [recipients, activity, cutoff],
   )
+  const toggleRecipient = (id: string) =>
+    setDeselected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  // The open recipient is located inside the CURRENT filter, so changing the filter while
+  // a pane is open drops back to the list rather than showing someone no longer in scope.
+  const inspectIndex = inspecting ? inScope.findIndex((r) => r.recipientId === inspecting) : -1
+  const inspected = inspectIndex >= 0 ? inScope[inspectIndex] : null
+  const step = (by: number) => {
+    if (inScope.length === 0) return
+    const next = (inspectIndex + by + inScope.length) % inScope.length
+    setInspecting(inScope[next].recipientId)
+  }
+
   const textable = useMemo(() => inScope.filter((r) => r.phone), [inScope])
   const noPhone = useMemo(() => inScope.filter((r) => !r.phone), [inScope])
   const sending = useMemo(
@@ -163,6 +204,13 @@ export function OwnerOutreachDialog({
       else textable.forEach((r) => next.delete(r.recipientId))
       return next
     })
+  const pace = PACE_OPTIONS.find((p) => p.id === paceId) ?? PACE_OPTIONS[1]
+  /** Rough wall-clock for the whole run, using the midpoint of the chosen gap. */
+  const runEstimate = (() => {
+    const mins = Math.round(sending.length * ((pace.min + pace.max) / 2))
+    if (mins < 90) return `${mins} minute${mins === 1 ? '' : 's'}`
+    return `${(mins / 60).toFixed(1)} hours`
+  })()
   const shown = sending.slice(0, 2)
   const needsTenant = message.includes('{{campaign.tenant') && !tenant.trim()
   const needsComp = message.includes('{{campaign.comp') && !comp.trim()
@@ -179,6 +227,10 @@ export function OwnerOutreachDialog({
           message: message.trim(),
           mode,
           audienceTag: 'owner-verified',
+          // How far apart the sends go. The workflow picks a fresh random gap in this range
+          // per message, so a blast never lands on a machine-perfect cadence.
+          paceMinMinutes: pace.min,
+          paceMaxMinutes: pace.max,
           recipients: sending.map((r) => ({
             ...r,
             ctx: { ...r.ctx, ...campaignCtx },
@@ -346,6 +398,19 @@ export function OwnerOutreachDialog({
             </div>
           </div>
 
+          {inspected ? (
+            <OwnerRecipientDetail
+              recipient={inspected}
+              index={inspectIndex}
+              total={inScope.length}
+              included={!!inspected.phone && !deselected.has(inspected.recipientId)}
+              canInclude={!!inspected.phone}
+              onToggleInclude={() => toggleRecipient(inspected.recipientId)}
+              onBack={() => setInspecting(null)}
+              onPrev={() => step(-1)}
+              onNext={() => step(1)}
+            />
+          ) : (
           <div className="max-h-56 overflow-y-auto rounded-lg border">
             {inScope.length === 0 ? (
               <p className="p-3 text-sm text-muted-foreground">
@@ -379,25 +444,25 @@ export function OwnerOutreachDialog({
                         {r.phone ? (
                           <Checkbox
                             checked={on}
-                            onCheckedChange={() =>
-                              setDeselected((prev) => {
-                                const next = new Set(prev)
-                                if (next.has(r.recipientId)) next.delete(r.recipientId)
-                                else next.add(r.recipientId)
-                                return next
-                              })
-                            }
+                            onCheckedChange={() => toggleRecipient(r.recipientId)}
                             aria-label={`Text ${r.first ?? r.company ?? 'this owner'}`}
                           />
                         ) : (
                           <span className="w-4 text-center text-[10px] text-muted-foreground">—</span>
                         )}
-                        <span className="min-w-0 flex-1 truncate">
+                        {/* the name opens the building + history; the checkbox stays its own
+                            target so ticking someone off never costs a round trip */}
+                        <button
+                          type="button"
+                          onClick={() => setInspecting(r.recipientId)}
+                          className="min-w-0 flex-1 truncate text-left hover:underline"
+                          title="See the property and conversation"
+                        >
                           <span className={cn(!r.phone && 'text-muted-foreground')}>
                             {[r.first, r.last].filter(Boolean).join(' ') || r.company || 'Unknown'}
                           </span>
                           <span className="text-muted-foreground"> · {r.address ?? 'no address'}</span>
-                        </span>
+                        </button>
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {r.phone ? formatPhone(r.phone) : 'no number'}
                         </span>
@@ -411,7 +476,8 @@ export function OwnerOutreachDialog({
               </>
             )}
           </div>
-          {noPhone.length > 0 && (
+          )}
+          {!inspected && noPhone.length > 0 && (
             <p className="text-xs text-muted-foreground">
               {noPhone.length} owner{noPhone.length === 1 ? '' : 's'} here {noPhone.length === 1 ? 'has' : 'have'} no
               number — verified by email only. Export them from the War Room to skip-trace.
@@ -426,11 +492,7 @@ export function OwnerOutreachDialog({
               [
                 'send',
                 'Send now over iMessage',
-                `Goes out through Blooio, 5 to 15 minutes apart — about ${
-                  Math.round(sending.length * 10) >= 90
-                    ? `${(Math.round(sending.length * 10) / 60).toFixed(1)} hours`
-                    : `${Math.round(sending.length * 10)} minutes`
-                } for ${sending.length}.`,
+                `Goes out through Blooio, ${pace.label} apart — about ${runEstimate} for ${sending.length}.`,
               ],
             ] as [Mode, string, string][]
           ).map(([v, label, hint]) => (
@@ -450,6 +512,26 @@ export function OwnerOutreachDialog({
               </span>
             </label>
           ))}
+
+          {mode === 'send' && (
+            <div className="mt-2 border-t pt-2.5">
+              <Label className="text-xs text-muted-foreground">Gap between texts</Label>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                {PACE_OPTIONS.map((p) => (
+                  <Button
+                    key={p.id}
+                    type="button"
+                    variant={paceId === p.id ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-7 rounded-full px-3 text-xs font-normal"
+                    onClick={() => setPaceId(p.id)}
+                  >
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

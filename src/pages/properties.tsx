@@ -741,6 +741,7 @@ export function PropertiesPage() {
       const street = (p.address ?? '').replace(/^\d+\s+/, '').trim() || null
       out.push({
         recipientId: p.id,
+        ownerId: p.owner_id ?? null,
         phone,
         first: sp > 0 ? name.slice(0, sp) : name || null,
         last: sp > 0 ? name.slice(sp + 1) : null,
