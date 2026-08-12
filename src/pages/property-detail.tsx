@@ -10,6 +10,7 @@ import { PropertyMiniMap } from '@/components/property-mini-map'
 import { AddressActions } from '@/components/address-actions'
 import { MarketPositionCard } from '@/components/market-position-card'
 import { PropertyOwnerCard } from '@/components/property-owner-card'
+import { PropertyTags } from '@/components/property-tags'
 import { AddToClientDialog } from '@/components/add-to-client-dialog'
 import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
@@ -317,6 +318,8 @@ export function PropertyDetailPage() {
         </div>
         <MarketPositionCard propertyId={property.id} county={property.county} />
       </div>
+
+      <PropertyTags propertyId={property.id} tags={property.tags} />
 
       <PropertyOwnerCard property={property} />
 

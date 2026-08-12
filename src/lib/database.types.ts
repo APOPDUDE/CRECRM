@@ -740,6 +740,7 @@ export type Database = {
           email: string | null
           email_verified_at: string | null
           first_name: string
+          ghl_contact_id: string | null
           hubspot_id: string | null
           id: string
           import_addresses: string[] | null
@@ -766,6 +767,7 @@ export type Database = {
           email?: string | null
           email_verified_at?: string | null
           first_name: string
+          ghl_contact_id?: string | null
           hubspot_id?: string | null
           id?: string
           import_addresses?: string[] | null
@@ -792,6 +794,7 @@ export type Database = {
           email?: string | null
           email_verified_at?: string | null
           first_name?: string
+          ghl_contact_id?: string | null
           hubspot_id?: string | null
           id?: string
           import_addresses?: string[] | null
@@ -1464,6 +1467,7 @@ export type Database = {
           sprinkler_system: string | null
           state: string | null
           stories: number | null
+          tags: string[] | null
           three_phase_power: boolean | null
           title: string | null
           truck_court_ft: number | null
@@ -1544,6 +1548,7 @@ export type Database = {
           sprinkler_system?: string | null
           state?: string | null
           stories?: number | null
+          tags?: string[] | null
           three_phase_power?: boolean | null
           title?: string | null
           truck_court_ft?: number | null
@@ -1624,6 +1629,7 @@ export type Database = {
           sprinkler_system?: string | null
           state?: string | null
           stories?: number | null
+          tags?: string[] | null
           three_phase_power?: boolean | null
           title?: string | null
           truck_court_ft?: number | null

@@ -278,6 +278,27 @@ export function useUpdateProperty() {
   })
 }
 
+/**
+ * Replace a property's tags (the chip editor writes the whole array).
+ *
+ * Separate from `useUpdateProperty` because that one re-geocodes on address change and
+ * carries a much wider payload; a tag edit is a one-column write that should not be
+ * able to move a pin. Empty array is stored as null so "no tags" is one value, not two.
+ */
+export function useUpdatePropertyTags() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { propertyId: string; tags: string[] }) => {
+      const { error } = await supabase
+        .from('properties')
+        .update({ tags: v.tags.length ? v.tags : null })
+        .eq('id', v.propertyId)
+      if (error) throw error
+    },
+    onSuccess: () => invalidatePropertyViews(queryClient),
+  })
+}
+
 export function useDeleteProperty() {
   const queryClient = useQueryClient()
   return useMutation({
