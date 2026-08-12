@@ -61,8 +61,8 @@ function askingLabel(a: CurrentAsking | undefined): string | null {
 }
 
 /** Building SF, falling back to land acres. */
-function sizeLabel(p: Pick<Property, 'building_sf' | 'land_acres'>): string | null {
-  return formatSf(p.building_sf) ?? (p.land_acres != null ? `${p.land_acres} AC` : null)
+function sizeLabel(p: Pick<Property, 'gross_sf' | 'land_acres'>): string | null {
+  return formatSf(p.gross_sf) ?? (p.land_acres != null ? `${p.land_acres} AC` : null)
 }
 
 export function PropertyTypeBadge({ type }: { type: Property['property_type'] }) {
@@ -82,7 +82,7 @@ function formatLocation(property: Property) {
 // Address is always shown (the row's identity). Everything below is opt-in, capped
 // at MAX_COLUMNS so the table stays readable; the choice is persisted per-browser.
 type ColumnId =
-  | 'type' | 'location' | 'city' | 'county' | 'size' | 'building_sf'
+  | 'type' | 'location' | 'city' | 'county' | 'size' | 'gross_sf'
   | 'land_acres' | 'asking' | 'deals' | 'market_status' | 'days_on_market'
   | 'year_built' | 'zoning' | 'occupancy'
   | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted' | 'off_market_days'
@@ -111,7 +111,7 @@ const COLUMN_DEFS: ColumnDef[] = [
   { id: 'city', label: 'City', className: MUTED, cell: (p) => p.city ?? '' },
   { id: 'county', label: 'County', className: MUTED, cell: (p) => p.county ?? '' },
   { id: 'size', label: 'Size', className: MUTED, cell: (p) => sizeLabel(p) ?? '' },
-  { id: 'building_sf', label: 'Building SF', className: MUTED, cell: (p) => formatSf(p.building_sf) ?? '' },
+  { id: 'gross_sf', label: 'Gross SF', className: MUTED, cell: (p) => formatSf(p.gross_sf) ?? '' },
   { id: 'land_acres', label: 'Acres', className: MUTED, cell: (p) => (p.land_acres != null ? `${p.land_acres} AC` : '') },
   { id: 'asking', label: 'Asking', className: MUTED, cell: (_p, asking) => askingLabel(asking) ?? '' },
   {
@@ -309,6 +309,14 @@ export function PropertiesPage() {
   const ownerFilter = ['all', 'verified', 'unverified'].includes(ownerFilterRaw)
     ? ownerFilterRaw
     : 'all'
+  // Same 30-day question the owner text blast asks ("Touched in 30d" / "Quiet 30d+"), lifted
+  // out of that dialog so it also narrows the map and the table. A market-news touch suits
+  // people you have spoken to; a cold opener is wasted on someone you rang last week.
+  const [activityRaw, setActivity] = usePersistentState('properties:activity', 'all')
+  const activity = ['all', 'recent', 'quiet'].includes(activityRaw) ? activityRaw : 'all'
+  const ACTIVITY_DAYS = 30
+  // Frozen per mount so the filter can't reshuffle rows under you as the clock ticks.
+  const activityCutoff = useMemo(() => Date.now() - ACTIVITY_DAYS * 86400000, [])
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
   const [colorBy, setColorBy] = usePersistentState<MapColorBy>('properties:colorBy', 'market')
   // Lease run-off window, in whole months from today. Kept as a filter rather than as
@@ -369,6 +377,7 @@ export function PropertiesPage() {
       setPriceMin('')
       setPriceMax('')
       setOwnerFilter('all')
+      setActivity('all')
       setPolygon(null)
       // Lease windows are sticky too, and a stale one would cut the very set being
       // linked to. The lease branch below re-applies whatever the link asked for.
@@ -471,6 +480,9 @@ export function PropertiesPage() {
       dealType: !onMap || colorBy === 'market',
       price: !onMap || colorBy === 'market',
       owner: !onMap || colorBy === 'owner',
+      // "When did we last touch them" is an owner question, so it rides with the owner lens
+      // on the map and is always available in the table.
+      activity: !onMap || colorBy === 'owner',
       lease: !onMap || colorBy === 'lease',
       // On the lease lens, square feet means the UNIT that was let, not the shell around
       // it: a 4,000 SF suite in a 200,000 SF building is a 4,000 SF comp. Building SF
@@ -639,11 +651,19 @@ export function PropertiesPage() {
         if (ownerFilter === 'verified' && !reachable) return false
         if (ownerFilter === 'unverified' && reachable) return false
       }
+      // 30 days of ANY logged contact, matching the owner blast exactly. Never contacted
+      // counts as quiet — it is the far end of the same axis, not a missing value.
+      if (applies.activity && activity !== 'all') {
+        const last = ownerCtx?.get(p.id)?.last_contacted_at
+        const recent = last != null && new Date(last).getTime() >= activityCutoff
+        if (activity === 'recent' && !recent) return false
+        if (activity === 'quiet' && recent) return false
+      }
       if (applies.lease && leaseMatchIds && !leaseMatchIds.has(p.id)) return false
       if (ptype !== 'all' && p.property_type !== ptype) return false
       if (applies.county && county !== 'all' && p.county !== county) return false
-      if (applies.buildingSf && sfLo != null && (p.building_sf == null || p.building_sf < sfLo)) return false
-      if (applies.buildingSf && sfHi != null && (p.building_sf == null || p.building_sf > sfHi)) return false
+      if (applies.buildingSf && sfLo != null && (p.gross_sf == null || p.gross_sf < sfLo)) return false
+      if (applies.buildingSf && sfHi != null && (p.gross_sf == null || p.gross_sf > sfHi)) return false
       if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) return false
       if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) return false
       if (applies.price && (prLo != null || prHi != null)) {
@@ -655,12 +675,12 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [properties, haystacks, askingMap, ownerCtx, ownerFilter, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [properties, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon, leaseMatchIds, applies])
+  }, [search, status, dealType, ownerFilter, activity, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon, leaseMatchIds, applies])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -756,7 +776,7 @@ export function PropertiesPage() {
         const o = ownerCtx?.get(p.id)
         return [p.parcel_number, p.address, p.city, p.state, p.zip, p.county,
                 o?.owner_name ?? p.owner_name, p.owner_mailing_address,
-                p.building_sf, p.land_acres, p.id]
+                p.gross_sf, p.land_acres, p.id]
       })),
     )
   }
@@ -776,7 +796,7 @@ export function PropertiesPage() {
         p.parcel_number, p.address, p.city, p.state, p.zip, p.county,
         o?.owner_name ?? p.owner_name, p.owner_mailing_address,
         p.property_type ? propertyKindLabels[p.property_type] : null,
-        p.building_sf, p.land_acres, p.year_built,
+        p.gross_sf, p.land_acres, p.year_built,
         p.last_sale_date, p.last_sale_price,
         p.listing_status === 'off_market' ? 'off market' : 'on market',
         // "never" vs "was listed" is the split that matters for cold lists
@@ -820,7 +840,7 @@ export function PropertiesPage() {
       return [
         p.address, p.city, p.state, p.zip, p.county,
         p.property_type ? propertyKindLabels[p.property_type] : null,
-        p.building_sf, p.land_acres, p.year_built,
+        p.gross_sf, p.land_acres, p.year_built,
         p.listing_status === 'off_market' ? 'off market' : 'on market',
         p.days_on_market, ask?.rate ?? null, ask?.price ?? null,
         p.listing_url, p.id,
@@ -849,7 +869,7 @@ export function PropertiesPage() {
       rows.push([
         p.address, p.city, p.state, p.zip, p.county,
         p.property_type ? propertyKindLabels[p.property_type] : null,
-        p.building_sf, p.land_acres,
+        p.gross_sf, p.land_acres,
         l.tenant_company_name ?? l.tenant_name, l.sf, l.executed_lease_rate_psf,
         l.lease_structure, l.term_months,
         l.signed_date, l.commencement_date, l.expiration_date, l.months_to_expiry,
@@ -883,6 +903,7 @@ export function PropertiesPage() {
     (applies.dealType && dealType !== 'all' ? 1 : 0) +
     (ptype !== 'all' ? 1 : 0) +
     (applies.owner && ownerFilter !== 'all' ? 1 : 0) +
+    (applies.activity && activity !== 'all' ? 1 : 0) +
     (applies.county && county !== 'all' ? 1 : 0) +
     (applies.buildingSf && (sfMin || sfMax) ? 1 : 0) +
     (acMin || acMax ? 1 : 0) +
@@ -907,6 +928,7 @@ export function PropertiesPage() {
     setStatus('all')
     setPtype('all')
     setOwnerFilter('all')
+    setActivity('all')
     setCounty('all')
     setSfMin('')
     setSfMax('')
@@ -1111,8 +1133,23 @@ export function PropertiesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Any</SelectItem>
-                      <SelectItem value="verified">Reachable — call or email</SelectItem>
-                      <SelectItem value="unverified">No way in yet</SelectItem>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="unverified">Not yet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {applies.activity && (
+                <div className="space-y-1.5">
+                  <Label>Recent activity</Label>
+                  <Select value={activity} onValueChange={setActivity}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Any</SelectItem>
+                      <SelectItem value="recent">Touched in 30d</SelectItem>
+                      <SelectItem value="quiet">Quiet 30d+</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1137,7 +1174,7 @@ export function PropertiesPage() {
               )}
               {applies.buildingSf && (
                 <div className="space-y-1.5">
-                  <Label>Building SF</Label>
+                  <Label>Gross SF</Label>
                   <div className="flex items-center gap-2">
                     <CurrencyInput placeholder="Min"  value={sfMin} onValueChange={setSfMin} />
                     <span className="text-muted-foreground">–</span>

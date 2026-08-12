@@ -186,7 +186,7 @@ export function PropertyBoardPage() {
     id: p.property_id,
     address: p.property?.address ?? 'Property',
   }))
-  const totalSf = parcels.reduce((s, p) => s + (p.property?.building_sf ?? 0), 0)
+  const totalSf = parcels.reduce((s, p) => s + (p.property?.gross_sf ?? 0), 0)
   const totalAcres = parcels.reduce((s, p) => s + (p.property?.land_acres ?? 0), 0)
   const primaryProperty = parcels.find((p) => p.is_primary)?.property ?? parcels[0]?.property ?? null
 
@@ -345,13 +345,13 @@ export function PropertyBoardPage() {
     dealType: side,
     commissionPct: listing.commission_pct,
     coBrokeSplitPct: listing.co_broke_split_pct,
-    buildingSf: listing.property?.building_sf ?? null,
+    buildingSf: listing.property?.gross_sf ?? null,
     executedRatePsf: listing.asking_rate_psf,
     executedPrice: listing.asking_price,
     termMonths: null, // calculateCommission defaults to a 5-year term
   })
   const commissionNeedsInput =
-    listing.commission_pct == null || (side !== 'sale' && listing.property?.building_sf == null)
+    listing.commission_pct == null || (side !== 'sale' && listing.property?.gross_sf == null)
 
   return (
     <div className="space-y-4">
@@ -574,8 +574,8 @@ export function PropertyBoardPage() {
                   <ul className="space-y-1.5">
                     {parcels.map((lp) => {
                       const size =
-                        lp.property?.building_sf != null
-                          ? formatSf(lp.property.building_sf)
+                        lp.property?.gross_sf != null
+                          ? formatSf(lp.property.gross_sf)
                           : lp.property?.land_acres != null
                             ? `${lp.property.land_acres} AC`
                             : null
@@ -640,10 +640,10 @@ export function PropertyBoardPage() {
             <SidebarSection title="Property information">
               {primaryProperty ? (
                 <div className="space-y-1 rounded-lg border bg-card p-3 text-sm">
-                  {primaryProperty.building_sf != null && (
+                  {primaryProperty.gross_sf != null && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Building SF</span>
-                      <span className="tabular-nums">{formatSf(primaryProperty.building_sf)}</span>
+                      <span className="text-muted-foreground">Gross SF</span>
+                      <span className="tabular-nums">{formatSf(primaryProperty.gross_sf)}</span>
                     </div>
                   )}
                   {primaryProperty.land_acres != null && (
@@ -729,17 +729,17 @@ export function PropertyBoardPage() {
 
             <SidebarSection title="Terms">
               {(formatListingPrice(listing) ||
-                listing.property?.building_sf != null ||
+                listing.property?.gross_sf != null ||
                 listing.opex_psf != null ||
                 listing.lease_structure ||
                 listing.commission_pct != null ||
                 listing.co_broke_split_pct != null ||
                 listing.listing_expiration) ? (
               <div className="space-y-1 rounded-lg border bg-card p-3 text-sm">
-                {listing.property?.building_sf != null && (
+                {listing.property?.gross_sf != null && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Building SF</span>
-                    <span className="tabular-nums">{formatSf(listing.property.building_sf)}</span>
+                    <span className="text-muted-foreground">Gross SF</span>
+                    <span className="tabular-nums">{formatSf(listing.property.gross_sf)}</span>
                   </div>
                 )}
                 {formatListingPrice(listing) && (
@@ -844,7 +844,7 @@ export function PropertyBoardPage() {
         commissionCalcContext={{
           commissionPct: listing.commission_pct,
           coBrokeSplitPct: listing.co_broke_split_pct,
-          buildingSf: listing.property?.building_sf ?? null,
+          buildingSf: listing.property?.gross_sf ?? null,
         }}
         pending={executePursuit.isPending}
         onConfirm={confirmExecuted}

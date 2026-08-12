@@ -140,7 +140,7 @@ export function DealFlagsWidget() {
               const metrics = [
                 formatPsf(asking?.rate),
                 formatCurrency(asking?.price),
-                formatSf(p.building_sf),
+                formatSf(p.gross_sf),
                 p.land_acres != null ? `${p.land_acres} AC` : null,
                 p.property_type ? propertyKindLabels[p.property_type] : null,
               ].filter(Boolean)

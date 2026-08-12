@@ -692,7 +692,7 @@ export function TenantBoardPage() {
         commissionCalcContext={{
           commissionPct: tenantRep.commission_pct,
           coBrokeSplitPct: null,
-          buildingSf: executedMove?.match.property?.building_sf ?? null,
+          buildingSf: executedMove?.match.property?.gross_sf ?? null,
         }}
         pending={executePursuit.isPending}
         onConfirm={confirmExecuted}

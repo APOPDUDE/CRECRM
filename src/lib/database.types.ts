@@ -26,7 +26,8 @@ export type Database = {
           broker_phone: string | null
           building_class: string | null
           building_far: string | null
-          building_sf: number | null
+          gross_sf: number | null
+          heated_sf: number | null
           city: string | null
           construction_status: string | null
           county: string | null
@@ -86,7 +87,8 @@ export type Database = {
           broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
-          building_sf?: number | null
+          gross_sf?: number | null
+          heated_sf?: number | null
           city?: string | null
           construction_status?: string | null
           county?: string | null
@@ -146,7 +148,8 @@ export type Database = {
           broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
-          building_sf?: number | null
+          gross_sf?: number | null
+          heated_sf?: number | null
           city?: string | null
           construction_status?: string | null
           county?: string | null
@@ -1393,7 +1396,8 @@ export type Database = {
           broker_phone: string | null
           building_class: string | null
           building_far: string | null
-          building_sf: number | null
+          gross_sf: number | null
+          heated_sf: number | null
           city: string | null
           clear_height_ft: number | null
           column_spacing: string | null
@@ -1472,7 +1476,8 @@ export type Database = {
           broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
-          building_sf?: number | null
+          gross_sf?: number | null
+          heated_sf?: number | null
           city?: string | null
           clear_height_ft?: number | null
           column_spacing?: string | null
@@ -1551,7 +1556,8 @@ export type Database = {
           broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
-          building_sf?: number | null
+          gross_sf?: number | null
+          heated_sf?: number | null
           city?: string | null
           clear_height_ft?: number | null
           column_spacing?: string | null
@@ -2227,7 +2233,8 @@ export type Database = {
       v_lease_comps: {
         Row: {
           address: string | null
-          building_sf: number | null
+          gross_sf: number | null
+          heated_sf: number | null
           city: string | null
           commencement_date: string | null
           comp_id: string | null

@@ -56,7 +56,7 @@ export function OffMarketWidget() {
             const metrics = [
               formatPsf(asking?.rate),
               formatCurrency(asking?.price),
-              formatSf(p.building_sf),
+              formatSf(p.gross_sf),
               p.property_type ? propertyKindLabels[p.property_type] : null,
             ].filter(Boolean)
             return (

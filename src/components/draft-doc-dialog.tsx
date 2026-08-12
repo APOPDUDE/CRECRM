@@ -142,7 +142,7 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
   useEffect(() => {
     if (!open) return
     setEffectiveDate(format(new Date(), 'yyyy-MM-dd'))
-    setProposedSf(str(match.proposed_sf ?? unitSf ?? property?.building_sf))
+    setProposedSf(str(match.proposed_sf ?? unitSf ?? property?.gross_sf))
     setDescription(property?.specs ?? '')
     setIntendedUse(match.client?.intended_use ?? '')
     setRatePsf(

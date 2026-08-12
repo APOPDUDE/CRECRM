@@ -140,7 +140,7 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
               <div className="space-y-1.5 rounded-lg border p-3">
                 <Row label="Asking rate" value={formatPsf(asking?.rate)} />
                 <Row label="Asking price" value={formatCurrency(asking?.price)} />
-                <Row label="Building SF" value={formatSf(p.building_sf)} />
+                <Row label="Gross SF" value={formatSf(p.gross_sf)} />
                 <Row label="Land acres" value={p.land_acres != null ? `${p.land_acres} AC` : null} />
                 <Row
                   label="Days on market"

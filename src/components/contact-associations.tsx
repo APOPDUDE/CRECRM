@@ -61,7 +61,7 @@ export function ContactAssociations({ contactId }: { contactId: string }) {
           </h2>
           <div className="space-y-2">
             {properties.map((p) => {
-              const size = formatSf(p.building_sf) ?? (p.land_acres != null ? `${p.land_acres} AC` : null)
+              const size = formatSf(p.gross_sf) ?? (p.land_acres != null ? `${p.land_acres} AC` : null)
               const bits = [p.city, size].filter(Boolean).join(' · ')
               return (
                 <Link

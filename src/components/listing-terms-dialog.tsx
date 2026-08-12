@@ -53,7 +53,7 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
 
   useEffect(() => {
     if (!open) return
-    setBuildingSf(listing.property?.building_sf?.toString() ?? '')
+    setBuildingSf(listing.property?.gross_sf?.toString() ?? '')
     setRate(listing.asking_rate_psf?.toString() ?? '')
     setPrice(listing.asking_price?.toString() ?? '')
     setOpex(listing.opex_psf?.toString() ?? '')
@@ -83,8 +83,8 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
       await updateListing.mutateAsync(patch)
       // Building SF lives on the property — update it too so the commission can compute.
       const nextSf = buildingSf.trim() === '' ? null : Math.round(Number(buildingSf))
-      if (listing.property_id && nextSf !== (listing.property?.building_sf ?? null)) {
-        await updateProperty.mutateAsync({ id: listing.property_id, building_sf: nextSf })
+      if (listing.property_id && nextSf !== (listing.property?.gross_sf ?? null)) {
+        await updateProperty.mutateAsync({ id: listing.property_id, gross_sf: nextSf })
       }
       queryClient.invalidateQueries({ queryKey: ['listing', listing.id] })
       toast.success('Terms saved')
@@ -105,7 +105,7 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="terms-sf">Building SF</Label>
+            <Label htmlFor="terms-sf">Gross SF</Label>
             <CurrencyInput
               id="terms-sf"
               value={buildingSf}

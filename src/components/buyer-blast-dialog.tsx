@@ -168,7 +168,7 @@ export function BuyerBlastDialog({
     setDealQuery('')
     const { supabase } = await import('@/lib/supabase')
     const [{ data: prop }, { data: comps }] = await Promise.all([
-      supabase.from('properties').select('address, city, building_sf, land_acres').eq('id', p.id).single(),
+      supabase.from('properties').select('address, city, gross_sf, land_acres').eq('id', p.id).single(),
       supabase
         .from('comps')
         .select('sale_price, as_of_date')
@@ -181,7 +181,7 @@ export function BuyerBlastDialog({
       propertyId: p.id,
       address: prop?.address ?? p.address,
       city: prop?.city ?? p.city,
-      buildingSf: prop?.building_sf ?? null,
+      buildingSf: prop?.gross_sf ?? null,
       landAcres: prop?.land_acres ?? null,
       askingPrice: comps?.[0]?.sale_price ?? null,
       url: null,

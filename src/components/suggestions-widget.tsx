@@ -203,13 +203,13 @@ export function SuggestionsWidget() {
                         const p = s.property!
                         const asking = askingMap?.get(p.id)
                         const availSf =
-                          asking?.sf != null && asking.sf !== p.building_sf
+                          asking?.sf != null && asking.sf !== p.gross_sf
                             ? `${formatSf(asking.sf)} avail`
                             : null
                         const metrics = [
                           formatPsf(asking?.rate),
                           formatCurrency(asking?.price),
-                          availSf ?? formatSf(p.building_sf),
+                          availSf ?? formatSf(p.gross_sf),
                           p.land_acres != null ? `${p.land_acres} AC` : null,
                           p.property_type ? propertyKindLabels[p.property_type] : null,
                         ].filter(Boolean)

@@ -213,7 +213,7 @@ export function MatchCard({
     const price = [formatPsf(match.property?.asking_rate_psf), formatCurrency(match.property?.asking_price)]
       .filter(Boolean)
       .join(' · ')
-    const sf = formatSf(match.property?.building_sf)
+    const sf = formatSf(match.property?.gross_sf)
     return (
       <HoverCard>
         <HoverCardTrigger asChild>{card}</HoverCardTrigger>

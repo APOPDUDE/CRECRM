@@ -9,7 +9,7 @@ export type SuggestionProperty = {
   city: string | null
   state: string | null
   property_type: Enums<'property_kind'> | null
-  building_sf: number | null
+  gross_sf: number | null
   land_acres: number | null
   listing_url: string | null
   created_at: string
@@ -38,7 +38,7 @@ export type Suggestion = {
 const SUGGESTION_SELECT = `
   id, created_at,
   property:properties!suggestions_property_id_fkey(
-    id, address, city, state, property_type, building_sf, land_acres, listing_url, created_at
+    id, address, city, state, property_type, gross_sf, land_acres, listing_url, created_at
   ),
   client:clients!suggestions_client_id_fkey!inner(
     id, property_type, deal_type, building_sf_min, building_sf_max, target_markets,
@@ -86,7 +86,7 @@ export function scoreSuggestion(s: Suggestion, asking?: CurrentAsking): number {
   if (!p || !c) return 0
   let score = 0
 
-  const sf = c.deal_type === 'sale' ? p.building_sf : (asking?.sf ?? p.building_sf)
+  const sf = c.deal_type === 'sale' ? p.gross_sf : (asking?.sf ?? p.gross_sf)
   const min = c.building_sf_min
   const max = c.building_sf_max
   if (sf != null && (min != null || max != null)) {

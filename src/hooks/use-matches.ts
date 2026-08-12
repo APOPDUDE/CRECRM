@@ -19,7 +19,7 @@ export type MatchWithRelations = Tables<'pursuits'> & {
         | 'address'
         | 'city'
         | 'state'
-        | 'building_sf'
+        | 'gross_sf'
         | 'source'
         | 'source_key'
         | 'listing_url'
@@ -59,7 +59,7 @@ export type MatchWithRelations = Tables<'pursuits'> & {
 
 const MATCH_SELECT = `
   *,
-  property:properties!pursuits_property_id_fkey(id, address, city, state, building_sf, source, source_key, listing_url, photo_urls, specs),
+  property:properties!pursuits_property_id_fkey(id, address, city, state, gross_sf, source, source_key, listing_url, photo_urls, specs),
   client:clients!pursuits_client_id_fkey(
     id, status, deal_type, source, commission_pct, company_id, contact_id, intended_use,
     company:companies!clients_company_id_fkey(id, name),

@@ -388,7 +388,7 @@ export function PropertyDetailPage() {
               onSave={saveField('description')}
             />
           </div>
-          <InlineEditField label="Building SF" value={property.building_sf} kind="sf" onSave={saveField('building_sf')} />
+          <InlineEditField label="Gross SF" value={property.gross_sf} kind="sf" onSave={saveField('gross_sf')} />
           <InlineEditField label="Land acres" value={property.land_acres} kind="acres" onSave={saveField('land_acres')} />
           <InlineEditField label="Usable acres" value={property.usable_acres} kind="acres" onSave={saveField('usable_acres')} />
           <InlineEditField label="Year built" value={property.year_built} kind="number" onSave={saveField('year_built')} />

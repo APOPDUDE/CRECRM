@@ -81,7 +81,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
       setState(property?.state ?? '')
       setZip(property?.zip ?? '')
       setPropertyType(property?.property_type ?? NO_TYPE)
-      setBuildingSf(property?.building_sf != null ? String(property.building_sf) : '')
+      setBuildingSf(property?.gross_sf != null ? String(property.gross_sf) : '')
       setLandAcres(property?.land_acres != null ? String(property.land_acres) : '')
       setSpecs(property?.specs ?? '')
       setListingStatus(property?.listing_status ?? 'on_market')
@@ -99,7 +99,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
       zip: zip.trim() || null,
       property_type:
         propertyType === NO_TYPE ? null : (propertyType as Enums<'property_kind'>),
-      building_sf: buildingSfTrimmed ? parseInt(buildingSfTrimmed, 10) : null,
+      gross_sf: buildingSfTrimmed ? parseInt(buildingSfTrimmed, 10) : null,
       land_acres: landAcresTrimmed ? parseFloat(landAcresTrimmed) : null,
       specs: specs.trim() || null,
       listing_status: listingStatus,
@@ -239,7 +239,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
           {property ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="property-building-sf">Building SF</Label>
+                <Label htmlFor="property-building-sf">Gross SF</Label>
                 <CurrencyInput
                   id="property-building-sf"
                   value={buildingSf}

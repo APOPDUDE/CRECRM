@@ -157,7 +157,7 @@ export type ContactProperty = {
   id: string
   address: string
   city: string | null
-  building_sf: number | null
+  gross_sf: number | null
   land_acres: number | null
   listing_status: string | null
   /** how this contact reaches the property: as its owner, or via a deal on it */
@@ -188,7 +188,7 @@ export function useContactAssociations(contactId: string | undefined) {
     queryKey: ['contact-associations', contactId],
     enabled: !!contactId,
     queryFn: async () => {
-      const PROP_COLS = 'id, address, city, building_sf, land_acres, listing_status'
+      const PROP_COLS = 'id, address, city, gross_sf, land_acres, listing_status'
 
       // Owner links first: which owner entities is this human confirmed/likely against.
       const ownerLinks = await supabase

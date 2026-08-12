@@ -454,8 +454,8 @@ const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
     { c: PIN.executed, label: 'Executed' },
   ],
   owner: [
-    { c: OWNER_PIN.verified, label: 'Spoken to — number confirmed' },
-    { c: OWNER_PIN.emailOnly, label: 'Email only — no call yet' },
+    { c: OWNER_PIN.verified, label: 'Number confirmed' },
+    { c: OWNER_PIN.emailOnly, label: 'Email Verified only' },
     { c: OWNER_PIN.unverified, label: 'Not verified' },
   ],
   lease: [
@@ -677,7 +677,7 @@ export function PropertiesMap({
             const bits = [
               askLabel,
               p.property_type ? propertyKindLabels[p.property_type] : null,
-              formatSf(p.building_sf),
+              formatSf(p.gross_sf),
               p.land_acres != null ? `${p.land_acres} AC` : null,
               executed ? 'Executed' : off ? 'Off market' : 'On market',
               goodDealIds?.has(id) ? 'Good deal' : null,

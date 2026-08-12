@@ -74,7 +74,7 @@ export function useOwnerProperties(ownerId: string | null | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('properties')
-        .select('id, address, city, county, property_type, building_sf, land_acres, listing_status, lat, lng')
+        .select('id, address, city, county, property_type, gross_sf, land_acres, listing_status, lat, lng')
         .eq('owner_id', ownerId!)
         .order('address')
       if (error) throw error

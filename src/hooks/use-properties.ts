@@ -57,7 +57,7 @@ export type Property = Pick<
   Tables<'properties'>,
   | 'id' | 'address' | 'city' | 'state' | 'zip' | 'county' | 'parcel_number'
   | 'site_address' | 'folio'
-  | 'property_type' | 'building_sf' | 'land_acres' | 'specs' | 'listing_status'
+  | 'property_type' | 'gross_sf' | 'land_acres' | 'specs' | 'listing_status'
   | 'days_on_market' | 'year_built' | 'zoning_description' | 'zoning_district'
   | 'occupancy' | 'lat' | 'lng' | 'owner_id' | 'owner_name' | 'owner_mailing_address'
   | 'last_sale_date' | 'last_sale_price' | 'listing_url' | 'created_at' | 'updated_at'
@@ -96,7 +96,7 @@ export function useProperties() {
       // so a bare listings(count) is ambiguous (PGRST201) and 300s the whole query.
       const SELECT =
         'id, address, city, state, zip, county, parcel_number, site_address, folio, ' +
-        'property_type, building_sf, ' +
+        'property_type, gross_sf, ' +
         'land_acres, specs, listing_status, days_on_market, year_built, zoning_description, ' +
         'zoning_district, occupancy, lat, lng, owner_id, owner_name, owner_mailing_address, ' +
         'last_sale_date, last_sale_price, listing_url, created_at, updated_at, ' +

@@ -9,7 +9,7 @@ export interface CommissionInput {
   commissionPct: number | null
   /** listings.co_broke_split_pct — the share given away to a co-broker. */
   coBrokeSplitPct: number | null
-  /** property.building_sf — needed to gross up a lease rate. */
+  /** property.gross_sf — needed to gross up a lease rate. */
   buildingSf: number | null
   /** lease: executed $/SF/yr */
   executedRatePsf?: number | null

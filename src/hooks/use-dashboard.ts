@@ -78,7 +78,7 @@ export type OffMarketProperty = {
   city: string | null
   state: string | null
   listing_url: string | null
-  building_sf: number | null
+  gross_sf: number | null
   property_type: Enums<'property_kind'> | null
   updated_at: string
 }
@@ -108,7 +108,7 @@ export function useRecentlyOffMarket() {
       const { data, error } = await supabase
         .from('properties')
         .select(
-          'id, address, city, state, listing_url, building_sf, property_type, updated_at',
+          'id, address, city, state, listing_url, gross_sf, property_type, updated_at',
         )
         .eq('listing_status', 'off_market')
         .gte('updated_at', offMarketFloorIso())
@@ -139,7 +139,7 @@ export type NewListing = {
   city: string | null
   state: string | null
   listing_url: string | null
-  building_sf: number | null
+  gross_sf: number | null
   land_acres: number | null
   property_type: Enums<'property_kind'> | null
   created_at: string
@@ -190,7 +190,7 @@ export function useNewListings(filter: NewListingsTypeFilter = 'industrial') {
       let q = supabase
         .from('properties')
         .select(
-          'id, address, city, state, listing_url, building_sf, land_acres, property_type, created_at',
+          'id, address, city, state, listing_url, gross_sf, land_acres, property_type, created_at',
           { count: 'exact' },
         )
         .eq('source', 'scrape')
