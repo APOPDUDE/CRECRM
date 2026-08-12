@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { addDays, format, nextMonday } from 'date-fns'
+import { addDays, addMonths, format, nextMonday } from 'date-fns'
 import { CalendarClock, Check, Mail, MessageSquare, Phone, StickyNote, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -32,12 +32,27 @@ const OUTCOMES: { kind: Enums<'note_kind'>; label: string; icon: LucideIcon }[] 
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
-/** Quick dates, so the common case never needs the date picker. */
-const DUE_PRESETS: { label: string; date: () => string }[] = [
+type Preset = { label: string; date: () => string }
+
+/**
+ * The two pickers deliberately offer different horizons.
+ *
+ * A follow-up after a call you just made is near-term — you said you'd send something
+ * this week. A reschedule is usually the opposite: the owner told you to try again in a
+ * quarter, and offering "in 3 days" for that just means pushing it four more times.
+ */
+const FOLLOW_UP_PRESETS: Preset[] = [
   { label: 'Tomorrow', date: () => iso(addDays(new Date(), 1)) },
   { label: 'In 3 days', date: () => iso(addDays(new Date(), 3)) },
   { label: 'Next week', date: () => iso(nextMonday(new Date())) },
   { label: 'In 2 weeks', date: () => iso(addDays(new Date(), 14)) },
+]
+
+const RESCHEDULE_PRESETS: Preset[] = [
+  { label: 'Tomorrow', date: () => iso(addDays(new Date(), 1)) },
+  { label: 'In 2 weeks', date: () => iso(addDays(new Date(), 14)) },
+  { label: 'In 3 months', date: () => iso(addMonths(new Date(), 3)) },
+  { label: 'In 6 months', date: () => iso(addMonths(new Date(), 6)) },
 ]
 
 type Mode = 'done' | 'reschedule'
@@ -53,13 +68,15 @@ interface TaskCompleteDialogProps {
 function DatePicker({
   value,
   onChange,
+  presets,
 }: {
   value: string
   onChange: (v: string) => void
+  presets: Preset[]
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {DUE_PRESETS.map((p) => {
+      {presets.map((p) => {
         const date = p.date()
         return (
           <button
@@ -117,8 +134,10 @@ export function TaskCompleteDialog({ task, open, onOpenChange, onCompleted }: Ta
     setKind(task.kind === 'tour' ? 'meeting' : 'note')
     setWithFollowUp(false)
     setFollowUpTitle(task.title)
-    setFollowUpDate(DUE_PRESETS[2].date())
-    setNewDueDate(DUE_PRESETS[2].date())
+    setFollowUpDate(FOLLOW_UP_PRESETS[2].date())
+    // Defaults to two weeks rather than the longest option: a reschedule that lands six
+    // months out by accident is a task you have effectively deleted.
+    setNewDueDate(RESCHEDULE_PRESETS[1].date())
   }, [open, task])
 
   if (!task) return null
@@ -202,7 +221,7 @@ export function TaskCompleteDialog({ task, open, onOpenChange, onCompleted }: Ta
             <>
               <div className="space-y-2">
                 <Label>Move it to</Label>
-                <DatePicker value={newDueDate} onChange={setNewDueDate} />
+                <DatePicker value={newDueDate} onChange={setNewDueDate} presets={RESCHEDULE_PRESETS} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reschedule-note">Why? (optional)</Label>
@@ -262,7 +281,7 @@ export function TaskCompleteDialog({ task, open, onOpenChange, onCompleted }: Ta
                       onChange={(e) => setFollowUpTitle(e.target.value)}
                       placeholder="What's the next step?"
                     />
-                    <DatePicker value={followUpDate} onChange={setFollowUpDate} />
+                    <DatePicker value={followUpDate} onChange={setFollowUpDate} presets={FOLLOW_UP_PRESETS} />
                   </div>
                 )}
               </div>
