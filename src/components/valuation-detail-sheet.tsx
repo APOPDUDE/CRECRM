@@ -231,6 +231,74 @@ function BucketSection({
   )
 }
 
+/**
+ * The land the building doesn't use. Only shown when there is some — most sites
+ * are built to roughly the market's typical coverage and this section stays out
+ * of the way.
+ */
+function LandSection({ val }: { val: PropertyValuation }) {
+  const lc = val.land_component
+  if (!lc || lc.excess_acres <= 0) return null
+  const acres = (v: number | null) => (v == null ? '—' : `${v} ac`)
+
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-semibold">Land beyond the building</h3>
+      <div className="space-y-2 rounded-lg border p-3 text-sm">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-muted-foreground">
+            Usable acreage
+            {lc.usable_is_estimated && (
+              <span className="ml-1 text-xs">— total acreage, uplands not on file</span>
+            )}
+          </span>
+          <span className="font-medium tabular-nums">{acres(lc.acres_usable)}</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-muted-foreground">
+            Site the building needs
+            <span className="ml-1 text-xs">at {Math.round(lc.typ_coverage * 100)}% county coverage</span>
+          </span>
+          <span className="tabular-nums">− {acres(lc.supported_acres)}</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-3 border-t pt-2">
+          <span className="font-medium">Excess land</span>
+          <span className="font-semibold tabular-nums">{acres(lc.excess_acres)}</span>
+        </div>
+
+        <div className="flex items-baseline justify-between gap-3 border-t pt-2">
+          <span className="text-muted-foreground">
+            To buy, at {formatCurrency(lc.excess_acre_value)}/acre
+            {lc.size_factor < 0.99 && (
+              <span className="ml-1 text-xs">
+                ({formatCurrency(lc.base_acre_value)} base × {lc.size_factor} for size)
+              </span>
+            )}
+          </span>
+          <span className="font-medium tabular-nums">{formatCurrency(lc.sale_contribution)}</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-muted-foreground">
+            To rent, at {formatCurrency(lc.rent_per_acre_month)}/acre/month
+          </span>
+          <span className="font-medium tabular-nums">
+            {formatCurrency(lc.rent_contribution_monthly)}/mo
+          </span>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          A comp's $/SF already includes a typical site, so only the acreage beyond that is added —
+          otherwise the dirt gets counted twice. Per-acre value falls steeply with size (measured on
+          our own sales), so a big back field is not priced like one extra acre by the dock.
+          {lc.rent_source !== 'alex' && ' The yard rent for this county is an estimate — worth confirming.'}
+          {!lc.excess_value_measured &&
+            ' Too few local sales to fit a land value here, so a share of the county land comps was used.'}
+        </p>
+      </div>
+    </section>
+  )
+}
+
 /** Millage is the one input we can't derive — let the broker fix it in place. */
 function TaxSection({ val }: { val: PropertyValuation }) {
   const setMillage = useSetCountyMillage()
@@ -418,6 +486,7 @@ export function ValuationDetailSheet({
             <BucketSection bucket="lease" val={val} propertyId={propertyId} />
             <BucketSection bucket="land" val={val} propertyId={propertyId} />
 
+            <LandSection val={val} />
             <TaxSection val={val} />
             <CountyContext county={val.subject.county} />
 

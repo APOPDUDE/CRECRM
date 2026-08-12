@@ -71,6 +71,10 @@ export interface LeaseEstimate extends BucketStats {
   psf: number
   psf_low: number | null
   psf_high: number | null
+  /** The building alone, before any yard rent. */
+  building_monthly: number | null
+  /** Rent on the excess acreage. 0 when the site has none. */
+  land_monthly: number
   monthly: number | null
   monthly_low: number | null
   monthly_high: number | null
@@ -81,10 +85,43 @@ export interface SaleEstimate extends BucketStats {
   psf: number
   psf_low: number | null
   psf_high: number | null
+  /** The building alone, before the land is added. */
+  building_total: number | null
+  /** Value of the excess acreage. 0 when the site has none. */
+  land_total: number
   total: number | null
   total_low: number | null
   total_high: number | null
   cap_rate: number | null
+}
+
+/**
+ * The land the building doesn't use. A comp's $/SF already includes a typical
+ * site, so only acreage BEYOND that typical site is added — otherwise the dirt
+ * is counted twice. Rates fall steeply with parcel size (measured β ≈ -0.73):
+ * a 180-acre back field is not 180× the value of one extra acre by the dock.
+ */
+export interface LandComponent {
+  acres_total: number | null
+  /** Uplands where known — falls back to total acreage, which overstates a wet site. */
+  acres_usable: number | null
+  usable_is_estimated: boolean
+  /** Median site coverage of the county's improved sales. */
+  typ_coverage: number
+  supported_acres: number
+  excess_acres: number
+  base_acre_value: number | null
+  size_factor: number
+  excess_acre_value: number | null
+  /** False = no fit for this county, so a share of the land-comp median was used. */
+  excess_value_measured: boolean
+  base_rent_per_acre_month: number
+  rent_size_factor: number
+  rent_per_acre_month: number
+  /** 'alex' = his quoted market rate; 'interpolated'/'default' = needs confirming. */
+  rent_source: string
+  sale_contribution: number
+  rent_contribution_monthly: number
 }
 
 export interface LandEstimate extends BucketStats {
@@ -120,11 +157,13 @@ export interface PropertyValuation {
     building_class: 'A' | 'B' | 'C' | null
     sf: number | null
     land_acres: number | null
+    usable_acres: number | null
     year_built: number | null
     just_value: number | null
     assessed_value: number | null
   }
   method: ValuationMethod
+  land_component: LandComponent
   sale: SaleEstimate | null
   lease: LeaseEstimate | null
   land: LandEstimate | null

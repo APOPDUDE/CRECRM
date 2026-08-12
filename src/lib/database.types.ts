@@ -843,6 +843,33 @@ export type Database = {
         }
         Relationships: []
       }
+      county_land_rents: {
+        Row: {
+          county: string
+          notes: string | null
+          rent_per_acre_month: number
+          source: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          county: string
+          notes?: string | null
+          rent_per_acre_month: number
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          county?: string
+          notes?: string | null
+          rent_per_acre_month?: number
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       county_tax_rates: {
         Row: {
           county: string
@@ -2313,6 +2340,26 @@ export type Database = {
       }
     }
     Views: {
+      v_county_land_metrics: {
+        Row: {
+          county: string | null
+          excess_acre_value: number | null
+          med_psf: number | null
+          n: number | null
+          n_excess: number | null
+          typ_coverage: number | null
+        }
+        Relationships: []
+      }
+      v_excess_land_decay: {
+        Row: {
+          beta: number | null
+          med_excess_acres: number | null
+          n: number | null
+          r: number | null
+        }
+        Relationships: []
+      }
       v_comp_class_premium: {
         Row: {
           building_class: string | null

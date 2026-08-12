@@ -99,6 +99,8 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
       : null
   const tax = estimatedAnnualTax(val.tax)
   const compCount = val.comps.filter((c) => c.included).length
+  const land = val.sale?.land_total ?? 0
+  const landRent = val.lease?.land_monthly ?? 0
 
   return (
     <div className="flex max-w-2xl flex-col gap-4 rounded-lg border bg-card p-4">
@@ -120,10 +122,27 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
           {unitRate && <span className="ml-2 text-base font-normal text-muted-foreground">{unitRate}</span>}
         </div>
         {low != null && high != null ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Range {compactUsd(low)} – {compactUsd(high)}
-            {val.sale?.cap_rate != null && ` · comps averaging a ${val.sale.cap_rate}% cap`}
-          </p>
+          <>
+            {/* When the yard is doing the work, say so on the face of the card —
+                a 5,000 SF building on 5 acres is mostly dirt, and the headline
+                alone hides that. */}
+            {!isLand && land > 0 && (
+              <p className="mt-0.5 text-xs">
+                <span className="text-muted-foreground">Building</span>{' '}
+                <span className="font-medium">{compactUsd(val.sale?.building_total)}</span>
+                <span className="text-muted-foreground"> + land </span>
+                <span className="font-medium">{compactUsd(land)}</span>
+                <span className="text-muted-foreground">
+                  {' '}
+                  ({val.land_component.excess_acres} excess ac)
+                </span>
+              </p>
+            )}
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Range {compactUsd(low)} – {compactUsd(high)}
+              {val.sale?.cap_rate != null && ` · comps averaging a ${val.sale.cap_rate}% cap`}
+            </p>
+          </>
         ) : (
           <p className="mt-0.5 text-xs text-muted-foreground">
             {val.subject.sf ? 'Not enough sale comps nearby.' : 'No building size on file — add one to value it.'}
@@ -142,9 +161,16 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
           label="Monthly rent"
           value={val.lease?.monthly != null ? `${formatCurrency(val.lease.monthly)}/mo` : null}
           sub={
-            val.lease?.monthly_low != null && val.lease?.monthly_high != null
-              ? `${compactUsd(val.lease.monthly_low)} – ${compactUsd(val.lease.monthly_high)}`
-              : null
+            landRent > 0
+              ? `incl. ${compactUsd(landRent)} yard`
+              : val.lease?.monthly_low != null && val.lease?.monthly_high != null
+                ? `${compactUsd(val.lease.monthly_low)} – ${compactUsd(val.lease.monthly_high)}`
+                : null
+          }
+          hint={
+            landRent > 0
+              ? `Building rent plus ${val.land_component.excess_acres} excess acres of yard at ${formatCurrency(val.land_component.rent_per_acre_month)}/acre/month.`
+              : undefined
           }
         />
         <Metric
