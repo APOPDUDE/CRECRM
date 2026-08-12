@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
-import { Building2, Plus, X } from 'lucide-react'
+import { Building2, Plus, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,6 +23,7 @@ import {
 import { resolvePursuitSide, useCreateMatch } from '@/hooks/use-matches'
 import { useCreateProperty, useEnrichProperty } from '@/hooks/use-properties'
 import { usePropertySearch, type ParcelSearchResult } from '@/hooks/use-listing-parcels'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useScrapePropertyByUrl } from '@/hooks/use-automation'
 import type { TenantRepDetail } from '@/hooks/use-tenant-reps'
 import { formatParcelId, ENRICHABLE_COUNTIES } from '@/lib/parcel'
@@ -112,21 +113,25 @@ export function AddPropertyMatchDialog({
   const [mode, setMode] = useState<Mode>('manual')
   const [loopnetUrls, setLoopnetUrls] = useState<string[]>([''])
   const [crexiUrls, setCrexiUrls] = useState<string[]>([''])
-  // Manual mode mirrors the add-parcel-to-listing flow: parcel ID + county (+ optional
-  // address), with autofill of existing properties; the appraiser fills the rest.
+  // Manual mode leads with a search of the book: with 17,500+ properties the building is
+  // almost always already here, so typing its address should find it. Creating from a parcel
+  // ID is the fallback for the ones we genuinely don't have.
+  const [search, setSearch] = useState('')
+  const [creating, setCreating] = useState(false)
   const [parcel, setParcel] = useState('')
   const [county, setCounty] = useState('')
-  const [address, setAddress] = useState('')
-  const { data: results = [], isFetching } = usePropertySearch(address, parcel)
+  const debouncedSearch = useDebouncedValue(search, 200)
+  const { data: results = [], isFetching } = usePropertySearch(debouncedSearch)
 
   useEffect(() => {
     if (open) {
       setMode(showPaste ? initialMode : 'manual')
       setLoopnetUrls([''])
       setCrexiUrls([''])
+      setSearch('')
+      setCreating(false)
       setParcel('')
       setCounty('')
-      setAddress('')
     }
   }, [open, initialMode, showPaste])
 
@@ -209,7 +214,9 @@ export function AddPropertyMatchDialog({
     try {
       const formattedParcel = formatParcelId(parcel, county)
       const prop = await createProperty.mutateAsync({
-        address: address.trim() || `Parcel ${formattedParcel}`,
+        // what was typed in the search box is the best address we have until the
+        // appraiser answers; it beats a row called "Parcel U-31-28-…"
+        address: search.trim() || `Parcel ${formattedParcel}`,
         parcel_number: formattedParcel,
         county,
         source: 'manual',
@@ -263,59 +270,38 @@ export function AddPropertyMatchDialog({
             </DialogFooter>
           </form>
         ) : (
-          <form onSubmit={handleManual} className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="man-parcel">Parcel ID</Label>
+          /* min-w-0: DialogContent is a grid, so this form is a grid item and defaults to
+             min-width:auto — without it a long parcel id in the results widens the whole
+             dialog past its max-width instead of ellipsing. */
+          <form onSubmit={handleManual} className="min-w-0 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="man-search">Find the property</Label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  id="man-parcel"
-                  value={parcel}
-                  onChange={(e) => setParcel(e.target.value)}
-                  onBlur={() => setParcel((p) => formatParcelId(p, county))}
-                  placeholder="paste raw — we format it"
+                  id="man-search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Address, city, county or parcel ID"
+                  className="pl-8"
                   autoFocus
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="man-county">County</Label>
-                <Select
-                  value={county}
-                  onValueChange={(v) => {
-                    setCounty(v)
-                    setParcel((p) => formatParcelId(p, v))
-                  }}
-                >
-                  <SelectTrigger id="man-county" className="w-full">
-                    <SelectValue placeholder="Select county" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ENRICHABLE_COUNTIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="man-address">Address (optional)</Label>
-              <Input
-                id="man-address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="The county appraiser fills this in"
-              />
+              <p className="text-xs text-muted-foreground">
+                Searches every property we have — address, city, county, parcel or folio.
+              </p>
             </div>
 
             {matches.length > 0 && (
               <div className="overflow-hidden rounded-lg border">
                 <div className="border-b bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  Existing properties — click to add
+                  Click to add
                 </div>
-                <ul className="divide-y">
+                {/* overflow-x-hidden matters: the vertical scroller sizes to its content, so a
+                    long parcel id would otherwise widen the rows instead of ellipsing them. */}
+                <ul className="max-h-64 divide-y overflow-y-auto overflow-x-hidden">
                   {matches.map((p) => (
-                    <li key={p.id}>
+                    <li key={p.id} className="w-full">
                       <button
                         type="button"
                         disabled={pending}
@@ -328,6 +314,7 @@ export function AddPropertyMatchDialog({
                           <span className="block truncate text-xs text-muted-foreground">
                             {[
                               [p.city, p.state].filter(Boolean).join(', '),
+                              p.county ? `${p.county} County` : null,
                               p.parcel_number ? `Parcel ${p.parcel_number}` : null,
                             ]
                               .filter(Boolean)
@@ -342,15 +329,73 @@ export function AddPropertyMatchDialog({
               </div>
             )}
 
-            {(address.trim() || parcel.trim()) && matches.length === 0 && !isFetching && (
-              <p className="text-xs text-muted-foreground">
-                No existing property matches — create a new one.
-              </p>
+            {search.trim().length >= 2 && isFetching && matches.length === 0 && (
+              <p className="text-xs text-muted-foreground">Searching…</p>
             )}
-            <p className="text-xs text-muted-foreground">
-              Not in the list? Enter the parcel ID + county and create it — the county appraiser
-              fills in the address, size and owner automatically.
-            </p>
+
+            {/* Only offer to create once the search has actually come up empty — otherwise the
+                fallback competes with the answer that is about to appear. */}
+            {search.trim().length >= 2 && !isFetching && matches.length === 0 && !creating && (
+              <div className="rounded-lg border border-dashed p-3">
+                <p className="text-sm font-medium">Not in the book</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Nothing matches “{search.trim()}”. Add it by parcel ID and the county appraiser
+                  fills in the address, size and owner.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setCreating(true)}
+                >
+                  <Plus className="size-3.5" />
+                  Add by parcel ID
+                </Button>
+              </div>
+            )}
+
+            {creating && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="man-parcel">Parcel ID</Label>
+                    <Input
+                      id="man-parcel"
+                      value={parcel}
+                      onChange={(e) => setParcel(e.target.value)}
+                      onBlur={() => setParcel((p) => formatParcelId(p, county))}
+                      placeholder="paste raw — we format it"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="man-county">County</Label>
+                    <Select
+                      value={county}
+                      onValueChange={(v) => {
+                        setCounty(v)
+                        setParcel((p) => formatParcelId(p, v))
+                      }}
+                    >
+                      <SelectTrigger id="man-county" className="w-full">
+                        <SelectValue placeholder="Select county" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ENRICHABLE_COUNTIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  We'll file it as “{search.trim()}” until the appraiser returns the real address.
+                </p>
+              </div>
+            )}
 
             <DialogFooter>
               {showPaste && (
@@ -358,9 +403,11 @@ export function AddPropertyMatchDialog({
                   Paste a listing link instead
                 </Button>
               )}
-              <Button type="submit" disabled={pending || !canCreate}>
-                {pending ? 'Adding…' : 'Create & add'}
-              </Button>
+              {creating && (
+                <Button type="submit" disabled={pending || !canCreate}>
+                  {pending ? 'Adding…' : 'Create & add'}
+                </Button>
+              )}
             </DialogFooter>
           </form>
         )}

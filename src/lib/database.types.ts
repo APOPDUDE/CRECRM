@@ -1448,6 +1448,7 @@ export type Database = {
           owner_id: string | null
           owner_mailing_address: string | null
           owner_name: string | null
+          parcel_key: string | null
           parcel_number: string | null
           parking_ratio: string | null
           parking_spaces: number | null
@@ -1459,6 +1460,7 @@ export type Database = {
           sale_type: string | null
           scrape_facts: Json | null
           scraped_at: string | null
+          search_text: string | null
           site_address: string | null
           source: string | null
           source_key: string | null
@@ -2770,6 +2772,23 @@ export type Database = {
           phone: string
           title: string
           updated_at: string
+        }[]
+      }
+      search_properties: {
+        Args: {
+          p_limit?: number
+          p_query: string
+        }
+        Returns: {
+          address: string
+          city: string
+          county: string
+          folio: string
+          id: string
+          parcel_number: string
+          source_address: string
+          state: string
+          zip: string
         }[]
       }
       set_property_coords: { Args: { p: Json }; Returns: Json }

@@ -70,29 +70,38 @@ export function useAddParcelToListing() {
 export type ParcelSearchResult = {
   id: string
   address: string
+  /** The scraped/original address, kept when the county calls the parcel something else. */
+  source_address: string | null
   city: string | null
   state: string | null
+  zip: string | null
+  county: string | null
   parcel_number: string | null
+  folio: string | null
 }
 
-/** Typeahead: find existing properties by address and/or parcel id (the add-parcel autofill). */
-export function usePropertySearch(address: string, parcel: string) {
-  // PostgREST .or() is comma/paren-delimited, so strip those from the user's text.
-  const a = address.replace(/[,()]/g, ' ').trim()
-  const p = parcel.replace(/[,()]/g, ' ').trim()
-  const parts: string[] = []
-  if (a.length >= 2) parts.push(`address.ilike.%${a}%`)
-  if (p.length >= 2) parts.push(`parcel_number.ilike.%${p}%`)
+/**
+ * Typeahead over the WHOLE property book — one search box that takes an address, a city, a
+ * county, a parcel number or a folio, in any order and with any punctuation.
+ *
+ * This runs in Postgres (`search_properties`) rather than filtering a fetched list, for the same
+ * reason contact search had to move there: 17,522 properties is far past PostgREST's 1000-row
+ * page, so any client-side filter is silently searching a fraction of the book. It also matches
+ * the county's `site_address`, which is what the rest of the app displays — searching only the
+ * stored address meant typing what you just read on screen could find nothing.
+ */
+export function usePropertySearch(query: string, limit = 12) {
+  const q = query.trim()
   return useQuery({
-    queryKey: ['property-search', a, p],
-    enabled: parts.length > 0,
+    queryKey: ['property-search', q, limit],
+    enabled: q.length >= 2,
+    // the book barely changes minute to minute; don't refetch on every dialog re-open
+    staleTime: 60_000,
     queryFn: async (): Promise<ParcelSearchResult[]> => {
-      const { data, error } = await supabase
-        .from('properties')
-        .select('id, address, city, state, parcel_number')
-        .or(parts.join(','))
-        .order('address')
-        .limit(8)
+      const { data, error } = await supabase.rpc('search_properties', {
+        p_query: q,
+        p_limit: limit,
+      })
       if (error) throw error
       return (data ?? []) as ParcelSearchResult[]
     },

@@ -60,7 +60,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
   const [taskDue, setTaskDue] = useState('')
   const [pendingPush, setPendingPush] = useState<'listing' | 'client' | null>(null)
   const [dealType, setDealType] = useState<Enums<'deal_type'>>('lease')
-  const { data: propResults = [] } = usePropertySearch(propSearch, '')
+  const { data: propResults = [] } = usePropertySearch(propSearch)
 
   if (!prospect) return null
   const p = prospect
