@@ -126,7 +126,10 @@ function ExpiryBars({
 export function LeaseExpirationsWidget() {
   const navigate = useNavigate()
   const { data: rows = [], isLoading } = useLeaseComps()
-  const [expanded, setExpanded] = useState(true)
+  // Collapsed on every dashboard load. The run-off is a thing you go looking for, not
+  // something that should be occupying the top of the page before you ask for it; the
+  // header still carries the count, which is the part worth seeing at a glance.
+  const [expanded, setExpanded] = useState(false)
 
   const { buckets, counts, upcoming } = useMemo(() => {
     const future = rows.filter((r) => (r.months_to_expiry ?? -1) >= 0)
