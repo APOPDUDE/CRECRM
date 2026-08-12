@@ -471,51 +471,95 @@ export interface CompleteTaskArgs {
  * entry (the contact's conversation feed), a deal-attached task writes a `notes` row
  * on that deal. A task attached to neither keeps its outcome in `details`.
  */
+/**
+ * File a note wherever the task hangs, so it lands in the history that explains the
+ * next task. Shared by completing and rescheduling — "I pushed this because they asked
+ * me to call back in a month" is worth exactly as much as "I called and it went well".
+ */
+async function fileTaskNote(task: Tables<'tasks'>, note: string, kind: Enums<'note_kind'>) {
+  const body = note.trim()
+  if (!body) return
+
+  const dealColumn = task.client_id
+    ? 'client_id'
+    : task.listing_id
+      ? 'listing_id'
+      : task.pursuit_id
+        ? 'pursuit_id'
+        : null
+
+  if (task.contact_id) {
+    const { error } = await supabase.from('communications').insert({
+      contact_id: task.contact_id,
+      channel: NOTE_CHANNEL[kind],
+      direction: kind === 'note' ? 'unknown' : 'outbound',
+      source: 'manual',
+      subject: task.title,
+      body,
+      occurred_at: new Date().toISOString(),
+    })
+    if (error) throw error
+  }
+  if (dealColumn) {
+    const { error } = await supabase.from('notes').insert({
+      [dealColumn]: task[dealColumn],
+      contact_id: task.contact_id,
+      kind,
+      body,
+    } as TablesInsert<'notes'>)
+    if (error) throw error
+  }
+  if (!task.contact_id && !dealColumn) {
+    // nothing to file it against — keep it on the task rather than lose it
+    const stamp = format(new Date(), 'yyyy-MM-dd')
+    const { error } = await supabase
+      .from('tasks')
+      .update({ details: [task.details, `${stamp}: ${body}`].filter(Boolean).join('\n\n') })
+      .eq('id', task.id)
+    if (error) throw error
+  }
+}
+
+/**
+ * Push a task out without closing it. The third answer to "did you do this?" — often
+ * the true one — and it must not cost you the reason, so the note is filed exactly as a
+ * completion note is. `due_at` is cleared because a task moved to another day keeps no
+ * claim on the old time of day.
+ */
+export function useRescheduleTask() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      task,
+      note,
+      kind,
+      dueDate,
+    }: {
+      task: Tables<'tasks'>
+      note: string
+      kind: Enums<'note_kind'>
+      dueDate: string
+    }) => {
+      await fileTaskNote(task, note, kind)
+      const { error } = await supabase
+        .from('tasks')
+        .update({ due_date: dueDate || null, due_at: null })
+        .eq('id', task.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
 export function useCompleteTask() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ task, note, kind, followUp }: CompleteTaskArgs) => {
-      const body = note.trim()
-      const dealColumn = task.client_id
-        ? 'client_id'
-        : task.listing_id
-          ? 'listing_id'
-          : task.pursuit_id
-            ? 'pursuit_id'
-            : null
-
-      if (body) {
-        if (task.contact_id) {
-          const { error } = await supabase.from('communications').insert({
-            contact_id: task.contact_id,
-            channel: NOTE_CHANNEL[kind],
-            direction: kind === 'note' ? 'unknown' : 'outbound',
-            source: 'manual',
-            subject: task.title,
-            body,
-            occurred_at: new Date().toISOString(),
-          })
-          if (error) throw error
-        }
-        if (dealColumn) {
-          const { error } = await supabase.from('notes').insert({
-            [dealColumn]: task[dealColumn],
-            contact_id: task.contact_id,
-            kind,
-            body,
-          } as TablesInsert<'notes'>)
-          if (error) throw error
-        }
-        if (!task.contact_id && !dealColumn) {
-          // nothing to file it against — keep it on the task rather than lose it
-          const stamp = format(new Date(), 'yyyy-MM-dd')
-          const { error } = await supabase
-            .from('tasks')
-            .update({ details: [task.details, `${stamp}: ${body}`].filter(Boolean).join('\n\n') })
-            .eq('id', task.id)
-          if (error) throw error
-        }
-      }
+      await fileTaskNote(task, note, kind)
 
       const { error: doneErr } = await supabase
         .from('tasks')

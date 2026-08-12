@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { addDays, endOfWeek, format, parseISO } from 'date-fns'
-import { Check } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { TaskCompleteDialog } from '@/components/task-complete-dialog'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
@@ -246,7 +244,8 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: TaskTone }) {
         checked={task.status === 'done'}
         onCheckedChange={(v) => {
           // Checking off an unanswered payment reminder = "not received yet": seed the
-          // next check instead of silently ending the follow-up chain.
+          // next check instead of silently ending the follow-up chain. Payment checks
+          // keep their own two-answer control rather than the outcome dialog.
           if (v === true && isPaymentCheck) {
             if (paymentAnswer.isPending) return // a double-click must not seed two reminders
             paymentAnswer.mutate(
@@ -256,11 +255,13 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: TaskTone }) {
                 onError: () => toast.error('Could not set reminder'),
               },
             )
+          } else if (v === true) {
+            setCompleting(true)
           } else {
-            toggle.mutate({ id: task.id, status: v === true ? 'done' : 'open' })
+            toggle.mutate({ id: task.id, status: 'open' })
           }
         }}
-        aria-label="Mark task done"
+        aria-label={task.status === 'done' ? 'Reopen task' : 'Complete task'}
       />
       <button
         type="button"
@@ -285,22 +286,7 @@ function TaskRow({ task, tone }: { task: TaskWithContact; tone: TaskTone }) {
       >
         {task.due_date ? formatDate(task.due_date) : ''}
       </span>
-      {isPaymentCheck ? (
-        <PaymentCheckActions task={task} />
-      ) : (
-        task.status === 'open' && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 shrink-0"
-            onClick={() => setCompleting(true)}
-            title="Log the outcome and close this task"
-          >
-            <Check className="size-3.5" />
-            <span className="hidden sm:inline">Log</span>
-          </Button>
-        )
-      )}
+      {isPaymentCheck && <PaymentCheckActions task={task} />}
       <TaskCompleteDialog task={task} open={completing} onOpenChange={setCompleting} />
     </li>
   )
