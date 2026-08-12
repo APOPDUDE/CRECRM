@@ -733,6 +733,7 @@ export type Database = {
           archived_at: string | null
           archived_reason: string | null
           campaign_lists: string[] | null
+          category: Database["public"]["Enums"]["contact_category"] | null
           company_id: string | null
           created_at: string
           decision_maker: Database["public"]["Enums"]["decision_maker_status"]
@@ -760,6 +761,7 @@ export type Database = {
           archived_at?: string | null
           archived_reason?: string | null
           campaign_lists?: string[] | null
+          category?: Database["public"]["Enums"]["contact_category"] | null
           company_id?: string | null
           created_at?: string
           decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
@@ -787,6 +789,7 @@ export type Database = {
           archived_at?: string | null
           archived_reason?: string | null
           campaign_lists?: string[] | null
+          category?: Database["public"]["Enums"]["contact_category"] | null
           company_id?: string | null
           created_at?: string
           decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
@@ -2815,7 +2818,20 @@ export type Database = {
         | "manual"
         | "smartlead"
       comp_kind: "asking" | "executed"
-      company_type: "landlord" | "tenant" | "broker" | "other" | "vendor"
+      company_type:
+        | "landlord"
+        | "tenant"
+        | "broker"
+        | "other"
+        | "vendor"
+        | "owning_entity"
+      contact_category:
+        | "landlord"
+        | "owning_entity"
+        | "tenant"
+        | "broker"
+        | "vendor"
+        | "other"
       deal_flag_status: "pending" | "dismissed"
       deal_type: "lease" | "sale" | "both"
       decision_maker_status: "none" | "suspected" | "verified"
@@ -3031,7 +3047,22 @@ export const Constants = {
         "smartlead",
       ],
       comp_kind: ["asking", "executed"],
-      company_type: ["landlord", "tenant", "broker", "other", "vendor"],
+      company_type: [
+        "landlord",
+        "tenant",
+        "broker",
+        "other",
+        "vendor",
+        "owning_entity",
+      ],
+      contact_category: [
+        "landlord",
+        "owning_entity",
+        "tenant",
+        "broker",
+        "vendor",
+        "other",
+      ],
       deal_flag_status: ["pending", "dismissed"],
       deal_type: ["lease", "sale", "both"],
       decision_maker_status: ["none", "suspected", "verified"],

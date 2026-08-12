@@ -11,8 +11,17 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { CompanySelect } from '@/components/company-select'
+import { NO_CATEGORY, contactCategoryLabels } from '@/lib/contact-category'
+import type { Enums } from '@/lib/database.types'
 import {
   useContactByPhone,
   useUpdateContact,
@@ -50,6 +59,7 @@ export function ContactFormDialog({
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [companyId, setCompanyId] = useState<string | null>(null)
+  const [category, setCategory] = useState<Enums<'contact_category'> | null>(null)
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -60,6 +70,7 @@ export function ContactFormDialog({
       setEmail(contact?.email ?? '')
       setPhone(contact?.phone ?? '')
       setCompanyId(contact?.company_id ?? defaultCompanyId ?? null)
+      setCategory(contact?.category ?? null)
       setNotes(contact?.notes ?? '')
     }
   }, [open, contact, defaultCompanyId])
@@ -94,6 +105,7 @@ export function ContactFormDialog({
       email: email.trim() || null,
       phone: formatPhone(phone),
       company_id: companyId,
+      category,
       notes: notes.trim() || null,
     }
     const onError = (error: unknown) =>
@@ -195,6 +207,27 @@ export function ContactFormDialog({
           <div className="space-y-2">
             <Label htmlFor="contact-company">Company</Label>
             <CompanySelect value={companyId} onChange={setCompanyId} placeholder="Select company" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="contact-category">Category</Label>
+            <Select
+              value={category ?? NO_CATEGORY}
+              onValueChange={(v) =>
+                setCategory(v === NO_CATEGORY ? null : (v as Enums<'contact_category'>))
+              }
+            >
+              <SelectTrigger id="contact-category" className="w-full">
+                <SelectValue placeholder="—" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_CATEGORY}>—</SelectItem>
+                {Object.entries(contactCategoryLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="contact-notes">Notes</Label>

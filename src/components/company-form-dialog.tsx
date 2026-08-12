@@ -26,6 +26,7 @@ import { friendlyDbError } from '@/lib/db-errors'
 
 export const companyTypeLabels: Record<Enums<'company_type'>, string> = {
   landlord: 'Landlord',
+  owning_entity: 'Owning entity',
   tenant: 'Tenant',
   broker: 'Broker',
   vendor: 'Vendor',
