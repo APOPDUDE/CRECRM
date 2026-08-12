@@ -35,15 +35,38 @@ function rateLabel(bucket: ValuationBucket, v: number | null | undefined): strin
   return bucket === 'land' ? `${compactUsd(v)}/AC` : `$${v.toFixed(2)}`
 }
 
+/**
+ * Why this comp's number moved. Each adjustment is named rather than folded into
+ * one figure — a broker disagreeing with the estimate needs to see WHICH lever
+ * did it, since they're tuned separately.
+ */
+function adjustmentNotes(comp: ValuationComp, subjectClass: string | null): string[] {
+  const out: string[] = []
+  const pct = (f: number) => `${f > 1 ? '+' : ''}${Math.round((f - 1) * 100)}%`
+  if (comp.size_adj != null && Math.abs(comp.size_adj - 1) > 0.005) {
+    out.push(`size ${pct(comp.size_adj)}`)
+  }
+  if (comp.class_adj != null && Math.abs(comp.class_adj - 1) > 0.005) {
+    out.push(`class ${comp.building_class}→${subjectClass ?? '?'} ${pct(comp.class_adj)}`)
+  }
+  if (comp.discount_pct != null && comp.discount_pct > 0) {
+    out.push(`asking −${comp.discount_pct}%`)
+  }
+  return out
+}
+
 function CompRow({
   comp,
+  subjectClass,
   onToggle,
   disabled,
 }: {
   comp: ValuationComp
+  subjectClass: string | null
   onToggle: (include: boolean) => void
   disabled: boolean
 }) {
+  const notes = adjustmentNotes(comp, subjectClass)
   const facts = [
     comp.bucket === 'land' ? (comp.acres ? `${comp.acres} ac` : null) : formatSf(comp.sf),
     comp.miles != null ? `${comp.miles} mi` : null,
@@ -96,12 +119,17 @@ function CompRow({
                 {comp.property_type}
               </Badge>
             )}
+            {comp.building_class && (
+              <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-600">
+                Class {comp.building_class}
+              </Badge>
+            )}
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">{facts.join(' · ') || '—'}</div>
         </div>
         <div className="shrink-0 sm:text-right">
           <div className="text-sm font-semibold tabular-nums">
-            {comp.size_adj != null && Math.abs(comp.size_adj - 1) > 0.005 ? (
+            {notes.length > 0 ? (
               <>
                 <span className="font-normal text-muted-foreground line-through">
                   {rateLabel(comp.bucket, comp.metric)}
@@ -115,6 +143,9 @@ function CompRow({
           <div className="text-xs text-muted-foreground tabular-nums">
             {comp.included ? `${comp.weight_pct ?? 0}% of estimate` : 'excluded'}
           </div>
+          {notes.length > 0 && (
+            <div className="text-xs text-muted-foreground/80">{notes.join(' · ')}</div>
+          )}
         </div>
       </div>
     </li>
@@ -164,6 +195,20 @@ function BucketSection({
       {mathLine && (
         <p className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
           <span className="font-medium">Weighted median</span> {mathLine}
+          {(stats?.avg_asking_discount != null || (stats?.n_class_adjusted ?? 0) > 0) && (
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              {[
+                stats?.avg_asking_discount != null
+                  ? `asking comps cut ${stats.avg_asking_discount}% on average`
+                  : null,
+                (stats?.n_class_adjusted ?? 0) > 0
+                  ? `${stats!.n_class_adjusted} restated for building class`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          )}
         </p>
       )}
       <ul className="divide-y overflow-hidden rounded-lg border">
@@ -171,6 +216,7 @@ function BucketSection({
           <CompRow
             key={c.comp_id}
             comp={c}
+            subjectClass={val.subject.building_class}
             disabled={toggle.isPending}
             onToggle={(include) =>
               toggle.mutate(
@@ -352,12 +398,21 @@ export function ValuationDetailSheet({
           </div>
         ) : (
           <div className={`space-y-6 p-4 ${isFetching ? 'opacity-60 transition-opacity' : ''}`}>
-            <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-              Every comp below is weighted by how close it is, how near in size, how recent it is, and
-              whether it's a signed deal rather than an asking price. Its rate is then restated at this
-              building's size, and the estimate is the weighted median — so one outlier can't carry it.
-              Untick anything that doesn't fit and the numbers redo themselves.
-            </p>
+            <div className="space-y-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+              <p>
+                Every comp below is weighted by how close it is, how near in size, and how recent.
+                Asking comps count for a little <em>more</em> than executed ones, because asking is
+                current — asking comps here are about a month old, executed ones a year and a half.
+              </p>
+              <p>
+                Each rate is then restated for this building: for size, for building class where both
+                are known, and — on an asking price — cut by about{' '}
+                {val.method?.asking_discount_pct ?? 5}% for the negotiation still to come. That cut
+                scales with how far above its peers the comp is asking, so an overpriced listing gives
+                up more than a keenly-priced one. The estimate is the weighted median, so no single
+                outlier carries it. Untick anything that doesn't fit and the numbers redo themselves.
+              </p>
+            </div>
 
             <BucketSection bucket="sale" val={val} propertyId={propertyId} />
             <BucketSection bucket="lease" val={val} propertyId={propertyId} />

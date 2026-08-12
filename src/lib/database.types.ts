@@ -2245,6 +2245,27 @@ export type Database = {
           },
         ]
       }
+      valuation_params: {
+        Row: {
+          key: string
+          notes: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          key: string
+          notes?: string | null
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          key?: string
+          notes?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
       valuation_comp_exclusions: {
         Row: {
           comp_id: string
@@ -2283,6 +2304,16 @@ export type Database = {
       }
     }
     Views: {
+      v_comp_class_premium: {
+        Row: {
+          building_class: string | null
+          bucket: string | null
+          factor: number | null
+          n: number | null
+          ptype: string | null
+        }
+        Relationships: []
+      }
       v_comp_size_elasticity: {
         Row: {
           beta: number | null

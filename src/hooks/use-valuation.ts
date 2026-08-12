@@ -17,6 +17,7 @@ export interface ValuationComp {
   city: string | null
   county: string | null
   property_type: string | null
+  building_class: 'A' | 'B' | 'C' | null
   bucket: ValuationBucket
   kind: 'asking' | 'executed'
   verified: boolean | null
@@ -32,9 +33,14 @@ export interface ValuationComp {
   miles: number | null
   /** The comp's own rate: $/SF for lease & sale, $/acre for land. */
   metric: number | null
-  /** That rate restated at the subject's size — what actually feeds the estimate. */
+  /** After size + class, before the asking haircut. */
+  adj_pre: number | null
+  /** The number that actually feeds the estimate: size, class and haircut applied. */
   adj_metric: number | null
   size_adj: number | null
+  class_adj: number | null
+  /** Haircut turning an asking price into an expected trade price. 0 on executed. */
+  discount_pct: number | null
   weight: number | null
   /** Share of the estimate this comp carries, 0 when struck. */
   weight_pct: number | null
@@ -45,7 +51,20 @@ interface BucketStats {
   n: number
   n_executed: number
   avg_miles: number | null
+  avg_asking_discount: number | null
+  n_class_adjusted: number | null
   confidence: 'high' | 'medium' | 'low'
+}
+
+/** The tunables that produced this estimate, echoed back so the panel can show them. */
+export interface ValuationMethod {
+  asking_discount_pct: number
+  asking_overprice_k: number
+  weight_asking: number
+  weight_executed: number
+  /** False = no A/B/C ladder could be measured for this type, so defaults were used. */
+  class_ladder_measured: boolean
+  class_factors: Record<string, number>
 }
 
 export interface LeaseEstimate extends BucketStats {
@@ -98,12 +117,14 @@ export interface PropertyValuation {
     address: string | null
     county: string | null
     property_type: string | null
+    building_class: 'A' | 'B' | 'C' | null
     sf: number | null
     land_acres: number | null
     year_built: number | null
     just_value: number | null
     assessed_value: number | null
   }
+  method: ValuationMethod
   sale: SaleEstimate | null
   lease: LeaseEstimate | null
   land: LandEstimate | null
