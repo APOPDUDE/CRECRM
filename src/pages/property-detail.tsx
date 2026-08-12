@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { PropertyMiniMap } from '@/components/property-mini-map'
 import { AddressActions } from '@/components/address-actions'
-import { MarketPositionCard } from '@/components/market-position-card'
+import { ValueEstimateCard } from '@/components/value-estimate-card'
 import { PropertyOwnerCard } from '@/components/property-owner-card'
 import { PropertyTags } from '@/components/property-tags'
 import { AddToClientDialog } from '@/components/add-to-client-dialog'
@@ -319,7 +319,7 @@ export function PropertyDetailPage() {
             className="min-h-[16rem] flex-1"
           />
         </div>
-        <MarketPositionCard propertyId={property.id} county={property.county} />
+        <ValueEstimateCard propertyId={property.id} />
       </div>
 
       <PropertyTags propertyId={property.id} tags={property.tags} />
