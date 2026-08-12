@@ -17,7 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { OwnerRecipientDetail } from '@/components/owner-recipient-detail'
 import { formatDate } from '@/lib/dates'
 import { formatPhone } from '@/lib/format'
-import { renderFor, variantCount } from '@/lib/message-template'
+import { contactValues, renderFor, variantCount } from '@/lib/message-template'
 import { cn } from '@/lib/utils'
 
 const BLAST_URL = 'https://n8n.ayxco.com/webhook/buyer-blast'
@@ -57,6 +57,22 @@ const PACE_OPTIONS = [
 ] as const
 
 const DEFAULT_PACE = '5-15'
+
+/** `datetime-local` wants local wall-clock with no zone, which toISOString() will not give. */
+function toLocalInputValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+    d.getMinutes(),
+  )}`
+}
+
+/** Next occurrence of a given local hour — today if it is still ahead, else tomorrow. */
+function nextAt(hour: number): string {
+  const d = new Date()
+  d.setHours(hour, 0, 0, 0)
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1)
+  return toLocalInputValue(d)
+}
 
 /**
  * Two templates, because a cold owner and one you have already spoken to are not the
@@ -124,6 +140,8 @@ export function OwnerOutreachDialog({
   /** recipientId whose property + history is open, or null while showing the list */
   const [inspecting, setInspecting] = useState<string | null>(null)
   const [paceId, setPaceId] = useState<string>(DEFAULT_PACE)
+  /** datetime-local value; empty means send as soon as the blast is submitted */
+  const [sendAt, setSendAt] = useState('')
   const [busy, setBusy] = useState(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
 
@@ -138,6 +156,8 @@ export function OwnerOutreachDialog({
     setActivity('all')
     setDeselected(new Set())
     setInspecting(null)
+    setPaceId(DEFAULT_PACE)
+    setSendAt('')
   }, [open])
 
   const pickTemplate = (id: string) => {
@@ -152,8 +172,9 @@ export function OwnerOutreachDialog({
     [tenant, comp],
   )
 
+  // Same value bag the workflow builds, so a preview is proof rather than a guess.
   const preview = (r: OwnerRecipient | undefined) =>
-    r ? renderFor(message, r.recipientId, { ...r.ctx, ...campaignCtx }) : ''
+    r ? renderFor(message, r.recipientId, { ...contactValues(r), ...campaignCtx }) : ''
 
   const variants = useMemo(() => variantCount(message), [message])
 
@@ -205,6 +226,12 @@ export function OwnerOutreachDialog({
       return next
     })
   const pace = PACE_OPTIONS.find((p) => p.id === paceId) ?? PACE_OPTIONS[1]
+  /** Parsed schedule, or null for "start now". A time already past counts as now. */
+  const scheduledAt = (() => {
+    if (!sendAt) return null
+    const d = new Date(sendAt)
+    return Number.isNaN(d.getTime()) || d.getTime() <= Date.now() ? null : d
+  })()
   /** Rough wall-clock for the whole run, using the midpoint of the chosen gap. */
   const runEstimate = (() => {
     const mins = Math.round(sending.length * ((pace.min + pace.max) / 2))
@@ -231,6 +258,9 @@ export function OwnerOutreachDialog({
           // per message, so a blast never lands on a machine-perfect cadence.
           paceMinMinutes: pace.min,
           paceMaxMinutes: pace.max,
+          // Absolute ISO, so the workflow is not guessing at the browser's timezone.
+          // Null = start as soon as the GHL prep is done.
+          sendAt: scheduledAt ? scheduledAt.toISOString() : null,
           recipients: sending.map((r) => ({
             ...r,
             ctx: { ...r.ctx, ...campaignCtx },
@@ -245,7 +275,14 @@ export function OwnerOutreachDialog({
       const r = JSON.parse(raw) as { tag: string; queued?: number; drafted?: number }
       const n = r.queued ?? r.drafted ?? sending.length
       toast.success(
-        mode === 'send' ? `Queued ${n} iMessage${n === 1 ? '' : 's'}` : `Drafted for ${n} owner${n === 1 ? '' : 's'}`,
+        mode === 'send'
+          ? scheduledAt
+            ? `${n} iMessage${n === 1 ? '' : 's'} scheduled for ${scheduledAt.toLocaleString(
+                undefined,
+                { weekday: 'short', hour: 'numeric', minute: '2-digit' },
+              )}`
+            : `Queued ${n} iMessage${n === 1 ? '' : 's'}`
+          : `Drafted for ${n} owner${n === 1 ? '' : 's'}`,
         {
           description:
             mode === 'send'
@@ -491,7 +528,7 @@ export function OwnerOutreachDialog({
               ['draft', 'Draft only', 'Writes the text on each contact as a note. Nothing leaves.'],
               [
                 'send',
-                'Send now over iMessage',
+                scheduledAt ? 'Send over iMessage, scheduled' : 'Send now over iMessage',
                 `Goes out through Blooio, ${pace.label} apart — about ${runEstimate} for ${sending.length}.`,
               ],
             ] as [Mode, string, string][]
@@ -514,7 +551,55 @@ export function OwnerOutreachDialog({
           ))}
 
           {mode === 'send' && (
-            <div className="mt-2 border-t pt-2.5">
+            <div className="mt-2 space-y-2.5 border-t pt-2.5">
+              <div>
+                <Label className="text-xs text-muted-foreground">Start sending</Label>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant={!sendAt ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-7 rounded-full px-3 text-xs font-normal"
+                    onClick={() => setSendAt('')}
+                  >
+                    Now
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 rounded-full px-3 text-xs font-normal"
+                    onClick={() => setSendAt(nextAt(8))}
+                  >
+                    8am
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 rounded-full px-3 text-xs font-normal"
+                    onClick={() => setSendAt(nextAt(13))}
+                  >
+                    1pm
+                  </Button>
+                  <Input
+                    type="datetime-local"
+                    value={sendAt}
+                    min={toLocalInputValue(new Date())}
+                    onChange={(e) => setSendAt(e.target.value)}
+                    className="h-7 w-auto flex-1 text-xs"
+                    aria-label="Schedule the send"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {scheduledAt
+                    ? `Contacts get tagged and drafted now; the texts start ${scheduledAt.toLocaleString(
+                        undefined,
+                        { weekday: 'short', hour: 'numeric', minute: '2-digit' },
+                      )}.`
+                    : 'Texts start as soon as the contacts are prepared in GoHighLevel.'}
+                </p>
+              </div>
               <Label className="text-xs text-muted-foreground">Gap between texts</Label>
               <div className="mt-1.5 flex flex-wrap items-center gap-1">
                 {PACE_OPTIONS.map((p) => (
@@ -545,10 +630,14 @@ export function OwnerOutreachDialog({
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             {busy
               ? mode === 'send'
-                ? 'Sending…'
+                ? scheduledAt
+                  ? 'Scheduling…'
+                  : 'Sending…'
                 : 'Drafting…'
               : mode === 'send'
-                ? `Send to ${sending.length.toLocaleString()}`
+                ? scheduledAt
+                  ? `Schedule ${sending.length.toLocaleString()}`
+                  : `Send to ${sending.length.toLocaleString()}`
                 : `Draft for ${sending.length.toLocaleString()}`}
           </Button>
         </DialogFooter>

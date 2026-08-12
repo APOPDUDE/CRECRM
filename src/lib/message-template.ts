@@ -82,6 +82,27 @@ export function renderFor(template: string, key: string, values: TokenValues): s
  * How many genuinely different bodies a template can produce. One means every recipient
  * gets a byte-identical message, which is the pattern that gets a line flagged.
  */
+/**
+ * The `contact.*` values every blast resolves, built the same way the n8n workflow builds
+ * them. Both dialogs MUST go through this: the owner preview once assembled its own value
+ * bag, forgot these, and every previewed text read "Hi there" while the real send said
+ * "Hi Michael" — a preview that quietly disagrees with what goes out is worse than none.
+ */
+export function contactValues(r: {
+  first?: string | null
+  last?: string | null
+  company?: string | null
+  ctx?: TokenValues | null
+}): TokenValues {
+  return {
+    'contact.first_name': r.first,
+    'contact.last_name': r.last,
+    'contact.full_name': [r.first, r.last].filter(Boolean).join(' ') || null,
+    'contact.company_name': r.company,
+    ...(r.ctx ?? {}),
+  }
+}
+
 export function variantCount(text: string): number {
   // Strip tokens first — their `|| "fallback"` is not a spin choice.
   const groups = text.replace(TOKEN_RE, '').match(/\{[^{}]*\|[^{}]*\}/g) ?? []

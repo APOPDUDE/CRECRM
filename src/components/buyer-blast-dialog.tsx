@@ -17,7 +17,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { usePropertyPointSearch, type PropertyPoint } from '@/hooks/use-buyers'
 import { useLogBlastPursuits } from '@/hooks/use-matches'
 import { formatCurrency, formatSf } from '@/lib/format'
-import { renderFor, variantCount } from '@/lib/message-template'
+import { contactValues, renderFor, variantCount } from '@/lib/message-template'
 import { cn } from '@/lib/utils'
 
 const BLAST_URL = 'https://n8n.ayxco.com/webhook/buyer-blast'
@@ -74,13 +74,7 @@ export const MERGE_FIELDS: { label: string; token: string }[] = [
 /** Render exactly the way the workflow will, so a preview is proof rather than a guess. */
 export function renderMerge(template: string, b: BlastBuyer | undefined): string {
   if (!b) return template
-  return renderFor(template, b.clientId || b.phone, {
-    'contact.first_name': b.first,
-    'contact.last_name': b.last,
-    'contact.full_name': [b.first, b.last].filter(Boolean).join(' ') || null,
-    'contact.company_name': b.company,
-    ...(b.ctx ?? {}),
-  })
+  return renderFor(template, b.clientId || b.phone, contactValues(b))
 }
 
 export function composeMessage(deal: BlastDeal | null, dealUrl: string): string {
