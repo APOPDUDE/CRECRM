@@ -56,6 +56,48 @@ export function usePendingBuyerIntakes() {
   })
 }
 
+/**
+ * Which contacts are buyers, for badging them wherever they turn up. Two different states and
+ * they must not be conflated: `buyers` are real buyer clients with criteria on the roster,
+ * `pending` are people called a buyer whose criteria nobody has filled in yet.
+ *
+ * Both sides are small (tens of rows) and filtered in Postgres — this is not a "fetch the table
+ * and sort it out here" query, which is how contact search broke.
+ */
+export function useBuyerContactIds() {
+  return useQuery({
+    // Filed under 'tenant_reps' on purpose: every client mutation already invalidates that
+    // prefix, so creating or losing a buyer refreshes the badges without touching each one.
+    queryKey: ['tenant_reps', 'buyer-contact-ids'],
+    queryFn: async () => {
+      const [clientsRes, intakesRes] = await Promise.all([
+        // Mirrors isBuyerClient() plus what the Buyers roster shows: a lost buyer is history.
+        supabase
+          .from('clients')
+          .select('id, contact_id')
+          .eq('is_rep', true)
+          .neq('deal_type', 'lease')
+          .neq('status', 'lost')
+          .not('contact_id', 'is', null),
+        supabase
+          .from('buyer_intakes')
+          .select('contact_id')
+          .eq('status', 'pending')
+          .not('contact_id', 'is', null),
+      ])
+      if (clientsRes.error) throw clientsRes.error
+      if (intakesRes.error) throw intakesRes.error
+      return {
+        /** contact id → the client to open */
+        buyers: new Map(
+          (clientsRes.data ?? []).map((r) => [r.contact_id as string, r.id as string]),
+        ),
+        pending: new Set((intakesRes.data ?? []).map((r) => r.contact_id as string)),
+      }
+    },
+  })
+}
+
 /** The unanswered buyer question hanging over one contact, if there is one. */
 export function usePendingBuyerIntakeForContact(contactId: string | undefined) {
   return useQuery({
@@ -102,6 +144,7 @@ export function useMarkContactAsBuyer() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['buyer_intakes'] })
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps', 'buyer-contact-ids'] })
       // marking can un-archive the contact, which changes what the book shows
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
@@ -119,7 +162,10 @@ export function useApproveBuyerIntake() {
       })
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['buyer_intakes'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['buyer_intakes'] })
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps', 'buyer-contact-ids'] })
+    },
   })
 }
 
@@ -134,6 +180,9 @@ export function useDismissBuyerIntake() {
       })
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['buyer_intakes'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['buyer_intakes'] })
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps', 'buyer-contact-ids'] })
+    },
   })
 }

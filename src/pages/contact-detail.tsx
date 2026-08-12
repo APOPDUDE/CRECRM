@@ -1,13 +1,20 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, UserPlus } from 'lucide-react'
+import { ArrowLeft, Pencil, ShoppingBag, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { contactName } from '@/pages/contacts'
 import { useContact } from '@/hooks/use-contacts'
-import { useMarkContactAsBuyer, usePendingBuyerIntakeForContact } from '@/hooks/use-buyers'
+import {
+  useBuyerContactIds,
+  useMarkContactAsBuyer,
+  usePendingBuyerIntakeForContact,
+} from '@/hooks/use-buyers'
+import { useVerifiedContactIds } from '@/hooks/use-owners'
+import { BuyerBadge } from '@/components/buyer-badge'
+import { VerifiedBadge } from '@/components/verified-badge'
 import { friendlyDbError } from '@/lib/db-errors'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { useContactConversations } from '@/hooks/use-communications'
@@ -34,7 +41,10 @@ export function ContactDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const { data: comms } = useContactConversations(id)
   const { data: pendingIntake } = usePendingBuyerIntakeForContact(id)
+  const { data: buyerIds } = useBuyerContactIds()
+  const { data: verifiedIds } = useVerifiedContactIds()
   const markAsBuyer = useMarkContactAsBuyer()
+  const buyerClientId = id ? buyerIds?.buyers.get(id) : undefined
 
   useSetBreadcrumb(contact ? contactName(contact) : undefined)
 
@@ -99,12 +109,23 @@ export function ContactDetailPage() {
             <ArrowLeft className="size-4" />
             <span className="sr-only">Back to contacts</span>
           </Button>
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold">{contactName(contact)}</h1>
+            {buyerClientId && <BuyerBadge />}
+            {verifiedIds?.has(contact.id) && <VerifiedBadge />}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {pendingIntake ? (
+          {buyerClientId ? (
+            // Already a buyer — offering to mark them again would only produce a toast
+            // saying so, when what you actually want is their criteria.
+            <Button variant="outline" asChild>
+              <Link to={`/tenant-rep/${buyerClientId}`}>
+                <ShoppingBag className="size-4" />
+                Open buyer
+              </Link>
+            </Button>
+          ) : pendingIntake ? (
             <Button variant="outline" asChild>
               <Link to="/pipelines/buyers">
                 <UserPlus className="size-4" />

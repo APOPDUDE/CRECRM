@@ -37,6 +37,8 @@ import {
   useDeleteContact,
 } from '@/hooks/use-contacts'
 import { useVerifiedContactIds } from '@/hooks/use-owners'
+import { useBuyerContactIds } from '@/hooks/use-buyers'
+import { BuyerBadge } from '@/components/buyer-badge'
 import { VerifiedBadge } from '@/components/verified-badge'
 import type { Contact, ContactSort } from '@/hooks/use-contacts'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -71,6 +73,7 @@ function ArchivedBadge() {
 export function ContactsPage() {
   const navigate = useNavigate()
   const { data: verifiedIds } = useVerifiedContactIds()
+  const { data: buyerIds } = useBuyerContactIds()
   const deleteContact = useDeleteContact()
 
   const [search, setSearch] = useState('')
@@ -121,6 +124,20 @@ export function ContactsPage() {
       },
     })
   }
+
+  // What you need to know about someone before opening them: are they a buyer, have we
+  // actually confirmed them, and are they in the live book at all.
+  const badgesFor = (contact: Contact) => (
+    <>
+      {buyerIds?.buyers.has(contact.id) ? (
+        <BuyerBadge />
+      ) : buyerIds?.pending.has(contact.id) ? (
+        <BuyerBadge pending />
+      ) : null}
+      {verifiedIds?.has(contact.id) && <VerifiedBadge />}
+      {contact.archived && <ArchivedBadge />}
+    </>
+  )
 
   const rowMenu = (contact: Contact) => (
     <DropdownMenu>
@@ -186,7 +203,11 @@ export function ContactsPage() {
       {/* The book is far bigger than one screen, so say what you're looking at: browsing shows
           the top of it, searching covers all of it. */}
       <p className="text-xs text-muted-foreground">
-        {searching ? (
+        {isLoading || isError ? (
+          // Never print "0 matches" over a search that hasn't answered yet or failed —
+          // that is the exact sentence this whole page was fixed for not being true.
+          <>{isLoading ? 'Searching…' : ' '}</>
+        ) : searching ? (
           <>
             {filtered.length} match{filtered.length === 1 ? '' : 'es'} across all {total || ''}{' '}
             contacts
@@ -252,10 +273,9 @@ export function ContactsPage() {
                     onClick={() => navigate(`/contacts/${contact.id}`)}
                   >
                     <TableCell className="font-medium">
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex flex-wrap items-center gap-1.5">
                         {contactName(contact)}
-                        {verifiedIds?.has(contact.id) && <VerifiedBadge label={false} />}
-                        {contact.archived && <ArchivedBadge />}
+                        {badgesFor(contact)}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{contact.company?.name}</TableCell>
@@ -277,10 +297,9 @@ export function ContactsPage() {
                 className="flex items-center justify-between gap-2 rounded-lg border bg-card"
               >
                 <Link to={`/contacts/${contact.id}`} className="flex min-w-0 flex-1 flex-col p-3">
-                  <span className="flex items-center gap-1.5 text-sm font-medium">
+                  <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
                     <span className="truncate">{contactName(contact)}</span>
-                    {verifiedIds?.has(contact.id) && <VerifiedBadge label={false} />}
-                    {contact.archived && <ArchivedBadge />}
+                    {badgesFor(contact)}
                   </span>
                   {[contact.company?.name, contact.title].filter(Boolean).length > 0 && (
                     <span className="truncate text-xs text-muted-foreground">
