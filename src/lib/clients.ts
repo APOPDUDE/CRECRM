@@ -23,6 +23,7 @@ export const industrialSubclassLabels: Record<Enums<'industrial_subclass'>, stri
   small_bay: 'Small bay',
   big_box: 'Big box',
   cold_storage: 'Cold storage',
+  self_storage: 'Self storage',
   flex: 'Flex',
   land_development: 'Land / development',
 }
@@ -36,6 +37,7 @@ export const industrialSubclassPhrases: Record<Enums<'industrial_subclass'>, str
   small_bay: 'small bay',
   big_box: 'big box',
   cold_storage: 'cold storage',
+  self_storage: 'self storage',
   flex: 'flex',
   land_development: 'land',
 }
@@ -43,6 +45,9 @@ export const industrialSubclassPhrases: Record<Enums<'industrial_subclass'>, str
 export const industrialSubclassHints: Partial<Record<Enums<'industrial_subclass'>, string>> = {
   small_bay: 'Under 10,000 SF',
   big_box: '10,000 SF and up',
+  // Three subclasses have "storage" in the sense a broker might say it; this one means the
+  // facility itself, not a cold warehouse and not yard space.
+  self_storage: 'The facility, not yard or cold',
 }
 
 export const investmentStrategyLabels: Record<Enums<'investment_strategy'>, string> = {

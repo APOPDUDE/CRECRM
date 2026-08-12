@@ -2838,6 +2838,7 @@ export type Database = {
         | "small_bay"
         | "big_box"
         | "cold_storage"
+        | "self_storage"
         | "flex"
         | "land_development"
       investment_strategy:
@@ -3054,6 +3055,7 @@ export const Constants = {
         "small_bay",
         "big_box",
         "cold_storage",
+        "self_storage",
         "flex",
         "land_development",
       ],
