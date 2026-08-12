@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { OwnerRecipientDetail } from '@/components/owner-recipient-detail'
+import { useOwnerDrafts } from '@/hooks/use-owner-drafts'
 import { formatDate } from '@/lib/dates'
 import { formatPhone } from '@/lib/format'
 import { contactValues, renderFor, variantCount } from '@/lib/message-template'
@@ -142,6 +143,8 @@ export function OwnerOutreachDialog({
   const [paceId, setPaceId] = useState<string>(DEFAULT_PACE)
   /** datetime-local value; empty means send as soon as the blast is submitted */
   const [sendAt, setSendAt] = useState('')
+  /** What this outreach is FOR, in Alex's words. Drives the per-owner drafts. */
+  const [goal, setGoal] = useState('')
   const [busy, setBusy] = useState(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
 
@@ -158,6 +161,7 @@ export function OwnerOutreachDialog({
     setInspecting(null)
     setPaceId(DEFAULT_PACE)
     setSendAt('')
+    setGoal('')
   }, [open])
 
   const pickTemplate = (id: string) => {
@@ -210,6 +214,14 @@ export function OwnerOutreachDialog({
     const next = (inspectIndex + by + inScope.length) % inScope.length
     setInspecting(inScope[next].recipientId)
   }
+
+  const { drafts, setText, redraft } = useOwnerDrafts({
+    enabled: open,
+    goal,
+    recipients: inScope,
+    index: inspectIndex,
+    fallbackFor: (r) => preview(r),
+  })
 
   const textable = useMemo(() => inScope.filter((r) => r.phone), [inScope])
   const noPhone = useMemo(() => inScope.filter((r) => !r.phone), [inScope])
@@ -264,6 +276,10 @@ export function OwnerOutreachDialog({
           recipients: sending.map((r) => ({
             ...r,
             ctx: { ...r.ctx, ...campaignCtx },
+            // What Alex actually approved for this person. The workflow sends this verbatim
+            // rather than re-rendering the template — otherwise every edit and every AI draft
+            // would be silently thrown away at the last step.
+            resolved: drafts.get(r.recipientId)?.text || undefined,
           })),
         }),
       })
@@ -396,6 +412,22 @@ export function OwnerOutreachDialog({
           )}
         </div>
 
+        <div className="space-y-1.5">
+          <Label htmlFor="owner-goal">What this outreach is for</Label>
+          <Textarea
+            id="owner-goal"
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            rows={2}
+            placeholder="I have a tenant — aluminum distributor, lease coming due. Happy to pay a premium even with an existing tenant in place. Just want to know if a conversation is worth a call."
+          />
+          <p className="text-xs text-muted-foreground">
+            {goal.trim()
+              ? 'Owners you have real history with get their own text written from that history. Everyone else gets the template above — no AI, no cost.'
+              : 'Leave this blank and everyone gets the template above. Fill it in to have each owner’s text written from what they have already told you.'}
+          </p>
+        </div>
+
         {shown.length > 0 && (
           <div className="space-y-2">
             {shown.map((r) => (
@@ -446,6 +478,10 @@ export function OwnerOutreachDialog({
               onBack={() => setInspecting(null)}
               onPrev={() => step(-1)}
               onNext={() => step(1)}
+              draft={drafts.get(inspected.recipientId)}
+              onDraftChange={(text) => setText(inspected.recipientId, text)}
+              onRedraft={() => redraft(inspected)}
+              hasGoal={goal.trim().length > 0}
             />
           ) : (
           <div className="max-h-56 overflow-y-auto rounded-lg border">

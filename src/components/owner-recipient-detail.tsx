@@ -1,9 +1,11 @@
-import { ChevronLeft, ChevronRight, ExternalLink, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConversationLog } from '@/components/conversation-log'
+import { Textarea } from '@/components/ui/textarea'
+import type { OwnerDraft } from '@/hooks/use-owner-drafts'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { OwnerRecipient } from '@/components/owner-outreach-dialog'
 import { usePropertyConversations } from '@/hooks/use-communications'
@@ -37,6 +39,10 @@ export function OwnerRecipientDetail({
   onBack,
   onPrev,
   onNext,
+  draft,
+  onDraftChange,
+  onRedraft,
+  hasGoal,
 }: {
   recipient: OwnerRecipient
   index: number
@@ -47,6 +53,10 @@ export function OwnerRecipientDetail({
   onBack: () => void
   onPrev: () => void
   onNext: () => void
+  draft?: OwnerDraft
+  onDraftChange: (text: string) => void
+  onRedraft: () => void
+  hasGoal: boolean
 }) {
   const propertyQ = useProperty(recipient.recipientId)
   const commsQ = usePropertyConversations(recipient.recipientId, recipient.ownerId)
@@ -87,6 +97,53 @@ export function OwnerRecipientDetail({
             <ChevronRight className="size-4" />
           </Button>
         </div>
+      </div>
+
+      {/* The text itself sits above the name: it is the thing being approved, and reading it
+          first is what the whole pane is for. */}
+      <div className="rounded-lg border p-3">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-muted-foreground">Message they get</p>
+          <div className="flex items-center gap-1.5">
+            {draft?.status === 'loading' ? (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="size-3 animate-spin" /> writing…
+              </span>
+            ) : draft?.source === 'ai' ? (
+              <Badge variant="secondary" className="gap-1 font-normal">
+                <Sparkles className="size-3" /> written from their history
+              </Badge>
+            ) : draft ? (
+              <Badge variant="outline" className="font-normal">
+                {draft.touched ? 'edited by you' : 'template'}
+              </Badge>
+            ) : null}
+            {hasGoal && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={onRedraft}
+                disabled={draft?.status === 'loading'}
+              >
+                <RefreshCw className="size-3" />
+                Redraft
+              </Button>
+            )}
+          </div>
+        </div>
+        <Textarea
+          value={draft?.text ?? ''}
+          onChange={(e) => onDraftChange(e.target.value)}
+          rows={4}
+          placeholder={draft?.status === 'loading' ? 'Writing from their history…' : ''}
+          className="text-sm"
+        />
+        <p className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>{draft?.reason ?? ''}</span>
+          <span className="tabular-nums">{(draft?.text ?? '').length} chars</span>
+        </p>
       </div>
 
       <div className="rounded-lg border p-3">
