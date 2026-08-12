@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { ArrowLeft, Pencil, UserPlus } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { contactName } from '@/pages/contacts'
 import { useContact } from '@/hooks/use-contacts'
+import { useMarkContactAsBuyer, usePendingBuyerIntakeForContact } from '@/hooks/use-buyers'
+import { friendlyDbError } from '@/lib/db-errors'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { useContactConversations } from '@/hooks/use-communications'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
@@ -30,8 +33,36 @@ export function ContactDetailPage() {
   const { data: contact, isLoading, isError } = useContact(id)
   const [editOpen, setEditOpen] = useState(false)
   const { data: comms } = useContactConversations(id)
+  const { data: pendingIntake } = usePendingBuyerIntakeForContact(id)
+  const markAsBuyer = useMarkContactAsBuyer()
 
   useSetBreadcrumb(contact ? contactName(contact) : undefined)
+
+  // Marking raises the question and stops there — the criteria live on the Buyers page, and
+  // filling them in is what creates the client.
+  const handleMarkAsBuyer = () => {
+    if (!contact) return
+    markAsBuyer.mutate(contact.id, {
+      onSuccess: (result) => {
+        if (result.status === 'already_a_client') {
+          toast.info(`${contactName(contact)} is already a buyer`, {
+            action: {
+              label: 'Open',
+              onClick: () => navigate(`/tenant-rep/${result.client_id}`),
+            },
+          })
+          return
+        }
+        toast.success(
+          result.already
+            ? `${contactName(contact)} is already waiting on the buyers page`
+            : `${contactName(contact)} added — fill in what they're buying`,
+          { action: { label: 'Buyers', onClick: () => navigate('/pipelines/buyers') } },
+        )
+      },
+      onError: (error) => toast.error(friendlyDbError(error, 'Could not mark this contact as a buyer')),
+    })
+  }
 
   if (isLoading) {
     return (
@@ -72,11 +103,39 @@ export function ContactDetailPage() {
             <h1 className="text-xl font-semibold">{contactName(contact)}</h1>
           </div>
         </div>
-        <Button variant="outline" onClick={() => setEditOpen(true)}>
-          <Pencil className="size-4" />
-          Edit
-        </Button>
+        <div className="flex items-center gap-2">
+          {pendingIntake ? (
+            <Button variant="outline" asChild>
+              <Link to="/pipelines/buyers">
+                <UserPlus className="size-4" />
+                Waiting on buying criteria
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={handleMarkAsBuyer} disabled={markAsBuyer.isPending}>
+              <UserPlus className="size-4" />
+              Mark as buyer
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setEditOpen(true)}>
+            <Pencil className="size-4" />
+            Edit
+          </Button>
+        </div>
       </div>
+
+      {pendingIntake && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900/60 dark:bg-amber-950/30">
+          <UserPlus className="size-4 shrink-0 text-amber-700 dark:text-amber-500" />
+          <span>Marked as a buyer — they're on the buyers page until you fill in what they buy.</span>
+          <Link
+            to="/pipelines/buyers"
+            className="font-medium underline underline-offset-2"
+          >
+            Fill it in
+          </Link>
+        </div>
+      )}
 
       <dl className="grid max-w-lg grid-cols-1 gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
         <Field label="Title" value={contact.title} />

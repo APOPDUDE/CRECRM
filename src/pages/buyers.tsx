@@ -413,14 +413,14 @@ export function BuyersPage() {
         </div>
       </div>
 
-      {/* Tagged "buyer" in GHL, not a buyer here yet. Sits above everything because it is the
-          one thing on this page that is waiting on you. */}
+      {/* Called a buyer — tagged in GHL or marked on their contact page — but not a buyer here
+          yet. Sits above everything because it is the one thing on this page waiting on you. */}
       {pendingIntakes.length > 0 && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/30">
           <div className="mb-2 flex items-center gap-2">
             <UserPlus className="size-4 text-amber-700 dark:text-amber-500" />
             <span className="text-sm font-medium">
-              {pendingIntakes.length} tagged buyer{pendingIntakes.length === 1 ? '' : 's'} need
+              {pendingIntakes.length} buyer{pendingIntakes.length === 1 ? '' : 's'} need
               {pendingIntakes.length === 1 ? 's' : ''} their buying criteria
             </span>
           </div>

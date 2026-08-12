@@ -56,6 +56,58 @@ export function usePendingBuyerIntakes() {
   })
 }
 
+/** The unanswered buyer question hanging over one contact, if there is one. */
+export function usePendingBuyerIntakeForContact(contactId: string | undefined) {
+  return useQuery({
+    queryKey: ['buyer_intakes', 'pending', 'contact', contactId],
+    enabled: !!contactId,
+    queryFn: async (): Promise<BuyerIntake | null> => {
+      const { data, error } = await supabase
+        .from('buyer_intakes')
+        .select('*')
+        .eq('contact_id', contactId!)
+        .eq('status', 'pending')
+        .maybeSingle()
+      if (error) throw error
+      return data ?? null
+    },
+  })
+}
+
+export type MarkBuyerResult = {
+  ok: boolean
+  status?: 'pending' | 'already_a_client'
+  intake_id?: string
+  client_id?: string
+  already?: boolean
+  error?: string
+}
+
+/**
+ * Mark a contact you're reading as a buyer. Same queue the GHL "buyer" tag feeds — it raises the
+ * question and nothing else. The criteria get filled in on the Buyers page, and only that creates
+ * the client. Someone who already has an active client comes back as already_a_client.
+ */
+export function useMarkContactAsBuyer() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (contactId: string): Promise<MarkBuyerResult> => {
+      const { data, error } = await supabase.rpc('mark_contact_as_buyer', {
+        p_contact_id: contactId,
+      })
+      if (error) throw error
+      const result = data as MarkBuyerResult
+      if (!result?.ok) throw new Error(result?.error ?? 'Could not mark this contact as a buyer')
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['buyer_intakes'] })
+      // marking can un-archive the contact, which changes what the book shows
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    },
+  })
+}
+
 /** Link the queue entry to the client the buyer form just created. */
 export function useApproveBuyerIntake() {
   const queryClient = useQueryClient()
