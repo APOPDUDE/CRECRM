@@ -84,6 +84,29 @@ export function useTasks() {
   })
 }
 
+/**
+ * Every task for one person — open AND completed. Scoped in Postgres rather than
+ * filtered out of `useTasks()`: that query selects the whole table with no limit, so it
+ * silently stops at PostgREST's 1000-row ceiling, and the completed tasks (already the
+ * large majority, mostly imported from HubSpot) are exactly the ones that would fall off
+ * the end and disappear from a contact's page without erroring.
+ */
+export function useContactTasks(contactId: string | undefined) {
+  return useQuery({
+    queryKey: ['tasks', 'contact', contactId],
+    enabled: !!contactId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(TASK_SELECT)
+        .eq('contact_id', contactId!)
+        .order('due_date', { ascending: true, nullsFirst: false })
+      if (error) throw error
+      return data as unknown as TaskWithContact[]
+    },
+  })
+}
+
 export function useCreateTask() {
   const queryClient = useQueryClient()
   return useMutation({
