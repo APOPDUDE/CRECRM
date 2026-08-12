@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { useContacts, contactNameOf } from '@/hooks/use-contacts'
+import { contactNameOf, useContactSearch } from '@/hooks/use-contacts'
 import type { Contact } from '@/hooks/use-contacts'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatPhone } from '@/lib/format'
 
 interface ContactPhoneAutofillProps {
@@ -28,24 +29,12 @@ export function ContactPhoneAutofill({
   placeholder = '941-806-8432',
   autoFocus,
 }: ContactPhoneAutofillProps) {
-  const { data: contacts = [] } = useContacts()
   const [open, setOpen] = useState(false)
 
-  const q = value.trim().toLowerCase()
-  const digits = value.replace(/\D/g, '')
-
-  const matches = useMemo(() => {
-    if (q.length < 2) return []
-    return contacts
-      .filter((c) => {
-        const phoneDigits = (c.phone ?? '').replace(/\D/g, '')
-        const byPhone = digits.length >= 2 && phoneDigits.includes(digits)
-        const byName = contactNameOf(c).toLowerCase().includes(q)
-        const byCompany = (c.company?.name ?? '').toLowerCase().includes(q)
-        return byPhone || byName || byCompany
-      })
-      .slice(0, 6)
-  }, [contacts, q, digits])
+  // Matching happens in Postgres over the whole book. Typing a partial number finds the
+  // contact whatever punctuation their stored number uses.
+  const query = useDebouncedValue(value.trim(), 200)
+  const { data: matches = [] } = useContactSearch(query, { limit: 6 })
 
   return (
     <div className="relative">

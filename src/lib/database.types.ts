@@ -26,8 +26,7 @@ export type Database = {
           broker_phone: string | null
           building_class: string | null
           building_far: string | null
-          gross_sf: number | null
-          heated_sf: number | null
+          building_sf: number | null
           city: string | null
           construction_status: string | null
           county: string | null
@@ -87,8 +86,7 @@ export type Database = {
           broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
+          building_sf?: number | null
           city?: string | null
           construction_status?: string | null
           county?: string | null
@@ -148,8 +146,7 @@ export type Database = {
           broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
+          building_sf?: number | null
           city?: string | null
           construction_status?: string | null
           county?: string | null
@@ -209,7 +206,7 @@ export type Database = {
           dismissed_reason: string | null
           email: string | null
           first_name: string | null
-          ghl_contact_id: string
+          ghl_contact_id: string | null
           id: string
           last_name: string | null
           phone: string | null
@@ -228,7 +225,7 @@ export type Database = {
           dismissed_reason?: string | null
           email?: string | null
           first_name?: string | null
-          ghl_contact_id: string
+          ghl_contact_id?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
@@ -247,7 +244,7 @@ export type Database = {
           dismissed_reason?: string | null
           email?: string | null
           first_name?: string | null
-          ghl_contact_id?: string
+          ghl_contact_id?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
@@ -258,7 +255,22 @@ export type Database = {
           tagged_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "buyer_intakes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_intakes_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
@@ -1396,8 +1408,6 @@ export type Database = {
           broker_phone: string | null
           building_class: string | null
           building_far: string | null
-          gross_sf: number | null
-          heated_sf: number | null
           city: string | null
           clear_height_ft: number | null
           column_spacing: string | null
@@ -1414,6 +1424,8 @@ export type Database = {
           folio: string | null
           grade_level_doors: number | null
           gross_leasable_area: string | null
+          gross_sf: number | null
+          heated_sf: number | null
           id: string
           is_auction: boolean | null
           just_value: number | null
@@ -1476,8 +1488,6 @@ export type Database = {
           broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
           city?: string | null
           clear_height_ft?: number | null
           column_spacing?: string | null
@@ -1494,6 +1504,8 @@ export type Database = {
           folio?: string | null
           grade_level_doors?: number | null
           gross_leasable_area?: string | null
+          gross_sf?: number | null
+          heated_sf?: number | null
           id?: string
           is_auction?: boolean | null
           just_value?: number | null
@@ -1556,8 +1568,6 @@ export type Database = {
           broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
           city?: string | null
           clear_height_ft?: number | null
           column_spacing?: string | null
@@ -1574,6 +1584,8 @@ export type Database = {
           folio?: string | null
           grade_level_doors?: number | null
           gross_leasable_area?: string | null
+          gross_sf?: number | null
+          heated_sf?: number | null
           id?: string
           is_auction?: boolean | null
           just_value?: number | null
@@ -2233,8 +2245,6 @@ export type Database = {
       v_lease_comps: {
         Row: {
           address: string | null
-          gross_sf: number | null
-          heated_sf: number | null
           city: string | null
           commencement_date: string | null
           comp_id: string | null
@@ -2248,6 +2258,8 @@ export type Database = {
           dm_verified: boolean | null
           executed_lease_rate_psf: number | null
           expiration_date: string | null
+          gross_sf: number | null
+          heated_sf: number | null
           land_acres: number | null
           lat: number | null
           lease_structure: Database["public"]["Enums"]["lease_structure"] | null
@@ -2485,10 +2497,7 @@ export type Database = {
         Args: { p_client_id?: string; p_suggestion_id: string }
         Returns: string
       }
-      dismiss_buyer_intake: {
-        Args: { p_intake_id: string; p_reason?: string }
-        Returns: Json
-      }
+      attach_tenant_companies: { Args: { p: Json }; Returns: Json }
       buyers_covering_point: {
         Args: { p_lat: number; p_lng: number }
         Returns: {
@@ -2604,11 +2613,19 @@ export type Database = {
         Args: { p_client_id: string; p_property_id: string }
         Returns: Database["public"]["Enums"]["deal_type"]
       }
+      dismiss_buyer_intake: {
+        Args: { p_intake_id: string; p_reason?: string }
+        Returns: Json
+      }
       enrich_tenant_companies: { Args: { p: Json }; Returns: Json }
       ensure_payment_checks: { Args: never; Returns: Json }
       execute_pursuit: {
         Args: { p?: Json; p_pursuit_id: string }
         Returns: Json
+      }
+      find_property: {
+        Args: { p_address?: string; p_city?: string; p_parcel?: string }
+        Returns: string
       }
       flag_deal_candidates: {
         Args: { p_days?: number; p_property_ids?: string[] }
@@ -2623,7 +2640,17 @@ export type Database = {
       ghl_verify_owner: { Args: { p: Json }; Returns: Json }
       import_county_parcels: { Args: { p: Json }; Returns: Json }
       import_email_leads: { Args: { p: Json }; Returns: Json }
+      import_email_threads: { Args: { p: Json }; Returns: Json }
+      import_ghl_texts: { Args: { p: Json }; Returns: Json }
       import_hubspot_batch: { Args: { p: Json }; Returns: Json }
+      import_hubspot_engagements: {
+        Args: { p_rows: Json }
+        Returns: {
+          inserted: number
+          skipped_no_contact: number
+          skipped_noise: number
+        }[]
+      }
       import_lease_comps: { Args: { p: Json }; Returns: Json }
       import_owner_addresses: { Args: { p: Json }; Returns: Json }
       import_owner_email_leads: { Args: { p: Json }; Returns: Json }
@@ -2637,6 +2664,7 @@ export type Database = {
         Args: { p_contact: string }
         Returns: undefined
       }
+      intake_buyer_tag: { Args: { p: Json }; Returns: Json }
       intake_client: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_landlord_listing: {
         Args: { p: Json; p_owner: string }
@@ -2647,12 +2675,14 @@ export type Database = {
         Args: { p_county?: string }
         Returns: Json
       }
+      mark_contact_as_buyer: { Args: { p_contact_id: string }; Returns: Json }
       mark_owners_exported: {
         Args: { p_property_ids: string[] }
         Returns: Json
       }
       match_addresses: { Args: { p: Json }; Returns: Json }
       normalize_owner_name: { Args: { p_name: string }; Returns: string }
+      normalize_parcel: { Args: { p: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
       normalize_street: { Args: { p_addr: string }; Returns: string }
       normalize_street_loose: { Args: { p_addr: string }; Returns: string }
@@ -2716,6 +2746,26 @@ export type Database = {
       }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
       relink_owner_contacts: { Args: { p?: Json }; Returns: Json }
+      search_contacts: {
+        Args: {
+          p_include_archived?: boolean
+          p_limit?: number
+          p_query: string
+        }
+        Returns: {
+          archived: boolean
+          company_id: string
+          company_name: string
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          title: string
+          updated_at: string
+        }[]
+      }
       set_property_coords: { Args: { p: Json }; Returns: Json }
       strip_html: { Args: { p: string }; Returns: string }
       suggest_properties_to_client: {
@@ -2757,6 +2807,7 @@ export type Database = {
         | "smartercontact"
         | "ghl"
         | "manual"
+        | "smartlead"
       comp_kind: "asking" | "executed"
       company_type: "landlord" | "tenant" | "broker" | "other" | "vendor"
       deal_flag_status: "pending" | "dismissed"
@@ -2953,6 +3004,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      buyer_intake_status: ["pending", "approved", "dismissed"],
       buyer_kind: ["investor", "owner_user", "developer"],
       client_purpose: [
         "expansion",
@@ -2963,7 +3015,14 @@ export const Constants = {
       client_status: ["prospect", "searching", "negotiating", "closed", "lost"],
       comm_channel: ["call", "sms", "email", "note", "meeting", "other"],
       comm_direction: ["inbound", "outbound", "unknown"],
-      comm_source: ["hubspot", "terrakotta", "smartercontact", "ghl", "manual"],
+      comm_source: [
+        "hubspot",
+        "terrakotta",
+        "smartercontact",
+        "ghl",
+        "manual",
+        "smartlead",
+      ],
       comp_kind: ["asking", "executed"],
       company_type: ["landlord", "tenant", "broker", "other", "vendor"],
       deal_flag_status: ["pending", "dismissed"],

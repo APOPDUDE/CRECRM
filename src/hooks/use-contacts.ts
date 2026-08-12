@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
 import { formatPhone, normalizePhone } from '@/lib/format'
@@ -9,6 +9,9 @@ export type Contact = Tables<'contacts'> & {
 
 const CONTACT_SELECT = '*, company:companies(id, name)'
 
+/** Shortest query worth sending — one letter would just return the row cap. */
+export const CONTACT_SEARCH_MIN = 2
+
 /** Display name for a contact: "First Last", or "First" when no last name. */
 export function contactNameOf(contact: {
   first_name: string
@@ -17,32 +20,97 @@ export function contactNameOf(contact: {
   return [contact.first_name, contact.last_name].filter(Boolean).join(' ')
 }
 
-/** Find a cached contact whose phone normalizes to the same 10 digits (~46 rows). */
-export function findContactByPhone<T extends { phone: string | null }>(
-  contacts: T[],
-  phone: string | null | undefined,
-): T | undefined {
-  const n = normalizePhone(phone)
-  if (!n) return undefined
-  return contacts.find((c) => normalizePhone(c.phone) === n)
+export type ContactSort = 'created' | 'activity' | 'alpha'
+
+const SORT_COLUMN: Record<ContactSort, { column: string; ascending: boolean }> = {
+  created: { column: 'created_at', ascending: false },
+  activity: { column: 'updated_at', ascending: false },
+  alpha: { column: 'first_name', ascending: true },
 }
 
 /**
- * The live contact book. Archived rows are import padding with no relationship
- * evidence (see migration 20260810000001) — they stay in the table because comps,
- * owner guesses and campaign history still point at them, but they never surface
- * in the UI. Pass includeArchived to see the whole book.
+ * A page of the live contact book, for browsing. Archived rows are import padding with no
+ * relationship evidence (see migration 20260810000001) — they stay in the table because comps,
+ * owner guesses and campaign history still point at them, but they never surface here.
+ *
+ * This is deliberately a LIMITED page and reports the true total alongside it. The book is
+ * ~5k live contacts and PostgREST caps a response at 1000 rows, so "just fetch them all and
+ * filter in the browser" silently became "fetch the first 1000 names alphabetically" — which
+ * is why nobody past "Dan" could be found. Finding a specific person is useContactSearch's
+ * job, and that runs over the whole table in Postgres.
  */
-export function useContacts(opts: { includeArchived?: boolean } = {}) {
-  const includeArchived = opts.includeArchived ?? false
+export function useContactBook(sort: ContactSort, limit = 100) {
   return useQuery({
-    queryKey: ['contacts', { includeArchived }],
+    queryKey: ['contacts', 'book', { sort, limit }],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
-      let q = supabase.from('contacts').select(CONTACT_SELECT)
-      if (!includeArchived) q = q.eq('archived', false)
-      const { data, error } = await q.order('first_name')
+      const { column, ascending } = SORT_COLUMN[sort] ?? SORT_COLUMN.created
+      const { data, error, count } = await supabase
+        .from('contacts')
+        .select(CONTACT_SELECT, { count: 'exact' })
+        .eq('archived', false)
+        .order(column, { ascending })
+        .limit(limit)
       if (error) throw error
-      return data as Contact[]
+      return { rows: (data ?? []) as Contact[], total: count ?? 0 }
+    },
+  })
+}
+
+/**
+ * Search the whole book — every contact, archived included, matched on name, phone digits,
+ * email, title or company by search_contacts() in Postgres.
+ *
+ * The RPC ranks the hits; this refetches those ids as full contact rows so callers get real
+ * Contact objects (an edit form needs every column, not the handful the RPC returns) and then
+ * puts them back in the RPC's order.
+ */
+export function useContactSearch(
+  query: string,
+  opts: { limit?: number; includeArchived?: boolean } = {},
+) {
+  const q = query.trim()
+  const limit = opts.limit ?? 50
+  const includeArchived = opts.includeArchived ?? true
+  return useQuery({
+    queryKey: ['contacts', 'search', { q, limit, includeArchived }],
+    enabled: q.length >= CONTACT_SEARCH_MIN,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('search_contacts', {
+        p_query: q,
+        p_limit: limit,
+        p_include_archived: includeArchived,
+      })
+      if (error) throw error
+      const ids = (data ?? []).map((row) => row.id)
+      if (ids.length === 0) return []
+      const full = await supabase.from('contacts').select(CONTACT_SELECT).in('id', ids)
+      if (full.error) throw full.error
+      const byId = new Map((full.data as Contact[]).map((c) => [c.id, c]))
+      return ids.map((id) => byId.get(id)).filter(Boolean) as Contact[]
+    },
+  })
+}
+
+/**
+ * The contact who already owns this phone number, if any. Uses the same exact match on the
+ * canonical format that useUpsertContactByPhone does, so what the form warns about and what
+ * saving actually does can never disagree.
+ */
+export function useContactByPhone(phone: string | null | undefined) {
+  const canonical = formatPhone(phone)
+  return useQuery({
+    queryKey: ['contacts', 'by-phone', canonical],
+    enabled: !!canonical,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select(CONTACT_SELECT)
+        .eq('phone', canonical!)
+        .maybeSingle()
+      if (error) throw error
+      return (data as Contact | null) ?? null
     },
   })
 }

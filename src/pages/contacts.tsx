@@ -26,13 +26,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
-import { useContacts, useDeleteContact } from '@/hooks/use-contacts'
+import {
+  CONTACT_SEARCH_MIN,
+  useContactBook,
+  useContactSearch,
+  useDeleteContact,
+} from '@/hooks/use-contacts'
 import { useVerifiedContactIds } from '@/hooks/use-owners'
 import { VerifiedBadge } from '@/components/verified-badge'
-import type { Contact } from '@/hooks/use-contacts'
+import type { Contact, ContactSort } from '@/hooks/use-contacts'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { friendlyDbError } from '@/lib/db-errors'
 
@@ -40,17 +47,29 @@ export function contactName(contact: Pick<Contact, 'first_name' | 'last_name'>) 
   return [contact.first_name, contact.last_name].filter(Boolean).join(' ')
 }
 
-type ContactSort = 'created' | 'activity' | 'alpha'
-
 const SORT_LABELS: Record<ContactSort, string> = {
   created: 'Recently added',
   activity: 'Recent activity',
   alpha: 'Alphabetical',
 }
 
+/** How many of the book to show when you're browsing rather than looking for someone. */
+const BROWSE_LIMIT = 100
+
+/**
+ * Archived contacts are hidden from the browse list but still findable by search, so a hit
+ * has to say why it isn't in the list you were just looking at.
+ */
+function ArchivedBadge() {
+  return (
+    <Badge variant="outline" className="font-normal text-muted-foreground" title="Hidden from the contact list — no deal, note or campaign points at them">
+      Archived
+    </Badge>
+  )
+}
+
 export function ContactsPage() {
   const navigate = useNavigate()
-  const { data: contacts, isLoading, isError, refetch } = useContacts()
   const { data: verifiedIds } = useVerifiedContactIds()
   const deleteContact = useDeleteContact()
 
@@ -61,26 +80,23 @@ export function ContactsPage() {
   const [editing, setEditing] = useState<Contact | null>(null)
   const [deleting, setDeleting] = useState<Contact | null>(null)
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const matched = !q
-      ? (contacts ?? [])
-      : (contacts ?? []).filter((c) =>
-          [c.first_name, c.last_name, c.title, c.email, c.phone, c.company?.name]
-            .filter(Boolean)
-            .some((field) => field!.toLowerCase().includes(q)),
-        )
-    // The shared useContacts() query stays alphabetical because the contact pickers
-    // depend on that ordering — this page sorts its own copy.
-    const byDate = (field: 'created_at' | 'updated_at') => (a: Contact, b: Contact) =>
-      Date.parse(b[field] ?? '') - Date.parse(a[field] ?? '')
-    const sorters: Record<ContactSort, (a: Contact, b: Contact) => number> = {
-      created: byDate('created_at'),
-      activity: byDate('updated_at'),
-      alpha: (a, b) => contactName(a).localeCompare(contactName(b), undefined, { sensitivity: 'base' }),
-    }
-    return [...matched].sort(sorters[sort] ?? sorters.created)
-  }, [contacts, search, sort])
+  const query = useDebouncedValue(search.trim(), 250)
+  const searching = query.length >= CONTACT_SEARCH_MIN
+  const book = useContactBook(sort, BROWSE_LIMIT)
+  // Searching hits Postgres over the whole book, archived rows included — the one thing
+  // archiving must never do is hide someone you know exists and are looking for.
+  const results = useContactSearch(query, { limit: 100 })
+
+  const { isLoading, isError, refetch } = searching
+    ? { isLoading: results.isLoading, isError: results.isError, refetch: results.refetch }
+    : { isLoading: book.isLoading, isError: book.isError, refetch: book.refetch }
+
+  const filtered = useMemo(
+    () => (searching ? (results.data ?? []) : (book.data?.rows ?? [])),
+    [searching, results.data, book.data],
+  )
+  const total = book.data?.total ?? 0
+  const archivedHits = filtered.filter((c) => c.archived).length
 
   const openCreate = () => {
     setEditing(null)
@@ -142,7 +158,7 @@ export function ContactsPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search contacts…"
+              placeholder="Name, phone, email, company…"
               className="pl-9"
             />
           </div>
@@ -167,6 +183,26 @@ export function ContactsPage() {
         </div>
       </div>
 
+      {/* The book is far bigger than one screen, so say what you're looking at: browsing shows
+          the top of it, searching covers all of it. */}
+      <p className="text-xs text-muted-foreground">
+        {searching ? (
+          <>
+            {filtered.length} match{filtered.length === 1 ? '' : 'es'} across all {total || ''}{' '}
+            contacts
+            {archivedHits > 0 && ` · ${archivedHits} archived`}
+          </>
+        ) : total > BROWSE_LIMIT ? (
+          <>
+            Showing {filtered.length} of {total} contacts — search to reach the rest
+          </>
+        ) : (
+          <>
+            {total} contact{total === 1 ? '' : 's'}
+          </>
+        )}
+      </p>
+
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
@@ -175,7 +211,7 @@ export function ContactsPage() {
         </div>
       ) : isError ? (
         <ListErrorState message="Could not load contacts." onRetry={() => refetch()} />
-      ) : (contacts ?? []).length === 0 ? (
+      ) : !searching && total === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
             No contacts yet — add the people you work with across deals.
@@ -187,7 +223,11 @@ export function ContactsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
-          <p className="text-sm text-muted-foreground">No contacts match “{search.trim()}”</p>
+          <p className="text-sm text-muted-foreground">
+            {searching
+              ? `Nobody in the book matches “${query}” — not by name, phone, email or company.`
+              : 'No contacts to show.'}
+          </p>
         </div>
       ) : (
         <>
@@ -215,6 +255,7 @@ export function ContactsPage() {
                       <span className="flex items-center gap-1.5">
                         {contactName(contact)}
                         {verifiedIds?.has(contact.id) && <VerifiedBadge label={false} />}
+                        {contact.archived && <ArchivedBadge />}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{contact.company?.name}</TableCell>
@@ -239,6 +280,7 @@ export function ContactsPage() {
                   <span className="flex items-center gap-1.5 text-sm font-medium">
                     <span className="truncate">{contactName(contact)}</span>
                     {verifiedIds?.has(contact.id) && <VerifiedBadge label={false} />}
+                    {contact.archived && <ArchivedBadge />}
                   </span>
                   {[contact.company?.name, contact.title].filter(Boolean).length > 0 && (
                     <span className="truncate text-xs text-muted-foreground">

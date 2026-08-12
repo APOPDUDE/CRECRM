@@ -14,10 +14,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { CompanySelect } from '@/components/company-select'
 import {
-  useContacts,
+  useContactByPhone,
   useUpdateContact,
   useUpsertContactByPhone,
-  findContactByPhone,
 } from '@/hooks/use-contacts'
 import type { Contact } from '@/hooks/use-contacts'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -43,7 +42,6 @@ export function ContactFormDialog({
 }: ContactFormDialogProps) {
   const upsertByPhone = useUpsertContactByPhone()
   const updateContact = useUpdateContact()
-  const { data: contacts = [] } = useContacts()
   const pending = upsertByPhone.isPending || updateContact.isPending
 
   const [firstName, setFirstName] = useState('')
@@ -67,8 +65,11 @@ export function ContactFormDialog({
   }, [open, contact, defaultCompanyId])
 
   // When creating, a typed phone that matches an existing contact means we're
-  // really editing that contact — phone is the identity, so we upsert.
-  const matched = contact ? undefined : findContactByPhone(contacts, phone)
+  // really editing that contact — phone is the identity, so we upsert. The lookup asks the
+  // database rather than a cached list, so it can't miss a duplicate that simply wasn't
+  // in the page of contacts the browser happened to hold.
+  const existingWithPhone = useContactByPhone(contact ? null : phone)
+  const matched = contact ? undefined : (existingWithPhone.data ?? undefined)
 
   const loadMatched = () => {
     if (!matched) return
