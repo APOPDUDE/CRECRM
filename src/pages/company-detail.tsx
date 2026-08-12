@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -9,6 +9,7 @@ import { CompanyTypeBadge } from '@/pages/companies'
 import { useCompany } from '@/hooks/use-companies'
 import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
+import { useBackTo } from '@/hooks/use-back-to'
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null
@@ -22,9 +23,9 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 
 export function CompanyDetailPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const { data: company, isLoading, isError } = useCompany(id)
   const [editOpen, setEditOpen] = useState(false)
+  const goBack = useBackTo('/companies')
 
   useSetBreadcrumb(company?.name)
 
@@ -40,9 +41,9 @@ export function CompanyDetailPage() {
   if (isError || !company) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/companies')}>
+        <Button variant="ghost" size="sm" onClick={goBack}>
           <ArrowLeft className="size-4" />
-          Back to companies
+          Back
         </Button>
         <p className="text-sm text-muted-foreground">This company could not be found.</p>
       </div>
@@ -57,10 +58,10 @@ export function CompanyDetailPage() {
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => navigate('/companies')}
+            onClick={goBack}
           >
             <ArrowLeft className="size-4" />
-            <span className="sr-only">Back to companies</span>
+            <span className="sr-only">Back</span>
           </Button>
           <div>
             <h1 className="text-xl font-semibold">{company.name}</h1>

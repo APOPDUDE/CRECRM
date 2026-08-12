@@ -55,6 +55,7 @@ import { paymentRungMessage, useCreateTask, usePaymentReceivedToggle } from '@/h
 import { useClearFlaggedNew } from '@/hooks/use-automation'
 import { formatCurrency } from '@/lib/format'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
+import { useBackTo } from '@/hooks/use-back-to'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { automationEnabled } from '@/lib/n8n'
 import { setReppingSide } from '@/lib/repping-side'
@@ -175,6 +176,18 @@ export function TenantBoardPage() {
     (tenantRep?.contact ? contactNameOf(tenantRep.contact) : null) ??
     'Tenant'
 
+  // Whoever the title names is who it opens. A deal with neither company nor contact has
+  // nothing to open, so the title stays plain text rather than a link that goes nowhere.
+  const titleHref = tenantRep?.company
+    ? `/companies/${tenantRep.company.id}`
+    : tenantRep?.contact
+      ? `/contacts/${tenantRep.contact.id}`
+      : null
+
+  // Only used on a cold deep link, where there is no history to return to. This board serves
+  // buyers and tenants alike, so the guess follows the side being shown.
+  const goBack = useBackTo(isBuySide ? '/pipelines/buyers' : '/pipelines/tenant')
+
   useSetBreadcrumb(tenantRep ? title : undefined)
 
   if (isLoading) {
@@ -193,9 +206,9 @@ export function TenantBoardPage() {
   if (isError || !tenantRep) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/tenant-rep')}>
+        <Button variant="ghost" size="sm" onClick={goBack}>
           <ArrowLeft className="size-4" />
-          Back to Tenant Rep
+          Back
         </Button>
         <p className="text-sm text-muted-foreground">This client could not be found.</p>
       </div>
@@ -362,25 +375,47 @@ export function TenantBoardPage() {
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => navigate('/tenant-rep')}
+            onClick={goBack}
           >
             <ArrowLeft className="size-4" />
-            <span className="sr-only">Back to Tenant Rep</span>
+            <span className="sr-only">Back</span>
           </Button>
           <div>
-            <button
-              type="button"
-              onClick={() =>
-                tenantRep.company ? setCompanyEditOpen(true) : setContactEditOpen(true)
-              }
-              className="group flex items-center gap-1.5 text-left text-xl font-semibold hover:underline"
-              title="Rename"
-            >
-              {title}
-              <Pencil className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-            </button>
+            {/* The title is whoever the deal is with — a company, or the person when there is
+                no company. Clicking a name should open them, not a rename box; renaming moved
+                to the pencil beside it, which stays visible on touch where there is no hover. */}
+            <div className="group flex items-center gap-1.5">
+              {titleHref ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(titleHref)}
+                  className="text-left text-xl font-semibold hover:underline"
+                >
+                  {title}
+                </button>
+              ) : (
+                <h1 className="text-xl font-semibold">{title}</h1>
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  tenantRep.company ? setCompanyEditOpen(true) : setContactEditOpen(true)
+                }
+                className="shrink-0 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100"
+                title="Rename"
+              >
+                <Pencil className="size-3.5 text-muted-foreground" />
+                <span className="sr-only">Rename</span>
+              </button>
+            </div>
             {tenantRep.company && tenantRep.contact && (
-              <p className="text-sm text-muted-foreground">{contactNameOf(tenantRep.contact)}</p>
+              <button
+                type="button"
+                onClick={() => navigate(`/contacts/${tenantRep.contact!.id}`)}
+                className="text-sm text-muted-foreground hover:underline"
+              >
+                {contactNameOf(tenantRep.contact)}
+              </button>
             )}
           </div>
         </div>
@@ -545,14 +580,16 @@ export function TenantBoardPage() {
 
             {contact && (
               <SidebarSection title={isBuySide ? 'Buyer contact' : 'Tenant contact'}>
-                <div className="group/edit relative rounded-lg border bg-card p-3 text-sm">
+                {/* Opens the person, not a rename box. From a deal you want their history —
+                    calls, texts, notes, what else they're in — and editing is one button away
+                    once you're there. Back lands you on this deal again. */}
+                <div className="rounded-lg border bg-card p-3 text-sm">
                   <button
                     type="button"
-                    onClick={() => setContactEditOpen(true)}
+                    onClick={() => navigate(`/contacts/${contact.id}`)}
                     className="text-left"
                   >
-                    <Pencil className="absolute right-2 top-2 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100" />
-                    <div className="font-medium">{contactNameOf(contact)}</div>
+                    <div className="font-medium hover:underline">{contactNameOf(contact)}</div>
                     {contact.title && (
                       <div className="text-xs text-muted-foreground">{contact.title}</div>
                     )}

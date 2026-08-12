@@ -17,6 +17,7 @@ import { BuyerBadge } from '@/components/buyer-badge'
 import { VerifiedBadge } from '@/components/verified-badge'
 import { friendlyDbError } from '@/lib/db-errors'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
+import { useBackTo } from '@/hooks/use-back-to'
 import { useContactConversations } from '@/hooks/use-communications'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
 import { ContactAssociations } from '@/components/contact-associations'
@@ -45,6 +46,8 @@ export function ContactDetailPage() {
   const { data: verifiedIds } = useVerifiedContactIds()
   const markAsBuyer = useMarkContactAsBuyer()
   const buyerClientId = id ? buyerIds?.buyers.get(id) : undefined
+
+  const goBack = useBackTo('/contacts')
 
   useSetBreadcrumb(contact ? contactName(contact) : undefined)
 
@@ -86,9 +89,9 @@ export function ContactDetailPage() {
   if (isError || !contact) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/contacts')}>
+        <Button variant="ghost" size="sm" onClick={goBack}>
           <ArrowLeft className="size-4" />
-          Back to contacts
+          Back
         </Button>
         <p className="text-sm text-muted-foreground">This contact could not be found.</p>
       </div>
@@ -104,10 +107,10 @@ export function ContactDetailPage() {
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => navigate('/contacts')}
+            onClick={goBack}
           >
             <ArrowLeft className="size-4" />
-            <span className="sr-only">Back to contacts</span>
+            <span className="sr-only">Back</span>
           </Button>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold">{contactName(contact)}</h1>
