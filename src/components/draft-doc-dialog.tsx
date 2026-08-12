@@ -448,7 +448,6 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
                         <SelectItem value="NN">NN</SelectItem>
                         <SelectItem value="MG">Modified gross</SelectItem>
                         <SelectItem value="FS">Full service</SelectItem>
-                        <SelectItem value="IG">Industrial gross</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

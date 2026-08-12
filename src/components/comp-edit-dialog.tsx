@@ -221,7 +221,6 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
                     <SelectItem value="NN">NN</SelectItem>
                     <SelectItem value="MG">MG</SelectItem>
                     <SelectItem value="FS">FS</SelectItem>
-                    <SelectItem value="IG">IG</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
