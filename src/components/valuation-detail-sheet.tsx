@@ -245,11 +245,39 @@ function LandSection({ val }: { val: PropertyValuation }) {
     <section className="space-y-2">
       <h3 className="text-sm font-semibold">Land beyond the building</h3>
       <div className="space-y-2 rounded-lg border p-3 text-sm">
+        {/* Wetland is not yard. Where we've measured it, say so and show what came
+            off; where we haven't, say that too — an unmeasured wet site is being
+            valued as if it were all dry. */}
+        {!lc.usable_is_estimated && lc.acres_total != null && lc.acres_usable != null && (
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">Total acreage</span>
+            <span className="tabular-nums">{acres(lc.acres_total)}</span>
+          </div>
+        )}
+        {!lc.usable_is_estimated &&
+          lc.acres_total != null &&
+          lc.acres_usable != null &&
+          lc.acres_total - lc.acres_usable > 0.01 && (
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">
+                Wetland
+                <span className="ml-1 text-xs">
+                  National Wetlands Inventory
+                  {lc.usable_source === 'manual' ? ' (overridden by hand)' : ''}
+                </span>
+              </span>
+              <span className="tabular-nums">
+                − {acres(Math.round((lc.acres_total - lc.acres_usable) * 100) / 100)}
+              </span>
+            </div>
+          )}
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-muted-foreground">
             Usable acreage
             {lc.usable_is_estimated && (
-              <span className="ml-1 text-xs">— total acreage, uplands not on file</span>
+              <span className="ml-1 text-xs">
+                — total acreage; uplands not measured here, so a wet site reads high
+              </span>
             )}
           </span>
           <span className="font-medium tabular-nums">{acres(lc.acres_usable)}</span>
@@ -280,6 +308,9 @@ function LandSection({ val }: { val: PropertyValuation }) {
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-muted-foreground">
             To rent, at {formatCurrency(lc.rent_per_acre_month)}/acre/month
+            {lc.rent_capped && (
+              <span className="ml-1 text-xs">on {lc.rentable_acres} lettable acres</span>
+            )}
           </span>
           <span className="font-medium tabular-nums">
             {formatCurrency(lc.rent_contribution_monthly)}/mo
@@ -290,6 +321,8 @@ function LandSection({ val }: { val: PropertyValuation }) {
           A comp's $/SF already includes a typical site, so only the acreage beyond that is added —
           otherwise the dirt gets counted twice. Per-acre value falls steeply with size (measured on
           our own sales), so a big back field is not priced like one extra acre by the dock.
+          {lc.rent_capped &&
+            ` Only ${lc.rentable_acres} acres are priced as yard: past that the land is a development play, not something one tenant lets.`}
           {lc.rent_source !== 'alex' && ' The yard rent for this county is an estimate — worth confirming.'}
           {!lc.excess_value_measured &&
             ' Too few local sales to fit a land value here, so a share of the county land comps was used.'}

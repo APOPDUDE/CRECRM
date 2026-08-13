@@ -106,6 +106,11 @@ export interface LandComponent {
   /** Uplands where known — falls back to total acreage, which overstates a wet site. */
   acres_usable: number | null
   usable_is_estimated: boolean
+  /** 'nwi' = measured off the National Wetlands Inventory. 'manual' = entered by hand. */
+  usable_source: string | null
+  /** Acres that can actually be let as yard — capped; past that it's a land play. */
+  rentable_acres: number
+  rent_capped: boolean
   /** Median site coverage of the county's improved sales. */
   typ_coverage: number
   supported_acres: number
