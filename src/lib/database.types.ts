@@ -755,6 +755,8 @@ export type Database = {
           terrakotta_id: string | null
           title: string | null
           updated_at: string
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           archived?: boolean
@@ -783,6 +785,8 @@ export type Database = {
           terrakotta_id?: string | null
           title?: string | null
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           archived?: boolean
@@ -811,6 +815,8 @@ export type Database = {
           terrakotta_id?: string | null
           title?: string | null
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
