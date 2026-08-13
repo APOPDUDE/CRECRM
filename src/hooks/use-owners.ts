@@ -10,12 +10,18 @@ export type Communication = Tables<'communications'>
  * Per-property owner context, keyed by property id.
  *
  * One row per property (the view already rolls up portfolio size, contact counts and
- * last-conversation recency), so the map and list can filter on "do we have a verified
- * owner contact" without a second round trip per pin.
+ * last-conversation recency), so the list can filter on "do we have a verified owner
+ * contact" without a second round trip per pin.
+ *
+ * Costly enough to be opt-in: the view runs five lateral joins per row, so the whole
+ * book is tens of seconds of database work. `enabled` lets a caller that only needs the
+ * properties on screen skip it — the map gets its owner context from `map_properties()`
+ * instead, already scoped to the viewport.
  */
-export function useOwnerContext() {
+export function useOwnerContext(enabled = true) {
   return useQuery({
     queryKey: ['owner-context'],
+    enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     queryFn: async () => {

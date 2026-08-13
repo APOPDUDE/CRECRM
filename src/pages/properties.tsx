@@ -39,6 +39,7 @@ import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { PropertiesMap, type MapColorBy } from '@/components/properties-map'
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
+import { useMapProperties, type MapViewport } from '@/hooks/use-map-properties'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
@@ -278,12 +279,6 @@ const PAGE_SIZE = 100
 export function PropertiesPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { data: properties, isLoading, isError, refetch } = useProperties()
-  const { data: goodDealIds } = useGoodDealIds()
-  const { data: executedIds } = useExecutedPropertyIds()
-  const { data: askingMap } = useCurrentAsking()
-  const { data: ownerCtx } = useOwnerContext()
-  const { data: leases = [] } = useLeaseComps()
   const deleteProperty = useDeleteProperty()
   // background-drain the lat/lng backfill (25/visit, Nominatim-throttled) so scrape rows
   // without coordinates progressively gain map pins. No-op once everything is geocoded.
@@ -352,6 +347,139 @@ export function PropertiesPage() {
   const [polygon, setPolygon] = usePersistentState<LatLng[] | null>('properties:shape', null)
   const [draft, setDraft] = useState<LatLng[] | null>(null)
   const drawMode = draft !== null
+  // Where the map camera is pointed. Null until the map mounts and reports its bounds.
+  const [viewport, setViewport] = useState<MapViewport | null>(null)
+  // Set the moment the user reaches for the search box or the filter panel — see the
+  // fetch gate below. Sticky for the visit: once the book is on its way, keep it.
+  const [wantsBook, setWantsBook] = useState(false)
+
+  /**
+   * Which filters the panel offers right now.
+   *
+   * A map lens asks exactly one question, so it offers only the filters that answer it:
+   * asking price belongs to Market, verified owner to Owner, the two date windows to
+   * Lease. The table has no lens and keeps everything.
+   *
+   * A filter that is not offered is also not APPLIED — otherwise switching to Lease
+   * would leave an asking-price bound narrowing the map from behind a closed popover.
+   * The values are kept rather than cleared, so flipping back to Market restores what
+   * was typed instead of quietly discarding it.
+   *
+   * County goes on the map's own terms (Alex): search and shape-draw already place a
+   * parcel geographically, so the dropdown is table-only.
+   */
+  const applies = useMemo(() => {
+    const onMap = view === 'map'
+    const leaseLens = onMap && colorBy === 'lease'
+    return {
+      county: !onMap,
+      dealType: !onMap || colorBy === 'market',
+      price: !onMap || colorBy === 'market',
+      owner: !onMap || colorBy === 'owner',
+      // "When did we last touch them" is an owner question, so it rides with the owner lens
+      // on the map and is always available in the table.
+      activity: !onMap || colorBy === 'owner',
+      lease: !onMap || colorBy === 'lease',
+      // On the lease lens, square feet means the UNIT that was let, not the shell around
+      // it: a 4,000 SF suite in a 200,000 SF building is a 4,000 SF comp. Building SF
+      // steps aside there rather than sitting beside it, so there is only ever one SF
+      // box and no doubt about which one is being answered.
+      buildingSf: !leaseLens,
+      leasedSf: leaseLens,
+      // Whether the shell is listed today says nothing about a lease signed in 2021, so
+      // the market status filter sits out the comp lens.
+      status: !leaseLens,
+    }
+  }, [view, colorBy])
+
+  // ?owner=<id> shows one owner's whole portfolio. It behaves as a filter rather than a
+  // separate mode, so the map, the table, the columns and the export all keep working.
+  const portfolioOwnerId = searchParams.get('owner')
+
+  // Counts only what is actually biting: a dormant filter narrows nothing, so badging it
+  // would send you hunting through the panel for a number that is not there.
+  const activeFilterCount =
+    (applies.status && status !== 'all' ? 1 : 0) +
+    (applies.dealType && dealType !== 'all' ? 1 : 0) +
+    (ptype !== 'all' ? 1 : 0) +
+    (applies.owner && ownerFilter !== 'all' ? 1 : 0) +
+    (applies.activity && activity !== 'all' ? 1 : 0) +
+    (applies.county && county !== 'all' ? 1 : 0) +
+    (applies.buildingSf && (sfMin || sfMax) ? 1 : 0) +
+    (acMin || acMax ? 1 : 0) +
+    (applies.price && (priceMin || priceMax) ? 1 : 0) +
+    // The three lease windows count separately: they are three questions, and a badge of
+    // 1 for all of them would understate how narrow the list has become.
+    (applies.lease && (leaseMonth || leaseMin || leaseMax) ? 1 : 0) +
+    (applies.lease && (signMin || signMax) ? 1 : 0) +
+    (applies.lease && (leaseSfMin || leaseSfMax) ? 1 : 0) +
+    (applies.lease && dmFilter !== 'all' ? 1 : 0)
+
+  /**
+   * Is a question being asked about properties that might not be on screen?
+   *
+   * A search, a filter, a portfolio or a drawn shape can each match a parcel three
+   * counties away, so answering one needs the whole book. The bare map does not: there
+   * the camera IS the query, and the viewport fetch answers it in one round trip.
+   */
+  const hasQuery =
+    searchTokens(search).length > 0 ||
+    activeFilterCount > 0 ||
+    portfolioOwnerId != null ||
+    (polygon != null && polygon.length >= 3)
+  const viewportOnly = view === 'map' && !hasQuery
+
+  /**
+   * Which of the lease questions are being asked, in one place.
+   *
+   * Shared between the matcher below and the decision to fetch the comps at all: two
+   * copies of "is a lease filter on?" that drifted apart would leave a filter narrowing
+   * against comps that were never loaded, which reads as "nothing matches".
+   */
+  const leaseFilter = useMemo(() => {
+    const monthPicked = /^\d{4}-\d{2}$/.test(leaseMonth)
+    const expiryOn = monthPicked || leaseMin !== '' || leaseMax !== ''
+    const signOn = signMin !== '' || signMax !== ''
+    const sfOn = leaseSfMin !== '' || leaseSfMax !== ''
+    // The DM filter activates lease matching by itself: "every lease where I can reach
+    // the decision maker" is a real question with no date window attached.
+    const dmOn = dmFilter !== 'all'
+    return { monthPicked, expiryOn, signOn, sfOn, dmOn, any: expiryOn || signOn || sfOn || dmOn }
+  }, [leaseMonth, leaseMin, leaseMax, signMin, signMax, leaseSfMin, leaseSfMax, dmFilter])
+  // Deliberately wider than `viewportOnly`: the book is fetched as soon as the user looks
+  // like they are about to ask for it, not only once they have. Waiting for the question
+  // would put a multi-second fetch between the first keystroke and any answer.
+  const needsBook = !viewportOnly || wantsBook
+
+  const { data: properties, isLoading, isError, refetch } = useProperties(needsBook)
+  const { data: goodDealIds } = useGoodDealIds()
+  const { data: executedIds } = useExecutedPropertyIds()
+  const { data: askingMap } = useCurrentAsking()
+  const { data: ownerCtxBook } = useOwnerContext(needsBook)
+  // The comps answer lease questions only: the run-off lens, the lease filters, and the
+  // table's tenant columns. On the bare market map they were ~1,300 rows of nothing, and
+  // slow enough to crowd out the fetch that actually draws the pins.
+  const { data: leases = [] } = useLeaseComps(
+    view === 'table' || colorBy === 'lease' || (applies.lease && leaseFilter.any),
+  )
+  const mapView = useMapProperties(viewport, viewportOnly)
+
+  /**
+   * The set the page works from.
+   *
+   * On the map with nothing asked, that is whatever the camera is pointed at — a few
+   * hundred rows with their owner context, in one request. Everything else works from the
+   * book, which is now fetched when a search, filter or the table actually needs it
+   * rather than on every visit to this page.
+   */
+  const book = useMemo(
+    // Memoised for its identity as much as its contents: `properties ?? []` would mint a
+    // fresh empty array on every render while the book is still loading, and everything
+    // downstream keys its useMemo off this.
+    () => (viewportOnly ? mapView.data.properties : (properties ?? [])),
+    [viewportOnly, mapView.data.properties, properties],
+  )
+  const ownerCtx = viewportOnly ? mapView.data.ownerContext : ownerCtxBook
 
   // Deep link from a property's mini-map: /properties?view=map&q=<address>.
   // Every filter here is sticky, so a saved county/type/shape from an earlier session
@@ -424,6 +552,8 @@ export function PropertiesPage() {
     })
 
   // The county list is derived from the data (98% populated) so it only offers real values.
+  // Book-only by design: the county dropdown is a table filter, and the table always has
+  // the book behind it.
   const counties = useMemo(() => {
     const set = new Set<string>()
     for (const p of properties ?? []) if (p.county) set.add(p.county)
@@ -431,10 +561,10 @@ export function PropertiesPage() {
   }, [properties])
 
   // One canonical searchable string per property, rebuilt only when the book changes — the
-  // normalizer is too costly to re-run over ~13k rows on every keystroke.
+  // normalizer is too costly to re-run over ~17k rows on every keystroke.
   const haystacks = useMemo(() => {
     const map = new Map<string, string>()
-    for (const p of properties ?? [])
+    for (const p of book)
       map.set(
         p.id,
         buildHaystack([
@@ -455,46 +585,7 @@ export function PropertiesPage() {
         ]),
       )
     return map
-  }, [properties])
-
-  /**
-   * Which filters the panel offers right now.
-   *
-   * A map lens asks exactly one question, so it offers only the filters that answer it:
-   * asking price belongs to Market, verified owner to Owner, the two date windows to
-   * Lease. The table has no lens and keeps everything.
-   *
-   * A filter that is not offered is also not APPLIED — otherwise switching to Lease
-   * would leave an asking-price bound narrowing the map from behind a closed popover.
-   * The values are kept rather than cleared, so flipping back to Market restores what
-   * was typed instead of quietly discarding it.
-   *
-   * County goes on the map's own terms (Alex): search and shape-draw already place a
-   * parcel geographically, so the dropdown is table-only.
-   */
-  const applies = useMemo(() => {
-    const onMap = view === 'map'
-    const leaseLens = onMap && colorBy === 'lease'
-    return {
-      county: !onMap,
-      dealType: !onMap || colorBy === 'market',
-      price: !onMap || colorBy === 'market',
-      owner: !onMap || colorBy === 'owner',
-      // "When did we last touch them" is an owner question, so it rides with the owner lens
-      // on the map and is always available in the table.
-      activity: !onMap || colorBy === 'owner',
-      lease: !onMap || colorBy === 'lease',
-      // On the lease lens, square feet means the UNIT that was let, not the shell around
-      // it: a 4,000 SF suite in a 200,000 SF building is a 4,000 SF comp. Building SF
-      // steps aside there rather than sitting beside it, so there is only ever one SF
-      // box and no doubt about which one is being answered.
-      buildingSf: !leaseLens,
-      leasedSf: leaseLens,
-      // Whether the shell is listed today says nothing about a lease signed in 2021, so
-      // the market status filter sits out the comp lens.
-      status: !leaseLens,
-    }
-  }, [view, colorBy])
+  }, [book])
 
   /**
    * The one lease that best represents each parcel: the soonest still to run, or — for a
@@ -535,14 +626,8 @@ export function PropertiesPage() {
       const n = Number(v)
       return v !== '' && Number.isFinite(n) ? n : null
     }
-    const monthPicked = /^\d{4}-\d{2}$/.test(leaseMonth)
-    const expiryOn = monthPicked || leaseMin !== '' || leaseMax !== ''
-    const signOn = signMin !== '' || signMax !== ''
-    const sfOn = leaseSfMin !== '' || leaseSfMax !== ''
-    // The DM filter activates lease matching by itself: "every lease where I can reach
-    // the decision maker" is a real question with no date window attached.
-    const dmOn = dmFilter !== 'all'
-    if (!expiryOn && !signOn && !sfOn && !dmOn) return null
+    const { monthPicked, expiryOn, signOn, sfOn, dmOn, any } = leaseFilter
+    if (!any) return null
     const sfLo = num(leaseSfMin)
     const sfHi = num(leaseSfMax)
     // An empty expiry minimum means "from today", not "since the beginning of time".
@@ -588,7 +673,7 @@ export function PropertiesPage() {
       if (better) top.set(l.property_id, l)
     }
     return { ids, top }
-  }, [leases, leaseMin, leaseMax, leaseMonth, signMin, signMax, leaseSfMin, leaseSfMax, dmFilter])
+  }, [leases, leaseFilter, leaseMin, leaseMax, leaseMonth, signMin, signMax, leaseSfMin, leaseSfMax, dmFilter])
   const leaseMatchIds = leaseMatch?.ids ?? null
 
   // Tenant + expiry ride along whenever a lease window is filtering, so the list answers
@@ -601,12 +686,9 @@ export function PropertiesPage() {
       (leaseMatchIds != null && LEASE_COLUMNS.includes(c.id)),
   )
 
-  // ?owner=<id> shows one owner's whole portfolio. It behaves as a filter rather than a
-  // separate mode, so the map, the table, the columns and the export all keep working.
-  const portfolioOwnerId = searchParams.get('owner')
   const portfolioAll = useMemo(
-    () => (portfolioOwnerId ? (properties ?? []).filter((p) => p.owner_id === portfolioOwnerId) : []),
-    [properties, portfolioOwnerId],
+    () => (portfolioOwnerId ? book.filter((p) => p.owner_id === portfolioOwnerId) : []),
+    [book, portfolioOwnerId],
   )
   const portfolioOwnerName = portfolioAll[0]?.owner_name ?? null
 
@@ -624,9 +706,9 @@ export function PropertiesPage() {
     // hides the two off-market parcels next door — which is the assemblage you were
     // trying to see.
     if (portfolioOwnerId) {
-      return (properties ?? []).filter((p) => p.owner_id === portfolioOwnerId)
+      return book.filter((p) => p.owner_id === portfolioOwnerId)
     }
-    return (properties ?? []).filter((p) => {
+    return book.filter((p) => {
       // Every token must appear somewhere in the property's combined text, so a full
       // "3206 Sydney Rd Plant City, FL 33566" matches even though the street, city, state and
       // zip live in different columns.
@@ -675,7 +757,7 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [properties, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [book, portfolioOwnerId, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
@@ -897,34 +979,6 @@ export function PropertiesPage() {
   const safePage = Math.min(page, pageCount - 1)
   const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
 
-  // Counts only what is actually biting: a dormant filter narrows nothing, so badging it
-  // would send you hunting through the panel for a number that is not there.
-  const activeFilterCount =
-    (applies.status && status !== 'all' ? 1 : 0) +
-    (applies.dealType && dealType !== 'all' ? 1 : 0) +
-    (ptype !== 'all' ? 1 : 0) +
-    (applies.owner && ownerFilter !== 'all' ? 1 : 0) +
-    (applies.activity && activity !== 'all' ? 1 : 0) +
-    (applies.county && county !== 'all' ? 1 : 0) +
-    (applies.buildingSf && (sfMin || sfMax) ? 1 : 0) +
-    (acMin || acMax ? 1 : 0) +
-    (applies.price && (priceMin || priceMax) ? 1 : 0) +
-    // The three lease windows count separately: they are three questions, and a badge of
-    // 1 for all of them would understate how narrow the list has become.
-    (applies.lease && (leaseMonth || leaseMin || leaseMax) ? 1 : 0) +
-    (applies.lease && (signMin || signMax) ? 1 : 0) +
-    (applies.lease && (leaseSfMin || leaseSfMax) ? 1 : 0) +
-    (applies.lease && dmFilter !== 'all' ? 1 : 0)
-
-  // Map pins are opt-in: nothing preloads (Alex 2026-08-07 — plotting the whole book made
-  // the map take forever to appear). A search, any filter, or a drawn shape is the signal
-  // that a specific set is wanted, and only then do pins plot.
-  const hasQuery =
-    searchTokens(search).length > 0 ||
-    activeFilterCount > 0 ||
-    portfolioOwnerId != null ||
-    (polygon != null && polygon.length >= 3)
-
   const clearFilters = () => {
     setStatus('all')
     setPtype('all')
@@ -1007,6 +1061,10 @@ export function PropertiesPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              // Clicking into the box is the first sign a question is coming, and the
+              // book takes a few seconds to arrive. Start it now rather than on the
+              // keystroke, so the answer is usually waiting by the time it's asked.
+              onFocus={() => setWantsBook(true)}
               placeholder="Search properties…"
               className="pl-9"
             />
@@ -1065,7 +1123,9 @@ export function PropertiesPage() {
               </Button>
             </div>
           )}
-          <Popover>
+          {/* Opening the panel is the same signal as clicking the search box: a filter is
+              about to narrow the whole book, so start fetching it now. */}
+          <Popover onOpenChange={(open) => open && setWantsBook(true)}>
             <PopoverTrigger asChild>
               <Button variant="outline">
                 <SlidersHorizontal className="size-4" />
@@ -1346,14 +1406,16 @@ export function PropertiesPage() {
         </div>
       </div>
 
-      {!isLoading && !isError && (properties ?? []).length > 0 && (
+      {/* "of the book" only means something when the book is loaded — on the bare map the
+          count that matters is what's in view, and the map's own header says it. */}
+      {!isLoading && !isError && !viewportOnly && (properties ?? []).length > 0 && (
         <p className="text-xs text-muted-foreground">
           Showing {filtered.length} of {(properties ?? []).length} properties
         </p>
       )}
 
-      {/* Map view renders immediately — tiles first, the book streams in behind it. It
-          never waits on the (big) properties fetch, because pins only plot on demand. */}
+      {/* The map loads what the camera is pointed at, not the book: tiles and pins are
+          both there within a moment of opening, at any zoom, with nothing to type first. */}
       {view === 'map' && !isError ? (
         <div className="space-y-2">
           {/* Shape search: click the map to drop vertices, Finish closes the polygon. */}
@@ -1402,10 +1464,12 @@ export function PropertiesPage() {
                 : polygon
                   ? `${filtered.length.toLocaleString()} in shape`
                   : hasQuery
-                    ? `${filtered.length.toLocaleString()} matching`
-                    : isLoading
-                      ? 'Loading properties in the background…'
-                      : `${(properties ?? []).length.toLocaleString()} loaded — pins appear when you search or filter`}
+                    ? isLoading
+                      ? 'Searching the whole book…'
+                      : `${filtered.length.toLocaleString()} matching`
+                    : mapView.isFetching
+                      ? 'Loading this area…'
+                      : `${mapView.data.totalInView.toLocaleString()} in this area`}
             </span>
             <Button size="sm" variant="outline" onClick={runExport} disabled={filtered.length === 0}>
               <Download className="size-4" />
@@ -1459,16 +1523,24 @@ export function PropertiesPage() {
       )}
 
       <PropertiesMap
-            properties={hasQuery ? filtered : []}
+            properties={filtered}
             parcelProperties={filtered}
+            // Only the viewport fetch knows how many properties the box really holds; on
+            // the query path `filtered` IS the whole answer, so there is no wider total.
+            totalInView={viewportOnly ? mapView.data.totalInView : undefined}
+            onViewportChange={setViewport}
             emptyHint={
-              isLoading
-                ? 'Loading properties in the background — the map is ready now.'
-                : hasQuery
-                  ? filtered.length === 0
+              hasQuery
+                ? isLoading
+                  ? 'Searching the whole book…'
+                  : filtered.length === 0
                     ? 'Nothing matches the current search/filters.'
                     : undefined
-                  : 'Pins appear when you search, filter, or draw a shape.'
+                : mapView.isError
+                  ? 'Could not load the properties in this area — pan to retry.'
+                  : mapView.isFetching
+                    ? 'Loading the properties in view…'
+                    : 'No properties here yet — pan or zoom out to find some.'
             }
             goodDealIds={goodDealIds}
             executedIds={executedIds}

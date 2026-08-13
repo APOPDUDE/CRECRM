@@ -15,9 +15,10 @@ const PAGE = 1000
  * War Room on whatever expiry or sign-date range the broker types -- and a server
  * round-trip per slice would refetch on every keystroke of the filter.
  */
-export function useLeaseComps() {
+export function useLeaseComps(enabled = true) {
   return useQuery({
     queryKey: ['lease-comps'],
+    enabled,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       // count:'exact' on the first page only; repeating it per page just multiplies work.

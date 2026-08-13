@@ -67,7 +67,28 @@ function ViewportKeeper() {
   return null
 }
 
-/** Report the live viewport bounds so marker rendering can follow the camera. */
+/**
+ * Keep Leaflet's idea of its own size honest.
+ *
+ * Leaflet measures its container once and then only listens for window resizes, so a
+ * container that changes size on its own — the sidebar collapsing, a phone rotating, or
+ * the map painting its first frame while the panel around it is still laying out — leaves
+ * it convinced it is the old size. That used to cost a few misplaced tiles. Now bounds
+ * decide which properties load, so a stale size means an empty map.
+ */
+function SizeWatcher() {
+  const map = useMap()
+  useEffect(() => {
+    // invalidateSize is a no-op when nothing changed, and fires moveend when it did —
+    // which is exactly the signal the loader below is already waiting for.
+    const ro = new ResizeObserver(() => map.invalidateSize())
+    ro.observe(map.getContainer())
+    return () => ro.disconnect()
+  }, [map])
+  return null
+}
+
+/** Report the live viewport bounds so marker rendering — and loading — follow the camera. */
 function BoundsWatcher({ onBounds }: { onBounds: (b: L.LatLngBounds) => void }) {
   const map = useMapEvents({
     moveend: () => onBounds(map.getBounds()),
@@ -482,6 +503,8 @@ export function PropertiesMap({
   drawMode = false,
   onAddVertex,
   asking,
+  onViewportChange,
+  totalInView,
 }: {
   properties: Property[]
   /**
@@ -510,6 +533,18 @@ export function PropertiesMap({
   onAddVertex?: (lat: number, lng: number) => void
   /** Current asking per property, so a listed pin can show its rate/price on hover. */
   asking?: Map<string, CurrentAsking>
+  /**
+   * Fires with the camera's bounds on every settled pan/zoom. The parent uses it to load
+   * only the properties on screen — the map asks for what the user is looking at rather
+   * than being handed the whole book up front.
+   */
+  onViewportChange?: (bounds: { south: number; west: number; north: number; east: number }) => void
+  /**
+   * How many properties the viewport actually holds when `properties` is a capped slice
+   * of it. Lets the header say "1,200 of 3,386 here" instead of implying that what
+   * arrived is all there is.
+   */
+  totalInView?: number
 }) {
   const navigate = useNavigate()
   // read once per mount: restoring the exact spot the user left when they clicked a pin
@@ -572,6 +607,18 @@ export function PropertiesMap({
   // Pan or zoom and the markers around you (re)load — every property in a street-level
   // viewport gets its pin, while a whole-region view stays capped for performance.
   const [viewBounds, setViewBounds] = useState<L.LatLngBounds | null>(null)
+  const onBounds = useCallback(
+    (b: L.LatLngBounds) => {
+      setViewBounds(b)
+      onViewportChange?.({
+        south: b.getSouth(),
+        west: b.getWest(),
+        north: b.getNorth(),
+        east: b.getEast(),
+      })
+    },
+    [onViewportChange],
+  )
   const shown = useMemo(() => {
     if (!viewBounds) return points.slice(0, maxMarkers)
     const padded = viewBounds.pad(0.2)
@@ -585,17 +632,26 @@ export function PropertiesMap({
     return inView
   }, [points, maxMarkers, viewBounds])
 
+  // What the line above the map says. `totalInView` is present only when the parent is
+  // loading by viewport, and then it — not the size of the slice that arrived — is the
+  // honest denominator: "1,200 of 3,386 here" rather than a quiet truncation.
+  const num = (n: number) => n.toLocaleString()
+  const headline =
+    points.length === 0
+      ? emptyHint ??
+        'None of these properties have map coordinates yet — add a parcel/address so they can be located.'
+      : totalInView != null
+        ? shown.length < totalInView
+          ? `${num(shown.length)} of ${num(totalInView)} properties here — zoom in to see the rest · click a pin to open`
+          : `${num(shown.length)} in view · click a pin to open · zoom in for parcel lines.`
+        : shown.length >= maxMarkers
+          ? `Showing the ${num(shown.length)} nearest of ${num(points.length)} mapped — zoom in and every property in view gets a pin.`
+          : `${num(shown.length)} in view of ${num(points.length)} mapped · click a pin to open · zoom in for parcel lines.`
+
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <p className="text-xs text-muted-foreground">
-          {points.length === 0
-            ? emptyHint ??
-              'None of these properties have map coordinates yet — add a parcel/address so they can be located.'
-            : shown.length >= maxMarkers
-              ? `Showing the ${shown.length} nearest of ${points.length} mapped — zoom in and every property in view gets a pin.`
-              : `${shown.length} in view of ${points.length} mapped · click a pin to open · zoom in for parcel lines.`}
-        </p>
+        <p className="text-xs text-muted-foreground">{headline}</p>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           {LEGENDS[colorBy].map(({ c, label }) => (
             <span key={label} className="inline-flex items-center gap-1.5">
@@ -621,6 +677,7 @@ export function PropertiesMap({
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
           />
+          <SizeWatcher />
           <ViewportKeeper />
           <ParcelLines
             parcelIndex={parcelIndex}
@@ -628,8 +685,14 @@ export function PropertiesMap({
             onMatchedIds={applyOutlined}
             onOpenProperty={(pid) => navigate(`/properties/${pid}`)}
           />
-          <BoundsWatcher onBounds={setViewBounds} />
-          <FitToPoints points={points} suspended={drawMode || !!polygon} skipInitial={!!initialView} />
+          <BoundsWatcher onBounds={onBounds} />
+          {/* `totalInView` present means the parent is loading by viewport: the camera is
+              driving the data, so the data must not drive the camera back. */}
+          <FitToPoints
+            points={points}
+            suspended={drawMode || !!polygon || totalInView != null}
+            skipInitial={!!initialView}
+          />
           {drawMode && onAddVertex && <ShapeDrawer onVertex={onAddVertex} />}
           {/* the completed search shape */}
           {polygon && polygon.length >= 3 && (

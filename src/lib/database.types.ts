@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      _rollback_contacts_verified_20260812: {
+        Row: {
+          archived: boolean | null
+          archived_reason: string | null
+          decision_maker:
+            | Database["public"]["Enums"]["decision_maker_status"]
+            | null
+          id: string | null
+        }
+        Insert: {
+          archived?: boolean | null
+          archived_reason?: string | null
+          decision_maker?:
+            | Database["public"]["Enums"]["decision_maker_status"]
+            | null
+          id?: string | null
+        }
+        Update: {
+          archived?: boolean | null
+          archived_reason?: string | null
+          decision_maker?:
+            | Database["public"]["Enums"]["decision_maker_status"]
+            | null
+          id?: string | null
+        }
+        Relationships: []
+      }
       _rollback_replay_20260708: {
         Row: {
           address: string | null
@@ -828,6 +855,33 @@ export type Database = {
           },
         ]
       }
+      county_land_rents: {
+        Row: {
+          county: string
+          notes: string | null
+          rent_per_acre_month: number
+          source: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          county: string
+          notes?: string | null
+          rent_per_acre_month: number
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          county?: string
+          notes?: string | null
+          rent_per_acre_month?: number
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       county_lookup: {
         Row: {
           city_key: string
@@ -1514,6 +1568,8 @@ export type Database = {
           truck_court_ft: number | null
           updated_at: string
           usable_acres: number | null
+          usable_acres_source: string | null
+          usable_acres_updated_at: string | null
           volts: string | null
           year_built: number | null
           year_renovated: number | null
@@ -1570,6 +1626,7 @@ export type Database = {
           owner_id?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
+          parcel_key?: string | null
           parcel_number?: string | null
           parking_ratio?: string | null
           parking_spaces?: number | null
@@ -1581,6 +1638,7 @@ export type Database = {
           sale_type?: string | null
           scrape_facts?: Json | null
           scraped_at?: string | null
+          search_text?: string | null
           site_address?: string | null
           source?: string | null
           source_key?: string | null
@@ -1595,6 +1653,8 @@ export type Database = {
           truck_court_ft?: number | null
           updated_at?: string
           usable_acres?: number | null
+          usable_acres_source?: string | null
+          usable_acres_updated_at?: string | null
           volts?: string | null
           year_built?: number | null
           year_renovated?: number | null
@@ -1651,6 +1711,7 @@ export type Database = {
           owner_id?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
+          parcel_key?: string | null
           parcel_number?: string | null
           parking_ratio?: string | null
           parking_spaces?: number | null
@@ -1662,6 +1723,7 @@ export type Database = {
           sale_type?: string | null
           scrape_facts?: Json | null
           scraped_at?: string | null
+          search_text?: string | null
           site_address?: string | null
           source?: string | null
           source_key?: string | null
@@ -1676,6 +1738,8 @@ export type Database = {
           truck_court_ft?: number | null
           updated_at?: string
           usable_acres?: number | null
+          usable_acres_source?: string | null
+          usable_acres_updated_at?: string | null
           volts?: string | null
           year_built?: number | null
           year_renovated?: number | null
@@ -2254,27 +2318,6 @@ export type Database = {
           },
         ]
       }
-      valuation_params: {
-        Row: {
-          key: string
-          notes: string | null
-          updated_at: string
-          value: number
-        }
-        Insert: {
-          key: string
-          notes?: string | null
-          updated_at?: string
-          value: number
-        }
-        Update: {
-          key?: string
-          notes?: string | null
-          updated_at?: string
-          value?: number
-        }
-        Relationships: []
-      }
       valuation_comp_exclusions: {
         Row: {
           comp_id: string
@@ -2303,20 +2346,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "valuation_comp_exclusions_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "v_lease_comps"
+            referencedColumns: ["comp_id"]
+          },
+          {
+            foreignKeyName: "valuation_comp_exclusions_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_current_asking"
+            referencedColumns: ["comp_id"]
+          },
+          {
             foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
         ]
+      }
+      valuation_params: {
+        Row: {
+          key: string
+          notes: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          key: string
+          notes?: string | null
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          key?: string
+          notes?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
       }
     }
     Views: {
       v_comp_class_premium: {
         Row: {
-          building_class: string | null
           bucket: string | null
+          building_class: string | null
           factor: number | null
           n: number | null
           ptype: string | null
@@ -2329,6 +2421,17 @@ export type Database = {
           bucket: string | null
           n: number | null
           ptype: string | null
+        }
+        Relationships: []
+      }
+      v_county_land_metrics: {
+        Row: {
+          county: string | null
+          excess_acre_value: number | null
+          med_psf: number | null
+          n: number | null
+          n_excess: number | null
+          typ_coverage: number | null
         }
         Relationships: []
       }
@@ -2353,6 +2456,15 @@ export type Database = {
           sale_n: number | null
           sale_p25_psf: number | null
           sale_p75_psf: number | null
+        }
+        Relationships: []
+      }
+      v_excess_land_decay: {
+        Row: {
+          beta: number | null
+          med_excess_acres: number | null
+          n: number | null
+          r: number | null
         }
         Relationships: []
       }
@@ -2612,6 +2724,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      apply_ghl_tag: { Args: { p: Json }; Returns: Json }
+      apply_ghl_tag_set: { Args: { p: Json }; Returns: Json }
+      apply_land_decay: {
+        Args: {
+          p_acres: number
+          p_beta: number
+          p_max: number
+          p_min: number
+          p_typical: number
+        }
+        Returns: number
+      }
       approve_buyer_intake: {
         Args: { p_client_id: string; p_intake_id: string }
         Returns: Json
@@ -2791,6 +2915,10 @@ export type Database = {
         Args: { p_contact: string }
         Returns: undefined
       }
+      import_usable_acres: {
+        Args: { p: Json; p_area_tolerance?: number }
+        Returns: Json
+      }
       intake_buyer_tag: { Args: { p: Json }; Returns: Json }
       intake_client: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_landlord_listing: {
@@ -2802,12 +2930,31 @@ export type Database = {
         Args: { p_county?: string }
         Returns: Json
       }
+      map_properties: {
+        Args: {
+          p_limit?: number
+          p_max_lat: number
+          p_max_lng: number
+          p_min_lat: number
+          p_min_lng: number
+        }
+        Returns: {
+          owner_ctx: Json
+          property: Json
+          total_in_view: number
+        }[]
+      }
       mark_contact_as_buyer: { Args: { p_contact_id: string }; Returns: Json }
       mark_owners_exported: {
         Args: { p_property_ids: string[] }
         Returns: Json
       }
       match_addresses: { Args: { p: Json }; Returns: Json }
+      normalize_address_text: { Args: { p_text: string }; Returns: string }
+      normalize_lease_structure: {
+        Args: { p: string }
+        Returns: Database["public"]["Enums"]["lease_structure"]
+      }
       normalize_owner_name: { Args: { p_name: string }; Returns: string }
       normalize_parcel: { Args: { p: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
@@ -2894,10 +3041,7 @@ export type Database = {
         }[]
       }
       search_properties: {
-        Args: {
-          p_limit?: number
-          p_query: string
-        }
+        Args: { p_limit?: number; p_query: string }
         Returns: {
           address: string
           city: string
@@ -2911,6 +3055,8 @@ export type Database = {
         }[]
       }
       set_property_coords: { Args: { p: Json }; Returns: Json }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       strip_html: { Args: { p: string }; Returns: string }
       suggest_properties_to_client: {
         Args: { p_client_id: string; p_property_ids: string[] }

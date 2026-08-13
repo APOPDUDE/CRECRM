@@ -82,9 +82,18 @@ export function dealCount(p: Pick<PropertyWithCounts, 'listings' | 'matches'>): 
   return (p.listings?.[0]?.count ?? 0) + (p.matches?.[0]?.count ?? 0)
 }
 
-export function useProperties() {
+/**
+ * The whole book, paged in parallel.
+ *
+ * `enabled` exists because this is expensive — ~17k rows, and every consumer that mounts
+ * it pays for all of them. The map no longer does: it loads by viewport (see
+ * {@link import('./use-map-properties').useMapProperties}) and only reaches for the book
+ * when a search or filter asks a question about properties that aren't on screen.
+ */
+export function useProperties(enabled = true) {
   return useQuery({
     queryKey: ['properties'],
+    enabled,
     // The book is ~13k rows: refetching it on every mount made returning to the map feel
     // frozen. Cache for 5 minutes (mutations invalidate explicitly), don't refetch on
     // window focus, and fetch the pages IN PARALLEL (serial paging was 14 round-trips).
