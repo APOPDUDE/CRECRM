@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConfidenceBadge } from '@/components/value-estimate-card'
 import { useCountyMarketStats } from '@/hooks/use-market'
+import { useProperty } from '@/hooks/use-properties'
 import {
   estimatedAnnualTax,
   usePropertyValuation,
@@ -236,10 +237,17 @@ function BucketSection({
  * are built to roughly the market's typical coverage and this section stays out
  * of the way.
  */
-function LandSection({ val }: { val: PropertyValuation }) {
+function LandSection({ val, propertyId }: { val: PropertyValuation; propertyId: string }) {
+  // Already in cache — the property page loaded this row before the sheet opened.
+  const { data: property } = useProperty(propertyId)
   const lc = val.land_component
   if (!lc || lc.excess_acres <= 0) return null
   const acres = (v: number | null) => (v == null ? '—' : `${v} ac`)
+  const nwi = property?.wet_acres_nwi ?? null
+  const county = property?.lowlands_acres_county ?? null
+  const countyBinds = county != null && (nwi == null || county > nwi)
+  const otherSource = countyBinds ? nwi : county
+  const otherLabel = countyBinds ? 'NWI' : 'the county'
   const footprintAcres =
     val.subject.sf != null && val.subject.sf > 0
       ? Math.round((val.subject.sf / 43560) * 100) / 100
@@ -258,16 +266,20 @@ function LandSection({ val }: { val: PropertyValuation }) {
             <span className="tabular-nums">{acres(lc.acres_total)}</span>
           </div>
         )}
+        {/* Two sources, and they disagree in both directions. Show the one that
+            bound and what the other said, rather than resolving it silently — on
+            9501 Palm River Rd NWI saw 3.8 acres where the county calls 13.7
+            unbuildable, and a broker should get to see that argument. */}
         {!lc.usable_is_estimated &&
           lc.acres_total != null &&
           lc.acres_usable != null &&
           lc.acres_total - lc.acres_usable > 0.01 && (
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-muted-foreground">
-                Wetland
+                {countyBinds ? 'Lowlands' : 'Wetland'}
                 <span className="ml-1 text-xs">
-                  National Wetlands Inventory
-                  {lc.usable_source === 'manual' ? ' (overridden by hand)' : ''}
+                  {countyBinds ? 'county appraiser' : 'National Wetlands Inventory'}
+                  {otherSource != null && ` · ${otherLabel} says ${otherSource} ac`}
                 </span>
               </span>
               <span className="tabular-nums">
@@ -528,7 +540,7 @@ export function ValuationDetailSheet({
             <BucketSection bucket="lease" val={val} propertyId={propertyId} />
             <BucketSection bucket="land" val={val} propertyId={propertyId} />
 
-            <LandSection val={val} />
+            <LandSection val={val} propertyId={propertyId} />
             <TaxSection val={val} />
             <CountyContext county={val.subject.county} />
 
