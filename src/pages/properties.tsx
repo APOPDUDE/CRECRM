@@ -39,7 +39,13 @@ import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { PropertiesMap, type MapColorBy } from '@/components/properties-map'
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
-import { useMapProperties, type MapViewport } from '@/hooks/use-map-properties'
+import {
+  MAP_SEARCH_LIMIT,
+  useMapProperties,
+  useMapSearch,
+  type MapViewport,
+} from '@/hooks/use-map-properties'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
@@ -422,12 +428,22 @@ export function PropertiesPage() {
    * counties away, so answering one needs the whole book. The bare map does not: there
    * the camera IS the query, and the viewport fetch answers it in one round trip.
    */
+  const hasText = searchTokens(search).length > 0
   const hasQuery =
-    searchTokens(search).length > 0 ||
+    hasText ||
     activeFilterCount > 0 ||
     portfolioOwnerId != null ||
     (polygon != null && polygon.length >= 3)
   const viewportOnly = view === 'map' && !hasQuery
+  /**
+   * A typed search on the map is answered by Postgres, not by the book.
+   *
+   * Any other filter still rides along on top of the matches — they narrow a set of
+   * hundreds, which is cheap. A portfolio is the exception: it is a question about an
+   * owner rather than about text, and it wants every holding, not the ones whose address
+   * happens to match.
+   */
+  const mapSearchOnly = view === 'map' && hasText && portfolioOwnerId == null
 
   /**
    * Which of the lease questions are being asked, in one place.
@@ -446,10 +462,11 @@ export function PropertiesPage() {
     const dmOn = dmFilter !== 'all'
     return { monthPicked, expiryOn, signOn, sfOn, dmOn, any: expiryOn || signOn || sfOn || dmOn }
   }, [leaseMonth, leaseMin, leaseMax, signMin, signMax, leaseSfMin, leaseSfMax, dmFilter])
-  // Deliberately wider than `viewportOnly`: the book is fetched as soon as the user looks
-  // like they are about to ask for it, not only once they have. Waiting for the question
-  // would put a multi-second fetch between the first keystroke and any answer.
-  const needsBook = !viewportOnly || wantsBook
+  // The book is what answers a filter, a shape or a portfolio — the questions Postgres
+  // isn't being asked. `wantsBook` starts it the moment the filter panel opens rather than
+  // when the filter is chosen, so the multi-second fetch happens while Alex is still
+  // deciding instead of after.
+  const needsBook = (!viewportOnly && !mapSearchOnly) || wantsBook
 
   const { data: properties, isLoading, isError, refetch } = useProperties(needsBook)
   const { data: goodDealIds } = useGoodDealIds()
@@ -463,23 +480,43 @@ export function PropertiesPage() {
     view === 'table' || colorBy === 'lease' || (applies.lease && leaseFilter.any),
   )
   const mapView = useMapProperties(viewport, viewportOnly)
+  // Trails the box so a query fires on pauses, not on every letter.
+  const debouncedSearch = useDebouncedValue(search.trim(), 250)
+  const mapSearch = useMapSearch(debouncedSearch, mapSearchOnly)
+  /**
+   * Between the keystroke and the query there is a quarter-second where nothing has been
+   * asked yet and nothing has come back — and `isFetching` is false throughout it, because
+   * the request does not exist. Reporting that honestly matters: without the first clause
+   * the map answers "Nothing matches" before it has looked.
+   */
+  const searching =
+    mapSearchOnly && (debouncedSearch !== search.trim() || mapSearch.isFetching)
 
   /**
    * The set the page works from.
    *
-   * On the map with nothing asked, that is whatever the camera is pointed at — a few
-   * hundred rows with their owner context, in one request. Everything else works from the
-   * book, which is now fetched when a search, filter or the table actually needs it
-   * rather than on every visit to this page.
+   * On the map it is whatever was asked for and nothing more: the camera when nothing was
+   * typed, the search results when something was. The book — ~17k rows and the owner
+   * context to match — is now reserved for the questions neither of those can answer: a
+   * filter on its own, a drawn shape, a portfolio, and the table.
    */
   const book = useMemo(
     // Memoised for its identity as much as its contents: `properties ?? []` would mint a
     // fresh empty array on every render while the book is still loading, and everything
     // downstream keys its useMemo off this.
-    () => (viewportOnly ? mapView.data.properties : (properties ?? [])),
-    [viewportOnly, mapView.data.properties, properties],
+    () =>
+      viewportOnly
+        ? mapView.data.properties
+        : mapSearchOnly
+          ? mapSearch.data.properties
+          : (properties ?? []),
+    [viewportOnly, mapSearchOnly, mapView.data.properties, mapSearch.data.properties, properties],
   )
-  const ownerCtx = viewportOnly ? mapView.data.ownerContext : ownerCtxBook
+  const ownerCtx = viewportOnly
+    ? mapView.data.ownerContext
+    : mapSearchOnly
+      ? mapSearch.data.ownerContext
+      : ownerCtxBook
 
   // Deep link from a property's mini-map: /properties?view=map&q=<address>.
   // Every filter here is sticky, so a saved county/type/shape from an earlier session
@@ -693,7 +730,11 @@ export function PropertiesPage() {
   const portfolioOwnerName = portfolioAll[0]?.owner_name ?? null
 
   const filtered = useMemo(() => {
-    const tokens = searchTokens(search)
+    // Empty when Postgres did the matching. Re-running the browser's own test over those
+    // rows would quietly drop the hits it found by parcel number or folio, which do not
+    // appear in the haystack at all — the same trap `contact-select` avoids with
+    // `shouldFilter={false}`.
+    const tokens = mapSearchOnly ? [] : searchTokens(search)
     const n = (v: string) => {
       const x = parseFloat(v)
       return Number.isFinite(x) ? x : null
@@ -757,7 +798,7 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [book, portfolioOwnerId, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [book, portfolioOwnerId, mapSearchOnly, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
@@ -1058,13 +1099,11 @@ export function PropertiesPage() {
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            {/* No prefetch on focus any more: typing here is answered by Postgres, so the
+                search box no longer has a book to warm. */}
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              // Clicking into the box is the first sign a question is coming, and the
-              // book takes a few seconds to arrive. Start it now rather than on the
-              // keystroke, so the answer is usually waiting by the time it's asked.
-              onFocus={() => setWantsBook(true)}
               placeholder="Search properties…"
               className="pl-9"
             />
@@ -1463,13 +1502,23 @@ export function PropertiesPage() {
                   : `${draft!.length} points — keep clicking or Finish`
                 : polygon
                   ? `${filtered.length.toLocaleString()} in shape`
-                  : hasQuery
-                    ? isLoading
-                      ? 'Searching the whole book…'
-                      : `${filtered.length.toLocaleString()} matching`
-                    : mapView.isFetching
-                      ? 'Loading this area…'
-                      : `${mapView.data.totalInView.toLocaleString()} in this area`}
+                  : mapSearchOnly
+                    ? searching
+                      ? 'Searching…'
+                      : mapSearch.searchCapped
+                        ? // "of the first N" only reads right when a filter narrowed the
+                          // page; unnarrowed it would say "1,000 of the first 1,000".
+                          filtered.length < MAP_SEARCH_LIMIT
+                          ? `${filtered.length.toLocaleString()} of the first ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
+                          : `First ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
+                        : `${filtered.length.toLocaleString()} matching`
+                    : hasQuery
+                      ? isLoading
+                        ? 'Loading the book to filter it…'
+                        : `${filtered.length.toLocaleString()} matching`
+                      : mapView.isFetching
+                        ? 'Loading this area…'
+                        : `${mapView.data.totalInView.toLocaleString()} in this area`}
             </span>
             <Button size="sm" variant="outline" onClick={runExport} disabled={filtered.length === 0}>
               <Download className="size-4" />
@@ -1530,17 +1579,25 @@ export function PropertiesPage() {
             totalInView={viewportOnly ? mapView.data.totalInView : undefined}
             onViewportChange={setViewport}
             emptyHint={
-              hasQuery
-                ? isLoading
-                  ? 'Searching the whole book…'
-                  : filtered.length === 0
-                    ? 'Nothing matches the current search/filters.'
-                    : undefined
-                : mapView.isError
-                  ? 'Could not load the properties in this area — pan to retry.'
-                  : mapView.isFetching
-                    ? 'Loading the properties in view…'
-                    : 'No properties here yet — pan or zoom out to find some.'
+              mapSearchOnly
+                ? searching
+                  ? 'Searching…'
+                  : mapSearch.isError
+                    ? 'Could not run that search — try again.'
+                    : filtered.length === 0
+                      ? `Nothing matches “${search.trim()}”.`
+                      : undefined
+                : hasQuery
+                  ? isLoading
+                    ? 'Loading the book to filter it…'
+                    : filtered.length === 0
+                      ? 'Nothing matches the current search/filters.'
+                      : undefined
+                  : mapView.isError
+                    ? 'Could not load the properties in this area — pan to retry.'
+                    : mapView.isFetching
+                      ? 'Loading the properties in view…'
+                      : 'No properties here yet — pan or zoom out to find some.'
             }
             goodDealIds={goodDealIds}
             executedIds={executedIds}

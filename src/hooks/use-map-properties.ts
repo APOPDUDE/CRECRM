@@ -58,6 +58,23 @@ const EMPTY: MapPropertiesResult = {
   totalInView: 0,
 }
 
+/** Both map RPCs return the same three columns, so they unpack the same way. */
+type MapRow = { property: unknown; owner_ctx: unknown; total_in_view: number }
+
+function unpack(rows: MapRow[]): MapPropertiesResult {
+  const properties: PropertyWithCounts[] = []
+  const ownerContext = new Map<string, OwnerContext>()
+  for (const row of rows) {
+    // Deal counts are the one thing a map row doesn't carry: they cost a subquery per
+    // property and only the table's Deals column reads them. Empty rather than absent
+    // so a map row is the same shape as a book row everywhere downstream.
+    const p = { ...(row.property as PropertyWithCounts), listings: [], matches: [] }
+    properties.push(p)
+    if (row.owner_ctx) ownerContext.set(p.id, row.owner_ctx as OwnerContext)
+  }
+  return { properties, ownerContext, totalInView: rows[0]?.total_in_view ?? 0 }
+}
+
 /**
  * The properties inside the current camera, with their owner context attached.
  *
@@ -91,24 +108,48 @@ export function useMapProperties(viewport: MapViewport | null, enabled = true) {
         p_limit: MAP_VIEWPORT_LIMIT,
       })
       if (error) throw error
-      const rows = (data ?? []) as {
-        property: unknown
-        owner_ctx: unknown
-        total_in_view: number
-      }[]
-      const properties: PropertyWithCounts[] = []
-      const ownerContext = new Map<string, OwnerContext>()
-      for (const row of rows) {
-        // Deal counts are the one thing a map row doesn't carry: they cost a subquery per
-        // property and only the table's Deals column reads them. Empty rather than absent
-        // so a map row is the same shape as a book row everywhere downstream.
-        const p = { ...(row.property as PropertyWithCounts), listings: [], matches: [] }
-        properties.push(p)
-        if (row.owner_ctx) ownerContext.set(p.id, row.owner_ctx as OwnerContext)
-      }
-      return { properties, ownerContext, totalInView: rows[0]?.total_in_view ?? 0 }
+      return unpack((data ?? []) as MapRow[])
     },
   })
 
   return { ...query, data: query.data ?? EMPTY }
+}
+
+/**
+ * How many typed matches one search may return.
+ *
+ * PostgREST's own ceiling, and well past the map's marker cap — a query broad enough to
+ * hit it ("Tampa") is one to narrow, not to scroll. `searchCapped` below says so out loud
+ * rather than letting a truncated set read as the whole answer.
+ */
+export const MAP_SEARCH_LIMIT = 1000
+
+/**
+ * Properties matching a typed query, straight from Postgres.
+ *
+ * The map used to answer a search by pulling the whole book and matching in the browser
+ * against a haystack built from every row — ~20 seconds before the first result. Postgres
+ * already knows what a match is (`search_properties()`, 84ms over a trigram index), so the
+ * search box asks it instead. Matching is NOT repeated on the client: Postgres has already
+ * decided, and re-filtering here would quietly drop the hits it found by parcel or folio.
+ */
+export function useMapSearch(query: string, enabled = true) {
+  const q = query.trim()
+  const result = useQuery({
+    queryKey: ['map-search', q],
+    enabled: enabled && q.length > 0,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<MapPropertiesResult> => {
+      const { data, error } = await supabase.rpc('search_map_properties', {
+        p_query: q,
+        p_limit: MAP_SEARCH_LIMIT,
+      })
+      if (error) throw error
+      return unpack((data ?? []) as MapRow[])
+    },
+  })
+  const data = result.data ?? EMPTY
+  return { ...result, data, searchCapped: data.properties.length >= MAP_SEARCH_LIMIT }
 }
