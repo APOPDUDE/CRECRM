@@ -436,14 +436,18 @@ export function PropertiesPage() {
     (polygon != null && polygon.length >= 3)
   const viewportOnly = view === 'map' && !hasQuery
   /**
-   * A typed search on the map is answered by Postgres, not by the book.
+   * A typed search is answered by Postgres, not by the book — in BOTH views.
    *
-   * Any other filter still rides along on top of the matches — they narrow a set of
-   * hundreds, which is cheap. A portfolio is the exception: it is a question about an
-   * owner rather than about text, and it wants every holding, not the ones whose address
-   * happens to match.
+   * The table used to search its own way, over a haystack the browser builds from the
+   * book. That haystack holds only the address, so typing an owner's name found nothing
+   * there while the map found the building; one search box behaving two ways is a bug
+   * waiting to be reported. Both now ask the same question of the same function.
+   *
+   * Any other filter still rides along on top of the matches — narrowing a set of hundreds
+   * is cheap. A portfolio is the exception: it asks about an owner, not about text, and it
+   * wants every holding rather than the ones whose name happens to match.
    */
-  const mapSearchOnly = view === 'map' && hasText && portfolioOwnerId == null
+  const searchOnly = hasText && portfolioOwnerId == null
 
   /**
    * Which of the lease questions are being asked, in one place.
@@ -466,7 +470,7 @@ export function PropertiesPage() {
   // isn't being asked. `wantsBook` starts it the moment the filter panel opens rather than
   // when the filter is chosen, so the multi-second fetch happens while Alex is still
   // deciding instead of after.
-  const needsBook = (!viewportOnly && !mapSearchOnly) || wantsBook
+  const needsBook = (!viewportOnly && !searchOnly) || wantsBook
 
   const { data: properties, isLoading, isError, refetch } = useProperties(needsBook)
   const { data: goodDealIds } = useGoodDealIds()
@@ -482,7 +486,7 @@ export function PropertiesPage() {
   const mapView = useMapProperties(viewport, viewportOnly)
   // Trails the box so a query fires on pauses, not on every letter.
   const debouncedSearch = useDebouncedValue(search.trim(), 250)
-  const mapSearch = useMapSearch(debouncedSearch, mapSearchOnly)
+  const mapSearch = useMapSearch(debouncedSearch, searchOnly)
   /**
    * Between the keystroke and the query there is a quarter-second where nothing has been
    * asked yet and nothing has come back — and `isFetching` is false throughout it, because
@@ -490,7 +494,7 @@ export function PropertiesPage() {
    * the map answers "Nothing matches" before it has looked.
    */
   const searching =
-    mapSearchOnly && (debouncedSearch !== search.trim() || mapSearch.isFetching)
+    searchOnly && (debouncedSearch !== search.trim() || mapSearch.isFetching)
 
   /**
    * The set the page works from.
@@ -507,14 +511,14 @@ export function PropertiesPage() {
     () =>
       viewportOnly
         ? mapView.data.properties
-        : mapSearchOnly
+        : searchOnly
           ? mapSearch.data.properties
           : (properties ?? []),
-    [viewportOnly, mapSearchOnly, mapView.data.properties, mapSearch.data.properties, properties],
+    [viewportOnly, searchOnly, mapView.data.properties, mapSearch.data.properties, properties],
   )
   const ownerCtx = viewportOnly
     ? mapView.data.ownerContext
-    : mapSearchOnly
+    : searchOnly
       ? mapSearch.data.ownerContext
       : ownerCtxBook
 
@@ -734,7 +738,7 @@ export function PropertiesPage() {
     // rows would quietly drop the hits it found by parcel number or folio, which do not
     // appear in the haystack at all — the same trap `contact-select` avoids with
     // `shouldFilter={false}`.
-    const tokens = mapSearchOnly ? [] : searchTokens(search)
+    const tokens = searchOnly ? [] : searchTokens(search)
     const n = (v: string) => {
       const x = parseFloat(v)
       return Number.isFinite(x) ? x : null
@@ -798,7 +802,7 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [book, portfolioOwnerId, mapSearchOnly, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
@@ -1445,11 +1449,18 @@ export function PropertiesPage() {
         </div>
       </div>
 
-      {/* "of the book" only means something when the book is loaded — on the bare map the
-          count that matters is what's in view, and the map's own header says it. */}
-      {!isLoading && !isError && !viewportOnly && (properties ?? []).length > 0 && (
+      {/* "of the book" only means something when the book is loaded. On the bare map the
+          number that matters is what's in view (the map's own header says it), and under a
+          search the book was never fetched — there is no denominator to quote. */}
+      {!isLoading && !isError && !viewportOnly && !searchOnly && (properties ?? []).length > 0 && (
         <p className="text-xs text-muted-foreground">
           Showing {filtered.length} of {(properties ?? []).length} properties
+        </p>
+      )}
+      {!isError && searchOnly && view === 'table' && !searching && (
+        <p className="text-xs text-muted-foreground">
+          {filtered.length.toLocaleString()} matching “{search.trim()}”
+          {mapSearch.searchCapped && ` — first ${MAP_SEARCH_LIMIT.toLocaleString()}, narrow the search`}
         </p>
       )}
 
@@ -1502,7 +1513,7 @@ export function PropertiesPage() {
                   : `${draft!.length} points — keep clicking or Finish`
                 : polygon
                   ? `${filtered.length.toLocaleString()} in shape`
-                  : mapSearchOnly
+                  : searchOnly
                     ? searching
                       ? 'Searching…'
                       : mapSearch.searchCapped
@@ -1579,7 +1590,7 @@ export function PropertiesPage() {
             totalInView={viewportOnly ? mapView.data.totalInView : undefined}
             onViewportChange={setViewport}
             emptyHint={
-              mapSearchOnly
+              searchOnly
                 ? searching
                   ? 'Searching…'
                   : mapSearch.isError
@@ -1611,15 +1622,17 @@ export function PropertiesPage() {
             onAddVertex={(lat, lng) => setDraft((d) => [...(d ?? []), { lat, lng }])}
           />
         </div>
-      ) : isLoading ? (
+      ) : isLoading || searching ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
-      ) : isError ? (
+      ) : isError || (searchOnly && mapSearch.isError) ? (
         <ListErrorState message="Could not load properties." onRetry={() => refetch()} />
-      ) : (properties ?? []).length === 0 ? (
+      ) : /* Under a search the book is never fetched, so its emptiness says nothing about
+            whether Alex has any properties — only that he hasn't loaded them. */
+        !searchOnly && (properties ?? []).length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
             No properties yet — use “Add property” above to add the buildings and land you're working.

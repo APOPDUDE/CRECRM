@@ -568,6 +568,7 @@ export type Database = {
           industry: string | null
           naics: string | null
           name: string
+          normalized_name: string | null
           notes: string | null
           phone: string | null
           sic: string | null
@@ -584,6 +585,7 @@ export type Database = {
           industry?: string | null
           naics?: string | null
           name: string
+          normalized_name?: string | null
           notes?: string | null
           phone?: string | null
           sic?: string | null
@@ -600,6 +602,7 @@ export type Database = {
           industry?: string | null
           naics?: string | null
           name?: string
+          normalized_name?: string | null
           notes?: string | null
           phone?: string | null
           sic?: string | null
@@ -628,6 +631,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["comp_kind"]
           land_acres: number | null
           lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          normalized_tenant_name: string | null
           notes: string | null
           opex_psf: number | null
           owner_id: string | null
@@ -666,6 +670,7 @@ export type Database = {
           lease_structure?:
             | Database["public"]["Enums"]["lease_structure"]
             | null
+          normalized_tenant_name?: string | null
           notes?: string | null
           opex_psf?: number | null
           owner_id?: string | null
@@ -704,6 +709,7 @@ export type Database = {
           lease_structure?:
             | Database["public"]["Enums"]["lease_structure"]
             | null
+          normalized_tenant_name?: string | null
           notes?: string | null
           opex_psf?: number | null
           owner_id?: string | null
@@ -788,6 +794,7 @@ export type Database = {
           import_addresses: string[] | null
           last_contacted_at: string | null
           last_name: string | null
+          normalized_name: string | null
           notes: string | null
           phone: string | null
           phone_grade: string | null
@@ -818,6 +825,7 @@ export type Database = {
           import_addresses?: string[] | null
           last_contacted_at?: string | null
           last_name?: string | null
+          normalized_name?: string | null
           notes?: string | null
           phone?: string | null
           phone_grade?: string | null
@@ -848,6 +856,7 @@ export type Database = {
           import_addresses?: string[] | null
           last_contacted_at?: string | null
           last_name?: string | null
+          normalized_name?: string | null
           notes?: string | null
           phone?: string | null
           phone_grade?: string | null
@@ -1583,6 +1592,8 @@ export type Database = {
           listing_status: Database["public"]["Enums"]["listing_market_status"]
           listing_url: string | null
           lng: number | null
+          lowlands_acres_county: number | null
+          net_usable_acres: number | null
           num_units: number | null
           occupancy: string | null
           on_ground_lease: boolean | null
@@ -1620,6 +1631,7 @@ export type Database = {
           usable_acres_source: string | null
           usable_acres_updated_at: string | null
           volts: string | null
+          wet_acres_nwi: number | null
           year_built: number | null
           year_renovated: number | null
           zip: string | null
@@ -1668,6 +1680,8 @@ export type Database = {
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
           listing_url?: string | null
           lng?: number | null
+          lowlands_acres_county?: number | null
+          net_usable_acres?: number | null
           num_units?: number | null
           occupancy?: string | null
           on_ground_lease?: boolean | null
@@ -1705,6 +1719,7 @@ export type Database = {
           usable_acres_source?: string | null
           usable_acres_updated_at?: string | null
           volts?: string | null
+          wet_acres_nwi?: number | null
           year_built?: number | null
           year_renovated?: number | null
           zip?: string | null
@@ -1753,6 +1768,8 @@ export type Database = {
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
           listing_url?: string | null
           lng?: number | null
+          lowlands_acres_county?: number | null
+          net_usable_acres?: number | null
           num_units?: number | null
           occupancy?: string | null
           on_ground_lease?: boolean | null
@@ -1790,6 +1807,7 @@ export type Database = {
           usable_acres_source?: string | null
           usable_acres_updated_at?: string | null
           volts?: string | null
+          wet_acres_nwi?: number | null
           year_built?: number | null
           year_renovated?: number | null
           zip?: string | null
@@ -2647,6 +2665,7 @@ export type Database = {
           last_sale_date: string | null
           last_sale_price: number | null
           lat: number | null
+          listing_count: number | null
           listing_status:
             | Database["public"]["Enums"]["listing_market_status"]
             | null
@@ -2658,6 +2677,7 @@ export type Database = {
           owner_name: string | null
           parcel_number: string | null
           property_type: Database["public"]["Enums"]["property_kind"] | null
+          pursuit_count: number | null
           site_address: string | null
           source_address: string | null
           specs: string | null
@@ -2681,6 +2701,7 @@ export type Database = {
           last_sale_date?: string | null
           last_sale_price?: number | null
           lat?: number | null
+          listing_count?: never
           listing_status?:
             | Database["public"]["Enums"]["listing_market_status"]
             | null
@@ -2692,6 +2713,7 @@ export type Database = {
           owner_name?: string | null
           parcel_number?: string | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
+          pursuit_count?: never
           site_address?: string | null
           source_address?: string | null
           specs?: string | null
@@ -2715,6 +2737,7 @@ export type Database = {
           last_sale_date?: string | null
           last_sale_price?: number | null
           lat?: number | null
+          listing_count?: never
           listing_status?:
             | Database["public"]["Enums"]["listing_market_status"]
             | null
@@ -2726,6 +2749,7 @@ export type Database = {
           owner_name?: string | null
           parcel_number?: string | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
+          pursuit_count?: never
           site_address?: string | null
           source_address?: string | null
           specs?: string | null
@@ -3107,6 +3131,7 @@ export type Database = {
       }
       fs_safe_name: { Args: { p: string }; Returns: string }
       ghl_verify_owner: { Args: { p: Json }; Returns: Json }
+      import_county_lowlands: { Args: { p: Json }; Returns: Json }
       import_county_parcels: { Args: { p: Json }; Returns: Json }
       import_email_leads: { Args: { p: Json }; Returns: Json }
       import_email_threads: { Args: { p: Json }; Returns: Json }
@@ -3168,6 +3193,10 @@ export type Database = {
         Returns: Json
       }
       match_addresses: { Args: { p: Json }; Returns: Json }
+      name_has_all_tokens: {
+        Args: { p_n: number; p_text: string; p_tokens: string[] }
+        Returns: boolean
+      }
       normalize_address_text: { Args: { p_text: string }; Returns: string }
       normalize_lease_structure: {
         Args: { p: string }

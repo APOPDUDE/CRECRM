@@ -61,14 +61,21 @@ const EMPTY: MapPropertiesResult = {
 /** Both map RPCs return the same three columns, so they unpack the same way. */
 type MapRow = { property: unknown; owner_ctx: unknown; total_in_view: number }
 
+type RpcProperty = PropertyWithCounts & { listing_count?: number; pursuit_count?: number }
+
 function unpack(rows: MapRow[]): MapPropertiesResult {
   const properties: PropertyWithCounts[] = []
   const ownerContext = new Map<string, OwnerContext>()
   for (const row of rows) {
-    // Deal counts are the one thing a map row doesn't carry: they cost a subquery per
-    // property and only the table's Deals column reads them. Empty rather than absent
-    // so a map row is the same shape as a book row everywhere downstream.
-    const p = { ...(row.property as PropertyWithCounts), listings: [], matches: [] }
+    const raw = row.property as RpcProperty
+    // The RPC counts linked deals as two plain columns; the book gets the same numbers as
+    // PostgREST count-embeds. Reshaped here so a map row and a book row are interchangeable
+    // everywhere downstream — which is what lets the table search through this RPC too.
+    const p: PropertyWithCounts = {
+      ...raw,
+      listings: [{ count: raw.listing_count ?? 0 }],
+      matches: [{ count: raw.pursuit_count ?? 0 }],
+    }
     properties.push(p)
     if (row.owner_ctx) ownerContext.set(p.id, row.owner_ctx as OwnerContext)
   }
@@ -127,11 +134,16 @@ export const MAP_SEARCH_LIMIT = 1000
 /**
  * Properties matching a typed query, straight from Postgres.
  *
- * The map used to answer a search by pulling the whole book and matching in the browser
- * against a haystack built from every row — ~20 seconds before the first result. Postgres
- * already knows what a match is (`search_properties()`, 84ms over a trigram index), so the
- * search box asks it instead. Matching is NOT repeated on the client: Postgres has already
- * decided, and re-filtering here would quietly drop the hits it found by parcel or folio.
+ * The page used to answer a search by pulling the whole book and matching in the browser
+ * against a haystack built from every row — ~20 seconds before the first result, and it
+ * could only ever match the address. Postgres already knows what a match is
+ * (`search_properties()`, ~100ms over trigram indexes) and knows far more about the
+ * property than the browser does: it matches the owning entity, the county's owner of
+ * record, the person the skip trace attached, and the tenant on a lease comp.
+ *
+ * Matching is NOT repeated on the client. Postgres has already decided, and re-filtering
+ * here would quietly drop every hit that came from a name or a parcel number — none of
+ * which are in the browser's haystack.
  */
 export function useMapSearch(query: string, enabled = true) {
   const q = query.trim()
