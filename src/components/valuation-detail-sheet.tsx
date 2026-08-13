@@ -286,41 +286,20 @@ function LandSection({ val }: { val: PropertyValuation }) {
           </span>
           <span className="font-medium tabular-nums">{acres(lc.acres_usable)}</span>
         </div>
-        {/* Two different "usable" numbers, and confusing them double-counts the
-            parking. Net usable is the physical yard (uplands less the footprint);
-            excess is what earns money on top of the building's own comp. */}
-        {footprintAcres != null && lc.acres_usable != null && (
-          <>
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Building footprint</span>
-              <span className="tabular-nums">− {acres(footprintAcres)}</span>
-            </div>
-            <div className="flex items-baseline justify-between gap-3 border-t pt-2">
-              <span className="font-medium">
-                Usable yard
-                <span className="ml-1 text-xs font-normal text-muted-foreground">net_usable_acres</span>
-              </span>
-              <span className="font-semibold tabular-nums">
-                {acres(Math.round((lc.acres_usable - footprintAcres) * 100) / 100)}
-              </span>
-            </div>
-          </>
+        {footprintAcres != null && (
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">
+              Building footprint
+              <span className="ml-1 text-xs">gross SF</span>
+            </span>
+            <span className="tabular-nums">− {acres(footprintAcres)}</span>
+          </div>
         )}
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-muted-foreground">
-            Parking &amp; apron the building's own rate already covers
-            <span className="ml-1 text-xs">to {Math.round(lc.typ_coverage * 100)}% county coverage</span>
-          </span>
-          <span className="tabular-nums">
-            − {acres(
-              footprintAcres != null
-                ? Math.round((lc.supported_acres - footprintAcres) * 100) / 100
-                : lc.supported_acres,
-            )}
-          </span>
-        </div>
         <div className="flex items-baseline justify-between gap-3 border-t pt-2">
-          <span className="font-medium">Land that earns on top</span>
+          <span className="font-medium">
+            Usable yard
+            <span className="ml-1 text-xs font-normal text-muted-foreground">net_usable_acres</span>
+          </span>
           <span className="font-semibold tabular-nums">{acres(lc.excess_acres)}</span>
         </div>
 
@@ -348,9 +327,9 @@ function LandSection({ val }: { val: PropertyValuation }) {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          A comp's $/SF already includes a typical site, so only the acreage beyond that is added —
-          otherwise the dirt gets counted twice. Per-acre value falls steeply with size (measured on
-          our own sales), so a big back field is not priced like one extra acre by the dock.
+          The yard is the uplands less the building's own footprint. Per-acre value falls steeply with
+          size (measured on our own sales), so a big back field is not priced like one extra acre by
+          the dock.
           {lc.rent_capped &&
             ` Only ${lc.rentable_acres} acres are priced as yard: past that the land is a development play, not something one tenant lets.`}
           {lc.rent_source !== 'alex' && ' The yard rent for this county is an estimate — worth confirming.'}

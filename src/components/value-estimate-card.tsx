@@ -104,7 +104,11 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
   const buildingRent = val.lease?.building_monthly ?? 0
   // Per-acre is plain division on figures the engine already returned — a broker
   // comparing IOS sites thinks in $/acre, not $/SF, and the yard is most of the deal.
-  const acres = val.subject.land_acres ?? null
+  // On USABLE acres, not total: 4325 Hwy 92 is 25.94 acres of which 21.49 are
+  // wetland, and spreading the price over the swamp read as $27K/acre when the dry
+  // ground is worth $133K.
+  const acres = val.land_component.acres_usable ?? val.subject.land_acres ?? null
+  const acresAreUsable = val.land_component.acres_usable != null && !val.land_component.usable_is_estimated
   const pricePerAcre = total != null && acres ? total / acres : null
   const rentPerAcreMo = val.lease?.monthly != null && acres ? val.lease.monthly / acres : null
   const landRentPerAcreMo = val.land_component.rent_per_acre_month || null
@@ -131,7 +135,12 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
               and most of these properties are some of each. */}
           {(unitRate || pricePerAcre) && (
             <span className="ml-2 text-base font-normal text-muted-foreground">
-              {[unitRate, pricePerAcre ? `${compactUsd(pricePerAcre)} / acre` : null]
+              {[
+                unitRate,
+                pricePerAcre
+                  ? `${compactUsd(pricePerAcre)} / ${acresAreUsable ? 'usable ' : ''}acre`
+                  : null,
+              ]
                 .filter(Boolean)
                 .join(' · ')}
             </span>
@@ -209,7 +218,7 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
           sub={
             landRent > 0
               ? rentPerAcreMo
-                ? `${formatCurrency(rentPerAcreMo)}/acre/mo all in`
+                ? `${formatCurrency(rentPerAcreMo)}/${acresAreUsable ? 'usable ' : ''}ac/mo`
                 : null
               : 'net, NNN basis'
           }
