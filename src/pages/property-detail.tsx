@@ -11,6 +11,7 @@ import { AddressActions } from '@/components/address-actions'
 import { ValueEstimateCard } from '@/components/value-estimate-card'
 import { PropertyOwnerCard } from '@/components/property-owner-card'
 import { PropertyTags } from '@/components/property-tags'
+import { PropertySynopsis } from '@/components/property-synopsis'
 import { AddToClientDialog } from '@/components/add-to-client-dialog'
 import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
@@ -324,6 +325,14 @@ export function PropertyDetailPage() {
 
       <PropertyTags propertyId={property.id} tags={property.tags} />
 
+      {/* Briefing first, then the terms, then the people. On a property with a
+          long conversation history the specs and the comps were both a long
+          scroll below the notes — which is backwards, since they are the context
+          you read the notes with. The editable detail grids stay at the bottom. */}
+      <PropertySynopsis property={property} />
+
+      <PropertyComps propertyId={property.id} />
+
       <PropertyOwnerCard property={property} />
 
       <AddToClientDialog
@@ -378,8 +387,6 @@ export function PropertyDetailPage() {
           )}
         </section>
       </div>
-
-      <PropertyComps propertyId={property.id} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Building</h2>
