@@ -147,9 +147,18 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                   {match.tenant_contact &&
                     (match.tenant_contact.phone || match.tenant_contact.email) && (
                       <div className="-mt-1 flex items-center justify-between gap-2 text-sm">
-                        <span className="truncate text-muted-foreground">
+                        {/* Same rule as the boards: the name opens the person. The slide-over
+                            closes behind you, and back returns to the board it sat on. */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onOpenChange(false)
+                            navigate(`/contacts/${match.tenant_contact!.id}`)
+                          }}
+                          className="truncate text-left text-muted-foreground hover:underline"
+                        >
                           {contactNameOf(match.tenant_contact)}
-                        </span>
+                        </button>
                         <ContactActions
                           phone={match.tenant_contact.phone}
                           email={match.tenant_contact.email}

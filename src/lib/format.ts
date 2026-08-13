@@ -24,6 +24,15 @@ export function formatSf(value: number | null | undefined): string | null {
   return `${value.toLocaleString('en-US')} SF`
 }
 
+/** $605K, $1.23M, $12.3M — for headline figures that must read at a glance. */
+export function compactUsd(value: number | null | undefined): string | null {
+  if (value == null) return null
+  const abs = Math.abs(value)
+  if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(abs >= 10_000_000 ? 1 : 2)}M`
+  if (abs >= 1_000) return `$${Math.round(value / 1_000)}K`
+  return `$${Math.round(value)}`
+}
+
 /**
  * Group an IN-PROGRESS numeric string with thousands commas — 1000 reads as 1,000
  * while you are still typing it. Keeps a trailing decimal point and partial decimals

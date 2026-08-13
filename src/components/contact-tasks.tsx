@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -75,8 +75,8 @@ export function ContactTasks({ contactId }: { contactId: string }) {
                 <Checkbox
                   className="mt-0.5"
                   checked={false}
-                  onCheckedChange={() => toggle.mutate({ id: task.id, status: 'done' })}
-                  aria-label="Mark task done"
+                  onCheckedChange={() => setCompleting(task)}
+                  aria-label="Complete task"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{task.title}</div>
@@ -98,16 +98,6 @@ export function ContactTasks({ contactId }: { contactId: string }) {
                     </p>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 shrink-0"
-                  onClick={() => setCompleting(task)}
-                  title="Log the outcome and close this task"
-                >
-                  <Check className="size-3.5" />
-                  Log
-                </Button>
               </div>
             )
           })}

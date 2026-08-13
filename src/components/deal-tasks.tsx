@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { Check } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SidebarSection } from '@/components/board-info-panel'
 import { TaskCompleteDialog } from '@/components/task-complete-dialog'
-import { useTasks, useToggleTask, type TaskWithContact } from '@/hooks/use-tasks'
+import { useTasks, type TaskWithContact } from '@/hooks/use-tasks'
 import type { ParentType } from '@/hooks/use-notes'
 import { formatDate, isOverdue } from '@/lib/dates'
 import { cn } from '@/lib/utils'
@@ -23,7 +21,6 @@ interface DealTasksProps {
  */
 export function DealTasks({ parentType, parentId }: DealTasksProps) {
   const { data: tasks = [] } = useTasks()
-  const toggle = useToggleTask()
   const [completing, setCompleting] = useState<TaskWithContact | null>(null)
 
   const column = parentColumn(parentType)
@@ -49,8 +46,8 @@ export function DealTasks({ parentType, parentId }: DealTasksProps) {
               <Checkbox
                 className="mt-0.5"
                 checked={false}
-                onCheckedChange={() => toggle.mutate({ id: t.id, status: 'done' })}
-                aria-label="Mark task done"
+                onCheckedChange={() => setCompleting(t)}
+                aria-label="Complete task"
               />
               <div className="min-w-0 flex-1">
                 <div className="font-medium">{t.title}</div>
@@ -66,16 +63,6 @@ export function DealTasks({ parentType, parentId }: DealTasksProps) {
                   </div>
                 )}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 shrink-0"
-                onClick={() => setCompleting(t)}
-                title="Log the outcome and close this task"
-              >
-                <Check className="size-3.5" />
-                Log
-              </Button>
             </div>
           )
         })}

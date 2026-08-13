@@ -49,7 +49,9 @@ export function AddListingParcelDialog({
   const [address, setAddress] = useState('')
   const [parcel, setParcel] = useState('')
   const [county, setCounty] = useState('')
-  const { data: results = [], isFetching } = usePropertySearch(address, parcel)
+  // One search box's worth of text: whatever they typed. Assemblage work is genuinely
+  // parcel-led, so this dialog keeps both fields — but either one now searches the whole book.
+  const { data: results = [], isFetching } = usePropertySearch(address.trim() || parcel.trim())
   const addParcel = useAddParcelToListing()
   const createProperty = useCreateProperty()
   const enrich = useEnrichProperty()

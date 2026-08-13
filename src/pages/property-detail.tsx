@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { PropertyMiniMap } from '@/components/property-mini-map'
 import { AddressActions } from '@/components/address-actions'
-import { MarketPositionCard } from '@/components/market-position-card'
+import { ValueEstimateCard } from '@/components/value-estimate-card'
 import { PropertyOwnerCard } from '@/components/property-owner-card'
 import { PropertyTags } from '@/components/property-tags'
 import { AddToClientDialog } from '@/components/add-to-client-dialog'
@@ -34,6 +34,7 @@ import type { TablesUpdate } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
 import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
+import { useBackTo } from '@/hooks/use-back-to'
 import { formatCurrency, formatListingPrice } from '@/lib/format'
 import { dorLabel } from '@/lib/dor-codes'
 import { ENRICHABLE_COUNTIES } from '@/lib/parcel'
@@ -140,6 +141,8 @@ export function PropertyDetailPage() {
   const [enrichAskOpen, setEnrichAskOpen] = useState(false)
   const [addToDealOpen, setAddToDealOpen] = useState(false)
 
+  const goBack = useBackTo('/properties')
+
   useSetBreadcrumb(property?.address)
 
   if (isLoading) {
@@ -154,9 +157,9 @@ export function PropertyDetailPage() {
   if (isError || !property) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/properties')}>
+        <Button variant="ghost" size="sm" onClick={goBack}>
           <ArrowLeft className="size-4" />
-          Back to properties
+          Back
         </Button>
         <p className="text-sm text-muted-foreground">This property could not be found.</p>
       </div>
@@ -206,7 +209,7 @@ export function PropertyDetailPage() {
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => navigate(-1)}
+            onClick={goBack}
           >
             <ArrowLeft className="size-4" />
             <span className="sr-only">Back</span>
@@ -316,7 +319,7 @@ export function PropertyDetailPage() {
             className="min-h-[16rem] flex-1"
           />
         </div>
-        <MarketPositionCard propertyId={property.id} county={property.county} />
+        <ValueEstimateCard propertyId={property.id} />
       </div>
 
       <PropertyTags propertyId={property.id} tags={property.tags} />

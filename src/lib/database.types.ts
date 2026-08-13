@@ -837,6 +837,36 @@ export type Database = {
         }
         Relationships: []
       }
+      county_tax_rates: {
+        Row: {
+          county: string
+          effective_year: number | null
+          millage: number
+          notes: string | null
+          source: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          county: string
+          effective_year?: number | null
+          millage: number
+          notes?: string | null
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          county?: string
+          effective_year?: number | null
+          millage?: number
+          notes?: string | null
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       deal_flags: {
         Row: {
           created_at: string
@@ -1451,6 +1481,7 @@ export type Database = {
           owner_id: string | null
           owner_mailing_address: string | null
           owner_name: string | null
+          parcel_key: string | null
           parcel_number: string | null
           parking_ratio: string | null
           parking_spaces: number | null
@@ -1462,6 +1493,7 @@ export type Database = {
           sale_type: string | null
           scrape_facts: Json | null
           scraped_at: string | null
+          search_text: string | null
           site_address: string | null
           source: string | null
           source_key: string | null
@@ -2216,8 +2248,84 @@ export type Database = {
           },
         ]
       }
+      valuation_params: {
+        Row: {
+          key: string
+          notes: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          key: string
+          notes?: string | null
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          key?: string
+          notes?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      valuation_comp_exclusions: {
+        Row: {
+          comp_id: string
+          created_at: string
+          property_id: string
+          reason: string | null
+        }
+        Insert: {
+          comp_id: string
+          created_at?: string
+          property_id: string
+          reason?: string | null
+        }
+        Update: {
+          comp_id?: string
+          created_at?: string
+          property_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valuation_comp_exclusions_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "comps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
+      v_comp_class_premium: {
+        Row: {
+          building_class: string | null
+          bucket: string | null
+          factor: number | null
+          n: number | null
+          ptype: string | null
+        }
+        Relationships: []
+      }
+      v_comp_size_elasticity: {
+        Row: {
+          beta: number | null
+          bucket: string | null
+          n: number | null
+          ptype: string | null
+        }
+        Relationships: []
+      }
       v_county_market_stats: {
         Row: {
           avg_dom: number | null
@@ -2628,6 +2736,10 @@ export type Database = {
       }
       enrich_tenant_companies: { Args: { p: Json }; Returns: Json }
       ensure_payment_checks: { Args: never; Returns: Json }
+      estimate_property_value: {
+        Args: { p_exclude_comp_ids?: string[]; p_property_id: string }
+        Returns: Json
+      }
       execute_pursuit: {
         Args: { p?: Json; p_pursuit_id: string }
         Returns: Json
@@ -2775,6 +2887,23 @@ export type Database = {
           updated_at: string
         }[]
       }
+      search_properties: {
+        Args: {
+          p_limit?: number
+          p_query: string
+        }
+        Returns: {
+          address: string
+          city: string
+          county: string
+          folio: string
+          id: string
+          parcel_number: string
+          source_address: string
+          state: string
+          zip: string
+        }[]
+      }
       set_property_coords: { Args: { p: Json }; Returns: Json }
       strip_html: { Args: { p: string }; Returns: string }
       suggest_properties_to_client: {
@@ -2792,6 +2921,10 @@ export type Database = {
       sweep_stamp_seen: {
         Args: { p_seen_property_ids: string[] }
         Returns: Json
+      }
+      weighted_percentile: {
+        Args: { p_p: number; p_vals: number[]; p_wts: number[] }
+        Returns: number
       }
     }
     Enums: {

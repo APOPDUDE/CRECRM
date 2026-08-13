@@ -39,7 +39,7 @@ export function AddProspectDialog({ open, onOpenChange }: AddProspectDialogProps
   const [description, setDescription] = useState('')
   const [search, setSearch] = useState('')
   const [picked, setPicked] = useState<PickedProperty[]>([])
-  const { data: results = [], isFetching } = usePropertySearch(search, '')
+  const { data: results = [], isFetching } = usePropertySearch(search)
 
   useEffect(() => {
     if (open) {

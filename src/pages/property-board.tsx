@@ -41,6 +41,7 @@ import { BoardSideToggle, useBoardSide } from '@/components/board-side-toggle'
 import { PassedRail } from '@/components/passed-rail'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
+import { useBackTo } from '@/hooks/use-back-to'
 import { useCreateTask, usePaymentReceivedToggle } from '@/hooks/use-tasks'
 import type { Enums, TablesUpdate } from '@/lib/database.types'
 import { formatDate } from '@/lib/dates'
@@ -150,6 +151,8 @@ export function PropertyBoardPage() {
     setReppingSide('landlord')
   }, [])
 
+  const goBack = useBackTo('/pipelines/landlord')
+
   useSetBreadcrumb(listing?.property?.address)
 
   if (isLoading) {
@@ -168,9 +171,9 @@ export function PropertyBoardPage() {
   if (isError || !listing) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/landlord-rep')}>
+        <Button variant="ghost" size="sm" onClick={goBack}>
           <ArrowLeft className="size-4" />
-          Back to Landlord Rep
+          Back
         </Button>
         <p className="text-sm text-muted-foreground">This listing could not be found.</p>
       </div>
@@ -362,10 +365,10 @@ export function PropertyBoardPage() {
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => navigate('/landlord-rep')}
+            onClick={goBack}
           >
             <ArrowLeft className="size-4" />
-            <span className="sr-only">Back to Landlord Rep</span>
+            <span className="sr-only">Back</span>
           </Button>
           <div>
             <h1 className="text-xl font-semibold">

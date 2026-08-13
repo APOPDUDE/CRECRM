@@ -14,7 +14,6 @@ import {
 } from 'date-fns'
 import {
   CalendarDays,
-  Check,
   ChevronLeft,
   ChevronRight,
   List as ListIcon,
@@ -233,6 +232,8 @@ export function TasksPage() {
             onCheckedChange={(v) => {
               // Completing an unanswered payment reminder = "not received yet": seed the
               // next check (2 weeks out) instead of silently closing it. "Received" stops it.
+              // These keep their own two-answer control rather than the outcome dialog,
+              // because closing one has to advance the collection ladder.
               if (v === true && isPaymentCheck) {
                 if (paymentAnswer.isPending) return // a double-click must not seed two reminders
                 paymentAnswer.mutate(
@@ -242,11 +243,15 @@ export function TasksPage() {
                     onError: () => toast.error('Could not set reminder'),
                   },
                 )
+              } else if (v === true) {
+                // Ticking an open task ASKS rather than closing it: done, done with a
+                // follow-up, or not done and it needs a new date.
+                setCompleting(task)
               } else {
-                toggle.mutate({ id: task.id, status: v === true ? 'done' : 'open' })
+                toggle.mutate({ id: task.id, status: 'open' })
               }
             }}
-            aria-label="Toggle complete"
+            aria-label={task.status === 'done' ? 'Reopen task' : 'Complete task'}
           />
         </div>
 
@@ -281,22 +286,7 @@ export function TasksPage() {
           </span>
         )}
         <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-          {isPaymentCheck ? (
-            <PaymentCheckActions task={task} />
-          ) : (
-            task.status === 'open' && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7"
-                onClick={() => setCompleting(task)}
-                title="Log the outcome and close this task"
-              >
-                <Check className="size-3.5" />
-                <span className="hidden sm:inline">Log</span>
-              </Button>
-            )
-          )}
+          {isPaymentCheck && <PaymentCheckActions task={task} />}
           {rowMenu(task)}
         </div>
       </div>
