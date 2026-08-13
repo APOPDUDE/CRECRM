@@ -17,6 +17,15 @@ export function isBuyerClient(c: ClientSides): boolean {
   return c.is_rep && c.deal_type !== 'lease'
 }
 
+/**
+ * Off the roster because the search ended — the owner-user bought, the 1031 clock ran out.
+ * Distinct from lost (someone else got them) and closed (there was a deal). Archived clients
+ * are excluded from every list, count, blast and match; the Archived filter is where they live.
+ */
+export function isArchivedClient(c: Pick<Tables<'clients'>, 'status'>): boolean {
+  return c.status === 'archived'
+}
+
 /** Size rule, mirrored in the industrial_subclass comment: small bay is under 10k SF. */
 export const industrialSubclassLabels: Record<Enums<'industrial_subclass'>, string> = {
   ios: 'IOS / yard',

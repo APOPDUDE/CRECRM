@@ -180,6 +180,12 @@ export function useUpdateClientStatus() {
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(['tenant_reps'], context.previous)
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tenant_reps'] }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
+      // The board reads its client through useTenantRepDetail (['tenant_rep', id]), a different
+      // key — without this, archiving from the board left the page holding the old status and
+      // offering Archive again on a client that was already archived.
+      queryClient.invalidateQueries({ queryKey: ['tenant_rep'] })
+    },
   })
 }

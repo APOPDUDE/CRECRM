@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      _rollback_contacts_verified_20260812: {
+        Row: {
+          archived: boolean | null
+          archived_reason: string | null
+          decision_maker:
+            | Database["public"]["Enums"]["decision_maker_status"]
+            | null
+          id: string | null
+        }
+        Insert: {
+          archived?: boolean | null
+          archived_reason?: string | null
+          decision_maker?:
+            | Database["public"]["Enums"]["decision_maker_status"]
+            | null
+          id?: string | null
+        }
+        Update: {
+          archived?: boolean | null
+          archived_reason?: string | null
+          decision_maker?:
+            | Database["public"]["Enums"]["decision_maker_status"]
+            | null
+          id?: string | null
+        }
+        Relationships: []
+      }
       _rollback_replay_20260708: {
         Row: {
           address: string | null
@@ -513,6 +540,13 @@ export type Database = {
             foreignKeyName: "communications_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_property_market_position"
             referencedColumns: ["id"]
           },
@@ -534,6 +568,7 @@ export type Database = {
           industry: string | null
           naics: string | null
           name: string
+          normalized_name: string | null
           notes: string | null
           phone: string | null
           sic: string | null
@@ -550,6 +585,7 @@ export type Database = {
           industry?: string | null
           naics?: string | null
           name: string
+          normalized_name?: string | null
           notes?: string | null
           phone?: string | null
           sic?: string | null
@@ -566,6 +602,7 @@ export type Database = {
           industry?: string | null
           naics?: string | null
           name?: string
+          normalized_name?: string | null
           notes?: string | null
           phone?: string | null
           sic?: string | null
@@ -594,6 +631,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["comp_kind"]
           land_acres: number | null
           lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          normalized_tenant_name: string | null
           notes: string | null
           opex_psf: number | null
           owner_id: string | null
@@ -632,6 +670,7 @@ export type Database = {
           lease_structure?:
             | Database["public"]["Enums"]["lease_structure"]
             | null
+          normalized_tenant_name?: string | null
           notes?: string | null
           opex_psf?: number | null
           owner_id?: string | null
@@ -670,6 +709,7 @@ export type Database = {
           lease_structure?:
             | Database["public"]["Enums"]["lease_structure"]
             | null
+          normalized_tenant_name?: string | null
           notes?: string | null
           opex_psf?: number | null
           owner_id?: string | null
@@ -695,6 +735,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
           {
@@ -747,6 +794,7 @@ export type Database = {
           import_addresses: string[] | null
           last_contacted_at: string | null
           last_name: string | null
+          normalized_name: string | null
           notes: string | null
           phone: string | null
           phone_grade: string | null
@@ -777,6 +825,7 @@ export type Database = {
           import_addresses?: string[] | null
           last_contacted_at?: string | null
           last_name?: string | null
+          normalized_name?: string | null
           notes?: string | null
           phone?: string | null
           phone_grade?: string | null
@@ -807,6 +856,7 @@ export type Database = {
           import_addresses?: string[] | null
           last_contacted_at?: string | null
           last_name?: string | null
+          normalized_name?: string | null
           notes?: string | null
           phone?: string | null
           phone_grade?: string | null
@@ -827,21 +877,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      county_lookup: {
-        Row: {
-          city_key: string
-          county: string
-        }
-        Insert: {
-          city_key: string
-          county: string
-        }
-        Update: {
-          city_key?: string
-          county?: string
-        }
-        Relationships: []
       }
       county_land_rents: {
         Row: {
@@ -867,6 +902,21 @@ export type Database = {
           source?: string
           state?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      county_lookup: {
+        Row: {
+          city_key: string
+          county: string
+        }
+        Insert: {
+          city_key: string
+          county: string
+        }
+        Update: {
+          city_key?: string
+          county?: string
         }
         Relationships: []
       }
@@ -937,6 +987,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: true
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_flags_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
           {
@@ -1031,6 +1088,13 @@ export type Database = {
             foreignKeyName: "files_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_property_market_position"
             referencedColumns: ["id"]
           },
@@ -1082,6 +1146,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_parcels_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
           {
@@ -1222,6 +1293,13 @@ export type Database = {
             foreignKeyName: "listings_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_property_market_position"
             referencedColumns: ["id"]
           },
@@ -1328,6 +1406,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
           {
@@ -1507,6 +1592,8 @@ export type Database = {
           listing_status: Database["public"]["Enums"]["listing_market_status"]
           listing_url: string | null
           lng: number | null
+          lowlands_acres_county: number | null
+          net_usable_acres: number | null
           num_units: number | null
           occupancy: string | null
           on_ground_lease: boolean | null
@@ -1540,13 +1627,11 @@ export type Database = {
           title: string | null
           truck_court_ft: number | null
           updated_at: string
-          net_usable_acres: number | null
-          lowlands_acres_county: number | null
-          wet_acres_nwi: number | null
           usable_acres: number | null
           usable_acres_source: string | null
           usable_acres_updated_at: string | null
           volts: string | null
+          wet_acres_nwi: number | null
           year_built: number | null
           year_renovated: number | null
           zip: string | null
@@ -1595,6 +1680,8 @@ export type Database = {
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
           listing_url?: string | null
           lng?: number | null
+          lowlands_acres_county?: number | null
+          net_usable_acres?: number | null
           num_units?: number | null
           occupancy?: string | null
           on_ground_lease?: boolean | null
@@ -1602,6 +1689,7 @@ export type Database = {
           owner_id?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
+          parcel_key?: string | null
           parcel_number?: string | null
           parking_ratio?: string | null
           parking_spaces?: number | null
@@ -1613,6 +1701,7 @@ export type Database = {
           sale_type?: string | null
           scrape_facts?: Json | null
           scraped_at?: string | null
+          search_text?: string | null
           site_address?: string | null
           source?: string | null
           source_key?: string | null
@@ -1627,11 +1716,10 @@ export type Database = {
           truck_court_ft?: number | null
           updated_at?: string
           usable_acres?: number | null
-          lowlands_acres_county?: number | null
-          wet_acres_nwi?: number | null
           usable_acres_source?: string | null
           usable_acres_updated_at?: string | null
           volts?: string | null
+          wet_acres_nwi?: number | null
           year_built?: number | null
           year_renovated?: number | null
           zip?: string | null
@@ -1680,6 +1768,8 @@ export type Database = {
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
           listing_url?: string | null
           lng?: number | null
+          lowlands_acres_county?: number | null
+          net_usable_acres?: number | null
           num_units?: number | null
           occupancy?: string | null
           on_ground_lease?: boolean | null
@@ -1687,6 +1777,7 @@ export type Database = {
           owner_id?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
+          parcel_key?: string | null
           parcel_number?: string | null
           parking_ratio?: string | null
           parking_spaces?: number | null
@@ -1698,6 +1789,7 @@ export type Database = {
           sale_type?: string | null
           scrape_facts?: Json | null
           scraped_at?: string | null
+          search_text?: string | null
           site_address?: string | null
           source?: string | null
           source_key?: string | null
@@ -1712,11 +1804,10 @@ export type Database = {
           truck_court_ft?: number | null
           updated_at?: string
           usable_acres?: number | null
-          lowlands_acres_county?: number | null
-          wet_acres_nwi?: number | null
           usable_acres_source?: string | null
           usable_acres_updated_at?: string | null
           volts?: string | null
+          wet_acres_nwi?: number | null
           year_built?: number | null
           year_renovated?: number | null
           zip?: string | null
@@ -1755,6 +1846,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_properties_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
           {
@@ -2017,6 +2115,13 @@ export type Database = {
             foreignKeyName: "pursuits_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pursuits_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_property_market_position"
             referencedColumns: ["id"]
           },
@@ -2064,6 +2169,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggestions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
           {
@@ -2282,6 +2394,13 @@ export type Database = {
             foreignKeyName: "units_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_property_market_position"
             referencedColumns: ["id"]
           },
@@ -2293,27 +2412,6 @@ export type Database = {
             referencedColumns: ["property_id"]
           },
         ]
-      }
-      valuation_params: {
-        Row: {
-          key: string
-          notes: string | null
-          updated_at: string
-          value: number
-        }
-        Insert: {
-          key: string
-          notes?: string | null
-          updated_at?: string
-          value: number
-        }
-        Update: {
-          key?: string
-          notes?: string | null
-          updated_at?: string
-          value?: number
-        }
-        Relationships: []
       }
       valuation_comp_exclusions: {
         Row: {
@@ -2343,40 +2441,76 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "valuation_comp_exclusions_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "v_lease_comps"
+            referencedColumns: ["comp_id"]
+          },
+          {
+            foreignKeyName: "valuation_comp_exclusions_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_current_asking"
+            referencedColumns: ["comp_id"]
+          },
+          {
             foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
         ]
+      }
+      valuation_params: {
+        Row: {
+          key: string
+          notes: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          key: string
+          notes?: string | null
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          key?: string
+          notes?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
       }
     }
     Views: {
-      v_county_land_metrics: {
-        Row: {
-          county: string | null
-          excess_acre_value: number | null
-          med_psf: number | null
-          n: number | null
-          n_excess: number | null
-          typ_coverage: number | null
-        }
-        Relationships: []
-      }
-      v_excess_land_decay: {
-        Row: {
-          beta: number | null
-          med_excess_acres: number | null
-          n: number | null
-          r: number | null
-        }
-        Relationships: []
-      }
       v_comp_class_premium: {
         Row: {
-          building_class: string | null
           bucket: string | null
+          building_class: string | null
           factor: number | null
           n: number | null
           ptype: string | null
@@ -2389,6 +2523,17 @@ export type Database = {
           bucket: string | null
           n: number | null
           ptype: string | null
+        }
+        Relationships: []
+      }
+      v_county_land_metrics: {
+        Row: {
+          county: string | null
+          excess_acre_value: number | null
+          med_psf: number | null
+          n: number | null
+          n_excess: number | null
+          typ_coverage: number | null
         }
         Relationships: []
       }
@@ -2413,6 +2558,15 @@ export type Database = {
           sale_n: number | null
           sale_p25_psf: number | null
           sale_p75_psf: number | null
+        }
+        Relationships: []
+      }
+      v_excess_land_decay: {
+        Row: {
+          beta: number | null
+          med_excess_acres: number | null
+          n: number | null
+          r: number | null
         }
         Relationships: []
       }
@@ -2471,6 +2625,13 @@ export type Database = {
             foreignKeyName: "comps_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_property_market_position"
             referencedColumns: ["id"]
           },
@@ -2486,6 +2647,125 @@ export type Database = {
             columns: ["tenant_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_map_property: {
+        Row: {
+          address: string | null
+          city: string | null
+          county: string | null
+          created_at: string | null
+          days_on_market: number | null
+          folio: string | null
+          gross_sf: number | null
+          id: string | null
+          land_acres: number | null
+          last_sale_date: string | null
+          last_sale_price: number | null
+          lat: number | null
+          listing_count: number | null
+          listing_status:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          listing_url: string | null
+          lng: number | null
+          occupancy: string | null
+          owner_id: string | null
+          owner_mailing_address: string | null
+          owner_name: string | null
+          parcel_number: string | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          pursuit_count: number | null
+          site_address: string | null
+          source_address: string | null
+          specs: string | null
+          state: string | null
+          updated_at: string | null
+          year_built: number | null
+          zip: string | null
+          zoning_description: string | null
+          zoning_district: string | null
+        }
+        Insert: {
+          address?: never
+          city?: string | null
+          county?: string | null
+          created_at?: string | null
+          days_on_market?: number | null
+          folio?: string | null
+          gross_sf?: number | null
+          id?: string | null
+          land_acres?: number | null
+          last_sale_date?: string | null
+          last_sale_price?: number | null
+          lat?: number | null
+          listing_count?: never
+          listing_status?:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          listing_url?: string | null
+          lng?: number | null
+          occupancy?: string | null
+          owner_id?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          parcel_number?: string | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          pursuit_count?: never
+          site_address?: string | null
+          source_address?: string | null
+          specs?: string | null
+          state?: string | null
+          updated_at?: string | null
+          year_built?: number | null
+          zip?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
+        }
+        Update: {
+          address?: never
+          city?: string | null
+          county?: string | null
+          created_at?: string | null
+          days_on_market?: number | null
+          folio?: string | null
+          gross_sf?: number | null
+          id?: string | null
+          land_acres?: number | null
+          last_sale_date?: string | null
+          last_sale_price?: number | null
+          lat?: number | null
+          listing_count?: never
+          listing_status?:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          listing_url?: string | null
+          lng?: number | null
+          occupancy?: string | null
+          owner_id?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          parcel_number?: string | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          pursuit_count?: never
+          site_address?: string | null
+          source_address?: string | null
+          specs?: string | null
+          state?: string | null
+          updated_at?: string | null
+          year_built?: number | null
+          zip?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
             referencedColumns: ["id"]
           },
         ]
@@ -2507,6 +2787,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
           {
@@ -2639,6 +2926,13 @@ export type Database = {
             foreignKeyName: "units_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_property_market_position"
             referencedColumns: ["id"]
           },
@@ -2671,6 +2965,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      apply_ghl_tag: { Args: { p: Json }; Returns: Json }
+      apply_ghl_tag_set: { Args: { p: Json }; Returns: Json }
+      apply_land_decay: {
+        Args: {
+          p_acres: number
+          p_beta: number
+          p_max: number
+          p_min: number
+          p_typical: number
+        }
+        Returns: number
       }
       approve_buyer_intake: {
         Args: { p_client_id: string; p_intake_id: string }
@@ -2825,6 +3131,7 @@ export type Database = {
       }
       fs_safe_name: { Args: { p: string }; Returns: string }
       ghl_verify_owner: { Args: { p: Json }; Returns: Json }
+      import_county_lowlands: { Args: { p: Json }; Returns: Json }
       import_county_parcels: { Args: { p: Json }; Returns: Json }
       import_email_leads: { Args: { p: Json }; Returns: Json }
       import_email_threads: { Args: { p: Json }; Returns: Json }
@@ -2851,6 +3158,10 @@ export type Database = {
         Args: { p_contact: string }
         Returns: undefined
       }
+      import_usable_acres: {
+        Args: { p: Json; p_area_tolerance?: number }
+        Returns: Json
+      }
       intake_buyer_tag: { Args: { p: Json }; Returns: Json }
       intake_client: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_landlord_listing: {
@@ -2862,12 +3173,35 @@ export type Database = {
         Args: { p_county?: string }
         Returns: Json
       }
+      map_properties: {
+        Args: {
+          p_limit?: number
+          p_max_lat: number
+          p_max_lng: number
+          p_min_lat: number
+          p_min_lng: number
+        }
+        Returns: {
+          owner_ctx: Json
+          property: Json
+          total_in_view: number
+        }[]
+      }
       mark_contact_as_buyer: { Args: { p_contact_id: string }; Returns: Json }
       mark_owners_exported: {
         Args: { p_property_ids: string[] }
         Returns: Json
       }
       match_addresses: { Args: { p: Json }; Returns: Json }
+      name_has_all_tokens: {
+        Args: { p_n: number; p_text: string; p_tokens: string[] }
+        Returns: boolean
+      }
+      normalize_address_text: { Args: { p_text: string }; Returns: string }
+      normalize_lease_structure: {
+        Args: { p: string }
+        Returns: Database["public"]["Enums"]["lease_structure"]
+      }
       normalize_owner_name: { Args: { p_name: string }; Returns: string }
       normalize_parcel: { Args: { p: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
@@ -2953,11 +3287,16 @@ export type Database = {
           updated_at: string
         }[]
       }
+      search_map_properties: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          owner_ctx: Json
+          property: Json
+          total_in_view: number
+        }[]
+      }
       search_properties: {
-        Args: {
-          p_limit?: number
-          p_query: string
-        }
+        Args: { p_limit?: number; p_query: string }
         Returns: {
           address: string
           city: string
@@ -2971,6 +3310,8 @@ export type Database = {
         }[]
       }
       set_property_coords: { Args: { p: Json }; Returns: Json }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       strip_html: { Args: { p: string }; Returns: string }
       suggest_properties_to_client: {
         Args: { p_client_id: string; p_property_ids: string[] }
@@ -3007,6 +3348,7 @@ export type Database = {
         | "negotiating"
         | "closed"
         | "lost"
+        | "archived"
       comm_channel: "call" | "sms" | "email" | "note" | "meeting" | "other"
       comm_direction: "inbound" | "outbound" | "unknown"
       comm_source:
@@ -3234,7 +3576,14 @@ export const Constants = {
         "relocation",
         "investment",
       ],
-      client_status: ["prospect", "searching", "negotiating", "closed", "lost"],
+      client_status: [
+        "prospect",
+        "searching",
+        "negotiating",
+        "closed",
+        "lost",
+        "archived",
+      ],
       comm_channel: ["call", "sms", "email", "note", "meeting", "other"],
       comm_direction: ["inbound", "outbound", "unknown"],
       comm_source: [

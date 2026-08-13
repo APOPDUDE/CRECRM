@@ -53,7 +53,7 @@ import {
   useUpdateClientStatus,
 } from '@/hooks/use-tenant-reps'
 import type { TenantRepWithRelations } from '@/hooks/use-tenant-reps'
-import { isTenantClient } from '@/lib/clients'
+import { isArchivedClient, isTenantClient } from '@/lib/clients'
 import { formatListingPrice } from '@/lib/format'
 import { getReppingSide, setReppingSide } from '@/lib/repping-side'
 import {
@@ -65,7 +65,7 @@ import {
 import type { Enums } from '@/lib/database.types'
 import { cn } from '@/lib/utils'
 
-type StatusFilter = 'active' | 'lost' | 'all'
+type StatusFilter = 'active' | 'lost' | 'archived' | 'all'
 type Side = 'landlord' | 'tenant'
 
 const listingStageLabels = Object.fromEntries(listingStages.map((s) => [s.value, s.label]))
@@ -158,7 +158,11 @@ export function ReppingPage({ side }: { side: Side }) {
     () =>
       (tenantsQ.data ?? []).filter((t) => {
         if (!isTenantClient(t)) return false
-        return status === 'all' ? true : status === 'lost' ? t.status === 'lost' : t.status !== 'lost'
+        if (status === 'all') return true
+        if (status === 'lost') return t.status === 'lost'
+        if (status === 'archived') return isArchivedClient(t)
+        // Active means still in play: an ended search is neither lost nor on the board.
+        return t.status !== 'lost' && !isArchivedClient(t)
       }),
     [tenantsQ.data, status],
   )
@@ -279,6 +283,7 @@ export function ReppingPage({ side }: { side: Side }) {
             <SelectContent>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="lost">Lost</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>

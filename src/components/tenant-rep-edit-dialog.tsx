@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Archive, ArchiveRestore } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,12 +30,13 @@ import {
   emptyBuyerCriteria,
 } from '@/components/buyer-criteria-fields'
 import type { BuyerCriteria } from '@/components/buyer-criteria-fields'
-import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
+import { useUpdateClientStatus, useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { AreaDrawMap } from '@/components/area-draw-map'
-import { parseTargetAreas } from '@/lib/clients'
+import { isArchivedClient, parseTargetAreas } from '@/lib/clients'
 import type { TargetArea } from '@/lib/clients'
 import type { Enums, Tables } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
+import { cn } from '@/lib/utils'
 
 const NONE = '__none__'
 type TenantRep = Tables<'clients'>
@@ -112,6 +114,34 @@ interface TenantRepEditDialogProps {
 
 export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRepEditDialogProps) {
   const updateTenantRep = useUpdateTenantRep()
+  const updateStatus = useUpdateClientStatus()
+  const archived = isArchivedClient(tenantRep)
+
+  /**
+   * Off the roster and back. Undo restores the exact status they held, which Restore on its own
+   * can't do — nothing records what someone was before they were archived, so a restore that
+   * wasn't a mistake lands them back at Prospect to be re-triaged.
+   */
+  const toggleArchived = () => {
+    const previous = tenantRep.status
+    const next = archived ? 'prospect' : ('archived' as const)
+    updateStatus.mutate(
+      { id: tenantRep.id, status: next },
+      {
+        onSuccess: () => {
+          onOpenChange(false)
+          toast.success(archived ? 'Restored to Prospect' : 'Archived', {
+            action: {
+              label: 'Undo',
+              onClick: () => updateStatus.mutate({ id: tenantRep.id, status: previous }),
+            },
+          })
+        },
+        onError: (error) =>
+          toast.error(friendlyDbError(error, archived ? 'Could not restore' : 'Could not archive')),
+      },
+    )
+  }
   const [f, setF] = useState<Record<string, string>>({})
   const [brokerId, setBrokerId] = useState<string | null>(null)
   const [criteria, setCriteria] = useState<BuyerCriteria>(emptyBuyerCriteria)
@@ -324,16 +354,40 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
             <Textarea id="tr-musthaves" rows={2} value={f.must_haves ?? ''} onChange={set('must_haves')} placeholder="Clear height, power, loading, office build-out…" />
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={updateTenantRep.isPending}>
-              Cancel
-            </Button>
+          {/* Archive sits apart from Cancel/Save: it is the other thing you come here to do
+              when a search is over, not a variant of saving. Reversible in one tap either way —
+              the toast undoes it, and an archived client shows Restore in its place. */}
+          <DialogFooter className="sm:justify-between">
             <Button
-              type="submit"
-              disabled={updateTenantRep.isPending || (f.source === 'broker' && !brokerId)}
+              type="button"
+              variant="ghost"
+              className={cn(!archived && 'text-muted-foreground hover:text-foreground')}
+              onClick={toggleArchived}
+              disabled={updateStatus.isPending || updateTenantRep.isPending}
             >
-              {updateTenantRep.isPending ? 'Saving…' : 'Save'}
+              {archived ? (
+                <>
+                  <ArchiveRestore className="size-4" />
+                  Restore
+                </>
+              ) : (
+                <>
+                  <Archive className="size-4" />
+                  Archive
+                </>
+              )}
             </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={updateTenantRep.isPending}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={updateTenantRep.isPending || (f.source === 'broker' && !brokerId)}
+              >
+                {updateTenantRep.isPending ? 'Saving…' : 'Save'}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

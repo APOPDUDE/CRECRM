@@ -59,6 +59,7 @@ import {
   industrialSubclasses,
   investmentStrategies,
   investmentStrategyLabels,
+  isArchivedClient,
   isBuyerClient,
   parseTargetAreas,
 } from '@/lib/clients'
@@ -70,7 +71,7 @@ import { cn } from '@/lib/utils'
 type Subclass = Enums<'industrial_subclass'>
 type Strategy = Enums<'investment_strategy'>
 type Kind = Enums<'buyer_kind'>
-type StatusFilter = 'open' | 'lost' | 'all'
+type StatusFilter = 'open' | 'lost' | 'archived' | 'all'
 
 /** Strategy column for buyers who never named one — mostly owner-users. */
 const ANY_STRATEGY = '__any__'
@@ -195,20 +196,23 @@ export function BuyersPage() {
     [buyersQ.data],
   )
 
-  // Status gate first: the matrix and the 1031 strip both describe the live roster,
-  // not lost records.
+  // Status gate first: the matrix and the 1031 strip both describe the live roster —
+  // not lost records, and not buyers whose search has ended.
   const inScope = useMemo(
     () =>
-      all.filter((b) =>
-        status === 'all' ? true : status === 'lost' ? b.status === 'lost' : b.status !== 'lost',
-      ),
+      all.filter((b) => {
+        if (status === 'all') return true
+        if (status === 'lost') return b.status === 'lost'
+        if (status === 'archived') return isArchivedClient(b)
+        return b.status !== 'lost' && !isArchivedClient(b)
+      }),
     [all, status],
   )
 
   const exchangeBuyers = useMemo(
     () =>
       all
-        .filter((b) => b.exchange_1031 && b.status !== 'lost')
+        .filter((b) => b.exchange_1031 && b.status !== 'lost' && !isArchivedClient(b))
         .sort((a, b) => {
           const da = daysUntil(a.exchange_deadline) ?? Number.POSITIVE_INFINITY
           const db = daysUntil(b.exchange_deadline) ?? Number.POSITIVE_INFINITY
@@ -322,6 +326,10 @@ export function BuyersPage() {
   const blastList: BlastBuyer[] = useMemo(
     () =>
       filtered
+        // Never text someone off the roster, whatever is being viewed. Browsing Archived or
+        // Lost is for reading, and "Text these 1" over a search that ended is the exact
+        // message archiving exists to prevent.
+        .filter((b) => b.status !== 'lost' && !isArchivedClient(b))
         .filter((b) => b.contact?.phone && !deselected.has(b.id))
         .map((b) => ({
           clientId: b.id,
@@ -348,7 +356,7 @@ export function BuyersPage() {
   const matrix = useMemo(() => {
     const counts = new Map<string, number>()
     for (const b of inScope) {
-      if (b.status === 'lost') continue
+      if (b.status === 'lost' || isArchivedClient(b)) continue
       const cols: string[] = b.strategies.length ? b.strategies : [ANY_STRATEGY]
       for (const sub of b.product_subclasses) {
         for (const col of cols) counts.set(`${sub}|${col}`, (counts.get(`${sub}|${col}`) ?? 0) + 1)
@@ -668,6 +676,7 @@ export function BuyersPage() {
                 <SelectContent>
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="lost">Lost</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
                   <SelectItem value="all">All</SelectItem>
                 </SelectContent>
               </Select>
