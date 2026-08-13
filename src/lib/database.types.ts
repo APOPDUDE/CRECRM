@@ -1540,7 +1540,10 @@ export type Database = {
           title: string | null
           truck_court_ft: number | null
           updated_at: string
+          net_usable_acres: number | null
           usable_acres: number | null
+          usable_acres_source: string | null
+          usable_acres_updated_at: string | null
           volts: string | null
           year_built: number | null
           year_renovated: number | null
@@ -1622,6 +1625,8 @@ export type Database = {
           truck_court_ft?: number | null
           updated_at?: string
           usable_acres?: number | null
+          usable_acres_source?: string | null
+          usable_acres_updated_at?: string | null
           volts?: string | null
           year_built?: number | null
           year_renovated?: number | null
@@ -1703,6 +1708,8 @@ export type Database = {
           truck_court_ft?: number | null
           updated_at?: string
           usable_acres?: number | null
+          usable_acres_source?: string | null
+          usable_acres_updated_at?: string | null
           volts?: string | null
           year_built?: number | null
           year_renovated?: number | null

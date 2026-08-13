@@ -101,6 +101,14 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
   const compCount = val.comps.filter((c) => c.included).length
   const land = val.sale?.land_total ?? 0
   const landRent = val.lease?.land_monthly ?? 0
+  const buildingRent = val.lease?.building_monthly ?? 0
+  // Per-acre is plain division on figures the engine already returned — a broker
+  // comparing IOS sites thinks in $/acre, not $/SF, and the yard is most of the deal.
+  const acres = val.subject.land_acres ?? null
+  const pricePerAcre = total != null && acres ? total / acres : null
+  const rentPerAcreMo = val.lease?.monthly != null && acres ? val.lease.monthly / acres : null
+  const landRentPerAcreMo = val.land_component.rent_per_acre_month || null
+  const landPerAcre = val.land_component.excess_acre_value || null
 
   return (
     <div className="flex max-w-2xl flex-col gap-4 rounded-lg border bg-card p-4">
@@ -119,7 +127,15 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
       <div>
         <div className="text-3xl font-semibold tracking-tight">
           {total != null ? compactUsd(total) : '—'}
-          {unitRate && <span className="ml-2 text-base font-normal text-muted-foreground">{unitRate}</span>}
+          {/* Both units, always. A building trades on $/SF and a yard on $/acre,
+              and most of these properties are some of each. */}
+          {(unitRate || pricePerAcre) && (
+            <span className="ml-2 text-base font-normal text-muted-foreground">
+              {[unitRate, pricePerAcre ? `${compactUsd(pricePerAcre)} / acre` : null]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          )}
         </div>
         {low != null && high != null ? (
           <>
@@ -134,7 +150,8 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
                 <span className="font-medium">{compactUsd(land)}</span>
                 <span className="text-muted-foreground">
                   {' '}
-                  ({val.land_component.excess_acres} excess ac)
+                  ({val.land_component.excess_acres} ac
+                  {landPerAcre ? ` at ${compactUsd(landPerAcre)}/ac` : ''})
                 </span>
               </p>
             )}
@@ -150,26 +167,77 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
         )}
       </div>
 
+      {/* Rent, split. The building and the yard are two different products let on
+          two different units, and on an IOS site the yard is most of the cheque. */}
+      {landRent > 0 && (
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border bg-muted/40 p-3">
+          <Metric
+            label="Building rent"
+            value={buildingRent > 0 ? `${formatCurrency(buildingRent)}/mo` : null}
+            sub={val.lease?.psf != null ? `$${val.lease.psf.toFixed(2)} PSF/yr` : null}
+            hint="The building on its own, at the comp-derived rate. Its own parking and apron are already in this."
+          />
+          <Metric
+            label="Yard rent"
+            value={`${formatCurrency(landRent)}/mo`}
+            sub={
+              landRentPerAcreMo
+                ? `${formatCurrency(landRentPerAcreMo)}/acre/mo · ${val.land_component.rentable_acres} ac`
+                : null
+            }
+            hint={`${val.land_component.excess_acres} acres of usable land beyond the building's own site${
+              val.land_component.rent_capped
+                ? `, of which ${val.land_component.rentable_acres} are priced as yard`
+                : ''
+            }.`}
+          />
+        </dl>
+      )}
+
       <dl className="grid grid-cols-3 gap-x-4 gap-y-3 border-t pt-3">
         <Metric
-          label="Rent"
-          value={val.lease?.psf != null ? `$${val.lease.psf.toFixed(2)} PSF` : null}
-          sub={val.lease ? 'net, NNN basis' : null}
-          hint="Base rent per SF per year, before opex. Weighted median of the lease comps."
-        />
-        <Metric
-          label="Monthly rent"
-          value={val.lease?.monthly != null ? `${formatCurrency(val.lease.monthly)}/mo` : null}
+          label={landRent > 0 ? 'Total rent' : 'Rent'}
+          value={
+            landRent > 0
+              ? val.lease?.monthly != null
+                ? `${formatCurrency(val.lease.monthly)}/mo`
+                : null
+              : val.lease?.psf != null
+                ? `$${val.lease.psf.toFixed(2)} PSF`
+                : null
+          }
           sub={
             landRent > 0
-              ? `incl. ${compactUsd(landRent)} yard`
+              ? rentPerAcreMo
+                ? `${formatCurrency(rentPerAcreMo)}/acre/mo all in`
+                : null
+              : 'net, NNN basis'
+          }
+          hint="Base rent before opex. The building rate is the weighted median of the lease comps; the yard is priced per acre."
+        />
+        <Metric
+          label={landRent > 0 ? 'Rent per year' : 'Monthly rent'}
+          value={
+            landRent > 0
+              ? val.lease?.annual != null
+                ? formatCurrency(val.lease.annual)
+                : null
+              : val.lease?.monthly != null
+                ? `${formatCurrency(val.lease.monthly)}/mo`
+                : null
+          }
+          sub={
+            landRent > 0
+              ? val.subject.sf
+                ? `$${((val.lease?.annual ?? 0) / val.subject.sf).toFixed(2)} PSF effective`
+                : null
               : val.lease?.monthly_low != null && val.lease?.monthly_high != null
                 ? `${compactUsd(val.lease.monthly_low)} – ${compactUsd(val.lease.monthly_high)}`
                 : null
           }
           hint={
             landRent > 0
-              ? `Building rent plus ${val.land_component.excess_acres} excess acres of yard at ${formatCurrency(val.land_component.rent_per_acre_month)}/acre/month.`
+              ? "Building plus yard, then divided back over the building's SF — what the whole deal works out to per foot."
               : undefined
           }
         />

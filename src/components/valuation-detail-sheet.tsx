@@ -240,6 +240,10 @@ function LandSection({ val }: { val: PropertyValuation }) {
   const lc = val.land_component
   if (!lc || lc.excess_acres <= 0) return null
   const acres = (v: number | null) => (v == null ? '—' : `${v} ac`)
+  const footprintAcres =
+    val.subject.sf != null && val.subject.sf > 0
+      ? Math.round((val.subject.sf / 43560) * 100) / 100
+      : null
 
   return (
     <section className="space-y-2">
@@ -282,15 +286,41 @@ function LandSection({ val }: { val: PropertyValuation }) {
           </span>
           <span className="font-medium tabular-nums">{acres(lc.acres_usable)}</span>
         </div>
+        {/* Two different "usable" numbers, and confusing them double-counts the
+            parking. Net usable is the physical yard (uplands less the footprint);
+            excess is what earns money on top of the building's own comp. */}
+        {footprintAcres != null && lc.acres_usable != null && (
+          <>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Building footprint</span>
+              <span className="tabular-nums">− {acres(footprintAcres)}</span>
+            </div>
+            <div className="flex items-baseline justify-between gap-3 border-t pt-2">
+              <span className="font-medium">
+                Usable yard
+                <span className="ml-1 text-xs font-normal text-muted-foreground">net_usable_acres</span>
+              </span>
+              <span className="font-semibold tabular-nums">
+                {acres(Math.round((lc.acres_usable - footprintAcres) * 100) / 100)}
+              </span>
+            </div>
+          </>
+        )}
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-muted-foreground">
-            Site the building needs
-            <span className="ml-1 text-xs">at {Math.round(lc.typ_coverage * 100)}% county coverage</span>
+            Parking &amp; apron the building's own rate already covers
+            <span className="ml-1 text-xs">to {Math.round(lc.typ_coverage * 100)}% county coverage</span>
           </span>
-          <span className="tabular-nums">− {acres(lc.supported_acres)}</span>
+          <span className="tabular-nums">
+            − {acres(
+              footprintAcres != null
+                ? Math.round((lc.supported_acres - footprintAcres) * 100) / 100
+                : lc.supported_acres,
+            )}
+          </span>
         </div>
         <div className="flex items-baseline justify-between gap-3 border-t pt-2">
-          <span className="font-medium">Excess land</span>
+          <span className="font-medium">Land that earns on top</span>
           <span className="font-semibold tabular-nums">{acres(lc.excess_acres)}</span>
         </div>
 
