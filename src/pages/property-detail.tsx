@@ -441,7 +441,6 @@ export function PropertyDetailPage() {
           <InlineEditField label="Building class" value={property.building_class} kind="text" onSave={saveField('building_class')} />
           <InlineEditField label="Units" value={property.num_units} kind="number" onSave={saveField('num_units')} />
           <InlineEditField label="Year renovated" value={property.year_renovated} kind="number" onSave={saveField('year_renovated')} />
-          <InlineEditField label="Gross leasable area" value={property.gross_leasable_area} kind="text" onSave={saveField('gross_leasable_area')} />
           <InlineEditField label="Occupancy" value={property.occupancy} kind="text" onSave={saveField('occupancy')} />
           <InlineEditField label="Zoning district" value={property.zoning_district} kind="text" onSave={saveField('zoning_district')} />
           <InlineEditField label="Zoning description" value={property.zoning_description} kind="text" onSave={saveField('zoning_description')} full />
