@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCreateUnit } from '@/hooks/use-units'
+import { useCreateUnit, useUpdateUnit, type Unit } from '@/hooks/use-units'
 import { friendlyDbError } from '@/lib/db-errors'
 import { numOrNull } from '@/lib/format'
 
@@ -30,13 +30,25 @@ interface AddUnitDialogProps {
   defaultPropertyId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Pass a unit to edit it instead of creating one. */
+  unit?: Unit | null
 }
 
 const intOrNull = (v: string) => (v.trim() ? Math.round(Number(v)) : null)
 
-/** Add one available unit (suite / pad / acreage) to a property in the assemblage. */
-export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange }: AddUnitDialogProps) {
+const str = (v: number | string | null | undefined) => (v == null ? '' : String(v))
+
+/**
+ * Add or edit one available unit (suite / pad / acreage).
+ *
+ * One form for both, like comp-edit-dialog: a unit gets revised constantly — the
+ * space shrinks, the rate moves, it lets — and re-entering it from scratch each
+ * time would lose the specs that were already right.
+ */
+export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange, unit }: AddUnitDialogProps) {
+  const editing = !!unit
   const createUnit = useCreateUnit()
+  const updateUnit = useUpdateUnit()
   const [propertyId, setPropertyId] = useState(defaultPropertyId)
   const [label, setLabel] = useState('')
   const [sf, setSf] = useState('')
@@ -52,60 +64,63 @@ export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange }
   const [volts, setVolts] = useState('')
   const [amps, setAmps] = useState('')
   const [notes, setNotes] = useState('')
+  const [status, setStatus] = useState('available')
 
   useEffect(() => {
-    if (open) {
-      setPropertyId(defaultPropertyId)
-      setLabel('')
-      setSf('')
-      setAcres('')
-      setRate('')
-      setOfficeSf('')
-      setDockHigh('')
-      setGradeLevel('')
-      setLevelers('')
-      setClearHeight('')
-      setVolts('')
-      setAmps('')
-      setNotes('')
-    }
-  }, [open, defaultPropertyId])
+    if (!open) return
+    setPropertyId(unit?.property_id ?? defaultPropertyId)
+    setLabel(unit?.label ?? '')
+    setSf(str(unit?.size_sf))
+    setAcres(str(unit?.size_acres))
+    setRate(str(unit?.asking_rate_psf))
+    setOfficeSf(str(unit?.office_sf))
+    setDockHigh(str(unit?.dock_high_doors))
+    setGradeLevel(str(unit?.grade_level_doors))
+    setLevelers(str(unit?.dock_levelers))
+    setClearHeight(str(unit?.clear_height_ft))
+    setVolts(unit?.volts ?? '')
+    setAmps(str(unit?.amps))
+    setNotes(unit?.notes ?? '')
+    setStatus(unit?.status ?? 'available')
+  }, [open, defaultPropertyId, unit])
 
   const canSave = !!propertyId && (sf.trim() !== '' || acres.trim() !== '')
 
   const handleSave = () => {
     if (!canSave) return
-    createUnit.mutate(
-      {
-        property_id: propertyId,
-        label: label.trim() || null,
-        size_sf: intOrNull(sf),
-        size_acres: numOrNull(acres),
-        asking_rate_psf: numOrNull(rate),
-        office_sf: intOrNull(officeSf),
-        dock_high_doors: intOrNull(dockHigh),
-        grade_level_doors: intOrNull(gradeLevel),
-        dock_levelers: intOrNull(levelers),
-        clear_height_ft: numOrNull(clearHeight),
-        volts: volts.trim() || null,
-        amps: intOrNull(amps),
-        notes: notes.trim() || null,
+    const values = {
+      property_id: propertyId,
+      label: label.trim() || null,
+      size_sf: intOrNull(sf),
+      size_acres: numOrNull(acres),
+      asking_rate_psf: numOrNull(rate),
+      office_sf: intOrNull(officeSf),
+      dock_high_doors: intOrNull(dockHigh),
+      grade_level_doors: intOrNull(gradeLevel),
+      dock_levelers: intOrNull(levelers),
+      clear_height_ft: numOrNull(clearHeight),
+      volts: volts.trim() || null,
+      amps: intOrNull(amps),
+      notes: notes.trim() || null,
+      status,
+    }
+    const done = {
+      onSuccess: () => {
+        toast.success(editing ? 'Unit updated' : 'Unit added')
+        onOpenChange(false)
       },
-      {
-        onSuccess: () => {
-          toast.success('Unit added')
-          onOpenChange(false)
-        },
-        onError: (e) => toast.error(friendlyDbError(e, 'Could not add the unit')),
-      },
-    )
+      onError: (e: unknown) =>
+        toast.error(friendlyDbError(e, editing ? 'Could not update the unit' : 'Could not add the unit')),
+    }
+    if (editing && unit) updateUnit.mutate({ id: unit.id, ...values }, done)
+    else createUnit.mutate(values, done)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add available unit</DialogTitle>
+          <DialogTitle>{editing ? 'Edit unit' : 'Add available unit'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {parcels.length > 1 && (
@@ -150,6 +165,27 @@ export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange }
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Enter a SF and/or acreage for the unit.</p>
+
+          {editing && (
+            <div className="space-y-2">
+              <Label htmlFor="unit-status">Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger id="unit-status" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="leased">Leased</SelectItem>
+                  <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                </SelectContent>
+              </Select>
+              {/* Only "available" answers a size search — a let unit stops
+                  surfacing the property for space that is gone. */}
+              <p className="text-xs text-muted-foreground">
+                Only available units surface this property in a size search.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-3 rounded-lg border p-3">
             <div>
@@ -199,8 +235,13 @@ export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange }
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!canSave || createUnit.isPending}>
-            {createUnit.isPending ? 'Adding…' : 'Add unit'}
+          <Button
+            onClick={handleSave}
+            disabled={!canSave || createUnit.isPending || updateUnit.isPending}
+          >
+            {createUnit.isPending || updateUnit.isPending
+              ? editing ? 'Saving…' : 'Adding…'
+              : editing ? 'Save unit' : 'Add unit'}
           </Button>
         </DialogFooter>
       </DialogContent>

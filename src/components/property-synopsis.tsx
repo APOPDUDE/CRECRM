@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AddUnitDialog } from '@/components/add-unit-dialog'
-import { useUnits, useDeleteUnit, unitSizeLabel } from '@/hooks/use-units'
+import { useUnits, useDeleteUnit, unitSizeLabel, type Unit } from '@/hooks/use-units'
 import { formatCurrency, formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 import type { Tables } from '@/lib/database.types'
@@ -66,6 +66,9 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
   const { data: units = [] } = useUnits([property.id])
   const del = useDeleteUnit()
   const [addOpen, setAddOpen] = useState(false)
+  // A unit is revised constantly - the space shrinks, the rate moves, it lets.
+  // Editing has to be reachable from the row itself, not a re-entry.
+  const [editing, setEditing] = useState<Unit | null>(null)
   const countyOwned = property.county_synced_at != null
   const acres = (v: number | null) => (v == null ? null : `${v} ac`)
 
@@ -136,8 +139,13 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
       ) : (
         <ul className="divide-y rounded-lg border">
           {units.map((u) => (
-            <li key={u.id} className="flex items-center justify-between gap-3 p-3">
-              <div className="min-w-0">
+            <li key={u.id} className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setEditing(u)}
+                title="Edit this unit"
+                className="min-w-0 flex-1 rounded-l-lg p-3 text-left transition-colors hover:bg-accent"
+              >
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-medium">{u.label || 'Unit'}</span>
                   <span className="text-muted-foreground">{unitSizeLabel(u)}</span>
@@ -151,11 +159,11 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
                   )}
                 </div>
                 {u.notes && <div className="truncate text-xs text-muted-foreground">{u.notes}</div>}
-              </div>
+              </button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                className="mr-3 size-8 shrink-0 text-muted-foreground hover:text-destructive"
                 title="Remove unit"
                 onClick={() =>
                   del.mutate(u.id, {
@@ -176,6 +184,13 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
         defaultPropertyId={property.id}
         open={addOpen}
         onOpenChange={setAddOpen}
+      />
+      <AddUnitDialog
+        parcels={[{ id: property.id, address: property.address }]}
+        defaultPropertyId={property.id}
+        unit={editing}
+        open={!!editing}
+        onOpenChange={(o) => !o && setEditing(null)}
       />
     </section>
   )
