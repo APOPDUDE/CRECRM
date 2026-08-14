@@ -52,6 +52,7 @@ import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
 import { useOwnerContext } from '@/hooks/use-owners'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
 import { useLeaseComps, withinMonths, signedWithinMonths, type LeaseComp } from '@/hooks/use-lease-comps'
+import { useAvailableUnitSizes } from '@/hooks/use-units'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { supabase } from '@/lib/supabase'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -297,6 +298,7 @@ export function PropertiesPage() {
   const [dealType, setDealType] = usePersistentState('properties:dealType', 'all')
   const [ptype, setPtype] = usePersistentState('properties:ptype', 'all')
   const [county, setCounty] = usePersistentState('properties:county', 'all')
+  const { data: unitSizes } = useAvailableUnitSizes()
   const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
   const [sfMax, setSfMax] = usePersistentState('properties:sfMax', '')
   const [acMin, setAcMin] = usePersistentState('properties:acMin', '')
@@ -800,8 +802,19 @@ export function PropertiesPage() {
       if (applies.lease && leaseMatchIds && !leaseMatchIds.has(p.id)) return false
       if (ptype !== 'all' && p.property_type !== ptype) return false
       if (applies.county && county !== 'all' && p.county !== county) return false
-      if (applies.buildingSf && sfLo != null && (p.gross_sf == null || p.gross_sf < sfLo)) return false
-      if (applies.buildingSf && sfHi != null && (p.gross_sf == null || p.gross_sf > sfHi)) return false
+      // A size search must also see the units. A landlord who will carve 30,000 SF
+      // out of a 93,666 SF building answers a 30k requirement — but the building
+      // itself is far too big, so filtering on gross_sf alone excludes the very
+      // property the search is for.
+      if (applies.buildingSf && (sfLo != null || sfHi != null)) {
+        const sizes = [p.gross_sf, ...(unitSizes?.get(p.id) ?? [])].filter(
+          (v): v is number => v != null,
+        )
+        const fits = sizes.some(
+          (v) => (sfLo == null || v >= sfLo) && (sfHi == null || v <= sfHi),
+        )
+        if (!fits) return false
+      }
       if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) return false
       if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) return false
       if (applies.price && (prLo != null || prHi != null)) {
@@ -813,7 +826,7 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, unitSizes, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   /**
    * Everything the map should RECOGNISE, as opposed to everything it should pin.

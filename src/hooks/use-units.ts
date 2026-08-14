@@ -56,6 +56,43 @@ export function useUnitSpecs(propertyIds: string[]) {
   })
 }
 
+
+/**
+ * Every available unit's size, keyed by property — for the Properties size filter.
+ *
+ * A landlord willing to carve 30,000 SF out of a 93,666 SF building is invisible to
+ * a filter that only reads `gross_sf`: the building is far too big and gets excluded
+ * by the very search it should answer. This is the smallest thing that makes a
+ * recorded unit findable.
+ *
+ * Fetching every unit is fine — this table is tiny (tens of rows) because each one
+ * is hand-entered. `.limit(1000)` is the PostgREST cap made explicit, so if it ever
+ * fills up the truncation is visible here rather than silently narrowing a search.
+ */
+export function useAvailableUnitSizes() {
+  return useQuery({
+    queryKey: ['unit-sizes', 'available'],
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<Map<string, number[]>> => {
+      const { data, error } = await supabase
+        .from('units')
+        .select('property_id, size_sf, status')
+        .not('size_sf', 'is', null)
+        .limit(1000)
+      if (error) throw error
+      const map = new Map<string, number[]>()
+      for (const u of data ?? []) {
+        if (u.status && u.status !== 'available') continue
+        if (u.size_sf == null) continue
+        const cur = map.get(u.property_id) ?? []
+        cur.push(u.size_sf)
+        map.set(u.property_id, cur)
+      }
+      return map
+    },
+  })
+}
+
 export const unitsKey = (propertyIds: string[]) => ['units', [...propertyIds].sort().join(',')]
 
 /**

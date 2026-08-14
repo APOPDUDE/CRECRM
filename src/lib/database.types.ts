@@ -1593,6 +1593,7 @@ export type Database = {
           listing_url: string | null
           lng: number | null
           lowlands_acres_county: number | null
+          county_synced_at: string | null
           net_usable_acres: number | null
           num_units: number | null
           occupancy: string | null
@@ -1715,6 +1716,7 @@ export type Database = {
           title?: string | null
           truck_court_ft?: number | null
           updated_at?: string
+          county_synced_at?: string | null
           usable_acres?: number | null
           usable_acres_source?: string | null
           usable_acres_updated_at?: string | null
@@ -1803,6 +1805,7 @@ export type Database = {
           title?: string | null
           truck_court_ft?: number | null
           updated_at?: string
+          county_synced_at?: string | null
           usable_acres?: number | null
           usable_acres_source?: string | null
           usable_acres_updated_at?: string | null
