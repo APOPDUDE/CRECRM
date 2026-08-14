@@ -88,6 +88,29 @@ function SizeWatcher() {
   return null
 }
 
+/**
+ * A layer of its own for the parcel outlines, underneath the pins.
+ *
+ * Leaflet paints vectors in the order they were added, and the outlines are re-added on
+ * every pan — so after the first reload the county's polygons sat ON TOP of the markers.
+ * They are filled (faintly, but filled), so they took the clicks: a pin under a parcel
+ * could not be opened, and clicking it produced the county's popup instead. A property
+ * whose own outline is drawn is fine either way, because that outline carries its own
+ * click through to the property; the ones this stranded were the ones with no outline of
+ * their own to fall back on.
+ *
+ * Panes are the fix rather than DOM ordering, because ordering has to be re-won on every
+ * reload while a pane holds. 350 sits above the tiles (200) and below the overlay pane
+ * (400) where the markers live.
+ */
+const PARCEL_PANE = 'parcelOutlines'
+
+/** Idempotent, and called during render so the pane exists before any layer names it. */
+function ensureParcelPane(map: L.Map) {
+  if (map.getPane(PARCEL_PANE)) return
+  map.createPane(PARCEL_PANE).style.zIndex = '350'
+}
+
 /** Report the live viewport bounds so marker rendering — and loading — follow the camera. */
 function BoundsWatcher({ onBounds }: { onBounds: (b: L.LatLngBounds) => void }) {
   const map = useMapEvents({
@@ -232,6 +255,24 @@ const parcelStyleFor = (color: string) => ({
 const parcelKey = (p: string | null | undefined) =>
   (p ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null
 
+/**
+ * Every parcel id a property carries — an assemblage carries several.
+ *
+ * 343 properties store more than one parcel in the single `parcel_number` field
+ * ("24-28-27-000000-033001, 24-28-27-000000-033024, …"), because that is what they are:
+ * one building over four lots. The county serves those lots one at a time, so a key built
+ * from the whole field matches none of them — the outlines all render as somebody else's
+ * land and the property is left relying on a dot that the outlines then cover.
+ *
+ * Splitting is what makes an assemblage clickable, and assemblages are exactly the
+ * parcels worth clicking.
+ */
+const parcelKeys = (field: string | null | undefined): string[] =>
+  (field ?? '')
+    .split(/[,;\n]/)
+    .map((part) => parcelKey(part))
+    .filter((k): k is string => k != null)
+
 function ParcelLines({
   parcelIndex,
   colorById,
@@ -251,6 +292,7 @@ function ParcelLines({
   const seq = useRef(0)
 
   const map = useMapEvents({ moveend: schedule, zoomend: schedule })
+  ensureParcelPane(map)
   useEffect(() => {
     schedule()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -317,6 +359,7 @@ function ParcelLines({
   return (
     <GeoJSON
       key={ver}
+      pane={PARCEL_PANE}
       data={fc as any}
       style={(feature: any) => {
         const svc = PARCEL_SERVICES.find((s) => s.name === feature?.properties?.__svc)
@@ -554,8 +597,8 @@ export function PropertiesMap({
   const parcelIndex = useMemo(() => {
     const m = new Map<string, string>()
     for (const p of parcelSource) {
-      const k = parcelKey(p.parcel_number)
-      if (k) m.set(k, p.id)
+      // every lot of an assemblage points back at the one property
+      for (const k of parcelKeys(p.parcel_number)) m.set(k, p.id)
     }
     return m
   }, [parcelSource])
