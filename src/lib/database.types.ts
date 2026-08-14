@@ -3348,6 +3348,7 @@ export type Database = {
         | "negotiating"
         | "closed"
         | "lost"
+        | "archived"
       comm_channel: "call" | "sms" | "email" | "note" | "meeting" | "other"
       comm_direction: "inbound" | "outbound" | "unknown"
       comm_source:
@@ -3575,7 +3576,14 @@ export const Constants = {
         "relocation",
         "investment",
       ],
-      client_status: ["prospect", "searching", "negotiating", "closed", "lost"],
+      client_status: [
+        "prospect",
+        "searching",
+        "negotiating",
+        "closed",
+        "lost",
+        "archived",
+      ],
       comm_channel: ["call", "sms", "email", "note", "meeting", "other"],
       comm_direction: ["inbound", "outbound", "unknown"],
       comm_source: [

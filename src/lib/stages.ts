@@ -25,6 +25,8 @@ export const clientStatusLabels: Record<Enums<'client_status'>, string> = {
   negotiating: 'Negotiating',
   closed: 'Closed',
   lost: 'Lost',
+  // Their search ended — no deal, nobody lost them. Off the board, not gone.
+  archived: 'Archived',
 }
 
 /**

@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConfidenceBadge } from '@/components/value-estimate-card'
 import { useCountyMarketStats } from '@/hooks/use-market'
+import { useProperty } from '@/hooks/use-properties'
 import {
   estimatedAnnualTax,
   usePropertyValuation,
@@ -231,6 +232,127 @@ function BucketSection({
   )
 }
 
+/**
+ * The land the building doesn't use. Only shown when there is some — most sites
+ * are built to roughly the market's typical coverage and this section stays out
+ * of the way.
+ */
+function LandSection({ val, propertyId }: { val: PropertyValuation; propertyId: string }) {
+  // Already in cache — the property page loaded this row before the sheet opened.
+  const { data: property } = useProperty(propertyId)
+  const lc = val.land_component
+  if (!lc || lc.excess_acres <= 0) return null
+  const acres = (v: number | null) => (v == null ? '—' : `${v} ac`)
+  const nwi = property?.wet_acres_nwi ?? null
+  const county = property?.lowlands_acres_county ?? null
+  const countyBinds = county != null && (nwi == null || county > nwi)
+  const otherSource = countyBinds ? nwi : county
+  const otherLabel = countyBinds ? 'NWI' : 'the county'
+  const footprintAcres =
+    val.subject.sf != null && val.subject.sf > 0
+      ? Math.round((val.subject.sf / 43560) * 100) / 100
+      : null
+
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-semibold">Land beyond the building</h3>
+      <div className="space-y-2 rounded-lg border p-3 text-sm">
+        {/* Wetland is not yard. Where we've measured it, say so and show what came
+            off; where we haven't, say that too — an unmeasured wet site is being
+            valued as if it were all dry. */}
+        {!lc.usable_is_estimated && lc.acres_total != null && lc.acres_usable != null && (
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">Total acreage</span>
+            <span className="tabular-nums">{acres(lc.acres_total)}</span>
+          </div>
+        )}
+        {/* Two sources, and they disagree in both directions. Show the one that
+            bound and what the other said, rather than resolving it silently — on
+            9501 Palm River Rd NWI saw 3.8 acres where the county calls 13.7
+            unbuildable, and a broker should get to see that argument. */}
+        {!lc.usable_is_estimated &&
+          lc.acres_total != null &&
+          lc.acres_usable != null &&
+          lc.acres_total - lc.acres_usable > 0.01 && (
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">
+                {countyBinds ? 'Lowlands' : 'Wetland'}
+                <span className="ml-1 text-xs">
+                  {countyBinds ? 'county appraiser' : 'National Wetlands Inventory'}
+                  {otherSource != null && ` · ${otherLabel} says ${otherSource} ac`}
+                </span>
+              </span>
+              <span className="tabular-nums">
+                − {acres(Math.round((lc.acres_total - lc.acres_usable) * 100) / 100)}
+              </span>
+            </div>
+          )}
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-muted-foreground">
+            Usable acreage
+            {lc.usable_is_estimated && (
+              <span className="ml-1 text-xs">
+                — total acreage; uplands not measured here, so a wet site reads high
+              </span>
+            )}
+          </span>
+          <span className="font-medium tabular-nums">{acres(lc.acres_usable)}</span>
+        </div>
+        {footprintAcres != null && (
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">
+              Building footprint
+              <span className="ml-1 text-xs">gross SF</span>
+            </span>
+            <span className="tabular-nums">− {acres(footprintAcres)}</span>
+          </div>
+        )}
+        <div className="flex items-baseline justify-between gap-3 border-t pt-2">
+          <span className="font-medium">
+            Usable yard
+            <span className="ml-1 text-xs font-normal text-muted-foreground">net_usable_acres</span>
+          </span>
+          <span className="font-semibold tabular-nums">{acres(lc.excess_acres)}</span>
+        </div>
+
+        <div className="flex items-baseline justify-between gap-3 border-t pt-2">
+          <span className="text-muted-foreground">
+            To buy, at {formatCurrency(lc.excess_acre_value)}/acre
+            {lc.size_factor < 0.99 && (
+              <span className="ml-1 text-xs">
+                ({formatCurrency(lc.base_acre_value)} base × {lc.size_factor} for size)
+              </span>
+            )}
+          </span>
+          <span className="font-medium tabular-nums">{formatCurrency(lc.sale_contribution)}</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-muted-foreground">
+            To rent, at {formatCurrency(lc.rent_per_acre_month)}/acre/month
+            {lc.rent_capped && (
+              <span className="ml-1 text-xs">on {lc.rentable_acres} lettable acres</span>
+            )}
+          </span>
+          <span className="font-medium tabular-nums">
+            {formatCurrency(lc.rent_contribution_monthly)}/mo
+          </span>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          The yard is the uplands less the building's own footprint. Per-acre value falls steeply with
+          size (measured on our own sales), so a big back field is not priced like one extra acre by
+          the dock.
+          {lc.rent_capped &&
+            ` Only ${lc.rentable_acres} acres are priced as yard: past that the land is a development play, not something one tenant lets.`}
+          {lc.rent_source !== 'alex' && ' The yard rent for this county is an estimate — worth confirming.'}
+          {!lc.excess_value_measured &&
+            ' Too few local sales to fit a land value here, so a share of the county land comps was used.'}
+        </p>
+      </div>
+    </section>
+  )
+}
+
 /** Millage is the one input we can't derive — let the broker fix it in place. */
 function TaxSection({ val }: { val: PropertyValuation }) {
   const setMillage = useSetCountyMillage()
@@ -418,6 +540,7 @@ export function ValuationDetailSheet({
             <BucketSection bucket="lease" val={val} propertyId={propertyId} />
             <BucketSection bucket="land" val={val} propertyId={propertyId} />
 
+            <LandSection val={val} propertyId={propertyId} />
             <TaxSection val={val} />
             <CountyContext county={val.subject.county} />
 

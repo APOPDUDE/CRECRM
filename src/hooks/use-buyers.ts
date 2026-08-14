@@ -71,13 +71,15 @@ export function useBuyerContactIds() {
     queryKey: ['tenant_reps', 'buyer-contact-ids'],
     queryFn: async () => {
       const [clientsRes, intakesRes] = await Promise.all([
-        // Mirrors isBuyerClient() plus what the Buyers roster shows: a lost buyer is history.
+        // Mirrors isBuyerClient() plus what the Buyers roster shows: lost and archived are
+        // history, so neither wears a Buyer badge on their contact.
         supabase
           .from('clients')
           .select('id, contact_id')
           .eq('is_rep', true)
           .neq('deal_type', 'lease')
           .neq('status', 'lost')
+          .neq('status', 'archived')
           .not('contact_id', 'is', null),
         supabase
           .from('buyer_intakes')
