@@ -2773,6 +2773,17 @@ export type Database = {
           },
         ]
       }
+      v_property_available_space: {
+        Row: {
+          asking_rate_psf: number | null
+          label: string | null
+          property_id: string | null
+          size_acres: number | null
+          size_sf: number | null
+          space_source: string | null
+        }
+        Relationships: []
+      }
       v_property_current_asking: {
         Row: {
           as_of_date: string | null

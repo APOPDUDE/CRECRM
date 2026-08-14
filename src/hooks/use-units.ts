@@ -58,35 +58,45 @@ export function useUnitSpecs(propertyIds: string[]) {
 
 
 /**
- * Every available unit's size, keyed by property — for the Properties size filter.
+ * Lettable space per property, from BOTH places it is known — hand-entered units
+ * and the current on-market asking listing where it advertises less than the
+ * whole building.
  *
- * A landlord willing to carve 30,000 SF out of a 93,666 SF building is invisible to
- * a filter that only reads `gross_sf`: the building is far too big and gets excluded
- * by the very search it should answer. This is the smallest thing that makes a
- * recorded unit findable.
+ * Reads `v_property_available_space` rather than assembling it here, so n8n and
+ * any future matcher get the same answer as this filter.
  *
- * Fetching every unit is fine — this table is tiny (tens of rows) because each one
- * is hand-entered. `.limit(1000)` is the PostgREST cap made explicit, so if it ever
- * fills up the truncation is visible here rather than silently narrowing a search.
+ * The listing half is DERIVED, not copied into `units`: 178 of those 560 listings
+ * have already changed their advertised size between scrapes, so a copy would be
+ * right the day it was written and wrong after the next sweep.
+ *
+ * `.limit()` is explicit because a missing one truncates at 1000 silently, and
+ * here that would read as "no space matches" rather than as an error.
  */
+const AVAILABLE_SPACE_CAP = 5000
+
 export function useAvailableUnitSizes() {
   return useQuery({
-    queryKey: ['unit-sizes', 'available'],
+    queryKey: ['available-space'],
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<Map<string, number[]>> => {
       const { data, error } = await supabase
-        .from('units')
-        .select('property_id, size_sf, status')
+        .from('v_property_available_space')
+        .select('property_id, size_sf')
         .not('size_sf', 'is', null)
-        .limit(1000)
+        .limit(AVAILABLE_SPACE_CAP)
       if (error) throw error
+      const rows = data ?? []
+      if (rows.length >= AVAILABLE_SPACE_CAP) {
+        console.warn(
+          `available space truncated at ${AVAILABLE_SPACE_CAP} rows — the size filter is now incomplete`,
+        )
+      }
       const map = new Map<string, number[]>()
-      for (const u of data ?? []) {
-        if (u.status && u.status !== 'available') continue
-        if (u.size_sf == null) continue
-        const cur = map.get(u.property_id) ?? []
-        cur.push(u.size_sf)
-        map.set(u.property_id, cur)
+      for (const r of rows) {
+        if (r.size_sf == null || r.property_id == null) continue
+        const cur = map.get(r.property_id) ?? []
+        cur.push(r.size_sf)
+        map.set(r.property_id, cur)
       }
       return map
     },
