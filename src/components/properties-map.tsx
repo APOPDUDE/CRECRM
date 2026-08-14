@@ -112,13 +112,17 @@ function ensureParcelPane(map: L.Map) {
 }
 
 /** Report the live viewport bounds so marker rendering — and loading — follow the camera. */
-function BoundsWatcher({ onBounds }: { onBounds: (b: L.LatLngBounds) => void }) {
+function BoundsWatcher({
+  onBounds,
+}: {
+  onBounds: (b: L.LatLngBounds, zoom: number) => void
+}) {
   const map = useMapEvents({
-    moveend: () => onBounds(map.getBounds()),
-    zoomend: () => onBounds(map.getBounds()),
+    moveend: () => onBounds(map.getBounds(), map.getZoom()),
+    zoomend: () => onBounds(map.getBounds(), map.getZoom()),
   })
   useEffect(() => {
-    onBounds(map.getBounds())
+    onBounds(map.getBounds(), map.getZoom())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return null
@@ -171,7 +175,7 @@ function ShapeDrawer({ onVertex }: { onVertex: (lat: number, lng: number) => voi
 // enrichment functions use). Only at high zoom -- a viewport then holds a few hundred
 // parcels at most. Clicking a parcel opens its CRM property when we hold that parcel,
 // otherwise a popup with the county's own facts.
-const PARCEL_ZOOM = 16
+export const PARCEL_ZOOM = 16
 
 type ParcelSvc = {
   name: string
@@ -581,7 +585,9 @@ export function PropertiesMap({
    * only the properties on screen — the map asks for what the user is looking at rather
    * than being handed the whole book up front.
    */
-  onViewportChange?: (bounds: { south: number; west: number; north: number; east: number }) => void
+  onViewportChange?: (
+    view: { south: number; west: number; north: number; east: number; zoom: number },
+  ) => void
   /**
    * How many properties the viewport actually holds when `properties` is a capped slice
    * of it. Lets the header say "1,200 of 3,386 here" instead of implying that what
@@ -651,13 +657,16 @@ export function PropertiesMap({
   // viewport gets its pin, while a whole-region view stays capped for performance.
   const [viewBounds, setViewBounds] = useState<L.LatLngBounds | null>(null)
   const onBounds = useCallback(
-    (b: L.LatLngBounds) => {
+    (b: L.LatLngBounds, zoom: number) => {
       setViewBounds(b)
       onViewportChange?.({
         south: b.getSouth(),
         west: b.getWest(),
         north: b.getNorth(),
         east: b.getEast(),
+        // the parent needs this to know when parcel outlines are in play, and therefore
+        // when it has to tell the map about every property on screen, not just the matches
+        zoom,
       })
     },
     [onViewportChange],

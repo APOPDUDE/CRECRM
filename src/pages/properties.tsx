@@ -37,7 +37,7 @@ import {
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
-import { PropertiesMap, type MapColorBy } from '@/components/properties-map'
+import { PARCEL_ZOOM, PropertiesMap, type MapColorBy } from '@/components/properties-map'
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
 import {
   MAP_SEARCH_LIMIT,
@@ -483,7 +483,18 @@ export function PropertiesPage() {
   const { data: leases = [] } = useLeaseComps(
     view === 'table' || colorBy === 'lease' || (applies.lease && leaseFilter.any),
   )
-  const mapView = useMapProperties(viewport, viewportOnly)
+  /**
+   * The viewport is fetched for two different jobs, and the second one outlives the first.
+   *
+   * Job one is the pins, when nothing has been asked. Job two is parcel recognition: at
+   * street level the map draws the county's outlines, and it can only colour the ones we
+   * hold — and make them open — for properties it has been told about. Under a search it
+   * was told about the matches and nothing else, so 31 held properties around 1602 Combee
+   * rendered as somebody else's land. So once outlines are in play, keep loading what is
+   * on screen even while a search narrows the pins.
+   */
+  const parcelsVisible = (viewport?.zoom ?? 0) >= PARCEL_ZOOM
+  const mapView = useMapProperties(viewport, view === 'map' && (viewportOnly || parcelsVisible))
   // Trails the box so a query fires on pauses, not on every letter.
   const debouncedSearch = useDebouncedValue(search.trim(), 250)
   const mapSearch = useMapSearch(debouncedSearch, searchOnly)
@@ -803,6 +814,32 @@ export function PropertiesPage() {
       return true
     })
   }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+
+  /**
+   * Everything the map should RECOGNISE, as opposed to everything it should pin.
+   *
+   * The answer to the question keeps the pins; the properties around it keep their
+   * outlines. Without this union a search turns every neighbour Alex owns into an
+   * anonymous county polygon that opens a popup instead of the property — 31 of them
+   * around 1602 Combee Rd.
+   */
+  const parcelSource = useMemo(() => {
+    if (viewportOnly) return filtered
+    const seen = new Set(filtered.map((p) => p.id))
+    return [...filtered, ...mapView.data.properties.filter((p) => !seen.has(p.id))]
+  }, [viewportOnly, filtered, mapView.data.properties])
+
+  /**
+   * Owner context for everything on screen, not just the matches — otherwise a neighbour's
+   * outline is drawn in the colour of an owner we know nothing about. The narrower set
+   * wins on collision, since it is the one the rest of the page is filtering on.
+   */
+  const mapOwnerCtx = useMemo(() => {
+    if (viewportOnly || mapView.data.ownerContext.size === 0) return ownerCtx
+    const merged = new Map(mapView.data.ownerContext)
+    for (const [id, ctx] of ownerCtx ?? []) merged.set(id, ctx)
+    return merged
+  }, [viewportOnly, mapView.data.ownerContext, ownerCtx])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
@@ -1589,7 +1626,7 @@ export function PropertiesPage() {
 
       <PropertiesMap
             properties={filtered}
-            parcelProperties={filtered}
+            parcelProperties={parcelSource}
             // Only the viewport fetch knows how many properties the box really holds; on
             // the query path `filtered` IS the whole answer, so there is no wider total.
             totalInView={viewportOnly ? mapView.data.totalInView : undefined}
@@ -1617,7 +1654,7 @@ export function PropertiesPage() {
             }
             goodDealIds={goodDealIds}
             executedIds={executedIds}
-            ownerContext={ownerCtx}
+            ownerContext={mapOwnerCtx}
             colorBy={colorBy}
             leaseInfo={leaseSoonest}
             polygon={polygon}

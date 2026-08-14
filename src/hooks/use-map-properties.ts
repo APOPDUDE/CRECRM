@@ -4,8 +4,18 @@ import { supabase } from '@/lib/supabase'
 import type { PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 
-/** The camera, in the only terms the database cares about. */
-export type MapViewport = { south: number; west: number; north: number; east: number }
+/**
+ * The camera. Only the bounds reach the database; `zoom` rides along because the caller
+ * needs it to decide whether parcel outlines are on screen, and the box is derived from
+ * the bounds alone so it stays out of the query key.
+ */
+export type MapViewport = {
+  south: number
+  west: number
+  north: number
+  east: number
+  zoom: number
+}
 
 /**
  * How many pins one request may carry.
@@ -30,7 +40,9 @@ export const MAP_VIEWPORT_LIMIT = 1000
 const GRID = 0.02
 const MARGIN = 0.25
 
-function snapBox(v: MapViewport): MapViewport {
+type Box = { south: number; west: number; north: number; east: number }
+
+function snapBox(v: MapViewport): Box {
   const padLat = (v.north - v.south) * MARGIN
   const padLng = (v.east - v.west) * MARGIN
   // Rounded to 4dp as well as snapped: floating-point noise in the key would defeat the
