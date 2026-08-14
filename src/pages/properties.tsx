@@ -1531,9 +1531,14 @@ export function PropertiesPage() {
                         ? 'Loading this area…'
                         : `${mapView.data.totalInView.toLocaleString()} in this area`}
             </span>
+            {/* The count belongs ON the button. The line to its left counts what is in the
+                area (2,145), the export carries what was actually fetched (1,000) — and on
+                the owner lens that same set gets stamped as sent for skip trace. A number
+                you read before clicking is the difference between "what I see" and "what I
+                just marked". */}
             <Button size="sm" variant="outline" onClick={runExport} disabled={filtered.length === 0}>
               <Download className="size-4" />
-              Export CSV
+              Export CSV{filtered.length > 0 ? ` (${filtered.length.toLocaleString()})` : ''}
             </Button>
             {/* Only meaningful on a verified-owner view: the whole point of narrowing to
                 verified is that these are people you can call today. `applies.owner`
