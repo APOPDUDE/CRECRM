@@ -56,6 +56,53 @@ export function useUnitSpecs(propertyIds: string[]) {
   })
 }
 
+
+/**
+ * Lettable space per property, from BOTH places it is known — hand-entered units
+ * and the current on-market asking listing where it advertises less than the
+ * whole building.
+ *
+ * Reads `v_property_available_space` rather than assembling it here, so n8n and
+ * any future matcher get the same answer as this filter.
+ *
+ * The listing half is DERIVED, not copied into `units`: 178 of those 560 listings
+ * have already changed their advertised size between scrapes, so a copy would be
+ * right the day it was written and wrong after the next sweep.
+ *
+ * `.limit()` is explicit because a missing one truncates at 1000 silently, and
+ * here that would read as "no space matches" rather than as an error.
+ */
+const AVAILABLE_SPACE_CAP = 5000
+
+export function useAvailableUnitSizes() {
+  return useQuery({
+    queryKey: ['available-space'],
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<Map<string, number[]>> => {
+      const { data, error } = await supabase
+        .from('v_property_available_space')
+        .select('property_id, size_sf')
+        .not('size_sf', 'is', null)
+        .limit(AVAILABLE_SPACE_CAP)
+      if (error) throw error
+      const rows = data ?? []
+      if (rows.length >= AVAILABLE_SPACE_CAP) {
+        console.warn(
+          `available space truncated at ${AVAILABLE_SPACE_CAP} rows — the size filter is now incomplete`,
+        )
+      }
+      const map = new Map<string, number[]>()
+      for (const r of rows) {
+        if (r.size_sf == null || r.property_id == null) continue
+        const cur = map.get(r.property_id) ?? []
+        cur.push(r.size_sf)
+        map.set(r.property_id, cur)
+      }
+      return map
+    },
+  })
+}
+
 export const unitsKey = (propertyIds: string[]) => ['units', [...propertyIds].sort().join(',')]
 
 /**

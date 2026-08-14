@@ -401,10 +401,17 @@ export function PropertyDetailPage() {
               onSave={saveField('description')}
             />
           </div>
-          <InlineEditField label="Gross SF" value={property.gross_sf} kind="sf" onSave={saveField('gross_sf')} />
-          <InlineEditField label="Land acres" value={property.land_acres} kind="acres" onSave={saveField('land_acres')} />
-          <InlineEditField label="Usable acres" value={property.usable_acres} kind="acres" onSave={saveField('usable_acres')} />
-          <InlineEditField label="Year built" value={property.year_built} kind="number" onSave={saveField('year_built')} />
+          {/* County-owned: no onSave, so these render read-only. The lock is enforced
+              in Postgres too (properties_county_owned_fields) — hiding the input here
+              would still leave the REST API and every importer free to overwrite the
+              roll, which is exactly how 9707 Williams Rd ended up 33,666 SF short.
+              usable/net acres are GENERATED and were never editable. */}
+          <InlineEditField label="Gross SF" value={property.gross_sf} kind="sf" note="county appraiser" />
+          <InlineEditField label="Heated SF" value={property.heated_sf} kind="sf" note="county appraiser" />
+          <InlineEditField label="Land acres" value={property.land_acres} kind="acres" note="county appraiser" />
+          <InlineEditField label="Uplands" value={property.usable_acres} kind="acres" note="less wetland" />
+          <InlineEditField label="Usable acres" value={property.net_usable_acres} kind="acres" note="uplands less the building" />
+          <InlineEditField label="Year built" value={property.year_built} kind="number" note="county appraiser" />
           <InlineEditField label="Type" value={property.property_type} kind="select" options={typeOptions} onSave={saveField('property_type')} />
           <InlineEditField label="Sub-types" value={property.property_sub_types?.join(', ') ?? null} kind="text" onSave={saveSubTypes} />
           <InlineEditField label="Dock high doors" value={property.dock_high_doors} kind="number" onSave={saveField('dock_high_doors')} />
@@ -434,7 +441,6 @@ export function PropertyDetailPage() {
           <InlineEditField label="Building class" value={property.building_class} kind="text" onSave={saveField('building_class')} />
           <InlineEditField label="Units" value={property.num_units} kind="number" onSave={saveField('num_units')} />
           <InlineEditField label="Year renovated" value={property.year_renovated} kind="number" onSave={saveField('year_renovated')} />
-          <InlineEditField label="Gross leasable area" value={property.gross_leasable_area} kind="text" onSave={saveField('gross_leasable_area')} />
           <InlineEditField label="Occupancy" value={property.occupancy} kind="text" onSave={saveField('occupancy')} />
           <InlineEditField label="Zoning district" value={property.zoning_district} kind="text" onSave={saveField('zoning_district')} />
           <InlineEditField label="Zoning description" value={property.zoning_description} kind="text" onSave={saveField('zoning_description')} full />
