@@ -762,7 +762,7 @@ export function PropertiesPage() {
   )
 
   const portfolioAll = useMemo(
-    () => (portfolioOwnerId ? book.filter((p) => p.owner_id === portfolioOwnerId) : []),
+    () => (portfolioOwnerId ? book.filter((p) => p.owner_company_id === portfolioOwnerId) : []),
     [book, portfolioOwnerId],
   )
   const portfolioOwnerName = portfolioAll[0]?.owner_name ?? null
@@ -785,7 +785,7 @@ export function PropertiesPage() {
     // hides the two off-market parcels next door — which is the assemblage you were
     // trying to see.
     if (portfolioOwnerId) {
-      return book.filter((p) => p.owner_id === portfolioOwnerId)
+      return book.filter((p) => p.owner_company_id === portfolioOwnerId)
     }
     return book.filter((p) => {
       // Every token must appear somewhere in the property's combined text, so a full
@@ -955,7 +955,7 @@ export function PropertiesPage() {
       const street = (p.address ?? '').replace(/^\d+\s+/, '').trim() || null
       out.push({
         recipientId: p.id,
-        ownerId: p.owner_id ?? null,
+        ownerId: p.owner_company_id ?? null,
         phone,
         first: sp > 0 ? name.slice(0, sp) : name || null,
         last: sp > 0 ? name.slice(sp + 1) : null,

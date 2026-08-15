@@ -59,7 +59,7 @@ export type Property = Pick<
   | 'site_address' | 'folio'
   | 'property_type' | 'gross_sf' | 'land_acres' | 'specs' | 'listing_status'
   | 'days_on_market' | 'year_built' | 'zoning_description' | 'zoning_district'
-  | 'occupancy' | 'lat' | 'lng' | 'owner_id' | 'owner_name' | 'owner_mailing_address'
+  | 'occupancy' | 'lat' | 'lng' | 'owner_id' | 'owner_company_id' | 'owner_name' | 'owner_mailing_address'
   | 'last_sale_date' | 'last_sale_price' | 'listing_url' | 'created_at' | 'updated_at'
   | 'zoning_type' | 'zoning_code' | 'zoning_jurisdiction' | 'dor_use_code'
 > & {
@@ -108,7 +108,7 @@ export function useProperties(enabled = true) {
         'id, address, city, state, zip, county, parcel_number, site_address, folio, ' +
         'property_type, gross_sf, ' +
         'land_acres, specs, listing_status, days_on_market, year_built, zoning_description, ' +
-        'zoning_district, occupancy, lat, lng, owner_id, owner_name, owner_mailing_address, ' +
+        'zoning_district, occupancy, lat, lng, owner_id, owner_company_id, owner_name, owner_mailing_address, ' +
         'last_sale_date, last_sale_price, listing_url, created_at, updated_at, ' +
         'zoning_type, zoning_code, zoning_jurisdiction, dor_use_code, ' +
         'listings!listings_property_id_fkey(count), matches:pursuits!pursuits_property_id_fkey(count)'

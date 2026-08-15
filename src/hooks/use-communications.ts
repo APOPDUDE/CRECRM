@@ -23,20 +23,20 @@ export function useContactConversations(contactId: string | undefined) {
 }
 
 /**
- * Everything logged against a property OR the owner behind it — what you need to decide
- * whether this person should get the next text. Owner-wide on purpose: a call about one of
- * their buildings is still context for the one you are about to message them about.
+ * Everything logged against a property OR the owning company behind it — what you need to
+ * decide whether this person should get the next text. Owner-wide on purpose: a call about
+ * one of their buildings is still context for the one you are about to message them about.
  */
 export function usePropertyConversations(
   propertyId: string | undefined,
-  ownerId: string | null | undefined,
+  ownerCompanyId: string | null | undefined,
 ) {
   return useQuery({
-    queryKey: ['conversations', 'property', propertyId, ownerId ?? null],
+    queryKey: ['conversations', 'property', propertyId, ownerCompanyId ?? null],
     enabled: !!propertyId,
     queryFn: async () => {
       const clauses = [`property_id.eq.${propertyId}`]
-      if (ownerId) clauses.push(`owner_id.eq.${ownerId}`)
+      if (ownerCompanyId) clauses.push(`owner_company_id.eq.${ownerCompanyId}`)
       const { data, error } = await supabase
         .from('communications')
         .select('*')
@@ -58,7 +58,7 @@ export function useAddCommNote() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (
-      v: Pick<TablesInsert<'communications'>, 'contact_id' | 'owner_id' | 'property_id' | 'body'>,
+      v: Pick<TablesInsert<'communications'>, 'contact_id' | 'owner_company_id' | 'property_id' | 'body'>,
     ) => {
       const { error } = await supabase.from('communications').insert({
         ...v,

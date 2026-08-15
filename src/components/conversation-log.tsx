@@ -267,11 +267,11 @@ function ConversationItem({ c, dim = false }: { c: Communication; dim?: boolean 
 /** Composer for a manual note; caller supplies the identity/context ids. */
 export function AddNoteBox({
   contactId,
-  ownerId,
+  ownerCompanyId,
   propertyId,
 }: {
   contactId: string | null
-  ownerId?: string | null
+  ownerCompanyId?: string | null
   propertyId?: string | null
 }) {
   const [body, setBody] = useState('')
@@ -289,7 +289,7 @@ export function AddNoteBox({
     const text = body.trim()
     if (!text) return
     addNote.mutate(
-      { contact_id: contactId, owner_id: ownerId ?? null, property_id: propertyId ?? null, body: text },
+      { contact_id: contactId, owner_company_id: ownerCompanyId ?? null, property_id: propertyId ?? null, body: text },
       {
         onSuccess: () => {
           setBody('')

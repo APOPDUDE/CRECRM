@@ -617,6 +617,7 @@ export type Database = {
           external_id: string | null
           id: string
           occurred_at: string
+          owner_company_id: string | null
           owner_id: string | null
           phone: string | null
           property_id: string | null
@@ -640,6 +641,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           occurred_at: string
+          owner_company_id?: string | null
           owner_id?: string | null
           phone?: string | null
           property_id?: string | null
@@ -663,6 +665,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           occurred_at?: string
+          owner_company_id?: string | null
           owner_id?: string | null
           phone?: string | null
           property_id?: string | null
@@ -682,6 +685,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_owner_company_id_fkey"
+            columns: ["owner_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -726,8 +736,14 @@ export type Database = {
           annual_revenue: number | null
           created_at: string
           employee_count: number | null
+          entity_kind: Database["public"]["Enums"]["owner_kind"] | null
+          exported_at: string | null
           id: string
           industry: string | null
+          mailing_address: string | null
+          mailing_city: string | null
+          mailing_state: string | null
+          mailing_zip: string | null
           naics: string | null
           name: string
           normalized_name: string | null
@@ -735,6 +751,7 @@ export type Database = {
           phone: string | null
           sic: string | null
           source: string | null
+          tags: string[] | null
           type: Database["public"]["Enums"]["company_type"]
           updated_at: string
           website: string | null
@@ -743,8 +760,14 @@ export type Database = {
           annual_revenue?: number | null
           created_at?: string
           employee_count?: number | null
+          entity_kind?: Database["public"]["Enums"]["owner_kind"] | null
+          exported_at?: string | null
           id?: string
           industry?: string | null
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
           naics?: string | null
           name: string
           normalized_name?: string | null
@@ -752,6 +775,7 @@ export type Database = {
           phone?: string | null
           sic?: string | null
           source?: string | null
+          tags?: string[] | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
           website?: string | null
@@ -760,8 +784,14 @@ export type Database = {
           annual_revenue?: number | null
           created_at?: string
           employee_count?: number | null
+          entity_kind?: Database["public"]["Enums"]["owner_kind"] | null
+          exported_at?: string | null
           id?: string
           industry?: string | null
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
           naics?: string | null
           name?: string
           normalized_name?: string | null
@@ -769,6 +799,7 @@ export type Database = {
           phone?: string | null
           sic?: string | null
           source?: string | null
+          tags?: string[] | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
           website?: string | null
@@ -1839,6 +1870,7 @@ export type Database = {
           occupancy: string | null
           on_ground_lease: boolean | null
           opportunity_zone: boolean | null
+          owner_company_id: string | null
           owner_id: string | null
           owner_mailing_address: string | null
           owner_name: string | null
@@ -1932,6 +1964,7 @@ export type Database = {
           occupancy?: string | null
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
+          owner_company_id?: string | null
           owner_id?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
@@ -2025,6 +2058,7 @@ export type Database = {
           occupancy?: string | null
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
+          owner_company_id?: string | null
           owner_id?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
@@ -2070,6 +2104,13 @@ export type Database = {
           zoning_updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "properties_owner_company_id_fkey"
+            columns: ["owner_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "properties_owner_id_fkey"
             columns: ["owner_id"]
@@ -3162,6 +3203,7 @@ export type Database = {
           last_contacted_at: string | null
           off_market_days: number | null
           off_market_since: string | null
+          owner_company_id: string | null
           owner_confirmed_contact_count: number | null
           owner_contact_count: number | null
           owner_contact_verified: boolean | null
@@ -3183,6 +3225,13 @@ export type Database = {
           was_on_market: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "properties_owner_company_id_fkey"
+            columns: ["owner_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "properties_owner_id_fkey"
             columns: ["owner_id"]

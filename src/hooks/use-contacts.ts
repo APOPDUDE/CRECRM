@@ -246,10 +246,10 @@ export type ContactDeal = {
  * Everything a contact is attached to: the properties they own or are the landlord
  * contact on, and the deals they appear in.
  *
- * A contact reaches a property two different ways and both matter — they can be the
- * verified owner (owner_contacts -> owners -> properties) or the named landlord contact
- * on a listing. The same property can arrive by both routes, so it is deduped with the
- * owner relationship winning, that being the stronger claim.
+ * A contact reaches a property two different ways and both matter — they can be seated at
+ * the owning company (contacts.company_id -> properties.owner_company_id) or the named
+ * landlord contact on a listing. The same property can arrive by both routes, so it is
+ * deduped with the owner relationship winning, that being the stronger claim.
  */
 export function useContactAssociations(contactId: string | undefined) {
   return useQuery({
@@ -258,17 +258,19 @@ export function useContactAssociations(contactId: string | undefined) {
     queryFn: async () => {
       const PROP_COLS = 'id, address, city, gross_sf, land_acres, listing_status'
 
-      // Owner links first: which owner entities is this human confirmed/likely against.
-      const ownerLinks = await supabase
-        .from('owner_contacts')
-        .select('owner_id')
-        .eq('contact_id', contactId!)
-      if (ownerLinks.error) throw ownerLinks.error
-      const ownerIds = [...new Set((ownerLinks.data ?? []).map((r) => r.owner_id).filter(Boolean))] as string[]
+      // The seat first: which company does this human belong to (owners are retired —
+      // a confirmed owner-person simply hangs off the owning-entity company).
+      const seat = await supabase
+        .from('contacts')
+        .select('company_id')
+        .eq('id', contactId!)
+        .single()
+      if (seat.error) throw seat.error
+      const companyId = seat.data?.company_id ?? null
 
       const [ownedRes, listingsRes, clientsRes, prospectsRes] = await Promise.all([
-        ownerIds.length
-          ? supabase.from('properties').select(PROP_COLS).in('owner_id', ownerIds).order('address')
+        companyId
+          ? supabase.from('properties').select(PROP_COLS).eq('owner_company_id', companyId).order('address')
           : Promise.resolve({ data: [], error: null } as const),
         supabase
           .from('listings')
