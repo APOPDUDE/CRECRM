@@ -23,6 +23,15 @@ v1 scope is exactly: two pipelines with nested boards, match records, contacts/c
 4. Single user today, team-ready: `owner_id` on listings and tenant_reps. RLS policies are written per-table now (authenticated full access), tightened per-owner later.
 5. Generate TypeScript types from the live schema (`supabase gen types typescript`) and use them — no hand-written DB types.
 
+## Session reporting (standing rule — Alex, 2026-08-15)
+
+End every block of work with exactly two things, and nothing after them:
+
+1. **Did:** at most 3 bullets, plain words, numbers over adjectives — what changed and where it lives.
+2. **Need from you:** action items only, each answerable in one word or one click. Omit the section when empty.
+
+Evidence, tables, migration detail, and long reasoning go into `context/` files and get linked — never pasted into chat. When work spans a whole session, the final message is this same two-part summary, not an essay.
+
 ## Phase 0 — Human setup checklist (Alex does this, not the agent)
 
 1. Create a Supabase project at supabase.com (free tier fine). Save the project URL + anon key.
