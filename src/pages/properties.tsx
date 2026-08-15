@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Crosshair, Download, List, Map as MapIcon, MessageSquare, MoreHorizontal, Pencil, Plus, Search, Send, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
@@ -37,7 +38,9 @@ import {
 import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
-import { PARCEL_ZOOM, PropertiesMap, type MapColorBy } from '@/components/properties-map'
+import { PARCEL_ZOOM, PropertiesMap } from '@/components/properties-map'
+import { MapFilterRail, type OwnerChannels } from '@/components/map-filter-rail'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
 import {
   MAP_SEARCH_LIMIT,
@@ -46,6 +49,9 @@ import {
   type MapViewport,
 } from '@/hooks/use-map-properties'
 import { useIndustrialCrossovers, isZonedIndustrial } from '@/hooks/use-zoning-map'
+import {
+  OVERLAY_DEFAULT, activeIncludes, rowInOverlay, safeOverlayState, type OverlayState,
+} from '@/lib/overlays'
 import {
   DOR_FILTER_ORDER, ZONING_FILTER_ORDER, ZONING_PLAYS,
   dorBucket, dorBucketLabels, isIndustrialUse, zoningKindLabels,
@@ -282,6 +288,14 @@ const COLUMN_DEFS: ColumnDef[] = [
   },
 ]
 
+/** A tampered/legacy persisted channels value must not strip both channels silently. */
+function safeChannels(v: unknown): OwnerChannels {
+  const o = (v ?? {}) as Partial<OwnerChannels>
+  const phone = o.phone !== false
+  const email = o.email !== false
+  return phone || email ? { phone, email } : { phone: true, email: true }
+}
+
 const DEFAULT_COLUMNS: ColumnId[] = ['type', 'location', 'size', 'asking', 'deals']
 /** Address is fixed, so 6 here = 7 visible columns total. */
 const MAX_COLUMNS = 6
@@ -317,6 +331,18 @@ export function PropertiesPage() {
   const [acMax, setAcMax] = usePersistentState('properties:acMax', '')
   const [priceMin, setPriceMin] = usePersistentState('properties:priceMin', '')
   const [priceMax, setPriceMax] = usePersistentState('properties:priceMax', '')
+  // Lease pricing is $/SF/yr, sale pricing is a total — the rail SWITCHES between them
+  // with the For lease / For sale choice (Alex), so they are separate state, never both.
+  const [psfMin, setPsfMin] = usePersistentState('properties:psfMin', '')
+  const [psfMax, setPsfMax] = usePersistentState('properties:psfMax', '')
+  // Default ON: the map must not silently hide unpriced listings (Alex).
+  const [includeUnpriced, setIncludeUnpriced] = usePersistentState('properties:includeUnpriced', true)
+  // Which channels count while "Verified contact" is on: phone, email, or either.
+  const [channelsRaw, setChannels] = usePersistentState<OwnerChannels>(
+    'properties:ownerChannels',
+    { phone: true, email: true },
+  )
+  const channels = useMemo(() => safeChannels(channelsRaw), [channelsRaw])
   const [columns, setColumns] = usePersistentState<ColumnId[]>('properties:columns', DEFAULT_COLUMNS)
   const [ownerFilterRaw, setOwnerFilter] = usePersistentState('properties:owner', 'all')
   // the filter used to have 4 tiers; a persisted legacy value ('any'/'known'/'none') would
@@ -333,7 +359,6 @@ export function PropertiesPage() {
   // Frozen per mount so the filter can't reshuffle rows under you as the clock ticks.
   const activityCutoff = useMemo(() => Date.now() - ACTIVITY_DAYS * 86400000, [])
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
-  const [colorBy, setColorBy] = usePersistentState<MapColorBy>('properties:colorBy', 'market')
   // Lease run-off window, in whole months from today. Kept as a filter rather than as
   // part of the lease lens so it narrows the table too — the lens only paints pins.
   const [leaseMin, setLeaseMin] = usePersistentState('properties:leaseMin', '')
@@ -369,52 +394,27 @@ export function PropertiesPage() {
   const drawMode = draft !== null
   // Where the map camera is pointed. Null until the map mounts and reports its bounds.
   const [viewport, setViewport] = useState<MapViewport | null>(null)
+  // The map overlays: zoning districts (per type, per code) + lowlands, plus which
+  // layers union their properties into the filtered set ("Include in search").
+  const [overlaysRaw, setOverlays] = usePersistentState<OverlayState>('properties:overlays', OVERLAY_DEFAULT)
+  const overlays = useMemo(() => safeOverlayState(overlaysRaw), [overlaysRaw])
+  const overlayIncludes = useMemo(() => activeIncludes(overlays), [overlays])
   // Set the moment the user reaches for the search box or the filter panel — see the
   // fetch gate below. Sticky for the visit: once the book is on its way, keep it.
   const [wantsBook, setWantsBook] = useState(false)
 
   /**
-   * Which filters the panel offers right now.
-   *
-   * A map lens asks exactly one question, so it offers only the filters that answer it:
-   * asking price belongs to Market, verified owner to Owner, the two date windows to
-   * Lease. The table has no lens and keeps everything.
-   *
-   * A filter that is not offered is also not APPLIED — otherwise switching to Lease
-   * would leave an asking-price bound narrowing the map from behind a closed popover.
-   * The values are kept rather than cleared, so flipping back to Market restores what
-   * was typed instead of quietly discarding it.
-   *
-   * County goes on the map's own terms (Alex): search and shape-draw already place a
-   * parcel geographically, so the dropdown is table-only.
+   * The lenses are gone (Phase 2): every filter applies everywhere, with two
+   * visibility-driven exceptions that stop a hidden control from silently narrowing
+   * the map. The rail reveals the sale/lease + price sub-filters only while
+   * "On market" is selected, and the activity dropdown only while "Verified contact"
+   * is on — so on the map those apply only under the same conditions. The table's
+   * Filters popover shows them unconditionally, so there they always apply.
+   * County stays table-only (Alex): search and shape-draw already place a parcel.
    */
-  const applies = useMemo(() => {
-    const onMap = view === 'map'
-    const leaseLens = onMap && colorBy === 'lease'
-    return {
-      county: !onMap,
-      dealType: !onMap || colorBy === 'market',
-      price: !onMap || colorBy === 'market',
-      owner: !onMap || colorBy === 'owner',
-      // "When did we last touch them" is an owner question, so it rides with the owner lens
-      // on the map and is always available in the table.
-      activity: !onMap || colorBy === 'owner',
-      lease: !onMap || colorBy === 'lease',
-      // On the lease lens, square feet means the UNIT that was let, not the shell around
-      // it: a 4,000 SF suite in a 200,000 SF building is a 4,000 SF comp. Building SF
-      // steps aside there rather than sitting beside it, so there is only ever one SF
-      // box and no doubt about which one is being answered.
-      buildingSf: !leaseLens,
-      leasedSf: leaseLens,
-      // Whether the shell is listed today says nothing about a lease signed in 2021, so
-      // the market status filter sits out the comp lens.
-      status: !leaseLens,
-      // Zoning and county-use are orthogonal to every lens — "zoned-industrial houses
-      // whose owners I can call" is precisely a zoning × owner-lens question — so they
-      // apply everywhere, map and table alike.
-      zoning: true,
-    }
-  }, [view, colorBy])
+  const marketSubsApply = view === 'table' || status === 'on_market'
+  const activitySubApplies = view === 'table' || ownerFilter === 'verified'
+  const countyApplies = view === 'table'
 
   // ?owner=<id> shows one owner's whole portfolio. It behaves as a filter rather than a
   // separate mode, so the map, the table, the columns and the export all keep working.
@@ -423,23 +423,24 @@ export function PropertiesPage() {
   // Counts only what is actually biting: a dormant filter narrows nothing, so badging it
   // would send you hunting through the panel for a number that is not there.
   const activeFilterCount =
-    (applies.status && status !== 'all' ? 1 : 0) +
-    (applies.dealType && dealType !== 'all' ? 1 : 0) +
+    (status !== 'all' ? 1 : 0) +
+    (marketSubsApply && dealType !== 'all' ? 1 : 0) +
     (ptype !== 'all' ? 1 : 0) +
     (zoningFilter !== 'all' ? 1 : 0) +
     (useFilter !== 'all' ? 1 : 0) +
-    (applies.owner && ownerFilter !== 'all' ? 1 : 0) +
-    (applies.activity && activity !== 'all' ? 1 : 0) +
-    (applies.county && county !== 'all' ? 1 : 0) +
-    (applies.buildingSf && (sfMin || sfMax) ? 1 : 0) +
+    (ownerFilter !== 'all' ? 1 : 0) +
+    (activitySubApplies && activity !== 'all' ? 1 : 0) +
+    (countyApplies && county !== 'all' ? 1 : 0) +
+    (sfMin || sfMax ? 1 : 0) +
     (acMin || acMax ? 1 : 0) +
-    (applies.price && (priceMin || priceMax) ? 1 : 0) +
+    (marketSubsApply && dealType === 'sale' && (priceMin || priceMax) ? 1 : 0) +
+    (marketSubsApply && dealType === 'lease' && (psfMin || psfMax) ? 1 : 0) +
     // The three lease windows count separately: they are three questions, and a badge of
     // 1 for all of them would understate how narrow the list has become.
-    (applies.lease && (leaseMonth || leaseMin || leaseMax) ? 1 : 0) +
-    (applies.lease && (signMin || signMax) ? 1 : 0) +
-    (applies.lease && (leaseSfMin || leaseSfMax) ? 1 : 0) +
-    (applies.lease && dmFilter !== 'all' ? 1 : 0)
+    (leaseMonth || leaseMin || leaseMax ? 1 : 0) +
+    (signMin || signMax ? 1 : 0) +
+    (leaseSfMin || leaseSfMax ? 1 : 0) +
+    (dmFilter !== 'all' ? 1 : 0)
 
   /**
    * Is a question being asked about properties that might not be on screen?
@@ -490,7 +491,9 @@ export function PropertiesPage() {
   // isn't being asked. `wantsBook` starts it the moment the filter panel opens rather than
   // when the filter is chosen, so the multi-second fetch happens while Alex is still
   // deciding instead of after.
-  const needsBook = (!viewportOnly && !searchOnly) || wantsBook
+  // An active "Include in search" needs the book too: the union scans every row's
+  // zoning fields, and half its point is rows the camera has never seen.
+  const needsBook = (!viewportOnly && !searchOnly) || wantsBook || overlayIncludes.length > 0
 
   const { data: properties, isLoading, isError, refetch } = useProperties(needsBook)
   const { data: goodDealIds } = useGoodDealIds()
@@ -501,9 +504,7 @@ export function PropertiesPage() {
   // table's tenant columns. On the bare market map they were ~1,300 rows of nothing, and
   // slow enough to crowd out the fetch that actually draws the pins.
   const { data: crossovers } = useIndustrialCrossovers()
-  const { data: leases = [] } = useLeaseComps(
-    view === 'table' || colorBy === 'lease' || (applies.lease && leaseFilter.any),
-  )
+  const { data: leases = [] } = useLeaseComps(view === 'table' || leaseFilter.any)
   /**
    * The viewport is fetched for two different jobs, and the second one outlives the first.
    *
@@ -548,11 +549,20 @@ export function PropertiesPage() {
           : (properties ?? []),
     [viewportOnly, searchOnly, mapView.data.properties, mapSearch.data.properties, properties],
   )
-  const ownerCtx = viewportOnly
-    ? mapView.data.ownerContext
-    : searchOnly
-      ? mapSearch.data.ownerContext
-      : ownerCtxBook
+  const ownerCtx = useMemo(() => {
+    const base = viewportOnly
+      ? mapView.data.ownerContext
+      : searchOnly
+        ? mapSearch.data.ownerContext
+        : ownerCtxBook
+    // Overlay-included rows come from the book, so their owner context must too —
+    // otherwise the union's rows export with blank owner columns. Base wins on
+    // collision: it is what the rest of the page is filtering on.
+    if (overlayIncludes.length === 0 || !ownerCtxBook?.size) return base
+    const merged = new Map(ownerCtxBook)
+    for (const [id, ctx] of base ?? []) merged.set(id, ctx)
+    return merged
+  }, [viewportOnly, searchOnly, mapView.data.ownerContext, mapSearch.data.ownerContext, ownerCtxBook, overlayIncludes])
 
   // Deep link from a property's mini-map: /properties?view=map&q=<address>.
   // Every filter here is sticky, so a saved county/type/shape from an earlier session
@@ -560,6 +570,9 @@ export function PropertiesPage() {
   // "Show me this one property" outranks the saved filters, so clear them, then strip
   // the params so a later refresh doesn't wipe filters the user has since re-set.
   useEffect(() => {
+    // The lens state is retired (Phase 2); a persisted value would otherwise sit in
+    // localStorage forever.
+    window.localStorage.removeItem('properties:colorBy')
     const q = searchParams.get('q')
     const wantsMap = searchParams.get('view') === 'map'
     const wantsLease = searchParams.get('layer') === 'lease'
@@ -579,6 +592,8 @@ export function PropertiesPage() {
       setAcMax('')
       setPriceMin('')
       setPriceMax('')
+      setPsfMin('')
+      setPsfMax('')
       setOwnerFilter('all')
       setActivity('all')
       setPolygon(null)
@@ -599,11 +614,11 @@ export function PropertiesPage() {
       resetFilters()
     }
     if (wantsLease) {
-      // Arriving from the dashboard graph: paint by run-off and narrow to the window
-      // that was clicked. Search is cleared too — a leftover query would cut the set.
+      // Arriving from the dashboard graph: narrow to the lease window that was clicked
+      // (the lease LENS is gone — the windows are plain filters now). Search is cleared
+      // too — a leftover query would cut the set.
       setSearch('')
       resetFilters()
-      setColorBy('lease')
       setLeaseMin(searchParams.get('expMin') ?? '')
       setLeaseMax(searchParams.get('expMax') ?? '')
       setLeaseMonth(searchParams.get('expMonth') ?? '')
@@ -767,7 +782,7 @@ export function PropertiesPage() {
   )
   const portfolioOwnerName = portfolioAll[0]?.owner_name ?? null
 
-  const filtered = useMemo(() => {
+  const baseFiltered = useMemo(() => {
     // Empty when Postgres did the matching. Re-running the browser's own test over those
     // rows would quietly drop the hits it found by parcel number or folio, which do not
     // appear in the haystack at all — the same trap `contact-select` avoids with
@@ -780,6 +795,7 @@ export function PropertiesPage() {
     const sfLo = n(sfMin), sfHi = n(sfMax)
     const acLo = n(acMin), acHi = n(acMax)
     const prLo = n(priceMin), prHi = n(priceMax)
+    const psfLo = n(psfMin), psfHi = n(psfMax)
     // A portfolio is a question about ONE owner, so it answers with all of their
     // holdings. Letting the sticky filters through means an on-market status quietly
     // hides the two off-market parcels next door — which is the assemblage you were
@@ -793,34 +809,52 @@ export function PropertiesPage() {
       // zip live in different columns.
       if (tokens.length && !matchesTokens(haystacks.get(p.id) ?? '', tokens)) return false
       // 'executed' is a lens on OUR deals, not a listing_status value — hence its own branch.
-      if (applies.status && status === 'executed') {
+      if (status === 'executed') {
         if (!executedIds?.has(p.id)) return false
-      } else if (applies.status && status !== 'all' && (p.listing_status ?? 'on_market') !== status) return false
-      // For lease / for sale comes from the current asking comp (a property can be both).
-      if (applies.dealType && dealType !== 'all') {
+      } else if (status !== 'all' && (p.listing_status ?? 'on_market') !== status) return false
+      /**
+       * For lease / for sale, priced by the current asking comp. The price question
+       * switches with the choice — lease asks $/SF, sale asks total — and a listing
+       * priced only the OTHER way is the other kind of listing, so it fails. A listing
+       * with no price at all rides along while "include listings without a price" is
+       * checked (default ON — the map must not silently hide unpriced listings).
+       */
+      if (marketSubsApply && dealType !== 'all') {
         const ask = askingMap?.get(p.id)
-        if (dealType === 'lease' && ask?.rate == null) return false
-        if (dealType === 'sale' && ask?.price == null) return false
+        const rate = ask?.rate ?? null
+        const total = ask?.price ?? null
+        const value = dealType === 'lease' ? rate : total
+        if (value != null) {
+          const lo = dealType === 'lease' ? psfLo : prLo
+          const hi = dealType === 'lease' ? psfHi : prHi
+          if (lo != null && value < lo) return false
+          if (hi != null && value > hi) return false
+        } else {
+          const fullyUnpriced = rate == null && total == null
+          if (!(includeUnpriced && fullyUnpriced)) return false
+        }
       }
       // Binary on purpose (Alex): either we can reach the owner today, or the parcel goes
       // on the next skip-trace list — county-known-but-uncontacted is still "not verified".
-      // Reachable spans BOTH channels: a confirmed conversation OR an email address proven
-      // to arrive. An owner you can only write to is still an owner you can work.
-      if (applies.owner && ownerFilter !== 'all') {
+      // The phone/email checkmarks pick WHICH channel counts; both checked = either,
+      // which is exactly the old owner_reachable.
+      if (ownerFilter === 'verified') {
         const ctx = ownerCtx?.get(p.id)
-        const reachable = !!ctx?.owner_reachable
-        if (ownerFilter === 'verified' && !reachable) return false
-        if (ownerFilter === 'unverified' && reachable) return false
+        const phoneOk = channels.phone && !!ctx?.owner_contact_verified
+        const emailOk = channels.email && !!ctx?.owner_email_verified
+        if (!phoneOk && !emailOk) return false
+      } else if (ownerFilter === 'unverified') {
+        if (ownerCtx?.get(p.id)?.owner_reachable) return false
       }
       // 30 days of ANY logged contact, matching the owner blast exactly. Never contacted
       // counts as quiet — it is the far end of the same axis, not a missing value.
-      if (applies.activity && activity !== 'all') {
+      if (activitySubApplies && activity !== 'all') {
         const last = ownerCtx?.get(p.id)?.last_contacted_at
         const recent = last != null && new Date(last).getTime() >= activityCutoff
         if (activity === 'recent' && !recent) return false
         if (activity === 'quiet' && recent) return false
       }
-      if (applies.lease && leaseMatchIds && !leaseMatchIds.has(p.id)) return false
+      if (leaseMatchIds && !leaseMatchIds.has(p.id)) return false
       if (ptype !== 'all' && p.property_type !== ptype) return false
       // The ZONING axis. 'industrial' spans primary + crossover codes (allows_industrial);
       // 'non_industrial' means zoned, and not for industrial — the grandfathered test.
@@ -838,12 +872,12 @@ export function PropertiesPage() {
       }
       // The USE axis: the county's DOR code, bucketed.
       if (useFilter !== 'all' && dorBucket(p.dor_use_code) !== useFilter) return false
-      if (applies.county && county !== 'all' && p.county !== county) return false
+      if (countyApplies && county !== 'all' && p.county !== county) return false
       // A size search must also see the units. A landlord who will carve 30,000 SF
       // out of a 93,666 SF building answers a 30k requirement — but the building
       // itself is far too big, so filtering on gross_sf alone excludes the very
       // property the search is for.
-      if (applies.buildingSf && (sfLo != null || sfHi != null)) {
+      if (sfLo != null || sfHi != null) {
         const sizes = [p.gross_sf, ...(unitSizes?.get(p.id) ?? [])].filter(
           (v): v is number => v != null,
         )
@@ -854,16 +888,27 @@ export function PropertiesPage() {
       }
       if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) return false
       if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) return false
-      if (applies.price && (prLo != null || prHi != null)) {
-        const price = askingMap?.get(p.id)?.price ?? null
-        if (prLo != null && (price == null || price < prLo)) return false
-        if (prHi != null && (price == null || price > prHi)) return false
-      }
       // Shape last: it's the most expensive test, so everything cheap rejects first.
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, marketSubsApply, activitySubApplies, countyApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+
+  /**
+   * "Include in search": union each toggled overlay layer's properties into the set,
+   * so the count line, exports and skip-trace carry them (Alex, 2026-08-15). Membership
+   * is the row's own (jurisdiction, code) — the overlay shapes and `properties.zoning_*`
+   * come from the same pipeline — with the industrial layer meaning allows_industrial,
+   * exactly like the zoning filter. Never point-in-polygon.
+   */
+  const filtered = useMemo(() => {
+    if (overlayIncludes.length === 0 || portfolioOwnerId) return baseFiltered
+    const seen = new Set(baseFiltered.map((p) => p.id))
+    const extra = (properties ?? []).filter(
+      (p) => !seen.has(p.id) && overlayIncludes.some((t) => rowInOverlay(p, t, overlays[t], crossovers)),
+    )
+    return extra.length ? [...baseFiltered, ...extra] : baseFiltered
+  }, [baseFiltered, overlayIncludes, overlays, portfolioOwnerId, properties, crossovers])
 
   /**
    * Everything the map should RECOGNISE, as opposed to everything it should pin.
@@ -894,7 +939,7 @@ export function PropertiesPage() {
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, activity, ptype, zoningFilter, useFilter, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon, leaseMatchIds, applies])
+  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, polygon, leaseMatchIds])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -1048,33 +1093,12 @@ export function PropertiesPage() {
       })
   }
 
-  /** Market lens: the building and how it is priced, with the listing to click into. */
-  const exportMarket = () => {
-    const headers = [
-      'Address', 'City', 'State', 'Zip', 'County', 'Property Type',
-      'Building SF', 'Acres', 'Year Built',
-      'Market Status', 'Days On Market', 'Asking Rate $/SF', 'Asking Price',
-      'Listing URL', 'CRM Property ID',
-    ]
-    const rows = filtered.map((p) => {
-      const ask = askingMap?.get(p.id)
-      return [
-        p.address, p.city, p.state, p.zip, p.county,
-        p.property_type ? propertyKindLabels[p.property_type] : null,
-        p.gross_sf, p.land_acres, p.year_built,
-        p.listing_status === 'off_market' ? 'off market' : 'on market',
-        p.days_on_market, ask?.rate ?? null, ask?.price ?? null,
-        p.listing_url, p.id,
-      ]
-    })
-    downloadCsv(`market-${todayStamp()}-${rows.length}.csv`, toCsv(headers, rows))
-  }
-
   /**
-   * Lease lens: the building, the tenancy, and the person to call. One row per
-   * property, carrying the same representative lease the table shows — the one the
-   * active window matched, or the soonest-running one when no window is set. Properties
-   * in the filter with no lease on file are left out rather than exported as empty rows.
+   * The lease-flavoured export: the building, the tenancy, and the person to call. One
+   * row per property, carrying the same representative lease the table shows — the one
+   * the active window matched, or the soonest-running one when no window is set.
+   * Properties in the filter with no lease on file are left out rather than exported as
+   * empty rows.
    */
   const exportLeases = () => {
     const headers = [
@@ -1103,14 +1127,10 @@ export function PropertiesPage() {
     }
   }
 
-  // The button follows the lens: each map view answers a different question, so its
-  // export carries that question's columns. The table has no lens and keeps the
-  // skip-trace export it has always produced.
-  const runExport = view === 'map' && colorBy === 'market'
-    ? exportMarket
-    : view === 'map' && colorBy === 'lease'
-      ? exportLeases
-      : exportCsv
+  // Interim until the Phase-4 export dialog: a lease-filtered set answers a tenancy
+  // question, so it exports lease columns; everything else is the skip-trace CSV
+  // (which stamps owners as exported — same as the table has always done).
+  const runExport = leaseMatchIds ? exportLeases : exportCsv
 
   // Paginate the table display (data is fully loaded; this just bounds the DOM).
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -1119,6 +1139,11 @@ export function PropertiesPage() {
 
   const clearFilters = () => {
     setStatus('all')
+    setDealType('all')
+    setPsfMin('')
+    setPsfMax('')
+    setIncludeUnpriced(true)
+    setChannels({ phone: true, email: true })
     setPtype('all')
     setZoningFilter('all')
     setUseFilter('all')
@@ -1140,6 +1165,88 @@ export function PropertiesPage() {
     setLeaseSfMax('')
     setDmFilter('all')
   }
+
+  /** The top bar's map count — same honesty rules the old toolbar line followed. */
+  const mapStatusText =
+    overlayIncludes.length > 0
+      ? isLoading
+        ? 'Loading the book to include the overlay…'
+        : `${filtered.length.toLocaleString()} matching incl. overlay properties`
+      : polygon
+        ? `${filtered.length.toLocaleString()} in shape`
+        : searchOnly
+          ? searching
+            ? 'Searching…'
+            : mapSearch.searchCapped
+              ? filtered.length < MAP_SEARCH_LIMIT
+                ? `${filtered.length.toLocaleString()} of the first ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
+                : `First ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
+              : `${filtered.length.toLocaleString()} matching`
+          : hasQuery
+            ? isLoading
+              ? 'Loading the book to filter it…'
+              : `${filtered.length.toLocaleString()} matching`
+            : mapView.isFetching
+              ? 'Loading this area…'
+              : `${mapView.data.totalInView.toLocaleString()} in this area`
+
+  /* The plays: one-tap client searches over the use × zoning axes. A chip SETS the
+     same filters the panel edits — it is a starting point to tweak, not a mode.
+     Active chip = its exact combo is live; tapping again clears both axes. */
+  const playChips = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {ZONING_PLAYS.map((play) => {
+        const active = useFilter === play.use && zoningFilter === play.zoning
+        return (
+          <Button
+            key={play.key}
+            size="sm"
+            variant={active ? 'secondary' : 'outline'}
+            className="h-7 rounded-full px-3 text-xs"
+            title={play.hint}
+            onClick={() => {
+              setWantsBook(true)
+              setUseFilter(active ? 'all' : play.use)
+              setZoningFilter(active ? 'all' : play.zoning)
+            }}
+          >
+            {play.label}
+          </Button>
+        )
+      })}
+    </div>
+  )
+
+  // One rail, two surfaces: the desktop aside and the phone bottom-sheet render the
+  // same element, so they can never disagree about what a filter means.
+  const railContent = (
+    <MapFilterRail
+      polygon={polygon}
+      draft={draft}
+      onStartDraw={() => { setPolygon(null); setDraft([]) }}
+      onFinishDraw={() => { setPolygon(draft); setDraft(null) }}
+      onUndoVertex={() => setDraft((d) => (d && d.length > 0 ? d.slice(0, -1) : d))}
+      onCancelDraw={() => setDraft(null)}
+      onClearShape={() => setPolygon(null)}
+      sfMin={sfMin} sfMax={sfMax} onSfMin={setSfMin} onSfMax={setSfMax}
+      acMin={acMin} acMax={acMax} onAcMin={setAcMin} onAcMax={setAcMax}
+      status={status} onStatus={setStatus}
+      dealType={dealType} onDealType={setDealType}
+      psfMin={psfMin} psfMax={psfMax} onPsfMin={setPsfMin} onPsfMax={setPsfMax}
+      priceMin={priceMin} priceMax={priceMax} onPriceMin={setPriceMin} onPriceMax={setPriceMax}
+      includeUnpriced={includeUnpriced} onIncludeUnpriced={setIncludeUnpriced}
+      verified={ownerFilter === 'verified'}
+      onVerified={(on) => setOwnerFilter(on ? 'verified' : 'all')}
+      channels={channels} onChannels={setChannels}
+      activity={activity} onActivity={setActivity}
+      pushCount={pushable.length}
+      onPush={() => setPushOpen(true)}
+      onMessage={() => setOwnerMsgOpen(true)}
+      overlays={overlays} onOverlays={setOverlays}
+      onOverlayIncludeOn={() => setWantsBook(true)}
+      playsSlot={playChips}
+    />
+  )
 
   const openCreate = () => {
     setEditing(null)
@@ -1229,46 +1336,37 @@ export function PropertiesPage() {
               <span className="hidden lg:inline">Map</span>
             </Button>
           </div>
-          {/* Which question the pin colours answer: "is it listed" vs "can we reach the owner". */}
+          {/* The lenses are gone: the top bar keeps only the count, Export and (on the
+              phone) the drawer that holds the rail. */}
           {view === 'map' && (
-            <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
+            <>
+              <span className="hidden text-sm text-muted-foreground lg:inline">{mapStatusText}</span>
               <Button
-                variant={colorBy === 'market' ? 'secondary' : 'ghost'}
                 size="sm"
-                className="rounded-none"
-                onClick={() => setColorBy('market')}
-                title="Colour pins by market status"
+                variant="outline"
+                className="shrink-0"
+                onClick={runExport}
+                disabled={filtered.length === 0}
               >
-                Market
+                <Download className="size-4" />
+                <span className="hidden sm:inline">Export CSV</span>
+                {filtered.length > 0 ? ` (${filtered.length.toLocaleString()})` : ''}
               </Button>
-              <Button
-                variant={colorBy === 'owner' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="rounded-none border-l"
-                onClick={() => setColorBy('owner')}
-                title="Colour pins by whether we can reach the owner"
-              >
-                Owner
-              </Button>
-              <Button
-                variant={colorBy === 'lease' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="rounded-none border-l"
-                onClick={() => setColorBy('lease')}
-                title="Colour pins by how soon the lease runs out"
-              >
-                Lease
-              </Button>
-              <Button
-                variant={colorBy === 'zoning' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="rounded-none border-l"
-                onClick={() => setColorBy('zoning')}
-                title="Colour pins by what zoning allows"
-              >
-                Zoning
-              </Button>
-            </div>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button size="sm" variant="outline" className="shrink-0 md:hidden">
+                    <SlidersHorizontal className="size-4" />
+                    Map filters
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Map filters</SheetTitle>
+                  </SheetHeader>
+                  <div className="px-4 pb-6">{railContent}</div>
+                </SheetContent>
+              </Sheet>
+            </>
           )}
           {/* Opening the panel is the same signal as clicking the search box: a filter is
               about to narrow the whole book, so start fetching it now. */}
@@ -1285,7 +1383,9 @@ export function PropertiesPage() {
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80 space-y-3">
-              {applies.status && (
+              {/* On the map these live in the rail; the popover only carries them for
+                  the table, so one control never shows in two places at once. */}
+              {view === 'table' && (
               <div className="space-y-1.5">
                 <Label>Market status</Label>
                 <Select value={status} onValueChange={setStatus}>
@@ -1301,7 +1401,7 @@ export function PropertiesPage() {
                 </Select>
               </div>
               )}
-              {applies.dealType && (
+              {view === 'table' && (
                 <div className="space-y-1.5">
                   <Label>Lease / sale</Label>
                   <Select value={dealType} onValueChange={setDealType}>
@@ -1314,6 +1414,30 @@ export function PropertiesPage() {
                       <SelectItem value="sale">For sale</SelectItem>
                     </SelectContent>
                   </Select>
+                  {/* The price question switches with the choice — same model as the rail. */}
+                  {dealType === 'lease' && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <CurrencyInput placeholder="Min $/SF" value={psfMin} onValueChange={setPsfMin} />
+                      <span className="text-muted-foreground">–</span>
+                      <CurrencyInput placeholder="Max $/SF" value={psfMax} onValueChange={setPsfMax} />
+                    </div>
+                  )}
+                  {dealType === 'sale' && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <CurrencyInput placeholder="Min price" value={priceMin} onValueChange={setPriceMin} />
+                      <span className="text-muted-foreground">–</span>
+                      <CurrencyInput placeholder="Max price" value={priceMax} onValueChange={setPriceMax} />
+                    </div>
+                  )}
+                  {dealType !== 'all' && (
+                    <label className="flex cursor-pointer items-center gap-2 pt-1 text-xs">
+                      <Checkbox
+                        checked={includeUnpriced}
+                        onCheckedChange={(v) => setIncludeUnpriced(v === true)}
+                      />
+                      Include listings without a price
+                    </label>
+                  )}
                 </div>
               )}
               <div className="space-y-1.5">
@@ -1370,7 +1494,7 @@ export function PropertiesPage() {
                   </Select>
                 </div>
               </div>
-              {applies.owner && (
+              {view === 'table' && (
                 <div className="space-y-1.5">
                   <Label>Verified owner</Label>
                   <Select value={ownerFilter} onValueChange={setOwnerFilter}>
@@ -1385,7 +1509,7 @@ export function PropertiesPage() {
                   </Select>
                 </div>
               )}
-              {applies.activity && (
+              {view === 'table' && (
                 <div className="space-y-1.5">
                   <Label>Recent activity</Label>
                   <Select value={activity} onValueChange={setActivity}>
@@ -1400,7 +1524,7 @@ export function PropertiesPage() {
                   </Select>
                 </div>
               )}
-              {applies.county && (
+              {countyApplies && (
                 <div className="space-y-1.5">
                   <Label>County</Label>
                   <Select value={county} onValueChange={setCounty}>
@@ -1418,7 +1542,7 @@ export function PropertiesPage() {
                   </Select>
                 </div>
               )}
-              {applies.buildingSf && (
+              {view === 'table' && (
                 <div className="space-y-1.5">
                   <Label>Gross SF</Label>
                   <div className="flex items-center gap-2">
@@ -1428,19 +1552,7 @@ export function PropertiesPage() {
                   </div>
                 </div>
               )}
-              {applies.leasedSf && (
-                <div className="space-y-1.5">
-                  <Label>Leased SF</Label>
-                  <div className="flex items-center gap-2">
-                    <CurrencyInput placeholder="Min"  value={leaseSfMin} onValueChange={setLeaseSfMin} />
-                    <span className="text-muted-foreground">–</span>
-                    <CurrencyInput placeholder="Max"  value={leaseSfMax} onValueChange={setLeaseSfMax} />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    The unit that was let, not the building around it.
-                  </p>
-                </div>
-              )}
+              {view === 'table' && (
               <div className="space-y-1.5">
                 <Label>Land acres</Label>
                 <div className="flex items-center gap-2">
@@ -1449,17 +1561,7 @@ export function PropertiesPage() {
                   <Input type="number" inputMode="decimal" placeholder="Max" value={acMax} onChange={(e) => setAcMax(e.target.value)} />
                 </div>
               </div>
-              {applies.price && (
-                <div className="space-y-1.5">
-                  <Label>Asking price</Label>
-                  <div className="flex items-center gap-2">
-                    <CurrencyInput placeholder="Min"  value={priceMin} onValueChange={setPriceMin} />
-                    <span className="text-muted-foreground">–</span>
-                    <CurrencyInput placeholder="Max"  value={priceMax} onValueChange={setPriceMax} />
-                  </div>
-                </div>
               )}
-              {applies.lease && (
               <>
               <div className="space-y-1.5 border-t pt-3">
                 <Label>Lease expires (months)</Label>
@@ -1529,6 +1631,17 @@ export function PropertiesPage() {
                 </p>
               </div>
               <div className="space-y-1.5 border-t pt-3">
+                <Label>Leased SF</Label>
+                <div className="flex items-center gap-2">
+                  <CurrencyInput placeholder="Min"  value={leaseSfMin} onValueChange={setLeaseSfMin} />
+                  <span className="text-muted-foreground">–</span>
+                  <CurrencyInput placeholder="Max"  value={leaseSfMax} onValueChange={setLeaseSfMax} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The unit that was let, not the building around it.
+                </p>
+              </div>
+              <div className="space-y-1.5 border-t pt-3">
                 <Label>Decision maker</Label>
                 <Select value={dmFilter} onValueChange={setDmFilter}>
                   <SelectTrigger className="w-full">
@@ -1545,7 +1658,6 @@ export function PropertiesPage() {
                 </p>
               </div>
               </>
-              )}
               <div className="flex justify-end border-t pt-2">
                 <Button variant="ghost" size="sm" onClick={clearFilters} disabled={activeFilterCount === 0}>
                   Clear all
@@ -1591,35 +1703,13 @@ export function PropertiesPage() {
         </div>
       </div>
 
-      {/* The plays: one-tap client searches over the use × zoning axes. A chip SETS the
-          same filters the panel edits — it is a starting point to tweak, not a mode.
-          Active chip = its exact combo is live; tapping again clears both axes. */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {ZONING_PLAYS.map((play) => {
-          const active = useFilter === play.use && zoningFilter === play.zoning
-          return (
-            <Button
-              key={play.key}
-              size="sm"
-              variant={active ? 'secondary' : 'outline'}
-              className="h-7 rounded-full px-3 text-xs"
-              title={play.hint}
-              onClick={() => {
-                setWantsBook(true)
-                setUseFilter(active ? 'all' : play.use)
-                setZoningFilter(active ? 'all' : play.zoning)
-              }}
-            >
-              {play.label}
-            </Button>
-          )
-        })}
-      </div>
+      {/* On the map the chips live at the bottom of the rail; here they head the table. */}
+      {view === 'table' && playChips}
 
-      {/* "of the book" only means something when the book is loaded. On the bare map the
-          number that matters is what's in view (the map's own header says it), and under a
-          search the book was never fetched — there is no denominator to quote. */}
-      {!isLoading && !isError && !viewportOnly && !searchOnly && (properties ?? []).length > 0 && (
+      {/* "of the book" only means something when the book is loaded. On the map the
+          top bar's count answers this, and under a search the book was never fetched —
+          there is no denominator to quote. */}
+      {view === 'table' && !isLoading && !isError && !viewportOnly && !searchOnly && (properties ?? []).length > 0 && (
         <p className="text-xs text-muted-foreground">
           Showing {filtered.length} of {(properties ?? []).length} properties
         </p>
@@ -1634,101 +1724,16 @@ export function PropertiesPage() {
       {/* The map loads what the camera is pointed at, not the book: tiles and pins are
           both there within a moment of opening, at any zoom, with nothing to type first. */}
       {view === 'map' && !isError ? (
-        <div className="space-y-2">
-          {/* Shape search: click the map to drop vertices, Finish closes the polygon. */}
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
-            {!drawMode ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setPolygon(null); setDraft([]) }}
-              >
-                <Crosshair className="size-4" />
-                {polygon ? 'Redraw shape' : 'Draw shape'}
-              </Button>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  disabled={(draft?.length ?? 0) < 3}
-                  onClick={() => { setPolygon(draft); setDraft(null) }}
-                >
-                  Finish shape{draft && draft.length > 0 ? ` (${draft.length})` : ''}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={(draft?.length ?? 0) === 0}
-                  onClick={() => setDraft((d) => (d && d.length > 0 ? d.slice(0, -1) : d))}
-                >
-                  Undo point
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>
-                  Cancel
-                </Button>
-              </>
-            )}
-            {polygon && !drawMode && (
-              <Button size="sm" variant="ghost" onClick={() => setPolygon(null)}>
-                Clear
-              </Button>
-            )}
-            <span className="ml-auto text-sm text-muted-foreground">
-              {drawMode
-                ? (draft?.length ?? 0) < 3
-                  ? 'Click the map to outline your search area (3+ points)'
-                  : `${draft!.length} points — keep clicking or Finish`
-                : polygon
-                  ? `${filtered.length.toLocaleString()} in shape`
-                  : searchOnly
-                    ? searching
-                      ? 'Searching…'
-                      : mapSearch.searchCapped
-                        ? // "of the first N" only reads right when a filter narrowed the
-                          // page; unnarrowed it would say "1,000 of the first 1,000".
-                          filtered.length < MAP_SEARCH_LIMIT
-                          ? `${filtered.length.toLocaleString()} of the first ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
-                          : `First ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
-                        : `${filtered.length.toLocaleString()} matching`
-                    : hasQuery
-                      ? isLoading
-                        ? 'Loading the book to filter it…'
-                        : `${filtered.length.toLocaleString()} matching`
-                      : mapView.isFetching
-                        ? 'Loading this area…'
-                        : `${mapView.data.totalInView.toLocaleString()} in this area`}
-            </span>
-            {/* The count belongs ON the button. The line to its left counts what is in the
-                area (2,145), the export carries what was actually fetched (1,000) — and on
-                the owner lens that same set gets stamped as sent for skip trace. A number
-                you read before clicking is the difference between "what I see" and "what I
-                just marked". */}
-            <Button size="sm" variant="outline" onClick={runExport} disabled={filtered.length === 0}>
-              <Download className="size-4" />
-              Export CSV{filtered.length > 0 ? ` (${filtered.length.toLocaleString()})` : ''}
-            </Button>
-            {/* Only meaningful on a verified-owner view: the whole point of narrowing to
-                verified is that these are people you can call today. `applies.owner`
-                matters as much as the value — on the Lease lens the owner filter is
-                dormant, so the list on screen is NOT the verified set it would push. */}
-            {applies.owner && ownerFilter === 'verified' && (
-              <>
-                <Button size="sm" onClick={() => setPushOpen(true)} disabled={pushable.length === 0}>
-                  <Send className="size-4" />
-                  Push to HighLevel
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setOwnerMsgOpen(true)}
-                  disabled={pushable.length === 0}
-                >
-                  <MessageSquare className="size-4" />
-                  Message {pushable.length}
-                </Button>
-              </>
-            )}
+        // The rail beside the map, Mapwise-style: every filter in a fixed-width left
+        // panel with its own scroll, the map filling the rest. Phone gets the same
+        // rail in a bottom sheet (the "Map filters" button in the top bar).
+        <div className="flex items-start gap-3">
+          <div className="hidden max-h-[80vh] w-[300px] shrink-0 overflow-y-auto rounded-lg border bg-muted/20 p-3 md:block">
+            {railContent}
           </div>
+          <div className="min-w-0 flex-1 space-y-2">
+          {/* The phone can't see the top bar's count (lg:), so it rides above the map. */}
+          <p className="text-sm text-muted-foreground lg:hidden">{mapStatusText}</p>
           {portfolioOwnerId && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-accent/40 p-2.5">
           <p className="text-sm">
@@ -1785,15 +1790,18 @@ export function PropertiesPage() {
             goodDealIds={goodDealIds}
             executedIds={executedIds}
             ownerContext={mapOwnerCtx}
-            colorBy={colorBy}
-            leaseInfo={leaseSoonest}
+            // The tenant hover-card follows the lease QUESTION, not a lens: only while
+            // a lease window narrows the set does the pin name who is leaving.
+            leaseInfo={leaseMatchIds ? leaseSoonest : undefined}
             polygon={polygon}
             draft={draft}
             drawMode={drawMode}
             asking={askingMap}
             industrialCrossovers={crossovers}
+            overlays={overlays}
             onAddVertex={(lat, lng) => setDraft((d) => [...(d ?? []), { lat, lng }])}
           />
+          </div>
         </div>
       ) : isLoading || searching ? (
         <div className="space-y-2">

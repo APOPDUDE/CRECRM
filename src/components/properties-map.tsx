@@ -11,6 +11,8 @@ import type { CurrentAsking } from '@/hooks/use-comps'
 import type { LeaseComp } from '@/hooks/use-lease-comps'
 import type { LatLng } from '@/lib/geo'
 import { isZonedIndustrial } from '@/hooks/use-zoning-map'
+import { MapOverlays } from '@/components/map-overlays'
+import type { OverlayState } from '@/lib/overlays'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
 // the comfortable ceiling on a phone. Desktop has the headroom for the whole book, so
@@ -84,7 +86,18 @@ function SizeWatcher() {
     // which is exactly the signal the loader below is already waiting for.
     const ro = new ResizeObserver(() => map.invalidateSize())
     ro.observe(map.getContainer())
-    return () => ro.disconnect()
+    // Belt and braces for the 0×0-at-init wedge: when Leaflet measures its container
+    // before layout settles, it caches a zero size, loads ONE tile and answers "0 in
+    // this area" — and the ResizeObserver's correction can be missed around mount.
+    // A couple of delayed nudges are free (no-ops once the size is right) and heal it
+    // deterministically; reproduced 2026-08-15 on the dev preview, stock code.
+    const raf = requestAnimationFrame(() => map.invalidateSize())
+    const timer = window.setTimeout(() => map.invalidateSize(), 300)
+    return () => {
+      ro.disconnect()
+      cancelAnimationFrame(raf)
+      window.clearTimeout(timer)
+    }
   }, [map])
   return null
 }
@@ -408,85 +421,24 @@ function ParcelLines({
 /**
  * Interactive map of the (filtered) properties: pan/zoom, hover a pin for a quick card,
  * click it to open the detail page. Only properties with stored coordinates appear.
- * Pin colour says one thing — where the property stands with us:
- * gold = executed under us (wins, and they'd otherwise read as off-market),
- * green = on market, red = off market. Good deals are called out in the tooltip.
+ *
+ * ONE colour scheme (the lenses died with the Phase-2 overhaul): pin colour means
+ * market status and nothing else — green = on market, slate = off market, gold =
+ * executed under us. Verified-owner is a rail filter now, zoning is an overlay, and
+ * lease run-off lives in the Filters panel — none of them are colours any more.
+ * Off market moved red → slate on purpose: red now belongs to the industrial overlay.
  */
 const PIN = {
   executed: '#f59e0b',
   on: '#059669',
-  off: '#dc2626',
+  off: '#64748b',
 } as const
 
-/**
- * The owner lens answers ONE question: do we hold a verified owner contact or not.
- * Deliberately binary (Alex 2026-08-01) — a county-record owner name or an unverified
- * skip-trace number doesn't change the workflow, because Terrakotta only needs the
- * address to skip-trace. Either we can call the owner today, or the parcel belongs on
- * the next skip-trace export.
- */
-const OWNER_PIN = {
-  verified: '#2563eb',
-  // Reachable by EMAIL only — a reply came back, but nobody has had a conversation.
-  // Its own colour rather than folding into verified: both are "worth contacting", but
-  // one you can call today and the other you can only write to, and the map should not
-  // blur that into a single dot.
-  emailOnly: '#0d9488',
-  unverified: '#94a3b8',
-} as const
-
-/**
- * The lease lens answers "how soon does this building come available".
- *
- * That is a magnitude, not a set of categories, so it gets a sequential ramp: one hue,
- * dark for imminent through pale for distant, with a neutral for leases running past
- * the year. Reading it needs no legend lookup — darker simply means sooner.
- */
-const LEASE_PIN = {
-  m1: '#7f1d1d',
-  m3: '#b91c1c',
-  m6: '#ef4444',
-  m12: '#fca5a5',
-  beyond: '#94a3b8',
-  // Off the ramp on purpose: an expired lease is not "further along the same scale",
-  // it is a different state — a past comp rather than upcoming availability.
-  expired: '#475569',
-} as const
-
-/**
- * The zoning lens answers "what is this parcel ALLOWED to become". Alex's four working
- * buckets get their own colours; everything else folds to two neutrals — the lens is for
- * hunting industrial capacity, not for admiring a rainbow. Crossover codes (CG/CI/BPC:
- * commercial that also permits industrial) read as industrial here, because that is the
- * question being asked of the map.
- */
-const ZONING_PIN = {
-  industrial: '#7c3aed',
-  office: '#0ea5e9',
-  retail: '#f59e0b',
-  multifamily: '#ec4899',
-  other: '#94a3b8',
-  unzoned: '#e2e8f0',
-} as const
-
-export type MapColorBy = 'market' | 'owner' | 'lease' | 'zoning'
-
-function ownerPin(ctx: OwnerContext | undefined): string {
-  if (ctx?.owner_contact_verified) return OWNER_PIN.verified
-  if (ctx?.owner_email_verified) return OWNER_PIN.emailOnly
-  return OWNER_PIN.unverified
-}
-
-function zoningPin(p: Property, industrialCapable: boolean): string {
-  if (industrialCapable) return ZONING_PIN.industrial
-  switch (p.zoning_type) {
-    case 'office': return ZONING_PIN.office
-    case 'retail': return ZONING_PIN.retail
-    case 'multifamily': return ZONING_PIN.multifamily
-    case null: return ZONING_PIN.unzoned
-    default: return ZONING_PIN.other
-  }
-}
+const LEGEND: { c: string; label: string }[] = [
+  { c: PIN.on, label: 'On market' },
+  { c: PIN.off, label: 'Off market' },
+  { c: PIN.executed, label: 'Executed' },
+]
 
 const shortDate = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
@@ -532,46 +484,6 @@ function leaseLines(l: LeaseComp): string[] {
   return lines
 }
 
-/** Months to the representative lease's expiry -> its step on the ramp. */
-function leasePin(months: number | undefined): string {
-  if (months == null) return LEASE_PIN.beyond
-  if (months < 0) return LEASE_PIN.expired
-  if (months < 1) return LEASE_PIN.m1
-  if (months < 3) return LEASE_PIN.m3
-  if (months < 6) return LEASE_PIN.m6
-  if (months < 12) return LEASE_PIN.m12
-  return LEASE_PIN.beyond
-}
-
-const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
-  market: [
-    { c: PIN.on, label: 'On market' },
-    { c: PIN.off, label: 'Off market' },
-    { c: PIN.executed, label: 'Executed' },
-  ],
-  owner: [
-    { c: OWNER_PIN.verified, label: 'Number confirmed' },
-    { c: OWNER_PIN.emailOnly, label: 'Email Verified only' },
-    { c: OWNER_PIN.unverified, label: 'Not verified' },
-  ],
-  lease: [
-    { c: LEASE_PIN.expired, label: 'Expired' },
-    { c: LEASE_PIN.m1, label: '< 1 mo' },
-    { c: LEASE_PIN.m3, label: '1-3 mo' },
-    { c: LEASE_PIN.m6, label: '3-6 mo' },
-    { c: LEASE_PIN.m12, label: '6-12 mo' },
-    { c: LEASE_PIN.beyond, label: '1 yr+' },
-  ],
-  zoning: [
-    { c: ZONING_PIN.industrial, label: 'Industrial (incl. CG/CI/BPC)' },
-    { c: ZONING_PIN.office, label: 'Office' },
-    { c: ZONING_PIN.retail, label: 'Retail' },
-    { c: ZONING_PIN.multifamily, label: 'Multifamily' },
-    { c: ZONING_PIN.other, label: 'Other' },
-    { c: ZONING_PIN.unzoned, label: 'No zoning data' },
-  ],
-}
-
 export function PropertiesMap({
   properties,
   parcelProperties,
@@ -579,7 +491,6 @@ export function PropertiesMap({
   goodDealIds,
   executedIds,
   ownerContext,
-  colorBy = 'market',
   leaseInfo,
   polygon,
   draft,
@@ -589,6 +500,7 @@ export function PropertiesMap({
   industrialCrossovers,
   onViewportChange,
   totalInView,
+  overlays,
 }: {
   properties: Property[]
   /**
@@ -602,11 +514,10 @@ export function PropertiesMap({
   goodDealIds?: Set<string>
   executedIds?: Set<string>
   ownerContext?: Map<string, OwnerContext>
-  colorBy?: MapColorBy
   /**
-   * Property id -> its soonest still-running lease. Colours the pin on the lease lens and
-   * names the outgoing tenant on hover. The parent owns the windowing, because the same
-   * filter drives the table.
+   * Property id -> its representative lease, for the hover card. The parent passes it
+   * only while a lease filter is narrowing the set — that is when "who is leaving and
+   * when" is the question being asked of the map.
    */
   leaseInfo?: Map<string, LeaseComp>
   /** Completed search shape; the parent owns it because it also filters the table + export. */
@@ -633,6 +544,8 @@ export function PropertiesMap({
    * arrived is all there is.
    */
   totalInView?: number
+  /** Which zoning/lowlands overlays paint (whole districts under the pins). */
+  overlays?: OverlayState
 }) {
   const navigate = useNavigate()
   // read once per mount: restoring the exact spot the user left when they clicked a pin
@@ -651,18 +564,8 @@ export function PropertiesMap({
   // Executed wins over market status — a closed deal is usually off-market too.
   const colorOf = useCallback(
     (id: string, p: Property) =>
-      colorBy === 'zoning'
-        ? zoningPin(p, isZonedIndustrial(p, industrialCrossovers))
-        : colorBy === 'lease'
-          ? leasePin(leaseInfo?.get(id)?.months_to_expiry ?? undefined)
-          : colorBy === 'owner'
-            ? ownerPin(ownerContext?.get(id))
-            : executedIds?.has(id)
-              ? PIN.executed
-              : p.listing_status === 'off_market'
-                ? PIN.off
-                : PIN.on,
-    [colorBy, ownerContext, executedIds, leaseInfo, industrialCrossovers],
+      executedIds?.has(id) ? PIN.executed : p.listing_status === 'off_market' ? PIN.off : PIN.on,
+    [executedIds],
   )
 
   // Same colour the dot would have used, keyed by property, so the parcel outline can
@@ -746,7 +649,7 @@ export function PropertiesMap({
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <p className="text-xs text-muted-foreground">{headline}</p>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          {LEGENDS[colorBy].map(({ c, label }) => (
+          {LEGEND.map(({ c, label }) => (
             <span key={label} className="inline-flex items-center gap-1.5">
               <span
                 className="inline-block size-2.5 rounded-full ring-1 ring-white"
@@ -772,6 +675,7 @@ export function PropertiesMap({
           />
           <SizeWatcher />
           <ViewportKeeper />
+          {overlays && <MapOverlays state={overlays} />}
           <ParcelLines
             parcelIndex={parcelIndex}
             colorById={pinColorById}
@@ -858,7 +762,7 @@ export function PropertiesMap({
                     <div className="font-medium">{p.address}</div>
                     {loc && <div className="opacity-70">{loc}</div>}
                     {bits.length > 0 && <div className="opacity-70">{bits.join(' · ')}</div>}
-                    {colorBy === 'lease' && leaseInfo?.get(id) && (
+                    {leaseInfo?.get(id) && (
                       <div className="mt-1 border-t pt-1">
                         <div className="font-medium">
                           {leaseInfo.get(id)!.tenant_name || 'Tenant not named'}

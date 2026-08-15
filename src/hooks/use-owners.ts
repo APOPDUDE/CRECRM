@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { fetchPages } from '@/lib/paged-fetch'
 import type { Tables } from '@/lib/database.types'
 
 export type OwnerContext = Tables<'v_property_owner_context'>
@@ -38,15 +39,19 @@ export function useOwnerContext(enabled = true) {
       const first = await base(true).range(0, PAGE - 1)
       if (first.error) throw first.error
       const total = first.count ?? (first.data?.length ?? 0)
-      const rest = await Promise.all(
-        Array.from({ length: Math.max(0, Math.ceil(total / PAGE) - 1) }, (_, i) =>
-          base().range((i + 1) * PAGE, (i + 2) * PAGE - 1),
-        ),
+      // Pooled + per-page retry, same as useProperties: this view is ~1ms/row of
+      // database work, and 30+ simultaneous pages is what was producing the 500s.
+      const rest = await fetchPages(
+        Math.max(0, Math.ceil(total / PAGE) - 1),
+        async (i) => {
+          const r = await base().range((i + 1) * PAGE, (i + 2) * PAGE - 1)
+          if (r.error) throw r.error
+          return (r.data ?? []) as OwnerContext[]
+        },
       )
       const map = new Map<string, OwnerContext>()
-      for (const r of [first, ...rest]) {
-        if (r.error) throw r.error
-        for (const row of (r.data ?? []) as OwnerContext[]) {
+      for (const rows of [(first.data ?? []) as OwnerContext[], ...rest]) {
+        for (const row of rows) {
           if (row.property_id) map.set(row.property_id, row)
         }
       }

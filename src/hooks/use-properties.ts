@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchPages } from '@/lib/paged-fetch'
 import { supabase } from '@/lib/supabase'
 import { geocodeAddress } from '@/lib/geocode'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
@@ -127,16 +128,17 @@ export function useProperties(enabled = true) {
       const first = await base(true).range(0, PAGE - 1)
       if (first.error) throw first.error
       const total = first.count ?? (first.data?.length ?? 0)
-      const rest = await Promise.all(
-        Array.from({ length: Math.max(0, Math.ceil(total / PAGE) - 1) }, (_, i) =>
-          base().range((i + 1) * PAGE, (i + 2) * PAGE - 1),
-        ),
+      // Pooled + per-page retry: at ~34 pages, all-at-once made the database 500
+      // random pages, and one bad page restarted the whole 34-page fetch.
+      const rest = await fetchPages(
+        Math.max(0, Math.ceil(total / PAGE) - 1),
+        async (i) => {
+          const r = await base().range((i + 1) * PAGE, (i + 2) * PAGE - 1)
+          if (r.error) throw r.error
+          return (r.data ?? []) as unknown as PropertyWithCounts[]
+        },
       )
-      const all = [...(first.data ?? [])] as unknown as PropertyWithCounts[]
-      for (const r of rest) {
-        if (r.error) throw r.error
-        all.push(...((r.data ?? []) as unknown as PropertyWithCounts[]))
-      }
+      const all = [...((first.data ?? []) as unknown as PropertyWithCounts[]), ...rest.flat()]
       // County records are the source of truth (Alex 2026-08-11), so the situs address is what
       // the whole app shows, searches, maps and exports — one swap here rather than a
       // `site_address ?? address` at every read site. The original stays on source_address.
