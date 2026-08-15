@@ -30,31 +30,37 @@ export function useOwnerContext(enabled = true) {
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      // ~13k rows behind PostgREST's 1000-row cap — fetch the pages in parallel; serial
-      // paging plus a zero staleTime is what made back-navigation to the map crawl.
+      // ~34k rows behind PostgREST's 1000-row cap — fetch the pages pooled (6 wide,
+      // per-page retry). Serial paging plus a zero staleTime is what made
+      // back-navigation to the map crawl; an unpooled herd is what made pages 500.
       const PAGE = 1000
-      // count:'exact' only on the first request — the later parallel pages don't need the
-      // total, and re-counting a ~13k-row view per page multiplies server work.
-      const base = (withCount?: boolean) =>
-        supabase
-          .from('v_property_owner_context')
-          .select('*', withCount ? { count: 'exact' } : undefined)
-          .order('property_id')
-      const first = await base(true).range(0, PAGE - 1)
-      if (first.error) throw first.error
-      const total = first.count ?? (first.data?.length ?? 0)
-      // Pooled + per-page retry, same as useProperties: this view is ~1ms/row of
-      // database work, and 30+ simultaneous pages is what was producing the 500s.
-      const rest = await fetchPages(
-        Math.max(0, Math.ceil(total / PAGE) - 1),
-        async (i) => {
-          const r = await base().range((i + 1) * PAGE, (i + 2) * PAGE - 1)
-          if (r.error) throw r.error
-          return (r.data ?? []) as OwnerContext[]
-        },
-      )
+      const base = () =>
+        supabase.from('v_property_owner_context').select('*').order('property_id')
+      // NEVER count(*) the view itself: that evaluates its lateral joins over every
+      // row in one statement and times out (500, seen 2026-08-15 after the
+      // companies-based rebuild). The view is one row per property, so the properties
+      // table's cheap count is the page estimate; the tail loop below catches any
+      // excess if the two ever disagree.
+      const { count, error: countError } = await supabase
+        .from('properties')
+        .select('id', { count: 'exact', head: true })
+      if (countError) throw countError
+      let pageCount = Math.max(1, Math.ceil((count ?? 0) / PAGE))
+      const pages = await fetchPages(pageCount, async (i) => {
+        const r = await base().range(i * PAGE, (i + 1) * PAGE - 1)
+        if (r.error) throw r.error
+        return (r.data ?? []) as OwnerContext[]
+      })
+      let last = pages[pages.length - 1] ?? []
+      while (last.length === PAGE) {
+        const r = await base().range(pageCount * PAGE, (pageCount + 1) * PAGE - 1)
+        if (r.error) throw r.error
+        last = (r.data ?? []) as OwnerContext[]
+        pages.push(last)
+        pageCount++
+      }
       const map = new Map<string, OwnerContext>()
-      for (const rows of [(first.data ?? []) as OwnerContext[], ...rest]) {
+      for (const rows of pages) {
         for (const row of rows) {
           if (row.property_id) map.set(row.property_id, row)
         }
