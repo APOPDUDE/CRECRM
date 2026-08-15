@@ -60,6 +60,16 @@ function dorInt(code: string | null | undefined): number | null {
   return parseInt(d.length >= 3 ? d.slice(0, 3) : d, 10)
 }
 
+/**
+ * Industrial USE, the county's word: the DOR industrial range plus vehicle
+ * sales/repair/garages (027) — Alex's niche rides with industrial whatever the
+ * classifier's standard bucket says. Vacant industrial (040) counts too.
+ */
+export function isIndustrialUse(code: string | null | undefined): boolean {
+  const v = dorInt(code)
+  return v != null && ((v >= 40 && v <= 49) || v === 27)
+}
+
 export function dorBucket(code: string | null | undefined): DorBucket | null {
   const v = dorInt(code)
   if (v == null || Number.isNaN(v)) return null
@@ -89,14 +99,14 @@ export const ZONING_PLAYS: {
   label: string
   hint: string
   use: DorBucket | 'all'
-  zoning: ZoningKind | 'non_industrial' | 'all'
+  zoning: ZoningKind | 'industrial_any' | 'non_industrial' | 'all'
 }[] = [
   {
-    key: 'zoned_ind',
-    label: 'Zoned industrial',
-    hint: 'Everything industrial zoning allows, whatever sits there today',
+    key: 'all_ind',
+    label: 'All industrial',
+    hint: 'Zoned industrial (incl. CG/CI/BPC) PLUS anything with an industrial county use that is not zoned for it',
     use: 'all',
-    zoning: 'industrial',
+    zoning: 'industrial_any',
   },
   {
     key: 'house_on_ind',

@@ -48,7 +48,7 @@ import {
 import { useIndustrialCrossovers, isZonedIndustrial } from '@/hooks/use-zoning-map'
 import {
   DOR_FILTER_ORDER, ZONING_FILTER_ORDER, ZONING_PLAYS,
-  dorBucket, dorBucketLabels, zoningKindLabels,
+  dorBucket, dorBucketLabels, isIndustrialUse, zoningKindLabels,
 } from '@/lib/zoning'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
@@ -826,7 +826,11 @@ export function PropertiesPage() {
       // 'non_industrial' means zoned, and not for industrial — the grandfathered test.
       // Unzoned rows fail every specific pick: no answer is not a match.
       if (zoningFilter !== 'all') {
-        if (zoningFilter === 'industrial') {
+        if (zoningFilter === 'industrial_any') {
+          // the whole industrial universe: zoned for it OR already used as it —
+          // the grandfathered cohort belongs to "everything industrial" (Alex)
+          if (!isZonedIndustrial(p, crossovers) && !isIndustrialUse(p.dor_use_code)) return false
+        } else if (zoningFilter === 'industrial') {
           if (!isZonedIndustrial(p, crossovers)) return false
         } else if (zoningFilter === 'non_industrial') {
           if (p.zoning_type == null || isZonedIndustrial(p, crossovers)) return false
@@ -1355,6 +1359,7 @@ export function PropertiesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Any zoning</SelectItem>
+                      <SelectItem value="industrial_any">Industrial — zoned or used</SelectItem>
                       {ZONING_FILTER_ORDER.map((z) => (
                         <SelectItem key={z} value={z}>
                           {z === 'industrial' ? 'Industrial (incl. CG/CI/BPC)' : zoningKindLabels[z]}
