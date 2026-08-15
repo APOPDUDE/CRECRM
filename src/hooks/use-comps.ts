@@ -143,6 +143,7 @@ export function usePropertyComps(propertyId: string | undefined) {
           'id, kind, deal_type, as_of_date, asking_lease_rate_psf, executed_lease_rate_psf, lease_structure, term_months, free_rent_months, ti_psf, opex_psf, escalations, commencement_date, expiration_date, sale_price, cap_rate_pct, sf, executed_at, commission_fee, source, tenant_name, tenant_company_id, pursuit_id, pursuit:pursuits!comps_pursuit_id_fkey(actual_fee, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))',
         )
         .eq('property_id', propertyId!)
+        .in('kind', ['asking', 'executed'])
         .order('as_of_date', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -304,6 +305,7 @@ export function useCountyCompTrend(county: string | null, years: number) {
           'deal_type, kind, executed_at, created_at, asking_lease_rate_psf, executed_lease_rate_psf, sale_price, price_per_sf, sf, properties!inner(county)',
         )
         .eq('properties.county', county!)
+        .in('kind', ['asking', 'executed'])
       if (error) throw error
       return bucketTrend((data ?? []) as unknown as CompRow[], years)
     },
