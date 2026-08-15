@@ -112,6 +112,12 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
           locked={countyOwned}
         />
         <Stat
+          label="Zoning"
+          value={property.zoning_code}
+          // the jurisdiction's own wording; a code without its meaning is a lookup chore
+          sub={property.zoning_description ?? property.zoning_jurisdiction}
+        />
+        <Stat
           label="Building class"
           value={property.building_class ? `Class ${property.building_class}` : null}
         />

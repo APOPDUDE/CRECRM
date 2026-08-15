@@ -26,15 +26,35 @@ const CHANNEL_ICON: Record<string, string> = {
  * transcript (HubSpot, Terrakotta, GHL) plus manual notes, newest first.
  */
 export function ConversationLog({ comms }: { comms: Communication[] }) {
+  // The property page is a working surface, not an archive: three engagements answer
+  // "where do things stand", and an owner with forty calls was drowning the page. The
+  // third entry fades under a gradient so the cut reads as "there is more", and the
+  // button says how much more. (Alex 2026-08-15.)
+  const PREVIEW = 3
+  const [showAll, setShowAll] = useState(false)
   if (comms.length === 0) {
     return <p className="text-sm text-muted-foreground">No conversations logged yet.</p>
   }
+  const collapsed = !showAll && comms.length > PREVIEW
+  const shown = collapsed ? comms.slice(0, PREVIEW) : comms
   return (
-    <ul className="space-y-3">
-      {comms.map((c) => (
-        <ConversationItem key={c.id} c={c} />
-      ))}
-    </ul>
+    <div className="space-y-2">
+      <ul className="space-y-3">
+        {shown.map((c, i) => (
+          <ConversationItem key={c.id} c={c} dim={collapsed && i === PREVIEW - 1} />
+        ))}
+      </ul>
+      {collapsed && (
+        <Button variant="outline" size="sm" className="w-full" onClick={() => setShowAll(true)}>
+          See all {comms.length} engagements
+        </Button>
+      )}
+      {showAll && comms.length > PREVIEW && (
+        <Button variant="ghost" size="sm" className="w-full" onClick={() => setShowAll(false)}>
+          Show fewer
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -106,7 +126,7 @@ function emailEndpoints(c: Communication): string | null {
   return [from ? `from ${from}` : null, to ? `to ${to}` : null].filter(Boolean).join('  →  ')
 }
 
-function ConversationItem({ c }: { c: Communication }) {
+function ConversationItem({ c, dim = false }: { c: Communication; dim?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const updateNote = useUpdateCommNote()
@@ -141,7 +161,11 @@ function ConversationItem({ c }: { c: Communication }) {
   }
 
   return (
-    <li className="group rounded-md border bg-card p-3 text-sm">
+    <li
+      className={`group rounded-md border bg-card p-3 text-sm ${dim ? 'pointer-events-none opacity-40' : ''}`}
+      // the fading third entry is the visual "there is more below" cue
+      style={dim ? { maskImage: 'linear-gradient(to bottom, black 25%, transparent 100%)' } : undefined}
+    >
       <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span>{CHANNEL_ICON[c.channel] ?? '•'}</span>
         <span>{new Date(c.occurred_at).toLocaleDateString()}</span>
