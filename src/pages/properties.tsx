@@ -45,6 +45,11 @@ import {
   useMapSearch,
   type MapViewport,
 } from '@/hooks/use-map-properties'
+import { useIndustrialCrossovers, isZonedIndustrial } from '@/hooks/use-zoning-map'
+import {
+  DOR_FILTER_ORDER, ZONING_FILTER_ORDER, ZONING_PLAYS,
+  dorBucket, dorBucketLabels, zoningKindLabels,
+} from '@/lib/zoning'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
@@ -297,6 +302,13 @@ export function PropertiesPage() {
   const [status, setStatus] = usePersistentState('properties:status', 'all')
   const [dealType, setDealType] = usePersistentState('properties:dealType', 'all')
   const [ptype, setPtype] = usePersistentState('properties:ptype', 'all')
+  // The two-axis refinement (Alex 2026-08-15): USE = what the county records the parcel
+  // as today (DOR code, bucketed), ZONING = what it is allowed to become. They compose —
+  // "single family home but zoned industrial" is one pick on each axis. 'non_industrial'
+  // is a first-class zoning value because the grandfathered cohort (used industrial,
+  // not zoned for it) is a search he runs, not a negation he should have to build.
+  const [zoningFilter, setZoningFilter] = usePersistentState('properties:zoning', 'all')
+  const [useFilter, setUseFilter] = usePersistentState('properties:use', 'all')
   const [county, setCounty] = usePersistentState('properties:county', 'all')
   const { data: unitSizes } = useAvailableUnitSizes()
   const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
@@ -397,6 +409,10 @@ export function PropertiesPage() {
       // Whether the shell is listed today says nothing about a lease signed in 2021, so
       // the market status filter sits out the comp lens.
       status: !leaseLens,
+      // Zoning and county-use are orthogonal to every lens — "zoned-industrial houses
+      // whose owners I can call" is precisely a zoning × owner-lens question — so they
+      // apply everywhere, map and table alike.
+      zoning: true,
     }
   }, [view, colorBy])
 
@@ -410,6 +426,8 @@ export function PropertiesPage() {
     (applies.status && status !== 'all' ? 1 : 0) +
     (applies.dealType && dealType !== 'all' ? 1 : 0) +
     (ptype !== 'all' ? 1 : 0) +
+    (zoningFilter !== 'all' ? 1 : 0) +
+    (useFilter !== 'all' ? 1 : 0) +
     (applies.owner && ownerFilter !== 'all' ? 1 : 0) +
     (applies.activity && activity !== 'all' ? 1 : 0) +
     (applies.county && county !== 'all' ? 1 : 0) +
@@ -482,6 +500,7 @@ export function PropertiesPage() {
   // The comps answer lease questions only: the run-off lens, the lease filters, and the
   // table's tenant columns. On the bare market map they were ~1,300 rows of nothing, and
   // slow enough to crowd out the fetch that actually draws the pins.
+  const { data: crossovers } = useIndustrialCrossovers()
   const { data: leases = [] } = useLeaseComps(
     view === 'table' || colorBy === 'lease' || (applies.lease && leaseFilter.any),
   )
@@ -551,6 +570,8 @@ export function PropertiesPage() {
       setStatus('all')
       setDealType('all')
       setPtype('all')
+      setZoningFilter('all')
+      setUseFilter('all')
       setCounty('all')
       setSfMin('')
       setSfMax('')
@@ -801,6 +822,18 @@ export function PropertiesPage() {
       }
       if (applies.lease && leaseMatchIds && !leaseMatchIds.has(p.id)) return false
       if (ptype !== 'all' && p.property_type !== ptype) return false
+      // The ZONING axis. 'industrial' spans primary + crossover codes (allows_industrial);
+      // 'non_industrial' means zoned, and not for industrial — the grandfathered test.
+      // Unzoned rows fail every specific pick: no answer is not a match.
+      if (zoningFilter !== 'all') {
+        if (zoningFilter === 'industrial') {
+          if (!isZonedIndustrial(p, crossovers)) return false
+        } else if (zoningFilter === 'non_industrial') {
+          if (p.zoning_type == null || isZonedIndustrial(p, crossovers)) return false
+        } else if (p.zoning_type !== zoningFilter) return false
+      }
+      // The USE axis: the county's DOR code, bucketed.
+      if (useFilter !== 'all' && dorBucket(p.dor_use_code) !== useFilter) return false
       if (applies.county && county !== 'all' && p.county !== county) return false
       // A size search must also see the units. A landlord who will carve 30,000 SF
       // out of a 93,666 SF building answers a 30k requirement — but the building
@@ -826,7 +859,7 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, unitSizes, status, dealType, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, activity, activityCutoff, executedIds, leaseMatchIds, applies, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon])
 
   /**
    * Everything the map should RECOGNISE, as opposed to everything it should pin.
@@ -857,7 +890,7 @@ export function PropertiesPage() {
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, activity, ptype, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon, leaseMatchIds, applies])
+  }, [search, status, dealType, ownerFilter, activity, ptype, zoningFilter, useFilter, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, polygon, leaseMatchIds, applies])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -966,7 +999,9 @@ export function PropertiesPage() {
       'Year Built', 'Last Sale Date', 'Last Sale Price',
       'Market Status', 'Was On Market', 'Days Off Market',
       'Owner Verified', 'Owner Tags', 'Owner Contact Name', 'Owner Contact Phone', 'Owner Contact Email',
-      'Known Contacts', 'Last Contacted', 'CRM Property ID',
+      'Known Contacts', 'Last Contacted',
+      'Zoning Code', 'Zoning Type', 'Zoned Industrial OK', 'Zoning Jurisdiction', 'County Use',
+      'CRM Property ID',
     ]
     const rows = filtered.map((p) => {
       const o = ownerCtx?.get(p.id)
@@ -985,6 +1020,10 @@ export function PropertiesPage() {
         o?.best_contact_name, o?.best_contact_phone, o?.best_contact_email,
         o?.owner_contact_count ?? 0,
         o?.last_contacted_at ? new Date(o.last_contacted_at).toISOString().slice(0, 10) : null,
+        p.zoning_code, p.zoning_type,
+        isZonedIndustrial(p, crossovers) ? 'yes' : 'no',
+        p.zoning_jurisdiction,
+        dorBucket(p.dor_use_code) ? dorBucketLabels[dorBucket(p.dor_use_code)!] : null,
         p.id,
       ]
     })
@@ -1077,6 +1116,8 @@ export function PropertiesPage() {
   const clearFilters = () => {
     setStatus('all')
     setPtype('all')
+    setZoningFilter('all')
+    setUseFilter('all')
     setOwnerFilter('all')
     setActivity('all')
     setCounty('all')
@@ -1214,6 +1255,15 @@ export function PropertiesPage() {
               >
                 Lease
               </Button>
+              <Button
+                variant={colorBy === 'zoning' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="rounded-none border-l"
+                onClick={() => setColorBy('zoning')}
+                title="Colour pins by what zoning allows"
+              >
+                Zoning
+              </Button>
             </div>
           )}
           {/* Opening the panel is the same signal as clicking the search box: a filter is
@@ -1277,6 +1327,43 @@ export function PropertiesPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              {/* The two-axis refinement: what it IS (county use) × what it MAY BECOME
+                  (zoning). Side by side because they are meant to be crossed. */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label>County use</Label>
+                  <Select value={useFilter} onValueChange={setUseFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Any use</SelectItem>
+                      {DOR_FILTER_ORDER.map((b) => (
+                        <SelectItem key={b} value={b}>
+                          {dorBucketLabels[b]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Zoned</Label>
+                  <Select value={zoningFilter} onValueChange={setZoningFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Any zoning</SelectItem>
+                      {ZONING_FILTER_ORDER.map((z) => (
+                        <SelectItem key={z} value={z}>
+                          {z === 'industrial' ? 'Industrial (incl. CG/CI/BPC)' : zoningKindLabels[z]}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="non_industrial">Not industrial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               {applies.owner && (
                 <div className="space-y-1.5">
@@ -1499,6 +1586,31 @@ export function PropertiesPage() {
         </div>
       </div>
 
+      {/* The plays: one-tap client searches over the use × zoning axes. A chip SETS the
+          same filters the panel edits — it is a starting point to tweak, not a mode.
+          Active chip = its exact combo is live; tapping again clears both axes. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {ZONING_PLAYS.map((play) => {
+          const active = useFilter === play.use && zoningFilter === play.zoning
+          return (
+            <Button
+              key={play.key}
+              size="sm"
+              variant={active ? 'secondary' : 'outline'}
+              className="h-7 rounded-full px-3 text-xs"
+              title={play.hint}
+              onClick={() => {
+                setWantsBook(true)
+                setUseFilter(active ? 'all' : play.use)
+                setZoningFilter(active ? 'all' : play.zoning)
+              }}
+            >
+              {play.label}
+            </Button>
+          )
+        })}
+      </div>
+
       {/* "of the book" only means something when the book is loaded. On the bare map the
           number that matters is what's in view (the map's own header says it), and under a
           search the book was never fetched — there is no denominator to quote. */}
@@ -1674,6 +1786,7 @@ export function PropertiesPage() {
             draft={draft}
             drawMode={drawMode}
             asking={askingMap}
+            industrialCrossovers={crossovers}
             onAddVertex={(lat, lng) => setDraft((d) => [...(d ?? []), { lat, lng }])}
           />
         </div>

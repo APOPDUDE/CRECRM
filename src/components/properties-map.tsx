@@ -10,6 +10,7 @@ import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import type { CurrentAsking } from '@/hooks/use-comps'
 import type { LeaseComp } from '@/hooks/use-lease-comps'
 import type { LatLng } from '@/lib/geo'
+import { isZonedIndustrial } from '@/hooks/use-zoning-map'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
 // the comfortable ceiling on a phone. Desktop has the headroom for the whole book, so
@@ -452,12 +453,39 @@ const LEASE_PIN = {
   expired: '#475569',
 } as const
 
-export type MapColorBy = 'market' | 'owner' | 'lease'
+/**
+ * The zoning lens answers "what is this parcel ALLOWED to become". Alex's four working
+ * buckets get their own colours; everything else folds to two neutrals — the lens is for
+ * hunting industrial capacity, not for admiring a rainbow. Crossover codes (CG/CI/BPC:
+ * commercial that also permits industrial) read as industrial here, because that is the
+ * question being asked of the map.
+ */
+const ZONING_PIN = {
+  industrial: '#7c3aed',
+  office: '#0ea5e9',
+  retail: '#f59e0b',
+  multifamily: '#ec4899',
+  other: '#94a3b8',
+  unzoned: '#e2e8f0',
+} as const
+
+export type MapColorBy = 'market' | 'owner' | 'lease' | 'zoning'
 
 function ownerPin(ctx: OwnerContext | undefined): string {
   if (ctx?.owner_contact_verified) return OWNER_PIN.verified
   if (ctx?.owner_email_verified) return OWNER_PIN.emailOnly
   return OWNER_PIN.unverified
+}
+
+function zoningPin(p: Property, industrialCapable: boolean): string {
+  if (industrialCapable) return ZONING_PIN.industrial
+  switch (p.zoning_type) {
+    case 'office': return ZONING_PIN.office
+    case 'retail': return ZONING_PIN.retail
+    case 'multifamily': return ZONING_PIN.multifamily
+    case null: return ZONING_PIN.unzoned
+    default: return ZONING_PIN.other
+  }
 }
 
 const shortDate = (iso: string) =>
@@ -534,6 +562,14 @@ const LEGENDS: Record<MapColorBy, { c: string; label: string }[]> = {
     { c: LEASE_PIN.m12, label: '6-12 mo' },
     { c: LEASE_PIN.beyond, label: '1 yr+' },
   ],
+  zoning: [
+    { c: ZONING_PIN.industrial, label: 'Industrial (incl. CG/CI/BPC)' },
+    { c: ZONING_PIN.office, label: 'Office' },
+    { c: ZONING_PIN.retail, label: 'Retail' },
+    { c: ZONING_PIN.multifamily, label: 'Multifamily' },
+    { c: ZONING_PIN.other, label: 'Other' },
+    { c: ZONING_PIN.unzoned, label: 'No zoning data' },
+  ],
 }
 
 export function PropertiesMap({
@@ -550,6 +586,7 @@ export function PropertiesMap({
   drawMode = false,
   onAddVertex,
   asking,
+  industrialCrossovers,
   onViewportChange,
   totalInView,
 }: {
@@ -580,6 +617,8 @@ export function PropertiesMap({
   onAddVertex?: (lat: number, lng: number) => void
   /** Current asking per property, so a listed pin can show its rate/price on hover. */
   asking?: Map<string, CurrentAsking>
+  /** Crossover zoning codes (jurisdiction|code) that allow industrial without being it. */
+  industrialCrossovers?: Set<string>
   /**
    * Fires with the camera's bounds on every settled pan/zoom. The parent uses it to load
    * only the properties on screen — the map asks for what the user is looking at rather
@@ -612,16 +651,18 @@ export function PropertiesMap({
   // Executed wins over market status — a closed deal is usually off-market too.
   const colorOf = useCallback(
     (id: string, p: Property) =>
-      colorBy === 'lease'
-        ? leasePin(leaseInfo?.get(id)?.months_to_expiry ?? undefined)
-        : colorBy === 'owner'
-          ? ownerPin(ownerContext?.get(id))
-          : executedIds?.has(id)
-            ? PIN.executed
-            : p.listing_status === 'off_market'
-              ? PIN.off
-              : PIN.on,
-    [colorBy, ownerContext, executedIds, leaseInfo],
+      colorBy === 'zoning'
+        ? zoningPin(p, isZonedIndustrial(p, industrialCrossovers))
+        : colorBy === 'lease'
+          ? leasePin(leaseInfo?.get(id)?.months_to_expiry ?? undefined)
+          : colorBy === 'owner'
+            ? ownerPin(ownerContext?.get(id))
+            : executedIds?.has(id)
+              ? PIN.executed
+              : p.listing_status === 'off_market'
+                ? PIN.off
+                : PIN.on,
+    [colorBy, ownerContext, executedIds, leaseInfo, industrialCrossovers],
   )
 
   // Same colour the dot would have used, keyed by property, so the parcel outline can
@@ -796,6 +837,10 @@ export function PropertiesMap({
               p.land_acres != null ? `${p.land_acres} AC` : null,
               executed ? 'Executed' : off ? 'Off market' : 'On market',
               goodDealIds?.has(id) ? 'Good deal' : null,
+              // the hover answers "what can I do with the dirt" without a click
+              p.zoning_code
+                ? `Zoned ${p.zoning_code}${isZonedIndustrial(p, industrialCrossovers) ? ' (ind ok)' : ''}`
+                : null,
             ].filter(Boolean)
             const portfolio = ctx?.owner_property_count ?? 0
             return (
