@@ -617,7 +617,7 @@ export type Database = {
           external_id: string | null
           id: string
           occurred_at: string
-          owner_id: string | null
+          owner_company_id: string | null
           phone: string | null
           property_id: string | null
           raw: Json | null
@@ -640,7 +640,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           occurred_at: string
-          owner_id?: string | null
+          owner_company_id?: string | null
           phone?: string | null
           property_id?: string | null
           raw?: Json | null
@@ -663,7 +663,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           occurred_at?: string
-          owner_id?: string | null
+          owner_company_id?: string | null
           phone?: string | null
           property_id?: string | null
           raw?: Json | null
@@ -685,10 +685,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "communications_owner_id_fkey"
-            columns: ["owner_id"]
+            foreignKeyName: "communications_owner_company_id_fkey"
+            columns: ["owner_company_id"]
             isOneToOne: false
-            referencedRelation: "owners"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -726,8 +726,14 @@ export type Database = {
           annual_revenue: number | null
           created_at: string
           employee_count: number | null
+          entity_kind: Database["public"]["Enums"]["owner_kind"] | null
+          exported_at: string | null
           id: string
           industry: string | null
+          mailing_address: string | null
+          mailing_city: string | null
+          mailing_state: string | null
+          mailing_zip: string | null
           naics: string | null
           name: string
           normalized_name: string | null
@@ -735,6 +741,7 @@ export type Database = {
           phone: string | null
           sic: string | null
           source: string | null
+          tags: string[] | null
           type: Database["public"]["Enums"]["company_type"]
           updated_at: string
           website: string | null
@@ -743,8 +750,14 @@ export type Database = {
           annual_revenue?: number | null
           created_at?: string
           employee_count?: number | null
+          entity_kind?: Database["public"]["Enums"]["owner_kind"] | null
+          exported_at?: string | null
           id?: string
           industry?: string | null
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
           naics?: string | null
           name: string
           normalized_name?: string | null
@@ -752,6 +765,7 @@ export type Database = {
           phone?: string | null
           sic?: string | null
           source?: string | null
+          tags?: string[] | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
           website?: string | null
@@ -760,8 +774,14 @@ export type Database = {
           annual_revenue?: number | null
           created_at?: string
           employee_count?: number | null
+          entity_kind?: Database["public"]["Enums"]["owner_kind"] | null
+          exported_at?: string | null
           id?: string
           industry?: string | null
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
           naics?: string | null
           name?: string
           normalized_name?: string | null
@@ -769,6 +789,7 @@ export type Database = {
           phone?: string | null
           sic?: string | null
           source?: string | null
+          tags?: string[] | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
           website?: string | null
@@ -1678,117 +1699,6 @@ export type Database = {
           },
         ]
       }
-      owner_contacts: {
-        Row: {
-          confidence: Database["public"]["Enums"]["owner_contact_confidence"]
-          contact_id: string
-          created_at: string
-          id: string
-          match_basis: string | null
-          notes: string | null
-          owner_id: string
-          role: string | null
-          updated_at: string
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          confidence?: Database["public"]["Enums"]["owner_contact_confidence"]
-          contact_id: string
-          created_at?: string
-          id?: string
-          match_basis?: string | null
-          notes?: string | null
-          owner_id: string
-          role?: string | null
-          updated_at?: string
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          confidence?: Database["public"]["Enums"]["owner_contact_confidence"]
-          contact_id?: string
-          created_at?: string
-          id?: string
-          match_basis?: string | null
-          notes?: string | null
-          owner_id?: string
-          role?: string | null
-          updated_at?: string
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "owner_contacts_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "owner_contacts_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "owners"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      owners: {
-        Row: {
-          created_at: string
-          display_name: string
-          id: string
-          kind: Database["public"]["Enums"]["owner_kind"]
-          mailing_address: string | null
-          mailing_city: string | null
-          mailing_state: string | null
-          mailing_zip: string | null
-          normalized_name: string | null
-          notes: string | null
-          tags: string[] | null
-          updated_at: string
-          verification_note: string | null
-          verification_status: Database["public"]["Enums"]["owner_verification_status"]
-          verification_updated_at: string | null
-        }
-        Insert: {
-          created_at?: string
-          display_name: string
-          id?: string
-          kind?: Database["public"]["Enums"]["owner_kind"]
-          mailing_address?: string | null
-          mailing_city?: string | null
-          mailing_state?: string | null
-          mailing_zip?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          tags?: string[] | null
-          updated_at?: string
-          verification_note?: string | null
-          verification_status?: Database["public"]["Enums"]["owner_verification_status"]
-          verification_updated_at?: string | null
-        }
-        Update: {
-          created_at?: string
-          display_name?: string
-          id?: string
-          kind?: Database["public"]["Enums"]["owner_kind"]
-          mailing_address?: string | null
-          mailing_city?: string | null
-          mailing_state?: string | null
-          mailing_zip?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          tags?: string[] | null
-          updated_at?: string
-          verification_note?: string | null
-          verification_status?: Database["public"]["Enums"]["owner_verification_status"]
-          verification_updated_at?: string | null
-        }
-        Relationships: []
-      }
       properties: {
         Row: {
           address: string
@@ -1839,6 +1749,7 @@ export type Database = {
           occupancy: string | null
           on_ground_lease: boolean | null
           opportunity_zone: boolean | null
+          owner_company_id: string | null
           owner_id: string | null
           owner_mailing_address: string | null
           owner_name: string | null
@@ -1932,6 +1843,7 @@ export type Database = {
           occupancy?: string | null
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
+          owner_company_id?: string | null
           owner_id?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
@@ -2025,6 +1937,7 @@ export type Database = {
           occupancy?: string | null
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
+          owner_company_id?: string | null
           owner_id?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
@@ -2071,10 +1984,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "properties_owner_id_fkey"
-            columns: ["owner_id"]
+            foreignKeyName: "properties_owner_company_id_fkey"
+            columns: ["owner_company_id"]
             isOneToOne: false
-            referencedRelation: "owners"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -3064,13 +2977,6 @@ export type Database = {
           zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
         }
         Relationships: [
-          {
-            foreignKeyName: "properties_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "owners"
-            referencedColumns: ["id"]
-          },
         ]
       }
       v_property_available_space: {
@@ -3151,9 +3057,7 @@ export type Database = {
       }
       v_property_owner_context: {
         Row: {
-          best_contact_confidence:
-            | Database["public"]["Enums"]["owner_contact_confidence"]
-            | null
+          best_contact_confidence: string | null
           best_contact_email: string | null
           best_contact_email_verified_at: string | null
           best_contact_name: string | null
@@ -3162,6 +3066,7 @@ export type Database = {
           last_contacted_at: string | null
           off_market_days: number | null
           off_market_since: string | null
+          owner_company_id: string | null
           owner_confirmed_contact_count: number | null
           owner_contact_count: number | null
           owner_contact_verified: boolean | null
@@ -3176,18 +3081,16 @@ export type Database = {
           owner_property_count: number | null
           owner_reachable: boolean | null
           owner_tags: string[] | null
-          owner_verification_status:
-            | Database["public"]["Enums"]["owner_verification_status"]
-            | null
+          owner_verification_status: string | null
           property_id: string | null
           was_on_market: boolean | null
         }
         Relationships: [
           {
-            foreignKeyName: "properties_owner_id_fkey"
-            columns: ["owner_id"]
+            foreignKeyName: "properties_owner_company_id_fkey"
+            columns: ["owner_company_id"]
             isOneToOne: false
-            referencedRelation: "owners"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -3405,16 +3308,11 @@ export type Database = {
         }[]
       }
       import_lease_comps: { Args: { p: Json }; Returns: Json }
-      import_owner_addresses: { Args: { p: Json }; Returns: Json }
       import_scraped_listings: {
         Args: { p_client_id?: string; p_flagged_new?: boolean; p_props: Json }
         Returns: Json
       }
       import_terrakotta_batch: { Args: { p: Json }; Returns: Json }
-      import_terrakotta_evidence_upgrade: {
-        Args: { p_contact: string }
-        Returns: undefined
-      }
       import_usable_acres: {
         Args: { p: Json; p_area_tolerance?: number }
         Returns: Json
@@ -3427,10 +3325,6 @@ export type Database = {
         Returns: Json
       }
       intake_prospect: { Args: { p: Json; p_owner: string }; Returns: Json }
-      link_appraiser_owner_entities: {
-        Args: { p_county?: string }
-        Returns: Json
-      }
       map_properties: {
         Args: {
           p_limit?: number
@@ -3522,7 +3416,6 @@ export type Database = {
         Returns: Database["public"]["Enums"]["property_kind"]
       }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
-      relink_owner_contacts: { Args: { p?: Json }; Returns: Json }
       search_contacts: {
         Args: {
           p_include_archived?: boolean
@@ -3673,15 +3566,7 @@ export type Database = {
       listing_market_status: "on_market" | "off_market"
       listing_stage: "proposal" | "listed" | "closed"
       note_kind: "note" | "call" | "text" | "email" | "meeting" | "tour"
-      owner_contact_confidence: "confirmed" | "likely" | "unconfirmed"
       owner_kind: "individual" | "entity" | "government" | "unknown"
-      owner_verification_status:
-        | "unverified"
-        | "exported"
-        | "calling"
-        | "verified"
-        | "unreachable"
-        | "do_not_call"
       property_kind: "industrial" | "office" | "retail" | "land" | "other"
       prospect_status: "open" | "converted" | "dead"
       pursuit_stage:
@@ -3925,16 +3810,7 @@ export const Constants = {
       listing_market_status: ["on_market", "off_market"],
       listing_stage: ["proposal", "listed", "closed"],
       note_kind: ["note", "call", "text", "email", "meeting", "tour"],
-      owner_contact_confidence: ["confirmed", "likely", "unconfirmed"],
       owner_kind: ["individual", "entity", "government", "unknown"],
-      owner_verification_status: [
-        "unverified",
-        "exported",
-        "calling",
-        "verified",
-        "unreachable",
-        "do_not_call",
-      ],
       property_kind: ["industrial", "office", "retail", "land", "other"],
       prospect_status: ["open", "converted", "dead"],
       pursuit_stage: [

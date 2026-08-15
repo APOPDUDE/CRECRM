@@ -24,42 +24,44 @@ import { formatPhone, normalizePhone } from '@/lib/format'
 
 /**
  * Who owns this building and whether we can actually reach them — the data-room answer,
- * right on the property page. Contacts added here count as VERIFIED (Alex vouching is the
- * same signal as the VA's tag); removing a link never deletes the contact or its history.
+ * right on the property page. The owning entity is a companies row (owners are retired);
+ * its people are the contacts seated at it, and "verified" is `contacts.verified_at` —
+ * Alex vouching is the same signal as the VA's tag. Removing a person only clears their
+ * seat; the contact and its history stay in the CRM.
  */
 export function PropertyOwnerCard({ property }: { property: Property }) {
-  const ownerId = property.owner_id
-  const { data: contacts } = useOwnerContacts(ownerId)
+  const companyId = property.owner_company_id
+  const { data: contacts } = useOwnerContacts(companyId)
   const setPhone = useSetPhoneVerified()
   const setEmail = useSetEmailVerified()
-  const { data: portfolio } = useOwnerProperties(ownerId)
-  const contactIds = (contacts ?? []).map((c) => c.contact?.id).filter((v): v is string => !!v)
-  const { data: comms } = useOwnerConversations(ownerId, contactIds)
-  const { data: ownerRec } = useOwnerRecord(ownerId)
+  const { data: portfolio } = useOwnerProperties(companyId)
+  const contactIds = (contacts ?? []).map((c) => c.id)
+  const { data: comms } = useOwnerConversations(companyId, contactIds)
+  const { data: ownerRec } = useOwnerRecord(companyId)
   const removeLink = useRemoveOwnerContact()
   const updateTags = useUpdateOwnerTags()
   const [addingTag, setAddingTag] = useState(false)
   const [tagDraft, setTagDraft] = useState('')
 
   const saveTags = (tags: string[]) => {
-    if (!ownerId) return
+    if (!companyId) return
     updateTags.mutate(
-      { ownerId, tags },
+      { ownerCompanyId: companyId, tags },
       { onError: (e) => toast.error(`Could not update tags: ${e.message}`) },
     )
   }
 
-  const verified = (contacts ?? []).filter((c) => c.confidence === 'confirmed')
-  const others = (contacts ?? []).filter((c) => c.confidence !== 'confirmed')
+  const verified = (contacts ?? []).filter((c) => !!c.verified_at)
+  const others = (contacts ?? []).filter((c) => !c.verified_at)
   // once the owner is verified, the unverified skip-trace lines are noise
   const shown = verified.length > 0 ? verified : others
   const portfolioCount = portfolio?.length ?? 0
 
-  const remove = (linkId: string, name: string) => {
-    if (!ownerId) return
+  const remove = (contactId: string, name: string) => {
+    if (!companyId) return
     if (!window.confirm(`Remove ${name} from this owner? The contact and its history stay in the CRM.`)) return
     removeLink.mutate(
-      { linkId, ownerId },
+      { contactId, ownerCompanyId: companyId },
       {
         onSuccess: () => toast.success(`${name} removed from owner`),
         onError: (e) => toast.error(`Could not remove: ${e.message}`),
@@ -72,7 +74,7 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
       <h2 className="text-sm font-medium text-muted-foreground">Owner</h2>
       <div className="space-y-3 rounded-lg border p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{property.owner_name ?? 'Unknown owner'}</span>
+          <span className="font-medium">{ownerRec?.name ?? property.owner_name ?? 'Unknown owner'}</span>
           {verified.length > 0 ? (
             <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
               Verified owner
@@ -105,7 +107,7 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
               </button>
             </Badge>
           ))}
-          {ownerId && !addingTag && (
+          {companyId && !addingTag && (
             <button
               type="button"
               onClick={() => setAddingTag(true)}
@@ -137,12 +139,12 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
               />
             </form>
           )}
-          {portfolioCount > 1 && ownerId && (
+          {portfolioCount > 1 && companyId && (
             // A portfolio is a shape on a map before it is a number — one owner holding
             // eight parcels along the same corridor is a different conversation than eight
             // scattered ones, and you can only see that by looking.
             <Button asChild variant="outline" size="sm" className="h-7 px-2.5 text-xs font-normal">
-              <Link to={`/properties?owner=${ownerId}&view=map`}>
+              <Link to={`/properties?owner=${companyId}&view=map`}>
                 <MapPin className="size-3.5" />
                 See all {portfolioCount} on the map
               </Link>
@@ -162,99 +164,92 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
           </p>
         ) : (
           <ul className="space-y-1.5">
-            {shown.map((oc) => {
-              const name =
-                [oc.contact?.first_name, oc.contact?.last_name].filter(Boolean).join(' ') ||
-                'Unknown'
+            {shown.map((ct) => {
+              const name = [ct.first_name, ct.last_name].filter(Boolean).join(' ') || 'Unknown'
               return (
-                <li key={oc.id} className="flex flex-wrap items-center gap-x-2 text-sm">
-                  <Link to={`/contacts/${oc.contact?.id}`} className="font-medium hover:underline">
+                <li key={ct.id} className="flex flex-wrap items-center gap-x-2 text-sm">
+                  <Link to={`/contacts/${ct.id}`} className="font-medium hover:underline">
                     {name}
                   </Link>
                   {/* Verification belongs to the CHANNEL, not the person: a confirmed number
                       and a proven email are different facts. Each badge is the control that
                       sets it — click to flip, because the person who just made the call is
                       the one who knows. */}
-                  {oc.contact?.phone && (
+                  {ct.phone && (
                     <span className="inline-flex items-center gap-1">
                       <a
-                        href={`tel:${oc.contact.phone}`}
+                        href={`tel:${ct.phone}`}
                         className={cn(
                           'hover:underline',
-                          oc.confidence === 'confirmed'
-                            ? 'font-medium text-blue-700'
-                            : 'text-muted-foreground',
+                          ct.verified_at ? 'font-medium text-blue-700' : 'text-muted-foreground',
                         )}
                       >
-                        {formatPhone(oc.contact.phone) ?? oc.contact.phone}
+                        {formatPhone(ct.phone) ?? ct.phone}
                       </a>
                       <button
                         type="button"
                         disabled={setPhone.isPending}
                         title={
-                          oc.confidence === 'confirmed'
-                            ? `Verified${oc.verified_at ? ` ${formatDate(oc.verified_at)}` : ''} — click to unverify`
+                          ct.verified_at
+                            ? `Verified ${formatDate(ct.verified_at)} — click to unverify`
                             : 'Click to mark this number verified'
                         }
                         onClick={() =>
-                          ownerId &&
                           setPhone.mutate({
-                            linkId: oc.id,
-                            ownerId,
-                            verified: oc.confidence !== 'confirmed',
+                            contactId: ct.id,
+                            verified: !ct.verified_at,
                           })
                         }
                         className={cn(
                           'rounded-full border px-1.5 py-px text-[10px] transition-colors',
-                          oc.confidence === 'confirmed'
+                          ct.verified_at
                             ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
                             : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent',
                         )}
                       >
-                        {oc.confidence === 'confirmed' ? 'verified' : 'unverified'}
+                        {ct.verified_at ? 'verified' : 'unverified'}
                       </button>
                     </span>
                   )}
-                  {oc.contact?.email && (
+                  {ct.email && (
                     <span className="inline-flex items-center gap-1">
                       <a
-                        href={`mailto:${oc.contact.email}`}
+                        href={`mailto:${ct.email}`}
                         className={cn(
                           'text-xs hover:underline',
-                          oc.contact.email_verified_at
+                          ct.email_verified_at
                             ? 'font-medium text-teal-700'
                             : 'text-muted-foreground',
                         )}
                       >
-                        {oc.contact.email}
+                        {ct.email}
                       </a>
                       <button
                         type="button"
                         disabled={setEmail.isPending}
                         title={
-                          oc.contact.email_verified_at
-                            ? `Verified ${formatDate(oc.contact.email_verified_at)} — click to unverify`
+                          ct.email_verified_at
+                            ? `Verified ${formatDate(ct.email_verified_at)} — click to unverify`
                             : 'Click to mark this email verified'
                         }
                         onClick={() =>
-                          oc.contact &&
                           setEmail.mutate({
-                            contactId: oc.contact.id,
-                            verified: !oc.contact.email_verified_at,
+                            contactId: ct.id,
+                            verified: !ct.email_verified_at,
                           })
                         }
                         className={cn(
                           'rounded-full border px-1.5 py-px text-[10px] transition-colors',
-                          oc.contact.email_verified_at
+                          ct.email_verified_at
                             ? 'border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100'
                             : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent',
                         )}
                       >
-                        {oc.contact.email_verified_at ? 'verified' : 'unverified'}
+                        {ct.email_verified_at ? 'verified' : 'unverified'}
                       </button>
                     </span>
                   )}
-                  {oc.contact?.do_not_call && (
+                  {ct.do_not_call && (
                     <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 text-[10px]">
                       DNC
                     </Badge>
@@ -262,7 +257,7 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                   <button
                     type="button"
                     title="Remove from this owner"
-                    onClick={() => remove(oc.id, name)}
+                    onClick={() => remove(ct.id, name)}
                     className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
                   >
                     <X className="size-3.5" />
@@ -278,8 +273,8 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
         <div className="space-y-2 border-t pt-3">
           <h3 className="text-xs font-medium text-muted-foreground">Conversations</h3>
           <AddNoteBox
-            contactId={verified[0]?.contact?.id ?? contactIds[0] ?? null}
-            ownerId={ownerId}
+            contactId={verified[0]?.id ?? contactIds[0] ?? null}
+            ownerCompanyId={companyId}
             propertyId={property.id}
           />
           <ConversationLog comms={comms ?? []} />

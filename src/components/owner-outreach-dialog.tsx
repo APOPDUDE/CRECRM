@@ -26,7 +26,7 @@ const BLAST_URL = 'https://n8n.ayxco.com/webhook/buyer-blast'
 export type OwnerRecipient = {
   /** the property id — one recipient per building, which is what makes the message theirs */
   recipientId: string
-  /** the owner entity behind it, so the context pane can pull their whole history */
+  /** the owning COMPANY behind it (owners are retired), so the context pane can pull their whole history */
   ownerId: string | null
   /** null when we hold no number — shown in the list anyway, so the gap is visible */
   phone: string | null

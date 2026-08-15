@@ -4,7 +4,11 @@ import { fetchPages } from '@/lib/paged-fetch'
 import type { Tables } from '@/lib/database.types'
 
 export type OwnerContext = Tables<'v_property_owner_context'>
-export type Owner = Tables<'owners'>
+/** The owning entity is a companies row now (owners/owner_contacts are retired). */
+export type OwnerCompany = Pick<
+  Tables<'companies'>,
+  'id' | 'name' | 'entity_kind' | 'mailing_address' | 'tags' | 'exported_at'
+>
 export type Communication = Tables<'communications'>
 
 /**
@@ -60,33 +64,33 @@ export function useOwnerContext(enabled = true) {
   })
 }
 
-/** The owner row itself — outcome tags + pipeline status for the card header. */
-export function useOwnerRecord(ownerId: string | null | undefined) {
+/** The owning company itself — outcome tags + export stamp for the card header. */
+export function useOwnerRecord(ownerCompanyId: string | null | undefined) {
   return useQuery({
-    queryKey: ['owner-record', ownerId],
-    enabled: !!ownerId,
+    queryKey: ['owner-record', ownerCompanyId],
+    enabled: !!ownerCompanyId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('owners')
-        .select('id, tags, verification_status')
-        .eq('id', ownerId!)
+        .from('companies')
+        .select('id, name, entity_kind, mailing_address, tags, exported_at')
+        .eq('id', ownerCompanyId!)
         .single()
       if (error) throw error
-      return data
+      return data as OwnerCompany
     },
   })
 }
 
-/** Every property an owner holds — the portfolio view behind a map pin. */
-export function useOwnerProperties(ownerId: string | null | undefined) {
+/** Every property an owning company holds — the portfolio view behind a map pin. */
+export function useOwnerProperties(ownerCompanyId: string | null | undefined) {
   return useQuery({
-    queryKey: ['owner-properties', ownerId],
-    enabled: !!ownerId,
+    queryKey: ['owner-properties', ownerCompanyId],
+    enabled: !!ownerCompanyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('properties')
         .select('id, address, city, county, property_type, gross_sf, land_acres, listing_status, lat, lng')
-        .eq('owner_id', ownerId!)
+        .eq('owner_company_id', ownerCompanyId!)
         .order('address')
       if (error) throw error
       return data ?? []
@@ -95,76 +99,95 @@ export function useOwnerProperties(ownerId: string | null | undefined) {
 }
 
 /**
- * Contact ids that are a *confirmed* link to some owner — i.e. we've established this
- * human really is who we think, on the number we hold. Mirrors the rule the verification
- * loop enforces: `confidence = 'confirmed'` AND a `verified_at` stamp (the schema requires
- * the stamp for confirmed, but a link written before that constraint could lack one, and a
- * badge claiming "verified" with no date behind it would be a lie).
+ * Contact ids we've actually verified — a human confirmed this person on this number
+ * (`contacts.verified_at`, the one surviving verification mark now that the
+ * owner_contacts confidence ladder is retired).
  *
  * Returned as a Set so list rows are an O(1) lookup rather than a scan per row.
+ * Paged: ~1,100 verified people sit just past PostgREST's silent 1000-row cap.
  */
 export function useVerifiedContactIds() {
   return useQuery({
     queryKey: ['verified-contact-ids'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('owner_contacts')
-        .select('contact_id')
-        .eq('confidence', 'confirmed')
-        .not('verified_at', 'is', null)
-        .not('contact_id', 'is', null)
-      if (error) throw error
-      return new Set((data ?? []).map((r) => r.contact_id as string))
+      const PAGE = 1000
+      const base = (withCount?: boolean) =>
+        supabase
+          .from('contacts')
+          .select('id', withCount ? { count: 'exact' } : undefined)
+          .not('verified_at', 'is', null)
+          .order('id')
+      const first = await base(true).range(0, PAGE - 1)
+      if (first.error) throw first.error
+      const total = first.count ?? (first.data?.length ?? 0)
+      const rest = await Promise.all(
+        Array.from({ length: Math.max(0, Math.ceil(total / PAGE) - 1) }, (_, i) =>
+          base().range((i + 1) * PAGE, (i + 2) * PAGE - 1),
+        ),
+      )
+      const ids = new Set<string>()
+      for (const r of [first, ...rest]) {
+        if (r.error) throw r.error
+        for (const row of r.data ?? []) ids.add(row.id as string)
+      }
+      return ids
     },
   })
 }
 
-export type OwnerContactRow = Tables<'owner_contacts'> & {
-  contact: Pick<
-    Tables<'contacts'>,
-    | 'id'
-    | 'first_name'
-    | 'last_name'
-    | 'phone'
-    | 'email'
-    | 'title'
-    | 'do_not_call'
-    | 'campaign_lists'
-    | 'email_verified_at'
-  > | null
-}
+/** A person seated at an owning company — the flat contacts row, no link table between. */
+export type OwnerPersonRow = Pick<
+  Tables<'contacts'>,
+  | 'id'
+  | 'first_name'
+  | 'last_name'
+  | 'phone'
+  | 'email'
+  | 'title'
+  | 'do_not_call'
+  | 'campaign_lists'
+  | 'email_verified_at'
+  | 'verified_at'
+  | 'verified_by'
+  | 'company_id'
+>
 
-/** The humans linked to an owner, best-verified first. */
-export function useOwnerContacts(ownerId: string | null | undefined) {
+/** The humans seated at an owning company, verified first. */
+export function useOwnerContacts(ownerCompanyId: string | null | undefined) {
   return useQuery({
-    queryKey: ['owner-contacts', ownerId],
-    enabled: !!ownerId,
+    queryKey: ['owner-contacts', ownerCompanyId],
+    enabled: !!ownerCompanyId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('owner_contacts')
+        .from('contacts')
         .select(
-          '*, contact:contacts!owner_contacts_contact_id_fkey(id, first_name, last_name, phone, email, title, do_not_call, campaign_lists, email_verified_at)',
+          'id, first_name, last_name, phone, email, title, do_not_call, campaign_lists, email_verified_at, verified_at, verified_by, company_id',
         )
-        .eq('owner_id', ownerId!)
+        .eq('company_id', ownerCompanyId!)
       if (error) throw error
-      const rows = (data ?? []) as unknown as OwnerContactRow[]
-      const rank = { confirmed: 0, likely: 1, unconfirmed: 2 } as const
-      return rows.sort((a, b) => rank[a.confidence] - rank[b.confidence])
+      const rows = (data ?? []) as OwnerPersonRow[]
+      // verified people first, then whoever is most reachable
+      return rows.sort(
+        (a, b) =>
+          Number(!!b.verified_at) - Number(!!a.verified_at) ||
+          Number(!!b.email_verified_at) - Number(!!a.email_verified_at) ||
+          Number(!!b.phone) - Number(!!a.phone),
+      )
     },
   })
 }
 
 /**
- * Conversation history for an owner: everything logged against the owner itself, plus
- * anything logged against the humans we've linked to it. Newest first.
+ * Conversation history for an owning company: everything logged against the company
+ * itself, plus anything logged against the humans seated at it. Newest first.
  */
-export function useOwnerConversations(ownerId: string | null | undefined, contactIds: string[]) {
+export function useOwnerConversations(ownerCompanyId: string | null | undefined, contactIds: string[]) {
   const key = [...contactIds].sort().join(',')
   return useQuery({
-    queryKey: ['owner-conversations', ownerId, key],
-    enabled: !!ownerId,
+    queryKey: ['owner-conversations', ownerCompanyId, key],
+    enabled: !!ownerCompanyId,
     queryFn: async () => {
-      const clauses = [`owner_id.eq.${ownerId}`]
+      const clauses = [`owner_company_id.eq.${ownerCompanyId}`]
       if (contactIds.length > 0) clauses.push(`contact_id.in.(${contactIds.join(',')})`)
       const { data, error } = await supabase
         .from('communications')
@@ -187,8 +210,8 @@ function invalidateOwnerViews(qc: ReturnType<typeof useQueryClient>) {
 
 /**
  * Add a VERIFIED contact to a property's owner from the property page. Reuses the same DB
- * routine as the GHL webhook: upserts the contact by phone, mints the owner entity when the
- * parcel has none, links confirmed, keeps owners.verification_status in lockstep.
+ * routine as the GHL webhook: upserts the contact by phone, stamps contacts.verified_at,
+ * and seats the person at the owning company.
  */
 export function useAddVerifiedContact() {
   const qc = useQueryClient()
@@ -223,68 +246,45 @@ export function useAddVerifiedContact() {
 }
 
 /**
- * Unlink a contact from an owner (the contact itself and its history survive). If that was
- * the owner's last confirmed link, the owner drops back to unverified so the map stays honest.
+ * Unseat a person from an owning company (the contact itself and its history survive —
+ * only the company link is cleared). The view derives owner verification from the seated
+ * contacts, so the map goes honest on its own; there is no status column to sync anymore.
  */
 export function useRemoveOwnerContact() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: { linkId: string; ownerId: string }) => {
-      const { error } = await supabase.from('owner_contacts').delete().eq('id', v.linkId)
+    mutationFn: async (v: { contactId: string; ownerCompanyId: string }) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ company_id: null })
+        .eq('id', v.contactId)
+        .eq('company_id', v.ownerCompanyId)
       if (error) throw error
-      const { count, error: e2 } = await supabase
-        .from('owner_contacts')
-        .select('id', { count: 'exact', head: true })
-        .eq('owner_id', v.ownerId)
-        .eq('confidence', 'confirmed')
-      if (e2) throw e2
-      if ((count ?? 0) === 0) {
-        await supabase
-          .from('owners')
-          .update({ verification_status: 'unverified', verification_updated_at: new Date().toISOString() })
-          .eq('id', v.ownerId)
-      }
     },
     onSuccess: () => invalidateOwnerViews(qc),
   })
 }
 
 
-/** Replace the owner's outcome tags (the card's chip editor writes the whole array). */
 /**
- * Mark a number verified or not. Verified means "someone had a conversation on this
- * line" — the DB enforces it too: confidence 'confirmed' requires a verified_at stamp.
- *
- * The owner's own status follows its contacts: confirming one verifies the owner,
- * and un-confirming the last one drops the owner back, the same rule unlinking uses.
+ * Mark a person verified or not. Verified means "someone had a conversation on this
+ * line" — `contacts.verified_at` is the one surviving mark (the owner_contacts
+ * confidence ladder is retired). The owner's map status follows its seated contacts
+ * through the view; nothing else to sync.
  */
 export function useSetPhoneVerified() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: { linkId: string; ownerId: string; verified: boolean }) => {
+    mutationFn: async (v: { contactId: string; verified: boolean }) => {
       const { error } = await supabase
-        .from('owner_contacts')
+        .from('contacts')
         .update(
           v.verified
-            ? { confidence: 'confirmed', verified_at: new Date().toISOString(), verified_by: 'Alex (manual)' }
-            : { confidence: 'likely', verified_at: null, verified_by: null },
+            ? { verified_at: new Date().toISOString(), verified_by: 'Alex (manual)' }
+            : { verified_at: null, verified_by: null },
         )
-        .eq('id', v.linkId)
+        .eq('id', v.contactId)
       if (error) throw error
-
-      const { count, error: e2 } = await supabase
-        .from('owner_contacts')
-        .select('id', { count: 'exact', head: true })
-        .eq('owner_id', v.ownerId)
-        .eq('confidence', 'confirmed')
-      if (e2) throw e2
-      await supabase
-        .from('owners')
-        .update({
-          verification_status: (count ?? 0) > 0 ? 'verified' : 'unverified',
-          verification_updated_at: new Date().toISOString(),
-        })
-        .eq('id', v.ownerId)
     },
     onSuccess: () => invalidateOwnerViews(qc),
   })
@@ -305,14 +305,15 @@ export function useSetEmailVerified() {
   })
 }
 
+/** Replace the owning company's outcome tags (the card's chip editor writes the whole array). */
 export function useUpdateOwnerTags() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: { ownerId: string; tags: string[] }) => {
+    mutationFn: async (v: { ownerCompanyId: string; tags: string[] }) => {
       const { error } = await supabase
-        .from('owners')
+        .from('companies')
         .update({ tags: v.tags.length ? v.tags : null })
-        .eq('id', v.ownerId)
+        .eq('id', v.ownerCompanyId)
       if (error) throw error
     },
     onSuccess: () => {

@@ -2,11 +2,10 @@ import { BadgeCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
- * Marks a contact we've actually confirmed — a `confirmed` owner_contacts link with a
- * verified_at stamp behind it, meaning someone had a real conversation on this number.
- * Deliberately not shown for `likely`/`unconfirmed` links: a skip-trace guess that shares
- * an address with a parcel is not verification, and a badge that appears on guesses stops
- * meaning anything.
+ * Marks a contact we've actually confirmed — a `contacts.verified_at` stamp, meaning
+ * someone had a real conversation on this number. Deliberately not shown for unverified
+ * rows: a skip-trace guess that shares an address with a parcel is not verification, and
+ * a badge that appears on guesses stops meaning anything.
  *
  * `label` off gives the bare icon for dense table rows.
  */
