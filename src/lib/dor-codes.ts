@@ -3,6 +3,8 @@
 // uniform statewide; counties format the full code differently (4-digit "4830",
 // 5-digit "04800", 2-digit "48") and append a county sub-code. We classify on the
 // standard 2-digit base.
+
+import { dorInt } from './zoning'
 // Reference: Florida DOR Form DR-493 / s.195.073 F.S. property use codes.
 export const DOR_USE_CODES: Record<string, string> = {
   "00": "Vacant residential",
@@ -109,11 +111,10 @@ export const DOR_USE_CODES: Record<string, string> = {
 
 /** The standard 2-digit DOR class from any county's formatting (e.g. "04800" -> "48"). */
 export function dorClass(code: string | null | undefined): string | null {
-  if (!code) return null
-  const digits = String(code).replace(/\D/g, "")
-  if (!digits) return null
-  const base = digits.slice(-4).slice(0, 2) // last-4 strips Pasco's leading 0, then first 2
-  return base.padStart(2, "0")
+  // one normalization for the whole app — the old slice(-4) here read zero-padded
+  // FDOR codes ('048') as class '04' and mislabeled them
+  const v = dorInt(code)
+  return v == null || v > 99 ? null : String(v).padStart(2, "0")
 }
 
 /** Plain-English label for a DOR use code, or null if unknown. */

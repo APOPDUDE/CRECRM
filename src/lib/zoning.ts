@@ -53,11 +53,17 @@ export const DOR_FILTER_ORDER: DorBucket[] = [
   'multifamily', 'mobile_home', 'condo', 'agricultural', 'institutional_gov', 'other',
 ]
 
-/** Normalize a stored DOR code to its integer (mirrors property_kind_from_dor). */
-function dorInt(code: string | null | undefined): number | null {
+/**
+ * Normalize a stored DOR code to its integer (mirrors property_kind_from_dor — keep in
+ * lockstep). County CAMA variants append a two-digit subtype: 4-digit codes are 2-digit
+ * FDOR class + subtype ('4804' → 48 warehousing, '0100' → 01 single family), Pasco's
+ * 5-digit codes are the full 3-digit FDOR code + subtype ('04800' → 048). Verified
+ * against the FDOR NAL roll parcel-by-parcel, 2026-08-15.
+ */
+export function dorInt(code: string | null | undefined): number | null {
   const d = (code ?? '').replace(/\D/g, '')
   if (!d) return null
-  return parseInt(d.length >= 3 ? d.slice(0, 3) : d, 10)
+  return parseInt(d.length === 4 ? d.slice(0, 2) : d.length >= 5 ? d.slice(0, 3) : d, 10)
 }
 
 /**
