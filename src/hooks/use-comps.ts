@@ -293,6 +293,78 @@ export function useCurrentAsking(propertyIds?: string[]) {
   })
 }
 
+/**
+ * R7: the listing-event half of the current asking. The latest asking comp IS
+ * the listing-event record (url, broker, dates, sale terms), so single-property
+ * surfaces (property page, preview) read these from `v_property_current_asking`
+ * and fall back to the matching properties.* columns until those drop. Kept
+ * separate from {@link fetchCurrentAsking} so whole-book callers never pay for
+ * listing_description-sized text on thousands of rows.
+ */
+export type CurrentListingEvent = {
+  listing_url: string | null
+  broker_name: string | null
+  broker_company: string | null
+  broker_phone: string | null
+  broker_email: string | null
+  days_on_market: number | null
+  listed_at: string | null
+  listing_title: string | null
+  listing_description: string | null
+  sale_conditions: string | null
+  sale_status: string | null
+  sale_type: string | null
+  is_auction: boolean | null
+  occupancy: string | null
+  source_last_updated: string | null
+}
+
+const EVENT_KEYS = [
+  'listing_url',
+  'broker_name',
+  'broker_company',
+  'broker_phone',
+  'broker_email',
+  'days_on_market',
+  'listed_at',
+  'listing_title',
+  'listing_description',
+  'sale_conditions',
+  'sale_status',
+  'sale_type',
+  'is_auction',
+  'occupancy',
+  'source_last_updated',
+] as const
+
+/** Latest listing-event fields for one property, newest asking comp first. */
+export function useCurrentListingEvent(propertyId: string | undefined) {
+  return useQuery({
+    queryKey: ['current-listing-event', propertyId],
+    enabled: !!propertyId,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<CurrentListingEvent | null> => {
+      const { data, error } = await supabase
+        .from('v_property_current_asking')
+        .select(`as_of_date, ${EVENT_KEYS.join(', ')}`)
+        .eq('property_id', propertyId!)
+        .order('as_of_date', { ascending: false, nullsFirst: false })
+      if (error) throw error
+      const rows = (data ?? []) as unknown as (CurrentListingEvent & {
+        as_of_date: string | null
+      })[]
+      if (rows.length === 0) return null
+      // The view holds one row per deal_type (a property can carry a current
+      // lease AND a current sale asking). The newest event's fields win; the
+      // other row only fills what the newest left null.
+      return Object.fromEntries(
+        EVENT_KEYS.map((k) => [k, rows.map((r) => r[k]).find((v) => v != null) ?? null]),
+      ) as CurrentListingEvent
+    },
+  })
+}
+
 /** Lease $/SF and sale $/SF comp trend for a county over the last `years` years. */
 export function useCountyCompTrend(county: string | null, years: number) {
   return useQuery({

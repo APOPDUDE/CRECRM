@@ -782,10 +782,15 @@ export type Database = {
         Row: {
           as_of_date: string | null
           asking_lease_rate_psf: number | null
+          broker_company: string | null
+          broker_email: string | null
+          broker_name: string | null
+          broker_phone: string | null
           cap_rate_pct: number | null
           commencement_date: string | null
           commission_fee: number | null
           created_at: string
+          days_on_market: number | null
           deal_type: Database["public"]["Enums"]["deal_type"]
           escalations: string | null
           executed_at: string | null
@@ -793,21 +798,31 @@ export type Database = {
           expiration_date: string | null
           free_rent_months: number | null
           id: string
+          is_auction: boolean | null
           kind: Database["public"]["Enums"]["comp_kind"]
           land_acres: number | null
           lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          listed_at: string | null
+          listing_description: string | null
+          listing_title: string | null
+          listing_url: string | null
           normalized_tenant_name: string | null
           notes: string | null
+          occupancy: string | null
           opex_psf: number | null
           owner_id: string | null
           price_per_acre: number | null
           price_per_sf: number | null
           property_id: string
           pursuit_id: string | null
+          sale_conditions: string | null
           sale_price: number | null
+          sale_status: string | null
+          sale_type: string | null
           sf: number | null
           source: string
           source_key: string | null
+          source_last_updated: string | null
           tenant_company_id: string | null
           tenant_name: string | null
           term_months: number | null
@@ -819,10 +834,15 @@ export type Database = {
         Insert: {
           as_of_date?: string | null
           asking_lease_rate_psf?: number | null
+          broker_company?: string | null
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
           cap_rate_pct?: number | null
           commencement_date?: string | null
           commission_fee?: number | null
           created_at?: string
+          days_on_market?: number | null
           deal_type?: Database["public"]["Enums"]["deal_type"]
           escalations?: string | null
           executed_at?: string | null
@@ -830,23 +850,33 @@ export type Database = {
           expiration_date?: string | null
           free_rent_months?: number | null
           id?: string
+          is_auction?: boolean | null
           kind?: Database["public"]["Enums"]["comp_kind"]
           land_acres?: number | null
           lease_structure?:
             | Database["public"]["Enums"]["lease_structure"]
             | null
+          listed_at?: string | null
+          listing_description?: string | null
+          listing_title?: string | null
+          listing_url?: string | null
           normalized_tenant_name?: string | null
           notes?: string | null
+          occupancy?: string | null
           opex_psf?: number | null
           owner_id?: string | null
           price_per_acre?: number | null
           price_per_sf?: number | null
           property_id: string
           pursuit_id?: string | null
+          sale_conditions?: string | null
           sale_price?: number | null
+          sale_status?: string | null
+          sale_type?: string | null
           sf?: number | null
           source?: string
           source_key?: string | null
+          source_last_updated?: string | null
           tenant_company_id?: string | null
           tenant_name?: string | null
           term_months?: number | null
@@ -858,10 +888,15 @@ export type Database = {
         Update: {
           as_of_date?: string | null
           asking_lease_rate_psf?: number | null
+          broker_company?: string | null
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
           cap_rate_pct?: number | null
           commencement_date?: string | null
           commission_fee?: number | null
           created_at?: string
+          days_on_market?: number | null
           deal_type?: Database["public"]["Enums"]["deal_type"]
           escalations?: string | null
           executed_at?: string | null
@@ -869,23 +904,33 @@ export type Database = {
           expiration_date?: string | null
           free_rent_months?: number | null
           id?: string
+          is_auction?: boolean | null
           kind?: Database["public"]["Enums"]["comp_kind"]
           land_acres?: number | null
           lease_structure?:
             | Database["public"]["Enums"]["lease_structure"]
             | null
+          listed_at?: string | null
+          listing_description?: string | null
+          listing_title?: string | null
+          listing_url?: string | null
           normalized_tenant_name?: string | null
           notes?: string | null
+          occupancy?: string | null
           opex_psf?: number | null
           owner_id?: string | null
           price_per_acre?: number | null
           price_per_sf?: number | null
           property_id?: string
           pursuit_id?: string | null
+          sale_conditions?: string | null
           sale_price?: number | null
+          sale_status?: string | null
+          sale_type?: string | null
           sf?: number | null
           source?: string
           source_key?: string | null
+          source_last_updated?: string | null
           tenant_company_id?: string | null
           tenant_name?: string | null
           term_months?: number | null
@@ -2999,12 +3044,27 @@ export type Database = {
         Row: {
           as_of_date: string | null
           asking_lease_rate_psf: number | null
+          broker_company: string | null
+          broker_email: string | null
+          broker_name: string | null
+          broker_phone: string | null
           cap_rate_pct: number | null
           comp_id: string | null
+          days_on_market: number | null
           deal_type: Database["public"]["Enums"]["deal_type"] | null
+          is_auction: boolean | null
+          listed_at: string | null
+          listing_description: string | null
+          listing_title: string | null
+          listing_url: string | null
+          occupancy: string | null
           property_id: string | null
+          sale_conditions: string | null
           sale_price: number | null
+          sale_status: string | null
+          sale_type: string | null
           sf: number | null
+          source_last_updated: string | null
         }
         Relationships: [
           {

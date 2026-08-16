@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import { InlineEditField } from '@/components/inline-edit-field'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { useProperty, useUpdateProperty } from '@/hooks/use-properties'
-import { useCurrentAsking } from '@/hooks/use-comps'
+import { useCurrentAsking, useCurrentListingEvent } from '@/hooks/use-comps'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 
@@ -39,9 +39,18 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
   const navigate = useNavigate()
   const { data: p, isLoading } = useProperty(propertyId ?? undefined)
   const { data: askingMap } = useCurrentAsking(propertyId ? [propertyId] : [])
+  const { data: ev } = useCurrentListingEvent(propertyId ?? undefined)
   const updateProperty = useUpdateProperty()
   const asking = propertyId ? askingMap?.get(propertyId) : undefined
-  const listingUrl = p?.listing_url
+  // R7 dual-read: the listing event lives on the latest asking comp now; the
+  // properties.* columns are the fallback until they drop.
+  const listingUrl = ev?.listing_url ?? p?.listing_url
+  const daysOnMarket = ev?.days_on_market ?? p?.days_on_market
+  const listedAt = ev?.listed_at ?? p?.listed_at
+  const brokerName = ev?.broker_name ?? p?.broker_name
+  const brokerCompany = ev?.broker_company ?? p?.broker_company
+  const brokerPhone = ev?.broker_phone ?? p?.broker_phone
+  const brokerEmail = ev?.broker_email ?? p?.broker_email
 
   const saveDescription = async (v: string | number | boolean | null) => {
     if (!p) return
@@ -144,22 +153,22 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
                 <Row label="Land acres" value={p.land_acres != null ? `${p.land_acres} AC` : null} />
                 <Row
                   label="Days on market"
-                  value={p.days_on_market != null ? `${p.days_on_market} days` : null}
+                  value={daysOnMarket != null ? `${daysOnMarket} days` : null}
                 />
-                <Row label="Listed" value={p.listed_at ? formatDate(p.listed_at) : null} />
+                <Row label="Listed" value={listedAt ? formatDate(listedAt) : null} />
               </div>
 
-              {(p.broker_name || p.broker_phone || p.broker_email) && (
+              {(brokerName || brokerPhone || brokerEmail) && (
                 <div className="space-y-1 rounded-lg border p-3">
                   <p className="text-xs font-medium text-muted-foreground">Broker</p>
-                  {p.broker_name && (
+                  {brokerName && (
                     <div className="text-sm font-medium">
-                      {p.broker_name}
-                      {p.broker_company ? ` · ${p.broker_company}` : ''}
+                      {brokerName}
+                      {brokerCompany ? ` · ${brokerCompany}` : ''}
                     </div>
                   )}
-                  {p.broker_phone && <div className="text-xs">{p.broker_phone}</div>}
-                  {p.broker_email && <div className="text-xs">{p.broker_email}</div>}
+                  {brokerPhone && <div className="text-xs">{brokerPhone}</div>}
+                  {brokerEmail && <div className="text-xs">{brokerEmail}</div>}
                 </div>
               )}
 
