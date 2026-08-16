@@ -77,9 +77,10 @@ export function isIndustrialUse(code: string | null | undefined): boolean {
 }
 
 /**
- * A stored DOR value normalized to the FDOR standard 3-digit code ('4804' → '480' is
- * out of range → null → it is a COUNTY code, not a standard one). Standard codes match
- * the picker's checked set by this key; county codes match verbatim per county.
+ * A stored DOR value normalized to the FDOR standard 3-digit code, via dorInt's
+ * county-variant rules ('4804' → 48 → '048'). Values that still land outside 000–099
+ * are genuinely county-specific: the picker lists them as custom codes (county in
+ * italics) and they match verbatim per county, never by normalization.
  */
 export function dorNorm(code: string | null | undefined): string | null {
   const v = dorInt(code)
