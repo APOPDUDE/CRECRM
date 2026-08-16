@@ -188,7 +188,7 @@ export function MapFilterRail(props: {
             <p className="text-xs text-muted-foreground">
               {(p.draft?.length ?? 0) < 3
                 ? 'Click the map to outline your search area (3+ points)'
-                : `${p.draft!.length} points — keep clicking or Finish`}
+                : `${p.draft!.length} points — click the first point to close the shape`}
             </p>
           </>
         )}

@@ -176,10 +176,37 @@ function FitToPoints({
   return null
 }
 
-/** In draw mode, each map click adds a vertex to the shape being drawn. */
-function ShapeDrawer({ onVertex }: { onVertex: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click: (e) => onVertex(e.latlng.lat, e.latlng.lng),
+/**
+ * In draw mode, each map click adds a vertex — and once the shape CAN close (3+
+ * points), clicking back on the first point closes it (Alex: no Finish press).
+ * Proximity is measured in SCREEN pixels, not degrees: a "did I hit the dot"
+ * question is about the dot's rendered size, which doesn't change with zoom.
+ */
+const CLOSE_HIT_PX = 14
+
+function ShapeDrawer({
+  onVertex,
+  closeTarget,
+  onClose,
+}: {
+  onVertex: (lat: number, lng: number) => void
+  /** The first vertex, present only once the draft is closable (3+ points). */
+  closeTarget: LatLng | null
+  onClose: () => void
+}) {
+  const map = useMapEvents({
+    click: (e) => {
+      if (closeTarget) {
+        const hit = map
+          .latLngToContainerPoint(e.latlng)
+          .distanceTo(map.latLngToContainerPoint([closeTarget.lat, closeTarget.lng]))
+        if (hit <= CLOSE_HIT_PX) {
+          onClose()
+          return
+        }
+      }
+      onVertex(e.latlng.lat, e.latlng.lng)
+    },
   })
   return null
 }
@@ -496,6 +523,7 @@ export function PropertiesMap({
   draft,
   drawMode = false,
   onAddVertex,
+  onFinishShape,
   asking,
   industrialCrossovers,
   onViewportChange,
@@ -526,6 +554,8 @@ export function PropertiesMap({
   draft?: LatLng[] | null
   drawMode?: boolean
   onAddVertex?: (lat: number, lng: number) => void
+  /** Fired when the drawer clicks back on the first vertex of a closable draft. */
+  onFinishShape?: () => void
   /** Current asking per property, so a listed pin can show its rate/price on hover. */
   asking?: Map<string, CurrentAsking>
   /** Crossover zoning codes (jurisdiction|code) that allow industrial without being it. */
@@ -690,7 +720,13 @@ export function PropertiesMap({
             suspended={drawMode || !!polygon || totalInView != null}
             skipInitial={!!initialView}
           />
-          {drawMode && onAddVertex && <ShapeDrawer onVertex={onAddVertex} />}
+          {drawMode && onAddVertex && (
+            <ShapeDrawer
+              onVertex={onAddVertex}
+              closeTarget={draft && draft.length >= 3 ? draft[0] : null}
+              onClose={() => onFinishShape?.()}
+            />
+          )}
           {/* the completed search shape */}
           {polygon && polygon.length >= 3 && (
             <Polygon
@@ -712,15 +748,25 @@ export function PropertiesMap({
                 pathOptions={{ color: '#2563eb', weight: 2, dashArray: '6 4' }}
                 interactive={false}
               />
-              {draft.map((v, i) => (
-                <CircleMarker
-                  key={`draft-${i}`}
-                  center={[v.lat, v.lng]}
-                  radius={4}
-                  pathOptions={{ color: '#2563eb', weight: 2, fillColor: '#fff', fillOpacity: 1 }}
-                  interactive={false}
-                />
-              ))}
+              {draft.map((v, i) => {
+                // Once the shape can close, the first vertex grows into a visible
+                // target — clicking it is now how the shape concludes.
+                const isCloseTarget = i === 0 && draft.length >= 3
+                return (
+                  <CircleMarker
+                    key={`draft-${i}`}
+                    center={[v.lat, v.lng]}
+                    radius={isCloseTarget ? 8 : 4}
+                    pathOptions={{
+                      color: '#2563eb',
+                      weight: isCloseTarget ? 3 : 2,
+                      fillColor: '#fff',
+                      fillOpacity: 1,
+                    }}
+                    interactive={false}
+                  />
+                )
+              })}
             </>
           )}
           {shown.map(({ id, lat, lng, p }) => {

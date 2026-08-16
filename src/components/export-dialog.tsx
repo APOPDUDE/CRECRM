@@ -25,7 +25,7 @@ import {
   LEASE_EXPORT_COLUMN_IDS,
   type ExportGroup,
 } from '@/lib/export-columns'
-import { usePersistentState } from '@/hooks/use-persistent-state'
+import { useUserPref } from '@/hooks/use-user-prefs'
 import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
 import { supabase } from '@/lib/supabase'
 import type { PropertyWithCounts } from '@/hooks/use-properties'
@@ -85,8 +85,22 @@ function ExportDialogBody({
 }: ExportDialogProps) {
   const [checked, setChecked] = useState<Set<string>>(() => new Set(ALL_EXPORT_COLUMN_IDS))
 
-  const [presets, setPresets] = usePersistentState<Preset[]>('properties:exportPresets', [])
+  // Presets live server-side (`user_prefs`) so the phone sees them too. Anything saved
+  // by the localStorage-only first version migrates up once, then the local key dies —
+  // two sources of truth would drift.
+  const { value: presets, loaded: presetsLoaded, save: setPresets } = useUserPref<Preset[]>('export_presets', [])
   const safePresets = Array.isArray(presets) ? presets.filter((p) => p && typeof p.name === 'string') : []
+  useEffect(() => {
+    if (!presetsLoaded || safePresets.length > 0) return
+    try {
+      const local = JSON.parse(window.localStorage.getItem('properties:exportPresets') ?? 'null') as Preset[] | null
+      if (Array.isArray(local) && local.length > 0) setPresets(local)
+      window.localStorage.removeItem('properties:exportPresets')
+    } catch {
+      // an unreadable legacy value is not worth blocking presets over
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetsLoaded])
   const [presetName, setPresetName] = useState('')
 
   const [dedupe, setDedupe] = useState(false)

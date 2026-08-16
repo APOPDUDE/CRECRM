@@ -1736,6 +1736,12 @@ export function PropertiesPage() {
             industrialCrossovers={crossovers}
             overlays={overlays}
             onAddVertex={(lat, lng) => setDraft((d) => [...(d ?? []), { lat, lng }])}
+            onFinishShape={() => {
+              if ((draft?.length ?? 0) >= 3) {
+                setPolygon(draft)
+                setDraft(null)
+              }
+            }}
           />
           </div>
         </div>
