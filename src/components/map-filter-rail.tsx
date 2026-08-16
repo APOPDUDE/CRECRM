@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { OverlayControls } from '@/components/overlay-controls'
+import { DorCodePicker } from '@/components/dor-code-picker'
 import type { OverlayState } from '@/lib/overlays'
 import type { LatLng } from '@/lib/geo'
 
@@ -126,6 +127,9 @@ export function MapFilterRail(props: {
   pushCount: number
   onPush: () => void
   onMessage: () => void
+  // DOR use codes (Phase 3)
+  dorCodes: string[]
+  onDorCodes: (next: string[]) => void
   // overlays (Phase 1)
   overlays: OverlayState
   onOverlays: (s: OverlayState) => void
@@ -301,6 +305,11 @@ export function MapFilterRail(props: {
             </div>
           </div>
         )}
+      </div>
+
+      {/* County use codes — what the parcel IS today, per the appraiser */}
+      <div className="border-t pt-3">
+        <DorCodePicker checked={p.dorCodes} onChange={p.onDorCodes} />
       </div>
 
       {/* Zoning district overlays + lowlands (Phase 1) */}

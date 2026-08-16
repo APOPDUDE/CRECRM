@@ -70,6 +70,33 @@ export function isIndustrialUse(code: string | null | undefined): boolean {
   return v != null && ((v >= 40 && v <= 49) || v === 27)
 }
 
+/**
+ * A stored DOR value normalized to the FDOR standard 3-digit code ('4804' → '480' is
+ * out of range → null → it is a COUNTY code, not a standard one). Standard codes match
+ * the picker's checked set by this key; county codes match verbatim per county.
+ */
+export function dorNorm(code: string | null | undefined): string | null {
+  const v = dorInt(code)
+  return v != null && v >= 0 && v <= 99 ? String(v).padStart(3, '0') : null
+}
+
+/**
+ * Does a row answer the DOR-code picker's checked set? Two vocabularies, checked in
+ * order: `County|RawCode` (a county-specific custom code, verbatim — Sarasota's 4804
+ * only ever means Sarasota's 4804) and the normalized standard 3-digit code.
+ */
+export function matchesDorCodes(
+  county: string | null | undefined,
+  code: string | null | undefined,
+  checked: ReadonlySet<string>,
+): boolean {
+  const raw = (code ?? '').trim()
+  if (!raw) return false
+  if (county && checked.has(`${county}|${raw}`)) return true
+  const norm = dorNorm(raw)
+  return norm != null && checked.has(norm)
+}
+
 export function dorBucket(code: string | null | undefined): DorBucket | null {
   const v = dorInt(code)
   if (v == null || Number.isNaN(v)) return null

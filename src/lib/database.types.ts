@@ -2652,6 +2652,24 @@ export type Database = {
           },
         ]
       }
+      dor_codes: {
+        Row: {
+          category: string
+          code: string
+          description: string
+        }
+        Insert: {
+          category: string
+          code: string
+          description: string
+        }
+        Update: {
+          category?: string
+          code?: string
+          description?: string
+        }
+        Relationships: []
+      }
       valuation_params: {
         Row: {
           key: string
@@ -2727,6 +2745,14 @@ export type Database = {
           bucket: string | null
           n: number | null
           ptype: string | null
+        }
+        Relationships: []
+      }
+      v_county_dor_codes: {
+        Row: {
+          code: string | null
+          county: string | null
+          property_count: number | null
         }
         Relationships: []
       }

@@ -54,8 +54,9 @@ import {
 } from '@/lib/overlays'
 import {
   DOR_FILTER_ORDER, ZONING_FILTER_ORDER, ZONING_PLAYS,
-  dorBucket, dorBucketLabels, isIndustrialUse, zoningKindLabels,
+  dorBucket, dorBucketLabels, isIndustrialUse, matchesDorCodes, zoningKindLabels,
 } from '@/lib/zoning'
+import { DorCodePicker } from '@/components/dor-code-picker'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
@@ -323,6 +324,15 @@ export function PropertiesPage() {
   // not zoned for it) is a search he runs, not a negation he should have to build.
   const [zoningFilter, setZoningFilter] = usePersistentState('properties:zoning', 'all')
   const [useFilter, setUseFilter] = usePersistentState('properties:use', 'all')
+  // The DOR-code picker's checked set: standard 3-digit codes ('048') plus county
+  // customs ('Sarasota|4804'). ANDs with the bucketed use select — codes are the
+  // scalpel, the bucket is the broad stroke, and the play chips only touch the bucket.
+  const [dorCodesRaw, setDorCodes] = usePersistentState<string[]>('properties:dorCodes', [])
+  const dorCodes = useMemo(
+    () => (Array.isArray(dorCodesRaw) ? dorCodesRaw.filter((k): k is string => typeof k === 'string') : []),
+    [dorCodesRaw],
+  )
+  const dorSet = useMemo(() => new Set(dorCodes), [dorCodes])
   const [county, setCounty] = usePersistentState('properties:county', 'all')
   const { data: unitSizes } = useAvailableUnitSizes()
   const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
@@ -428,6 +438,7 @@ export function PropertiesPage() {
     (ptype !== 'all' ? 1 : 0) +
     (zoningFilter !== 'all' ? 1 : 0) +
     (useFilter !== 'all' ? 1 : 0) +
+    (dorCodes.length > 0 ? 1 : 0) +
     (ownerFilter !== 'all' ? 1 : 0) +
     (activitySubApplies && activity !== 'all' ? 1 : 0) +
     (countyApplies && county !== 'all' ? 1 : 0) +
@@ -585,6 +596,7 @@ export function PropertiesPage() {
       setPtype('all')
       setZoningFilter('all')
       setUseFilter('all')
+      setDorCodes([])
       setCounty('all')
       setSfMin('')
       setSfMax('')
@@ -872,6 +884,8 @@ export function PropertiesPage() {
       }
       // The USE axis: the county's DOR code, bucketed.
       if (useFilter !== 'all' && dorBucket(p.dor_use_code) !== useFilter) return false
+      // The picker's exact codes — standard codes by normalization, county customs verbatim.
+      if (dorSet.size > 0 && !matchesDorCodes(p.county, p.dor_use_code, dorSet)) return false
       if (countyApplies && county !== 'all' && p.county !== county) return false
       // A size search must also see the units. A landlord who will carve 30,000 SF
       // out of a 93,666 SF building answers a 30k requirement — but the building
@@ -892,7 +906,7 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, marketSubsApply, activitySubApplies, countyApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, marketSubsApply, activitySubApplies, countyApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorSet, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -939,7 +953,7 @@ export function PropertiesPage() {
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, polygon, leaseMatchIds])
+  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorSet, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, polygon, leaseMatchIds])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -1147,6 +1161,7 @@ export function PropertiesPage() {
     setPtype('all')
     setZoningFilter('all')
     setUseFilter('all')
+    setDorCodes([])
     setOwnerFilter('all')
     setActivity('all')
     setCounty('all')
@@ -1242,6 +1257,7 @@ export function PropertiesPage() {
       pushCount={pushable.length}
       onPush={() => setPushOpen(true)}
       onMessage={() => setOwnerMsgOpen(true)}
+      dorCodes={dorCodes} onDorCodes={setDorCodes}
       overlays={overlays} onOverlays={setOverlays}
       onOverlayIncludeOn={() => setWantsBook(true)}
       playsSlot={playChips}
@@ -1494,6 +1510,8 @@ export function PropertiesPage() {
                   </Select>
                 </div>
               </div>
+              {/* The picker lives in the rail on the map; the popover carries it for the table. */}
+              {view === 'table' && <DorCodePicker checked={dorCodes} onChange={setDorCodes} />}
               {view === 'table' && (
                 <div className="space-y-1.5">
                   <Label>Verified owner</Label>
