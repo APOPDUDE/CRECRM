@@ -30,35 +30,43 @@ export function useOwnerContext(enabled = true) {
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      // ~34k rows behind PostgREST's 1000-row cap — fetch the pages pooled (6 wide,
-      // per-page retry). Serial paging plus a zero staleTime is what made
-      // back-navigation to the map crawl; an unpooled herd is what made pages 500.
-      const PAGE = 1000
-      const base = () =>
-        supabase.from('v_property_owner_context').select('*').order('property_id')
-      // NEVER count(*) the view itself: that evaluates its lateral joins over every
-      // row in one statement and times out (500, seen 2026-08-15 after the
-      // companies-based rebuild). The view is one row per property, so the properties
-      // table's cheap count is the page estimate; the tail loop below catches any
-      // excess if the two ever disagree.
-      const { count, error: countError } = await supabase
-        .from('properties')
-        .select('id', { count: 'exact', head: true })
-      if (countError) throw countError
-      let pageCount = Math.max(1, Math.ceil((count ?? 0) / PAGE))
-      const pages = await fetchPages(pageCount, async (i) => {
-        const r = await base().range(i * PAGE, (i + 1) * PAGE - 1)
-        if (r.error) throw r.error
-        return (r.data ?? []) as OwnerContext[]
-      })
-      let last = pages[pages.length - 1] ?? []
-      while (last.length === PAGE) {
-        const r = await base().range(pageCount * PAGE, (pageCount + 1) * PAGE - 1)
-        if (r.error) throw r.error
-        last = (r.data ?? []) as OwnerContext[]
-        pages.push(last)
-        pageCount++
+      // Page by UUID RANGE, never by OFFSET. A deep OFFSET makes Postgres evaluate the
+      // view's lateral joins for every skipped row — offset 20,000 alone blew the 8s
+      // statement timeout (57014, seen 2026-08-16; the same fetch had survived on
+      // 2026-08-15, so this path degrades as the book grows). Property ids are
+      // gen_random_uuid(), i.e. uniform over the id space, so slicing that space into
+      // fixed buckets yields ~equal pages, every one an index seek the view's joins
+      // run over just those rows. Pooled 6 wide with per-page retry as before.
+      // (NEVER count(*) the view itself either — same timeout, decisions.md 2026-08-16e.)
+      const BUCKETS = 64
+      const bound = (i: number) =>
+        `${(i * 4).toString(16).padStart(2, '0')}000000-0000-0000-0000-000000000000`
+      const bucketQuery = (i: number) => {
+        let q = supabase
+          .from('v_property_owner_context')
+          .select('*')
+          .order('property_id')
+          .gte('property_id', bound(i))
+        if (i < BUCKETS - 1) q = q.lt('property_id', bound(i + 1))
+        return q
       }
+      const pages = await fetchPages(BUCKETS, async (i) => {
+        const r = await bucketQuery(i).limit(1000)
+        if (r.error) throw r.error
+        let rows = (r.data ?? []) as OwnerContext[]
+        // A full page means the bucket hit PostgREST's cap (~500 expected — only a
+        // heavily skewed id space gets here): keyset-continue inside the bucket.
+        while (rows.length > 0 && rows.length % 1000 === 0) {
+          const lastId = rows[rows.length - 1].property_id
+          if (!lastId) break
+          const r2 = await bucketQuery(i).gt('property_id', lastId).limit(1000)
+          if (r2.error) throw r2.error
+          const more = (r2.data ?? []) as OwnerContext[]
+          if (more.length === 0) break
+          rows = rows.concat(more)
+        }
+        return rows
+      })
       const map = new Map<string, OwnerContext>()
       for (const rows of pages) {
         for (const row of rows) {

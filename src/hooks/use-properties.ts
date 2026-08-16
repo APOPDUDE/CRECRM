@@ -103,50 +103,85 @@ export function useProperties(enabled = true) {
     refetchOnWindowFocus: false,
     queryFn: async () => {
       const PAGE = 1000
-      // explicit FK hints: listing_parcels adds a 2nd properties<->listings relationship,
-      // so a bare listings(count) is ambiguous (PGRST201) and 300s the whole query.
       const SELECT =
         'id, address, city, state, zip, county, parcel_number, site_address, folio, ' +
         'property_type, gross_sf, ' +
         'land_acres, specs, listing_status, days_on_market, year_built, zoning_description, ' +
         'zoning_district, occupancy, lat, lng, owner_company_id, owner_name, owner_mailing_address, ' +
         'last_sale_date, last_sale_price, listing_url, created_at, updated_at, ' +
-        'zoning_type, zoning_code, zoning_jurisdiction, dor_use_code, ' +
-        'listings!listings_property_id_fkey(count), matches:pursuits!pursuits_property_id_fkey(count)'
-      // count:'exact' only on the first page — it re-runs the full filtered count per
-      // request, so repeating it on all ~14 parallel pages just multiplies server work.
-      const base = (withCount?: boolean) =>
-        supabase
+        'zoning_type, zoning_code, zoning_jurisdiction, dor_use_code'
+      // The linked-deal counts used to ride as embedded `(count)` aggregates — two
+      // correlated subqueries evaluated per book row to tally what is (2026-08-16)
+      // 10 listings + 176 pursuits in total. Fetching the deal tables' property_ids
+      // outright and counting client-side takes the same information for two tiny
+      // requests instead of ~64 heavyweight pages.
+      const dealIds = async (table: 'listings' | 'pursuits') => {
+        const ids: (string | null)[] = []
+        for (let off = 0; ; off += PAGE) {
+          const r = await supabase.from(table).select('property_id').range(off, off + PAGE - 1)
+          if (r.error) throw r.error
+          ids.push(...(r.data ?? []).map((x) => x.property_id))
+          if ((r.data ?? []).length < PAGE) break
+        }
+        const m = new Map<string, number>()
+        for (const id of ids) if (id) m.set(id, (m.get(id) ?? 0) + 1)
+        return m
+      }
+      // Page by UUID RANGE on the PK, never by OFFSET-over-a-sort: ordering by
+      // (address, id) has no index, so every deep page re-sorted the whole table —
+      // measured 5s a page on 2026-08-16 (post-UPDATE-churn bloat), close enough to
+      // the 8s statement timeout that pages 500 under parallel load and the whole
+      // book fetch dies. Ids are gen_random_uuid() (uniform), so fixed id-space
+      // buckets are ~equal pages, each a pure index range scan. Pooled + per-page
+      // retry as before; the address sort happens client-side at the end.
+      const BUCKETS = 64
+      const bound = (i: number) =>
+        `${(i * 4).toString(16).padStart(2, '0')}000000-0000-0000-0000-000000000000`
+      const bucketQuery = (i: number) => {
+        let q = supabase
           .from('properties')
-          .select(SELECT, withCount ? { count: 'exact' } : undefined)
+          .select(SELECT)
           // hide scrape placeholders that aren't real addresses — no coords/parcel/deals.
           .not('address', 'ilike', '%unavailable%')
           .not('address', 'ilike', 'Portfolio of %')
-          // (address, id) — id is the unique tiebreaker keeping offset pages stable.
-          .order('address')
           .order('id')
-      const first = await base(true).range(0, PAGE - 1)
-      if (first.error) throw first.error
-      const total = first.count ?? (first.data?.length ?? 0)
-      // Pooled + per-page retry: at ~34 pages, all-at-once made the database 500
-      // random pages, and one bad page restarted the whole 34-page fetch.
-      const rest = await fetchPages(
-        Math.max(0, Math.ceil(total / PAGE) - 1),
-        async (i) => {
-          const r = await base().range((i + 1) * PAGE, (i + 2) * PAGE - 1)
+          .gte('id', bound(i))
+        if (i < BUCKETS - 1) q = q.lt('id', bound(i + 1))
+        return q
+      }
+      type BucketRow = Omit<PropertyWithCounts, 'listings' | 'matches' | 'source_address'>
+      const [listingCounts, pursuitCounts, ...pages] = await Promise.all([
+        dealIds('listings'),
+        dealIds('pursuits'),
+        fetchPages(BUCKETS, async (i) => {
+          const r = await bucketQuery(i).limit(PAGE)
           if (r.error) throw r.error
-          return (r.data ?? []) as unknown as PropertyWithCounts[]
-        },
-      )
-      const all = [...((first.data ?? []) as unknown as PropertyWithCounts[]), ...rest.flat()]
+          let rows = (r.data ?? []) as unknown as BucketRow[]
+          // a full page = the bucket hit the cap (~500 expected): keyset-continue in it
+          while (rows.length > 0 && rows.length % PAGE === 0) {
+            const r2 = await bucketQuery(i).gt('id', rows[rows.length - 1].id).limit(PAGE)
+            if (r2.error) throw r2.error
+            const more = (r2.data ?? []) as unknown as BucketRow[]
+            if (more.length === 0) break
+            rows = rows.concat(more)
+          }
+          return rows
+        }),
+      ] as const)
+      const all = pages.flat().flat()
       // County records are the source of truth (Alex 2026-08-11), so the situs address is what
       // the whole app shows, searches, maps and exports — one swap here rather than a
       // `site_address ?? address` at every read site. The original stays on source_address.
-      return all.map((p) => ({
-        ...p,
-        address: p.site_address ?? p.address,
-        source_address: p.address,
-      }))
+      // Sorted by the displayed address (the server used to do this; buckets arrive by id).
+      return all
+        .map((p) => ({
+          ...p,
+          address: p.site_address ?? p.address,
+          source_address: p.address,
+          listings: [{ count: listingCounts.get(p.id) ?? 0 }],
+          matches: [{ count: pursuitCounts.get(p.id) ?? 0 }],
+        }))
+        .sort((a, b) => (a.address ?? '').localeCompare(b.address ?? '')) as PropertyWithCounts[]
     },
   })
 }

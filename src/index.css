@@ -128,3 +128,10 @@
     @apply font-sans;
     }
 }
+/* While a shape is being drawn, parcel outlines must not intercept clicks — Leaflet
+   marks each path pointer-events:visiblePainted inline, so a pane-level override is
+   not enough; a vertex dropped on a held parcel was opening the property instead.
+   (properties-map.tsx toggles .map-drawing on the map wrapper.) */
+.map-drawing .leaflet-parcelOutlines-pane path {
+  pointer-events: none !important;
+}

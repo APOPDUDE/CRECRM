@@ -816,7 +816,7 @@ export function PropertiesPage() {
   )
   const portfolioOwnerName = portfolioAll[0]?.owner_name ?? null
 
-  const baseFiltered = useMemo(() => {
+  const { baseFiltered, includeCandidates } = useMemo(() => {
     // Empty when Postgres did the matching. Re-running the browser's own test over those
     // rows would quietly drop the hits it found by parcel number or folio, which do not
     // appear in the haystack at all — the same trap `contact-select` avoids with
@@ -835,17 +835,26 @@ export function PropertiesPage() {
     // hides the two off-market parcels next door — which is the assemblage you were
     // trying to see.
     if (portfolioOwnerId) {
-      return book.filter((p) => p.owner_company_id === portfolioOwnerId)
+      return {
+        baseFiltered: book.filter((p) => p.owner_company_id === portfolioOwnerId),
+        includeCandidates: [] as typeof book,
+      }
     }
-    return book.filter((p) => {
+    // One pass, two buckets: rows passing EVERY filter (base), and rows failing ONLY the
+    // use/zoning axes (candidates for the overlay "Include in search" union). Splitting
+    // here is what lets the union respect the drawn shape, the search, sizes and market
+    // status — Alex 2026-08-16: "it should only include the ones in the drawn area".
+    const base: typeof book = []
+    const candidates: typeof book = []
+    for (const p of book) {
       // Every token must appear somewhere in the property's combined text, so a full
       // "3206 Sydney Rd Plant City, FL 33566" matches even though the street, city, state and
       // zip live in different columns.
-      if (tokens.length && !matchesTokens(haystacks.get(p.id) ?? '', tokens)) return false
+      if (tokens.length && !matchesTokens(haystacks.get(p.id) ?? '', tokens)) continue
       // 'executed' is a lens on OUR deals, not a listing_status value — hence its own branch.
       if (status === 'executed') {
-        if (!executedIds?.has(p.id)) return false
-      } else if (status !== 'all' && (p.listing_status ?? 'on_market') !== status) return false
+        if (!executedIds?.has(p.id)) continue
+      } else if (status !== 'all' && (p.listing_status ?? 'on_market') !== status) continue
       /**
        * For lease / for sale, priced by the current asking comp. The price question
        * switches with the choice — lease asks $/SF, sale asks total — and a listing
@@ -861,11 +870,11 @@ export function PropertiesPage() {
         if (value != null) {
           const lo = dealType === 'lease' ? psfLo : prLo
           const hi = dealType === 'lease' ? psfHi : prHi
-          if (lo != null && value < lo) return false
-          if (hi != null && value > hi) return false
+          if (lo != null && value < lo) continue
+          if (hi != null && value > hi) continue
         } else {
           const fullyUnpriced = rate == null && total == null
-          if (!(includeUnpriced && fullyUnpriced)) return false
+          if (!(includeUnpriced && fullyUnpriced)) continue
         }
       }
       // Binary on purpose (Alex): either we can reach the owner today, or the parcel goes
@@ -876,39 +885,20 @@ export function PropertiesPage() {
         const ctx = ownerCtx?.get(p.id)
         const phoneOk = channels.phone && !!ctx?.owner_contact_verified
         const emailOk = channels.email && !!ctx?.owner_email_verified
-        if (!phoneOk && !emailOk) return false
+        if (!phoneOk && !emailOk) continue
       } else if (ownerFilter === 'unverified') {
-        if (ownerCtx?.get(p.id)?.owner_reachable) return false
+        if (ownerCtx?.get(p.id)?.owner_reachable) continue
       }
       // 30 days of ANY logged contact, matching the owner blast exactly. Never contacted
       // counts as quiet — it is the far end of the same axis, not a missing value.
       if (activitySubApplies && activity !== 'all') {
         const last = ownerCtx?.get(p.id)?.last_contacted_at
         const recent = last != null && new Date(last).getTime() >= activityCutoff
-        if (activity === 'recent' && !recent) return false
-        if (activity === 'quiet' && recent) return false
+        if (activity === 'recent' && !recent) continue
+        if (activity === 'quiet' && recent) continue
       }
-      if (leaseMatchIds && !leaseMatchIds.has(p.id)) return false
-      if (ptype !== 'all' && p.property_type !== ptype) return false
-      // The ZONING axis. 'industrial' spans primary + crossover codes (allows_industrial);
-      // 'non_industrial' means zoned, and not for industrial — the grandfathered test.
-      // Unzoned rows fail every specific pick: no answer is not a match.
-      if (zoningFilter !== 'all') {
-        if (zoningFilter === 'industrial_any') {
-          // the whole industrial universe: zoned for it OR already used as it —
-          // the grandfathered cohort belongs to "everything industrial" (Alex)
-          if (!isZonedIndustrial(p, crossovers) && !isIndustrialUse(p.dor_use_code)) return false
-        } else if (zoningFilter === 'industrial') {
-          if (!isZonedIndustrial(p, crossovers)) return false
-        } else if (zoningFilter === 'non_industrial') {
-          if (p.zoning_type == null || isZonedIndustrial(p, crossovers)) return false
-        } else if (p.zoning_type !== zoningFilter) return false
-      }
-      // The USE axis: the county's DOR code, bucketed.
-      if (useFilter !== 'all' && dorBucket(p.dor_use_code) !== useFilter) return false
-      // The picker's layers — categories via the dor_codes filing, customs verbatim.
-      if (dorActive && !matchesDorSelection(p.county, p.dor_use_code, dorSel, dorCategoryByCode)) return false
-      if (countyApplies && county !== 'all' && p.county !== county) return false
+      if (leaseMatchIds && !leaseMatchIds.has(p.id)) continue
+      if (countyApplies && county !== 'all' && p.county !== county) continue
       // A size search must also see the units. A landlord who will carve 30,000 SF
       // out of a 93,666 SF building answers a 30k requirement — but the building
       // itself is far too big, so filtering on gross_sf alone excludes the very
@@ -920,14 +910,41 @@ export function PropertiesPage() {
         const fits = sizes.some(
           (v) => (sfLo == null || v >= sfLo) && (sfHi == null || v <= sfHi),
         )
-        if (!fits) return false
+        if (!fits) continue
       }
-      if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) return false
-      if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) return false
-      // Shape last: it's the most expensive test, so everything cheap rejects first.
-      if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
-      return true
-    })
+      if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) continue
+      if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) continue
+      // Shape before the use axes: expensive, but it must bind on BOTH buckets — the
+      // overlay union is only allowed to forgive what-the-property-is, never where-it-is.
+      if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) continue
+
+      // ---- The use axes: what the property IS (type / zoning / DOR). A row failing
+      // ONLY these is an include-candidate — the overlay union may forgive them.
+      let passesUse = true
+      if (ptype !== 'all' && p.property_type !== ptype) passesUse = false
+      // The ZONING axis. 'industrial' spans primary + crossover codes (allows_industrial);
+      // 'non_industrial' means zoned, and not for industrial — the grandfathered test.
+      // Unzoned rows fail every specific pick: no answer is not a match.
+      if (passesUse && zoningFilter !== 'all') {
+        if (zoningFilter === 'industrial_any') {
+          // the whole industrial universe: zoned for it OR already used as it —
+          // the grandfathered cohort belongs to "everything industrial" (Alex)
+          if (!isZonedIndustrial(p, crossovers) && !isIndustrialUse(p.dor_use_code)) passesUse = false
+        } else if (zoningFilter === 'industrial') {
+          if (!isZonedIndustrial(p, crossovers)) passesUse = false
+        } else if (zoningFilter === 'non_industrial') {
+          if (p.zoning_type == null || isZonedIndustrial(p, crossovers)) passesUse = false
+        } else if (p.zoning_type !== zoningFilter) passesUse = false
+      }
+      // The USE axis: the county's DOR code, bucketed.
+      if (passesUse && useFilter !== 'all' && dorBucket(p.dor_use_code) !== useFilter) passesUse = false
+      // The picker's layers — categories via the dor_codes filing, customs verbatim.
+      if (passesUse && dorActive && !matchesDorSelection(p.county, p.dor_use_code, dorSel, dorCategoryByCode)) passesUse = false
+
+      if (passesUse) base.push(p)
+      else candidates.push(p)
+    }
+    return { baseFiltered: base, includeCandidates: candidates }
   }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, marketSubsApply, activitySubApplies, countyApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
@@ -935,16 +952,21 @@ export function PropertiesPage() {
    * so the count line, exports and skip-trace carry them (Alex, 2026-08-15). Membership
    * is the row's own (jurisdiction, code) — the overlay shapes and `properties.zoning_*`
    * come from the same pipeline — with the industrial layer meaning allows_industrial,
-   * exactly like the zoning filter. Never point-in-polygon.
+   * exactly like the zoning filter. Never point-in-polygon against the OVERLAY.
+   *
+   * The union forgives ONLY the use axes (type / zoning / DOR picks) — candidates have
+   * already passed the drawn shape, search, sizes, market and owner filters (Alex,
+   * 2026-08-16: "it should only include the ones in the drawn area"). His flow: draw an
+   * area, filter to DOR industrial, and the office-coded building on industrial-zoned
+   * land inside the shape joins the set — the one across town does not.
    */
   const filtered = useMemo(() => {
     if (overlayIncludes.length === 0 || portfolioOwnerId) return baseFiltered
-    const seen = new Set(baseFiltered.map((p) => p.id))
-    const extra = (properties ?? []).filter(
-      (p) => !seen.has(p.id) && overlayIncludes.some((t) => rowInOverlay(p, t, overlays[t], crossovers)),
+    const extra = includeCandidates.filter((p) =>
+      overlayIncludes.some((t) => rowInOverlay(p, t, overlays[t], crossovers)),
     )
     return extra.length ? [...baseFiltered, ...extra] : baseFiltered
-  }, [baseFiltered, overlayIncludes, overlays, portfolioOwnerId, properties, crossovers])
+  }, [baseFiltered, includeCandidates, overlayIncludes, overlays, portfolioOwnerId, crossovers])
 
   /**
    * Everything the map should RECOGNISE, as opposed to everything it should pin.

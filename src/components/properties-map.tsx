@@ -489,7 +489,9 @@ function ParcelLines({
           // a parcel we hold: click opens the property, hover shows the SAME card the
           // circles show — the outline IS the property now
           layer.on('click', () => onOpenProperty(crmId))
-          layer.bindTooltip(() => getHoverHtml(crmId), { sticky: true })
+          // opacity 1: at 0.9 the parcel lines bled through the white card (Alex's
+          // screenshot) and the text read as printed over the map
+          layer.bindTooltip(() => getHoverHtml(crmId), { sticky: true, opacity: 1 })
         } else {
           const rows = [
             a.addr && `<b>${a.addr}</b>`,
@@ -584,22 +586,34 @@ function hoverCardHtml(
   const off = p.listing_status === 'off_market'
   const loc = [p.city, p.state].filter(Boolean).join(', ')
   const askLabel = formatPsf(ask?.rate) ?? formatCurrency(ask?.price)
-  const bits = [
-    askLabel,
-    p.property_type ? propertyKindLabels[p.property_type] : null,
-    formatSf(p.gross_sf),
-    p.land_acres != null ? `${p.land_acres} AC` : null,
-    executed ? 'Executed' : off ? 'Off market' : 'On market',
-    goodDeal ? 'Good deal' : null,
-    // the hover answers "what can I do with the dirt" without a click
-    p.zoning_code
-      ? `Zoned ${p.zoning_code}${isZonedIndustrial(p, industrialCrossovers) ? ' (ind ok)' : ''}`
-      : null,
-  ].filter(Boolean) as string[]
+  // Short rows, one topic each — a single " · " line overflowed the tooltip box
+  // (Leaflet tooltips are nowrap by default) and ran over the map (Alex: "make more
+  // rows of text").
+  const factRows = [
+    [
+      p.property_type ? propertyKindLabels[p.property_type] : null,
+      formatSf(p.gross_sf),
+      p.land_acres != null ? `${p.land_acres} AC` : null,
+    ],
+    [
+      executed ? 'Executed' : off ? 'Off market' : 'On market',
+      askLabel,
+      goodDeal ? 'Good deal' : null,
+    ],
+    [
+      // the hover answers "what can I do with the dirt" without a click
+      p.zoning_code
+        ? `Zoned ${p.zoning_code}${isZonedIndustrial(p, industrialCrossovers) ? ' (ind ok)' : ''}`
+        : null,
+      p.dor_use_code ? `DOR ${p.dor_use_code}` : null,
+    ],
+  ]
+    .map((line) => (line.filter(Boolean) as string[]).join(' · '))
+    .filter((line) => line.length > 0)
 
   const rows: string[] = [`<div class="font-medium">${esc(p.address ?? '')}</div>`]
   if (loc) rows.push(`<div class="opacity-70">${esc(loc)}</div>`)
-  if (bits.length) rows.push(`<div class="opacity-70">${esc(bits.join(' · '))}</div>`)
+  for (const line of factRows) rows.push(`<div class="opacity-70">${esc(line)}</div>`)
   if (lease) {
     const l: string[] = [
       `<div class="font-medium">${esc(lease.tenant_name || 'Tenant not named')}</div>`,
@@ -633,7 +647,11 @@ function hoverCardHtml(
     if (ctx.owner_do_not_call) o.push(`<div class="font-medium text-red-600">Do not call</div>`)
     rows.push(`<div class="mt-1 border-t pt-1">${o.join('')}</div>`)
   }
-  return `<div class="max-w-[15rem] text-xs leading-snug">${rows.join('')}</div>`
+  // whitespace-normal defeats .leaflet-tooltip's nowrap so long lines wrap INSIDE the
+  // card instead of spilling over the map; the FIXED width matters — a shrink-to-fit
+  // measure against the tooltip's absolute positioning collapsed the card to ~6rem and
+  // wrapped every row mid-word.
+  return `<div class="w-60 whitespace-normal text-xs leading-snug">${rows.join('')}</div>`
 }
 
 const shortDate = (iso: string) =>
@@ -856,12 +874,40 @@ export function PropertiesMap({
     const padded = viewBounds.pad(0.2)
     const inView: MapPoint[] = []
     for (const pt of points) {
-      if (padded.contains([pt.lat, pt.lng] as [number, number])) {
-        inView.push(pt)
-        if (inView.length >= maxMarkers) break
-      }
+      if (padded.contains([pt.lat, pt.lng] as [number, number])) inView.push(pt)
     }
-    return inView
+    if (inView.length <= maxMarkers) return inView
+    // Over the cap, sample the viewport EVENLY. Rows arrive in index order (south
+    // first), so "take the first N" put every pin at the bottom edge of the map
+    // (Alex: "the pins seem to spawn at the bottom"). Bucket the padded view into a
+    // grid and take one point per cell round-robin — the whole viewport gets pins,
+    // dense blocks just thin out.
+    const GRID = 24
+    const latSpan = padded.getNorth() - padded.getSouth() || 1
+    const lngSpan = padded.getEast() - padded.getWest() || 1
+    const cells = new Map<number, MapPoint[]>()
+    for (const pt of inView) {
+      const gy = Math.min(GRID - 1, Math.floor(((pt.lat - padded.getSouth()) / latSpan) * GRID))
+      const gx = Math.min(GRID - 1, Math.floor(((pt.lng - padded.getWest()) / lngSpan) * GRID))
+      const key = gy * GRID + gx
+      const cell = cells.get(key)
+      if (cell) cell.push(pt)
+      else cells.set(key, [pt])
+    }
+    const buckets = [...cells.values()]
+    const sampled: MapPoint[] = []
+    for (let round = 0; sampled.length < maxMarkers; round++) {
+      let took = false
+      for (const cell of buckets) {
+        if (round < cell.length) {
+          sampled.push(cell[round])
+          took = true
+          if (sampled.length >= maxMarkers) break
+        }
+      }
+      if (!took) break
+    }
+    return sampled
   }, [points, maxMarkers, viewBounds])
 
   // What the line above the map says. `totalInView` is present only when the parent is
@@ -897,7 +943,14 @@ export function PropertiesMap({
         </div>
       </div>
       {/* isolate z-0 keeps Leaflet's internal z-indexes from covering app dialogs/popovers */}
-      <div className="relative isolate z-0 h-[70vh] w-full overflow-hidden rounded-lg border">
+      {/* map-drawing: while a shape is being drawn, parcel outlines must not eat
+          clicks — a vertex dropped on a held parcel was NAVIGATING to the property
+          instead (index.css kills their pointer-events; the pins already guard). */}
+      <div
+        className={`relative isolate z-0 h-[70vh] w-full overflow-hidden rounded-lg border${
+          drawMode ? ' map-drawing' : ''
+        }`}
+      >
         <MapContainer
           center={initialView ? [initialView.lat, initialView.lng] : [27.95, -82.5]}
           zoom={initialView?.zoom ?? 8}
@@ -992,7 +1045,8 @@ export function PropertiesMap({
                 // to the map), not navigate away mid-shape
                 eventHandlers={{ click: () => { if (!drawMode) navigate(`/properties/${id}`) } }}
               >
-                <Tooltip direction="top" offset={[0, -6]}>
+                {/* opacity 1 to match the outline tooltip — see bindTooltip note */}
+                <Tooltip direction="top" offset={[0, -6]} opacity={1}>
                   {/* the ONE hover card — same generator the parcel outlines use */}
                   <div dangerouslySetInnerHTML={{ __html: getHoverHtml(id) }} />
                 </Tooltip>

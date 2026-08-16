@@ -171,8 +171,12 @@ export function dorBucket(code: string | null | undefined): DorBucket | null {
   // vacant of any flavour reads as land: residential (0), commercial (10), industrial (40)
   if (v === 0 || v === 10 || v === 40) return 'vacant'
   if (v >= 17 && v <= 19) return 'office'
-  if ((v >= 11 && v <= 16) || (v >= 20 && v <= 39)) return 'retail_commercial'
-  if (v >= 41 && v <= 49) return 'industrial'
+  // 027 (auto sales/repair/garages) is Alex's niche and files as INDUSTRIAL on every
+  // axis — property_kind_from_dor, the dor_codes picker seed, isIndustrialUse and here —
+  // whatever FDOR's standard commercial grouping says (Alex, 2026-08-16: "2703 … should
+  // be industrial").
+  if ((v >= 11 && v <= 16) || (v >= 20 && v <= 39 && v !== 27)) return 'retail_commercial'
+  if ((v >= 41 && v <= 49) || v === 27) return 'industrial'
   if (v >= 50 && v <= 69) return 'agricultural'
   if (v >= 70 && v <= 98) return 'institutional_gov'
   return 'other'
