@@ -1008,7 +1008,7 @@ export type Database = {
           phone: string | null
           phone_grade: string | null
           phone_type: string | null
-          source_system: string | null
+          source: string | null
           terrakotta_id: string | null
           title: string | null
           updated_at: string
@@ -1038,7 +1038,7 @@ export type Database = {
           phone?: string | null
           phone_grade?: string | null
           phone_type?: string | null
-          source_system?: string | null
+          source?: string | null
           terrakotta_id?: string | null
           title?: string | null
           updated_at?: string
@@ -1068,7 +1068,7 @@ export type Database = {
           phone?: string | null
           phone_grade?: string | null
           phone_type?: string | null
-          source_system?: string | null
+          source?: string | null
           terrakotta_id?: string | null
           title?: string | null
           updated_at?: string
