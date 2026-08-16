@@ -4,51 +4,33 @@ import { BadgeCheck, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { useCompanyContacts, useCompanyLeases } from '@/hooks/use-companies'
 import { useUpdateContact } from '@/hooks/use-contacts'
 import { formatPhone, formatPsf, formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
-import type { Enums } from '@/lib/database.types'
-
-const DM_LABEL: Record<Enums<'decision_maker_status'>, string> = {
-  none: 'Contact',
-  suspected: 'Suspected DM',
-  verified: 'Verified DM',
-}
 
 /**
- * The people at this company, decision makers first.
+ * The people at this company, verified people first.
  *
- * The three-state select is the whole workflow: 'suspected' is a title on LinkedIn,
- * 'verified' means Alex talked to them and they make the real-estate call. The lease
- * map's decision-maker filter reads ONLY 'verified' — same philosophy as the owner
- * lens, where a name on a county record is not the same as a number that answers.
+ * One verification concept (contacts.verified_at): verified means a human confirmed
+ * this person — Alex talked to them, they replied, or they're a client. Marking here
+ * stamps verified_by='alex' (his own confirmation). The lease map's decision-maker
+ * filter reads the same flag — a title on LinkedIn is not verification.
  */
 function ContactsSection({ companyId }: { companyId: string }) {
   const { data: contacts = [], isLoading } = useCompanyContacts(companyId)
   const updateContact = useUpdateContact()
   const [addOpen, setAddOpen] = useState(false)
 
-  const setDm = (id: string, decision_maker: Enums<'decision_maker_status'>) =>
+  const setVerified = (id: string, verified: boolean) =>
     updateContact.mutate(
-      { id, decision_maker },
+      verified
+        ? { id, verified_at: new Date().toISOString(), verified_by: 'alex' }
+        : { id, verified_at: null, verified_by: null },
       {
         onSuccess: () =>
-          toast.success(
-            decision_maker === 'verified'
-              ? 'Marked as verified decision maker'
-              : decision_maker === 'suspected'
-                ? 'Marked as suspected decision maker'
-                : 'Decision-maker flag removed',
-          ),
+          toast.success(verified ? 'Marked verified' : 'Verification removed'),
         onError: () => toast.error('Could not update the contact'),
       },
     )
@@ -80,27 +62,22 @@ function ContactsSection({ companyId }: { companyId: string }) {
                   >
                     {[c.first_name, c.last_name].filter(Boolean).join(' ')}
                   </Link>
-                  {c.decision_maker === 'verified' && (
-                    <BadgeCheck className="size-4 shrink-0 text-blue-600" aria-label="Verified decision maker" />
+                  {c.verified_at && (
+                    <BadgeCheck className="size-4 shrink-0 text-blue-600" aria-label="Verified" />
                   )}
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
                   {[c.title, formatPhone(c.phone), c.email].filter(Boolean).join(' · ') || '—'}
                 </div>
               </div>
-              <Select
-                value={c.decision_maker}
-                onValueChange={(v) => setDm(c.id, v as Enums<'decision_maker_status'>)}
+              <Button
+                variant={c.verified_at ? 'outline' : 'default'}
+                size="sm"
+                className="h-8 shrink-0 text-xs"
+                onClick={() => setVerified(c.id, !c.verified_at)}
               >
-                <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
-                  <SelectValue>{DM_LABEL[c.decision_maker]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Contact</SelectItem>
-                  <SelectItem value="suspected">Suspected DM</SelectItem>
-                  <SelectItem value="verified">Verified DM</SelectItem>
-                </SelectContent>
-              </Select>
+                {c.verified_at ? 'Unverify' : 'Mark verified'}
+              </Button>
             </li>
           ))}
         </ul>

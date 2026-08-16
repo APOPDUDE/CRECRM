@@ -82,8 +82,8 @@ export function useDeleteCompany() {
  * The people at a company, decision makers first.
  *
  * Ordering is the point: when a lease is expiring, the question is "who makes the
- * call", so verified decision makers sort to the top, suspected next, everyone else
- * after, alphabetical within each band.
+ * call", so verified people sort to the top, everyone else after, alphabetical
+ * within each band.
  */
 export function useCompanyContacts(companyId: string | undefined) {
   return useQuery({
@@ -92,13 +92,12 @@ export function useCompanyContacts(companyId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('contacts')
-        .select('id, first_name, last_name, title, email, phone, decision_maker')
+        .select('id, first_name, last_name, title, email, phone, verified_at, verified_by')
         .eq('company_id', companyId!)
         .not('archived', 'is', true)
         .order('first_name')
       if (error) throw error
-      const rank = { verified: 0, suspected: 1, none: 2 } as const
-      return [...data].sort((a, b) => rank[a.decision_maker] - rank[b.decision_maker])
+      return [...data].sort((a, b) => Number(!!b.verified_at) - Number(!!a.verified_at))
     },
   })
 }

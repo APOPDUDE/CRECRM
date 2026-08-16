@@ -161,9 +161,7 @@ export type Database = {
           category: Database["public"]["Enums"]["contact_category"] | null
           company_id: string | null
           created_at: string | null
-          decision_maker:
-            | Database["public"]["Enums"]["decision_maker_status"]
-            | null
+          decision_maker: string | null
           do_not_call: boolean | null
           email: string | null
           email_verified_at: string | null
@@ -195,9 +193,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["contact_category"] | null
           company_id?: string | null
           created_at?: string | null
-          decision_maker?:
-            | Database["public"]["Enums"]["decision_maker_status"]
-            | null
+          decision_maker?: string | null
           do_not_call?: boolean | null
           email?: string | null
           email_verified_at?: string | null
@@ -229,9 +225,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["contact_category"] | null
           company_id?: string | null
           created_at?: string | null
-          decision_maker?:
-            | Database["public"]["Enums"]["decision_maker_status"]
-            | null
+          decision_maker?: string | null
           do_not_call?: boolean | null
           email?: string | null
           email_verified_at?: string | null
@@ -266,9 +260,7 @@ export type Database = {
           category: Database["public"]["Enums"]["contact_category"] | null
           company_id: string | null
           created_at: string | null
-          decision_maker:
-            | Database["public"]["Enums"]["decision_maker_status"]
-            | null
+          decision_maker: string | null
           do_not_call: boolean | null
           email: string | null
           email_verified_at: string | null
@@ -299,9 +291,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["contact_category"] | null
           company_id?: string | null
           created_at?: string | null
-          decision_maker?:
-            | Database["public"]["Enums"]["decision_maker_status"]
-            | null
+          decision_maker?: string | null
           do_not_call?: boolean | null
           email?: string | null
           email_verified_at?: string | null
@@ -332,9 +322,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["contact_category"] | null
           company_id?: string | null
           created_at?: string | null
-          decision_maker?:
-            | Database["public"]["Enums"]["decision_maker_status"]
-            | null
+          decision_maker?: string | null
           do_not_call?: boolean | null
           email?: string | null
           email_verified_at?: string | null
@@ -363,25 +351,19 @@ export type Database = {
         Row: {
           archived: boolean | null
           archived_reason: string | null
-          decision_maker:
-            | Database["public"]["Enums"]["decision_maker_status"]
-            | null
+          decision_maker: string | null
           id: string | null
         }
         Insert: {
           archived?: boolean | null
           archived_reason?: string | null
-          decision_maker?:
-            | Database["public"]["Enums"]["decision_maker_status"]
-            | null
+          decision_maker?: string | null
           id?: string | null
         }
         Update: {
           archived?: boolean | null
           archived_reason?: string | null
-          decision_maker?:
-            | Database["public"]["Enums"]["decision_maker_status"]
-            | null
+          decision_maker?: string | null
           id?: string | null
         }
         Relationships: []
@@ -966,7 +948,6 @@ export type Database = {
           category: Database["public"]["Enums"]["contact_category"] | null
           company_id: string | null
           created_at: string
-          decision_maker: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call: boolean
           email: string | null
           email_verified_at: string | null
@@ -997,7 +978,6 @@ export type Database = {
           category?: Database["public"]["Enums"]["contact_category"] | null
           company_id?: string | null
           created_at?: string
-          decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call?: boolean
           email?: string | null
           email_verified_at?: string | null
@@ -1028,7 +1008,6 @@ export type Database = {
           category?: Database["public"]["Enums"]["contact_category"] | null
           company_id?: string | null
           created_at?: string
-          decision_maker?: Database["public"]["Enums"]["decision_maker_status"]
           do_not_call?: boolean
           email?: string | null
           email_verified_at?: string | null
@@ -2794,7 +2773,7 @@ export type Database = {
           dm_email: string | null
           dm_name: string | null
           dm_phone: string | null
-          dm_status: Database["public"]["Enums"]["decision_maker_status"] | null
+          dm_status: string | null| null
           dm_title: string | null
           dm_verified: boolean | null
           executed_lease_rate_psf: number | null
@@ -3523,7 +3502,6 @@ export type Database = {
         | "other"
       deal_flag_status: "pending" | "dismissed"
       deal_type: "lease" | "sale" | "both"
-      decision_maker_status: "none" | "suspected" | "verified"
       engagement_status: "active" | "lost"
       file_category:
         | "listing_agreement"
@@ -3763,7 +3741,6 @@ export const Constants = {
       ],
       deal_flag_status: ["pending", "dismissed"],
       deal_type: ["lease", "sale", "both"],
-      decision_maker_status: ["none", "suspected", "verified"],
       engagement_status: ["active", "lost"],
       file_category: [
         "listing_agreement",
