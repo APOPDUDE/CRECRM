@@ -1177,6 +1177,25 @@ export function PropertiesPage() {
               ? 'Loading this area…'
               : `${mapView.data.totalInView.toLocaleString()} in this area`
 
+  // "Clear all": every rail filter back to its default in one tap (Alex 2026-08-16).
+  // The search box survives — clearing FILTERS shouldn't eat a typed address.
+  const clearAllFilters = () => {
+    setPolygon(null)
+    setDraft(null)
+    setSfMin(''); setSfMax(''); setAcMin(''); setAcMax('')
+    setStatus('all'); setDealType('all')
+    setPsfMin(''); setPsfMax(''); setPriceMin(''); setPriceMax('')
+    setIncludeUnpriced(true)
+    setOwnerFilter('all'); setChannels({ phone: true, email: true }); setActivity('all')
+    setSearchLeases(false)
+    setLeaseMin(''); setLeaseMax(''); setLeaseMonth('')
+    setSignMin(''); setSignMax(''); setLeaseSfMin(''); setLeaseSfMax(''); setDmFilter('all')
+    setDorSel(DOR_SELECTION_DEFAULT)
+    setOverlays(OVERLAY_DEFAULT)
+    // the table popover's axes too — they'd silently come back with the table view
+    setPtype('all'); setZoningFilter('all'); setUseFilter('all'); setCounty('all')
+  }
+
   // One rail, two surfaces: the desktop aside and the phone bottom-sheet render the
   // same element, so they can never disagree about what a filter means.
   const railContent = (
@@ -1188,6 +1207,7 @@ export function PropertiesPage() {
       onUndoVertex={() => setDraft((d) => (d && d.length > 0 ? d.slice(0, -1) : d))}
       onCancelDraw={() => setDraft(null)}
       onClearShape={() => setPolygon(null)}
+      onClearAll={clearAllFilters}
       sfMin={sfMin} sfMax={sfMax} onSfMin={setSfMin} onSfMax={setSfMax}
       acMin={acMin} acMax={acMax} onAcMin={setAcMin} onAcMax={setAcMax}
       status={status} onStatus={setStatus}

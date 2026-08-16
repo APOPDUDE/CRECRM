@@ -32,6 +32,10 @@ export type ZoningSource = {
      * pattern was TESTED with a real code and returned relevant sections. */
     searchTemplate?: string
   }
+  /** The standardized allowed-uses section — what a code click should land on
+   * (Alex 2026-08-16: the Hillsborough Sec. 2.02.02 use-by-district matrix is the
+   * model). Merged in from USE_TABLES below. */
+  useTable?: { label: string; url: string }
 }
 
 const SOURCES: Record<string, ZoningSource> = {
@@ -302,16 +306,166 @@ const SOURCES: Record<string, ZoningSource> = {
   },
 }
 
-export function zoningSourceFor(jurisdiction: string): ZoningSource | null {
-  return SOURCES[jurisdiction] ?? null
+/**
+ * The standardized allowed-uses section per jurisdiction — Alex's model is Hillsborough
+ * Sec. 2.02.02 (a use-by-district matrix). 16 jurisdictions have a true consolidated
+ * table; 9 list uses per district, so their entry lands on the district-regulations
+ * article instead (the label says which). Every URL was rendered in a browser and its
+ * table/section confirmed on the page before shipping (2026-08-16 verification fleet).
+ */
+const USE_TABLES: Record<string, { label: string; url: string }> = {
+  'Hillsborough County': {
+    label: 'Allowable uses table, Sec. 2.02.02',
+    url: 'https://library.municode.com/fl/hillsborough_county/codes/land_development_code?nodeId=ARTIIZODI_PT2.02.00USALWIZODI_S2.02.02ALUSZODI',
+  },
+  'City of Tampa': {
+    label: 'Use schedule, Sec. 27-156',
+    url: 'https://library.municode.com/fl/tampa/codes/code_of_ordinances?nodeId=COOR_CH27ZOLADE_ARTIIIESZODIDIRE_DIV1GEZODI_S27-156OFSCDIRE',
+  },
+  'City of Plant City': {
+    // no consolidated matrix — Article IV carries a "Uses permitted" section per district
+    label: 'District regulations, Ch. 102 Art. IV',
+    url: 'https://library.municode.com/fl/plant_city/codes/code_of_ordinances?nodeId=SPBBULADERE_CH102ZO_ARTIVDI',
+  },
+  'City of Temple Terrace': {
+    label: 'District regulations, Ch. 12 Art. VII Div. 2',
+    url: 'https://library.municode.com/fl/temple_terrace/codes/code_of_ordinances?nodeId=PTIICOOR_CH12LADECO_ARTVIIZO_DIV2SPZODI',
+  },
+  'Polk County': {
+    label: 'Use table, LDC Sec. 205',
+    url: 'https://library.municode.com/fl/polk_county/codes/land_development_code?nodeId=CH2LAUSDIRE_S205USTASTLAUSDIRE511RD18-025',
+  },
+  'City of Lakeland': {
+    label: 'Permitted uses table, LDC Sec. 2.3',
+    url: 'https://library.municode.com/fl/lakeland/codes/land_development_code?nodeId=LADECO_ART2USST_2.3PEUS',
+  },
+  'City of Winter Haven': {
+    label: 'District summary tables, Sec. 21-32',
+    url: 'https://library.municode.com/fl/winter_haven/codes/code_of_ordinances?nodeId=PTIICOOR_CH21UNLADECO_ARTIIRESPDI_DIV2ZODI_S21-32ZODISUTA',
+  },
+  'Pinellas County': {
+    label: 'Table of uses, Sec. 138-355',
+    url: 'https://library.municode.com/fl/pinellas_county/codes/code_of_ordinances?nodeId=PTIIILADECO_CH138ZO_ARTIIIZOLAUS_DIV3PELAUS_S138-355TAUS',
+  },
+  'City of St. Petersburg': {
+    label: 'Use matrix, Sec. 16.10.020.1',
+    url: 'https://library.municode.com/fl/st._petersburg/codes/code_of_ordinances?nodeId=PTIISTPECO_CH16LADERE_S16.10.010ESZODIMAMA_16.10.020.1MAUSPEPAREMAZOMA',
+  },
+  'City of Clearwater': {
+    label: 'Permitted uses chart, Sec. 2-100',
+    url: 'https://library.municode.com/fl/clearwater/codes/community_development_code?nodeId=PTICODECO_ART2ZODI_S2-100PEUS',
+  },
+  'City of Largo': {
+    label: 'Allowable uses, CDC Sec. 6.1',
+    url: 'https://library.municode.com/fl/largo/codes/comprehensive_development_code?nodeId=CD_CH6ALUS_S6.1CLALUS',
+  },
+  'City of Pinellas Park': {
+    label: 'District regulations, LDC Art. 15',
+    url: 'https://library.municode.com/fl/pinellas_park/codes/land_development_code?nodeId=CH18LADECO_AR15.ZO',
+  },
+  'City of Oldsmar': {
+    label: 'District regulations, LDC Art. V',
+    url: 'https://library.municode.com/fl/oldsmar/codes/code_of_ordinances?nodeId=PTIIILADECO_ARTVZORE',
+  },
+  'City of Tarpon Springs': {
+    label: 'District regulations, Sec. 25.00',
+    url: 'https://library.municode.com/fl/tarpon_springs/codes/code_of_ordinances?nodeId=COOR_APCOZOLADECO_ARTIIDIRE_S25.00SCDIRE',
+  },
+  'Pasco County': {
+    label: 'District standards, LDC Ch. 500',
+    url: 'https://library.municode.com/fl/pasco_county/codes/land_development_code?nodeId=CH500ZOST',
+  },
+  'City of Zephyrhills': {
+    label: 'Use matrix, Sec. 2.02.01',
+    url: 'https://library.municode.com/fl/zephyrhills/codes/code_of_ordinances?nodeId=LADECO_ARTIIZODIALUS_PT2.02.00LAUSALWIZODI_S2.02.01PEUS',
+  },
+  'City of New Port Richey': {
+    label: 'District regulations, LDC Ch. 7',
+    url: 'https://library.municode.com/fl/new_port_richey/codes/code_of_ordinances?nodeId=APXALADECO_CH7ZO',
+  },
+  'City of Dade City': {
+    label: 'Table of allowed uses, Sec. 4.1.2',
+    url: 'https://library.municode.com/fl/dade_city/codes/land_development_regulations?nodeId=ART4USRE_S4.1TAUS_4.1.2TAALUS',
+  },
+  'City of Bartow': {
+    label: 'Table of uses, ULDC Sec. 2.04.00',
+    url: 'https://library.municode.com/fl/bartow/codes/code_of_ordinances?nodeId=PTIICOOR_APXA_ART2RESPDI_2.04.00ESZODI',
+  },
+  'City of Auburndale': {
+    label: 'Zoning chapter PDF (per-district)',
+    url: 'https://auburndalefl.com/wp-content/uploads/2025/07/LDR-CH05-Zoning-7-16-2025.pdf',
+  },
+  'Sarasota County': {
+    label: 'District standards, UDC Art. 6',
+    url: 'https://library.municode.com/fl/sarasota_county/codes/code_of_ordinances?nodeId=PTIICOOR_CH124UNDECO_ART6GEBAINZODIDEST',
+  },
+  'City of Sarasota': {
+    label: 'Zone districts, Art. VI',
+    url: 'https://library.municode.com/fl/sarasota/codes/zoning?nodeId=ARTVIZODI',
+  },
+  'City of North Port': {
+    label: 'Use table, ULDC Sec. 3.2.4',
+    url: 'https://library.municode.com/fl/north_port/codes/unified_land_development_code?nodeId=CH3ZO_ARTIISTDI_S3.2.4STDIUSST',
+  },
+  'City of Venice': {
+    label: 'Use table, Sec. 2.2.7',
+    url: 'https://library.municode.com/fl/venice/codes/code_of_ordinances?nodeId=SPBLADERE_CH87LADECO_S2ZO_2.2TRZODI',
+  },
+  'Manatee County': {
+    label: 'Schedule of uses, Sec. 401.2',
+    url: 'https://library.municode.com/fl/manatee_county/codes/land_development_code?nodeId=CH4ZO_S401STZODIES_401.2SCUS',
+  },
+  'City of Bradenton': {
+    label: 'Use schedules, Sec. 3.2',
+    url: 'https://library.municode.com/fl/bradenton/codes/code_of_ordinances?nodeId=PTIIILAUSRE_CH3.0DIRE_3.2STLAUSATDIRE',
+  },
+  'City of Palmetto': {
+    label: 'Use schedule, Sec. 4.2',
+    url: 'https://library.municode.com/fl/palmetto/codes/code_of_ordinances?nodeId=CD_ORD_APXBZOCO_ARTIVSCDIRE_S4.2SCPECOUSDI',
+  },
 }
 
 /**
- * The best external target for ONE code: the code book's search opened on that code
- * where the pattern is verified, else the code book landing page, else nothing (the
- * jurisdiction header's GIS link stays the fallback reference).
+ * Hand-pinned per-code targets, for jurisdictions with no searchable book (Alex:
+ * "hand link the stuff"). Bartow's districts all read from one Table of Uses (PD is
+ * the exception — its own planned-development section); Auburndale's districts anchor
+ * into the LDR PDF at their verified page numbers.
+ */
+const CODE_OVERRIDES: Record<string, Record<string, string>> = {
+  'City of Bartow': {
+    PD: 'https://library.municode.com/fl/bartow/codes/code_of_ordinances?nodeId=PTIICOOR_APXA_ART7DEAPPR_7.04.00PLDE',
+  },
+  'City of Auburndale': {
+    CBD: 'https://auburndalefl.com/wp-content/uploads/2025/07/LDR-CH05-Zoning-7-16-2025.pdf#page=118',
+    CG: 'https://auburndalefl.com/wp-content/uploads/2025/07/LDR-CH05-Zoning-7-16-2025.pdf#page=97',
+    'CG-1': 'https://auburndalefl.com/wp-content/uploads/2025/07/LDR-CH05-Zoning-7-16-2025.pdf#page=104',
+    CH: 'https://auburndalefl.com/wp-content/uploads/2025/07/LDR-CH05-Zoning-7-16-2025.pdf#page=110',
+    HI: 'https://auburndalefl.com/wp-content/uploads/2025/07/LDR-CH05-Zoning-7-16-2025.pdf#page=130',
+    IPUD: 'https://auburndalefl.com/wp-content/uploads/2023/12/LDR-CH06-Special-ProvisionsPUDs-Clusters.pdf#page=58',
+    LI: 'https://auburndalefl.com/wp-content/uploads/2025/07/LDR-CH05-Zoning-7-16-2025.pdf#page=123',
+    OUA: 'https://auburndalefl.com/wp-content/uploads/2025/07/LDR-CH05-Zoning-7-16-2025.pdf#page=135',
+    'RG-1': 'https://auburndalefl.com/wp-content/uploads/2025/07/LDR-CH05-Zoning-7-16-2025.pdf#page=69',
+  },
+}
+
+export function zoningSourceFor(jurisdiction: string): ZoningSource | null {
+  const s = SOURCES[jurisdiction]
+  if (!s) return null
+  const useTable = USE_TABLES[jurisdiction]
+  return useTable ? { ...s, useTable } : s
+}
+
+/**
+ * The best external target for ONE code, in Alex's preference order: a hand-pinned
+ * section for that exact district, else the jurisdiction's ALLOWED-USES table ("a
+ * standardized map of allowed uses ... would be ideal"), else the code-book search on
+ * the code, else the book itself.
  */
 export function zoningCodeLink(jurisdiction: string, code: string): string | null {
+  const override = CODE_OVERRIDES[jurisdiction]?.[code]
+  if (override) return override
+  const useTable = USE_TABLES[jurisdiction]
+  if (useTable) return useTable.url
   const book = SOURCES[jurisdiction]?.codeBook
   if (!book) return null
   return book.searchTemplate

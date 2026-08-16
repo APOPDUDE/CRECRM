@@ -94,6 +94,8 @@ export function MapFilterRail(props: {
   onUndoVertex: () => void
   onCancelDraw: () => void
   onClearShape: () => void
+  /** Reset EVERY rail filter (and the shape) to defaults — one tap back to the whole book. */
+  onClearAll: () => void
   // the only standard filters (Alex): sqft + acres
   sfMin: string
   sfMax: string
@@ -184,6 +186,10 @@ export function MapFilterRail(props: {
                 Clear
               </Button>
             )}
+            {/* one tap back to a clean slate — shape, sizes, market, DOR, layers, all of it */}
+            <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={p.onClearAll}>
+              Clear all
+            </Button>
           </div>
         ) : (
           <>
@@ -219,6 +225,20 @@ export function MapFilterRail(props: {
       <div className="space-y-1.5">
         <Label>Acres</Label>
         <MinMax min={p.acMin} max={p.acMax} onMin={p.onAcMin} onMax={p.onAcMax} />
+      </div>
+
+      {/* County use codes — what the parcel IS today, per the appraiser */}
+      <div className="border-t pt-3">
+        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
+      </div>
+
+      {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
+          — on the map the zoning question is the layers below, with Include (union) and
+          Only (restrict) per layer. The table's Filters popover keeps the select. */}
+
+      {/* Zoning district overlays (Phase 1) */}
+      <div className="border-t pt-3">
+        <OverlayControls state={p.overlays} onChange={p.onOverlays} onIncludeOn={p.onOverlayIncludeOn} />
       </div>
 
       {/* On market — off = everyone, plus the explicit inverse Alex asked for */}
@@ -389,19 +409,6 @@ export function MapFilterRail(props: {
         )}
       </div>
 
-      {/* County use codes — what the parcel IS today, per the appraiser */}
-      <div className="border-t pt-3">
-        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
-      </div>
-
-      {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
-          — on the map the zoning question is the layers below, with Include (union) and
-          Only (restrict) per layer. The table's Filters popover keeps the select. */}
-
-      {/* Zoning district overlays (Phase 1) */}
-      <div className="border-t pt-3">
-        <OverlayControls state={p.overlays} onChange={p.onOverlays} onIncludeOn={p.onOverlayIncludeOn} />
-      </div>
     </div>
   )
 }

@@ -225,12 +225,26 @@ export default function ZoningLibraryPage() {
               </h2>
               {src && (
                 <span className="flex flex-wrap items-center gap-3">
+                  {/* the allowed-uses table leads — it is the page a code click opens */}
+                  {src.useTable && (
+                    <a
+                      href={src.useTable.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      {src.useTable.label}
+                      <ExternalLink className="size-3" />
+                    </a>
+                  )}
                   {src.codeBook && (
                     <a
                       href={src.codeBook.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      className={`inline-flex items-center gap-1 text-xs hover:underline ${
+                        src.useTable ? 'text-muted-foreground' : 'font-medium text-primary'
+                      }`}
                     >
                       {src.codeBook.label}
                       <ExternalLink className="size-3" />
