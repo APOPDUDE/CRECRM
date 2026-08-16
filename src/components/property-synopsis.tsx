@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Lock, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -131,12 +132,50 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
           value={property.year_built ? String(property.year_built) : null}
           locked={countyOwned}
         />
-        <Stat
-          label="Zoning"
-          value={property.zoning_code}
-          // the jurisdiction's own wording; a code without its meaning is a lookup chore
-          sub={zoningSub}
-        />
+        {/* Hover answers "what does this district permit" with the county's own wording;
+            click lands on the zoning library at THIS code, which carries the reference
+            link back to the county source (Alex 2026-08-16). */}
+        {property.zoning_code ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to={`/zoning?j=${encodeURIComponent(property.zoning_jurisdiction ?? '')}&c=${encodeURIComponent(property.zoning_code)}`}
+                className="min-w-0 rounded-sm outline-offset-2 hover:bg-accent/50"
+              >
+                <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  Zoning
+                </div>
+                <div className="mt-0.5 truncate text-sm font-semibold underline decoration-dotted underline-offset-2">
+                  {property.zoning_code}
+                </div>
+                {zoningSub && (
+                  <div className="truncate text-xs text-muted-foreground">{zoningSub}</div>
+                )}
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-72">
+              <p className="font-medium">
+                {property.zoning_code}
+                {property.zoning_description &&
+                property.zoning_description.trim().toLowerCase() !==
+                  property.zoning_code.trim().toLowerCase()
+                  ? ` — ${property.zoning_description}`
+                  : ''}
+              </p>
+              <p className="mt-1 opacity-80">
+                {property.zoning_jurisdiction ?? 'Jurisdiction unknown'}
+                {property.zoning_type
+                  ? ` · ${zoningKindLabels[property.zoning_type] ?? property.zoning_type}`
+                  : ''}
+              </p>
+              <p className="mt-1 opacity-80">
+                Click for the full code list and the county's own reference.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <Stat label="Zoning" value={null} />
+        )}
         <Stat
           label="County use (DOR)"
           value={property.dor_use_code}

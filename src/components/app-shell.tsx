@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Contact,
   Handshake,
+  Landmark,
   LayoutDashboard,
   ListTodo,
   LogOut,
@@ -45,6 +46,7 @@ const moreItems = [
   { to: '/tasks', label: 'Tasks', icon: ListTodo },
   { to: '/contacts', label: 'Contacts', icon: Contact },
   { to: '/companies', label: 'Companies', icon: Users },
+  { to: '/zoning', label: 'Zoning', icon: Landmark },
 ]
 
 const sectionLabels: Record<string, string> = {
@@ -59,6 +61,7 @@ const sectionLabels: Record<string, string> = {
   companies: 'Companies',
   // The route stays /properties; only the name changed.
   properties: 'War Room',
+  zoning: 'Zoning',
 }
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>

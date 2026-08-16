@@ -21,6 +21,7 @@ import { ContactDetailPage } from '@/pages/contact-detail'
 import { PropertiesPage } from '@/pages/properties'
 import { PropertyDetailPage } from '@/pages/property-detail'
 import { ActivityPage } from '@/pages/activity'
+import ZoningLibraryPage from '@/pages/zoning-library'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +71,7 @@ export default function App() {
                 <Route path="/companies/:id" element={<CompanyDetailPage />} />
                 <Route path="/properties" element={<PropertiesPage />} />
                 <Route path="/properties/:id" element={<PropertyDetailPage />} />
+                <Route path="/zoning" element={<ZoningLibraryPage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
