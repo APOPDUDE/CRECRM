@@ -66,7 +66,6 @@ import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
 import { useLeaseComps, withinMonths, signedWithinMonths, type LeaseComp } from '@/hooks/use-lease-comps'
 import { useAvailableUnitSizes } from '@/hooks/use-units'
 import { usePersistentState } from '@/hooks/use-persistent-state'
-import { supabase } from '@/lib/supabase'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatCurrency, formatPhone, formatPsf, formatSf } from '@/lib/format'
 import { pointInPolygon, type LatLng } from '@/lib/geo'
@@ -74,6 +73,7 @@ import { buildHaystack, matchesTokens, searchTokens } from '@/lib/address-search
 import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
 import { PushToGhlDialog, type PushContact } from '@/components/push-to-ghl-dialog'
 import { OwnerOutreachDialog, type OwnerRecipient } from '@/components/owner-outreach-dialog'
+import { ExportDialog } from '@/components/export-dialog'
 
 /** $14.50 PSF (lease) or $5,200,000 (sale) — from the property's current asking comp. */
 function askingLabel(a: CurrentAsking | undefined): string | null {
@@ -394,6 +394,10 @@ export function PropertiesPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [pushOpen, setPushOpen] = useState(false)
   const [ownerMsgOpen, setOwnerMsgOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  // Flipped by the export dialog when lease columns are checked — the comps load then,
+  // not when the map opens. Sticky for the visit, same rationale as wantsBook.
+  const [exportWantsLeases, setExportWantsLeases] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
   // Shape search: draw a polygon on the map. The completed shape lives here (not in the
@@ -515,7 +519,7 @@ export function PropertiesPage() {
   // table's tenant columns. On the bare market map they were ~1,300 rows of nothing, and
   // slow enough to crowd out the fetch that actually draws the pins.
   const { data: crossovers } = useIndustrialCrossovers()
-  const { data: leases = [] } = useLeaseComps(view === 'table' || leaseFilter.any)
+  const { data: leases = [] } = useLeaseComps(view === 'table' || leaseFilter.any || exportWantsLeases)
   /**
    * The viewport is fetched for two different jobs, and the second one outlives the first.
    *
@@ -1055,96 +1059,9 @@ export function PropertiesPage() {
     )
   }
 
-  const exportCsv = () => {
-    const headers = [
-      'Parcel ID', 'Address', 'City', 'State', 'Zip', 'County',
-      'Owner Name', 'Owner Mailing Address', 'Property Type', 'Building SF', 'Acres',
-      'Year Built', 'Last Sale Date', 'Last Sale Price',
-      'Market Status', 'Was On Market', 'Days Off Market',
-      'Owner Verified', 'Owner Tags', 'Owner Contact Name', 'Owner Contact Phone', 'Owner Contact Email',
-      'Known Contacts', 'Last Contacted',
-      'Zoning Code', 'Zoning Type', 'Zoned Industrial OK', 'Zoning Jurisdiction', 'County Use',
-      'CRM Property ID',
-    ]
-    const rows = filtered.map((p) => {
-      const o = ownerCtx?.get(p.id)
-      return [
-        p.parcel_number, p.address, p.city, p.state, p.zip, p.county,
-        o?.owner_name ?? p.owner_name, p.owner_mailing_address,
-        p.property_type ? propertyKindLabels[p.property_type] : null,
-        p.gross_sf, p.land_acres, p.year_built,
-        p.last_sale_date, p.last_sale_price,
-        p.listing_status === 'off_market' ? 'off market' : 'on market',
-        // "never" vs "was listed" is the split that matters for cold lists
-        o?.was_on_market ? 'yes' : 'never',
-        o?.off_market_days ?? '',
-        o?.owner_contact_verified ? 'yes' : 'no',
-        (o?.owner_tags ?? []).join('; '),
-        o?.best_contact_name, o?.best_contact_phone, o?.best_contact_email,
-        o?.owner_contact_count ?? 0,
-        o?.last_contacted_at ? new Date(o.last_contacted_at).toISOString().slice(0, 10) : null,
-        p.zoning_code, p.zoning_type,
-        isZonedIndustrial(p, crossovers) ? 'yes' : 'no',
-        p.zoning_jurisdiction,
-        dorBucket(p.dor_use_code) ? dorBucketLabels[dorBucket(p.dor_use_code)!] : null,
-        p.id,
-      ]
-    })
-    downloadCsv(`skiptrace-${todayStamp()}-${rows.length}.csv`, toCsv(headers, rows))
-    // Stamp the pipeline: these owners are now "out for skip-trace", so the map can show
-    // what's already in flight and the next export can exclude them. Fire-and-forget —
-    // the download must not hinge on the write. ONLY the owner export stamps: a market or
-    // lease export is research, not a skip-trace hand-off, and must not mark anyone.
-    void supabase
-      .rpc('mark_owners_exported', { p_property_ids: filtered.map((p) => p.id) })
-      .then(({ data, error }) => {
-        if (error) {
-          toast.error('Export downloaded, but marking owners as exported failed.')
-        } else {
-          const n = (data as { owners_marked?: number } | null)?.owners_marked ?? 0
-          if (n > 0) toast.success(`${n} owner${n === 1 ? '' : 's'} marked as exported`)
-        }
-      })
-  }
-
-  /**
-   * The lease-flavoured export: the building, the tenancy, and the person to call. One
-   * row per property, carrying the same representative lease the table shows — the one
-   * the active window matched, or the soonest-running one when no window is set.
-   * Properties in the filter with no lease on file are left out rather than exported as
-   * empty rows.
-   */
-  const exportLeases = () => {
-    const headers = [
-      'Address', 'City', 'State', 'Zip', 'County', 'Property Type', 'Building SF', 'Acres',
-      'Tenant Company', 'Leased SF', 'Rate $/SF', 'Structure', 'Term (mo)',
-      'Signed', 'Commencement', 'Expiration', 'Months To Expiry',
-      'DM Status', 'DM Name', 'DM Title', 'DM Phone', 'DM Email', 'CRM Property ID',
-    ]
-    const rows: (string | number | null)[][] = []
-    for (const p of filtered) {
-      const l = leaseMatch?.top.get(p.id) ?? leaseSoonest.get(p.id)
-      if (!l) continue
-      rows.push([
-        p.address, p.city, p.state, p.zip, p.county,
-        p.property_type ? propertyKindLabels[p.property_type] : null,
-        p.gross_sf, p.land_acres,
-        l.tenant_company_name ?? l.tenant_name, l.sf, l.executed_lease_rate_psf,
-        l.lease_structure, l.term_months,
-        l.signed_date, l.commencement_date, l.expiration_date, l.months_to_expiry,
-        l.dm_status, l.dm_name, l.dm_title, l.dm_phone, l.dm_email, p.id,
-      ])
-    }
-    downloadCsv(`leases-${todayStamp()}-${rows.length}.csv`, toCsv(headers, rows))
-    if (rows.length < filtered.length) {
-      toast.info(`${filtered.length - rows.length} filtered propert${filtered.length - rows.length === 1 ? 'y has' : 'ies have'} no lease on file and were left out`)
-    }
-  }
-
-  // Interim until the Phase-4 export dialog: a lease-filtered set answers a tenancy
-  // question, so it exports lease columns; everything else is the skip-trace CSV
-  // (which stamps owners as exported — same as the table has always done).
-  const runExport = leaseMatchIds ? exportLeases : exportCsv
+  /** The representative lease per property: the window's match, else soonest-running. */
+  const getExportLease = (propertyId: string) =>
+    leaseMatch?.top.get(propertyId) ?? leaseSoonest.get(propertyId)
 
   // Paginate the table display (data is fully loaded; this just bounds the DOM).
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -1355,34 +1272,35 @@ export function PropertiesPage() {
           {/* The lenses are gone: the top bar keeps only the count, Export and (on the
               phone) the drawer that holds the rail. */}
           {view === 'map' && (
-            <>
-              <span className="hidden text-sm text-muted-foreground lg:inline">{mapStatusText}</span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0"
-                onClick={runExport}
-                disabled={filtered.length === 0}
-              >
-                <Download className="size-4" />
-                <span className="hidden sm:inline">Export CSV</span>
-                {filtered.length > 0 ? ` (${filtered.length.toLocaleString()})` : ''}
-              </Button>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button size="sm" variant="outline" className="shrink-0 md:hidden">
-                    <SlidersHorizontal className="size-4" />
-                    Map filters
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>Map filters</SheetTitle>
-                  </SheetHeader>
-                  <div className="px-4 pb-6">{railContent}</div>
-                </SheetContent>
-              </Sheet>
-            </>
+            <span className="hidden text-sm text-muted-foreground lg:inline">{mapStatusText}</span>
+          )}
+          {/* ONE Export button everywhere — it opens the dialog, never an instant download. */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => setExportOpen(true)}
+            disabled={filtered.length === 0}
+          >
+            <Download className="size-4" />
+            <span className="hidden sm:inline">Export CSV</span>
+            {filtered.length > 0 ? ` (${filtered.length.toLocaleString()})` : ''}
+          </Button>
+          {view === 'map' && (
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button size="sm" variant="outline" className="shrink-0 md:hidden">
+                  <SlidersHorizontal className="size-4" />
+                  Map filters
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Map filters</SheetTitle>
+                </SheetHeader>
+                <div className="px-4 pb-6">{railContent}</div>
+              </SheetContent>
+            </Sheet>
           )}
           {/* Opening the panel is the same signal as clicking the search box: a filter is
               about to narrow the whole book, so start fetching it now. */}
@@ -1988,6 +1906,17 @@ export function PropertiesPage() {
         open={ownerMsgOpen}
         onOpenChange={setOwnerMsgOpen}
         recipients={ownerRecipients}
+      />
+
+      <ExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        rows={filtered}
+        ownerCtx={ownerCtx}
+        asking={askingMap}
+        getLease={getExportLease}
+        onLeaseNeeded={() => setExportWantsLeases(true)}
+        crossovers={crossovers}
       />
 
       <PushToGhlDialog
