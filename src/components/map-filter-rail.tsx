@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { OverlayControls } from '@/components/overlay-controls'
 import { DorCodePicker } from '@/components/dor-code-picker'
-import { ZONING_FILTER_ORDER, zoningKindLabels, type DorSelection } from '@/lib/zoning'
+import { type DorSelection } from '@/lib/zoning'
 import type { OverlayState } from '@/lib/overlays'
 import type { LatLng } from '@/lib/geo'
 
@@ -150,8 +150,6 @@ export function MapFilterRail(props: {
   // DOR use categories + the zoning axis
   dorSel: DorSelection
   onDorSel: (next: DorSelection) => void
-  zoningFilter: string
-  onZoningFilter: (v: string) => void
   // overlays (Phase 1)
   overlays: OverlayState
   onOverlays: (s: OverlayState) => void
@@ -396,26 +394,9 @@ export function MapFilterRail(props: {
         <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
       </div>
 
-      {/* The zoning axis: what the parcel may BECOME. 'industrial_any' and
-          'non_industrial' carry the old play-chip searches now that the chips are gone. */}
-      <div className="space-y-1.5 border-t pt-3">
-        <Label>Zoned</Label>
-        <Select value={p.zoningFilter} onValueChange={p.onZoningFilter}>
-          <SelectTrigger className="h-8 w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Any zoning</SelectItem>
-            <SelectItem value="industrial_any">Industrial — zoned or used</SelectItem>
-            {ZONING_FILTER_ORDER.map((z) => (
-              <SelectItem key={z} value={z}>
-                {z === 'industrial' ? 'Industrial (incl. CG/CI/BPC)' : zoningKindLabels[z]}
-              </SelectItem>
-            ))}
-            <SelectItem value="non_industrial">Not industrial</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
+          — on the map the zoning question is the layers below, with Include (union) and
+          Only (restrict) per layer. The table's Filters popover keeps the select. */}
 
       {/* Zoning district overlays (Phase 1) */}
       <div className="border-t pt-3">

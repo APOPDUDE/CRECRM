@@ -55,6 +55,10 @@ export type OverlayState = {
   multifamily: LayerSelection
   /** Layers whose properties JOIN the filtered set (union) so exports carry them. */
   include: Partial<Record<OverlayType, boolean>>
+  /** Layers that RESTRICT the set to their members — "only CG zoned on the map"
+   * (Alex 2026-08-16). Mutually exclusive with include per layer; several only-layers
+   * union their memberships before restricting. */
+  only: Partial<Record<OverlayType, boolean>>
 }
 
 export const OVERLAY_DEFAULT: OverlayState = {
@@ -63,6 +67,7 @@ export const OVERLAY_DEFAULT: OverlayState = {
   office: 'off',
   multifamily: 'off',
   include: {},
+  only: {},
 }
 
 /** A persisted value predating a shape change (or hand-edited) must not crash the map —
@@ -71,12 +76,15 @@ export function safeOverlayState(v: unknown): OverlayState {
   const o = (v ?? {}) as Partial<OverlayState>
   const sel = (s: unknown): LayerSelection =>
     s === 'all' || s === 'off' ? s : Array.isArray(s) ? s.filter((k): k is string => typeof k === 'string') : 'off'
+  const flags = (f: unknown): Partial<Record<OverlayType, boolean>> =>
+    typeof f === 'object' && f != null ? (f as Partial<Record<OverlayType, boolean>>) : {}
   return {
     industrial: sel(o.industrial),
     retail: sel(o.retail),
     office: sel(o.office),
     multifamily: sel(o.multifamily),
-    include: typeof o.include === 'object' && o.include != null ? o.include : {},
+    include: flags(o.include),
+    only: flags(o.only),
   }
 }
 
@@ -145,4 +153,9 @@ export function rowInOverlay(
 /** The layers currently unioning their properties into the filtered set. */
 export function activeIncludes(state: OverlayState): OverlayType[] {
   return OVERLAY_TYPES.filter((t) => state.include[t] && state[t] !== 'off')
+}
+
+/** The layers currently restricting the set to their members. */
+export function activeOnlys(state: OverlayState): OverlayType[] {
+  return OVERLAY_TYPES.filter((t) => state.only[t] && state[t] !== 'off')
 }

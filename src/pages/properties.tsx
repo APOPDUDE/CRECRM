@@ -50,7 +50,7 @@ import {
 } from '@/hooks/use-map-properties'
 import { useIndustrialCrossovers, isZonedIndustrial } from '@/hooks/use-zoning-map'
 import {
-  OVERLAY_DEFAULT, activeIncludes, rowInOverlay, safeOverlayState, type OverlayState,
+  OVERLAY_DEFAULT, activeIncludes, activeOnlys, rowInOverlay, safeOverlayState, type OverlayState,
 } from '@/lib/overlays'
 import {
   DOR_FILTER_ORDER, DOR_SELECTION_DEFAULT, ZONING_FILTER_ORDER,
@@ -424,6 +424,7 @@ export function PropertiesPage() {
   const [overlaysRaw, setOverlays] = usePersistentState<OverlayState>('properties:overlays', OVERLAY_DEFAULT)
   const overlays = useMemo(() => safeOverlayState(overlaysRaw), [overlaysRaw])
   const overlayIncludes = useMemo(() => activeIncludes(overlays), [overlays])
+  const overlayOnlys = useMemo(() => activeOnlys(overlays), [overlays])
   // Set the moment the user reaches for the search box or the filter panel — see the
   // fetch gate below. Sticky for the visit: once the book is on its way, keep it.
   const [wantsBook, setWantsBook] = useState(false)
@@ -441,6 +442,10 @@ export function PropertiesPage() {
   const activitySubApplies = view === 'table' || ownerFilter === 'verified'
   const countyApplies = view === 'table'
   const leaseApplies = view === 'table' || searchLeases
+  // The Zoned select left the map rail (Alex 2026-08-16: "we only need zoning layers")
+  // — on the MAP the zoning question is asked through the layers + Include/Only. The
+  // table's popover still carries the select, so it applies there only.
+  const zonedApplies = view === 'table'
 
   // ?owner=<id> shows one owner's whole portfolio. It behaves as a filter rather than a
   // separate mode, so the map, the table, the columns and the export all keep working.
@@ -452,7 +457,7 @@ export function PropertiesPage() {
     (status !== 'all' ? 1 : 0) +
     (marketSubsApply && dealType !== 'all' ? 1 : 0) +
     (ptype !== 'all' ? 1 : 0) +
-    (zoningFilter !== 'all' ? 1 : 0) +
+    (zonedApplies && zoningFilter !== 'all' ? 1 : 0) +
     (useFilter !== 'all' ? 1 : 0) +
     (dorActive ? 1 : 0) +
     (ownerFilter !== 'all' ? 1 : 0) +
@@ -925,7 +930,7 @@ export function PropertiesPage() {
       // The ZONING axis. 'industrial' spans primary + crossover codes (allows_industrial);
       // 'non_industrial' means zoned, and not for industrial — the grandfathered test.
       // Unzoned rows fail every specific pick: no answer is not a match.
-      if (passesUse && zoningFilter !== 'all') {
+      if (passesUse && zonedApplies && zoningFilter !== 'all') {
         if (zoningFilter === 'industrial_any') {
           // the whole industrial universe: zoned for it OR already used as it —
           // the grandfathered cohort belongs to "everything industrial" (Alex)
@@ -945,7 +950,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, marketSubsApply, activitySubApplies, countyApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -961,12 +966,22 @@ export function PropertiesPage() {
    * land inside the shape joins the set — the one across town does not.
    */
   const filtered = useMemo(() => {
-    if (overlayIncludes.length === 0 || portfolioOwnerId) return baseFiltered
-    const extra = includeCandidates.filter((p) =>
-      overlayIncludes.some((t) => rowInOverlay(p, t, overlays[t], crossovers)),
-    )
-    return extra.length ? [...baseFiltered, ...extra] : baseFiltered
-  }, [baseFiltered, includeCandidates, overlayIncludes, overlays, portfolioOwnerId, crossovers])
+    if (portfolioOwnerId) return baseFiltered
+    let out = baseFiltered
+    if (overlayIncludes.length > 0) {
+      const extra = includeCandidates.filter((p) =>
+        overlayIncludes.some((t) => rowInOverlay(p, t, overlays[t], crossovers)),
+      )
+      if (extra.length) out = [...out, ...extra]
+    }
+    // "Only these": restrict to the only-layers' members — check just CG and the map
+    // shows nothing but CG-zoned parcels (Alex 2026-08-16). Applied AFTER the include
+    // union, and on top of every other filter (shape, sizes, market still bind).
+    if (overlayOnlys.length > 0) {
+      out = out.filter((p) => overlayOnlys.some((t) => rowInOverlay(p, t, overlays[t], crossovers)))
+    }
+    return out
+  }, [baseFiltered, includeCandidates, overlayIncludes, overlayOnlys, overlays, portfolioOwnerId, crossovers])
 
   /**
    * Everything the map should RECOGNISE, as opposed to everything it should pin.
@@ -1194,7 +1209,6 @@ export function PropertiesPage() {
       leaseSfMin={leaseSfMin} leaseSfMax={leaseSfMax} onLeaseSfMin={setLeaseSfMin} onLeaseSfMax={setLeaseSfMax}
       dmFilter={dmFilter} onDmFilter={setDmFilter}
       dorSel={dorSel} onDorSel={setDorSel}
-      zoningFilter={zoningFilter} onZoningFilter={setZoningFilter}
       overlays={overlays} onOverlays={setOverlays}
       onOverlayIncludeOn={() => setWantsBook(true)}
     />

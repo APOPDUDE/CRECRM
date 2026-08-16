@@ -61,10 +61,25 @@ export function OverlayControls({
 
   const toggleType = (t: OverlayType) => setLayer(t, state[t] === 'off' ? 'all' : 'off')
 
+  // Include and Only are opposite answers to the same question, so turning one on
+  // turns the other off for that layer.
   const toggleInclude = (t: OverlayType) => {
     const next = !state.include[t]
-    onChange({ ...state, include: { ...state.include, [t]: next } })
+    onChange({
+      ...state,
+      include: { ...state.include, [t]: next },
+      only: next ? { ...state.only, [t]: false } : state.only,
+    })
     if (next) onIncludeOn?.()
+  }
+
+  const toggleOnly = (t: OverlayType) => {
+    const next = !state.only[t]
+    onChange({
+      ...state,
+      only: { ...state.only, [t]: next },
+      include: next ? { ...state.include, [t]: false } : state.include,
+    })
   }
 
   const codeChecked = (e: OverlayCodeEntry): boolean => {
@@ -146,7 +161,7 @@ export function OverlayControls({
                   )}
                 </label>
                 {sel !== 'off' && (
-                  <div className="pl-6">
+                  <div className="flex flex-wrap gap-1 pl-6">
                     <Button
                       size="sm"
                       variant={state.include[t] ? 'secondary' : 'outline'}
@@ -155,6 +170,15 @@ export function OverlayControls({
                       onClick={() => toggleInclude(t)}
                     >
                       {state.include[t] ? 'Included in search' : 'Include in search'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={state.only[t] ? 'secondary' : 'outline'}
+                      className="h-6 px-2 text-xs"
+                      title="Show ONLY properties inside this overlay — e.g. check just CG and see nothing but CG-zoned parcels"
+                      onClick={() => toggleOnly(t)}
+                    >
+                      {state.only[t] ? 'Only these shown' : 'Only these'}
                     </Button>
                   </div>
                 )}

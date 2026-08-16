@@ -8,7 +8,7 @@ import { fetchPages } from '@/lib/paged-fetch'
 import { supabase } from '@/lib/supabase'
 import { OVERLAY_COLORS, type OverlayType } from '@/lib/overlays'
 import { zoningKindLabels } from '@/lib/zoning'
-import { zoningSourceFor } from '@/lib/zoning-sources'
+import { zoningCodeLink, zoningSourceFor } from '@/lib/zoning-sources'
 import type { Tables } from '@/lib/database.types'
 
 type CodeRow = Pick<
@@ -224,15 +224,28 @@ export default function ZoningLibraryPage() {
                 </span>
               </h2>
               {src && (
-                <a
-                  href={src.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  {src.label}
-                  <ExternalLink className="size-3" />
-                </a>
+                <span className="flex flex-wrap items-center gap-3">
+                  {src.codeBook && (
+                    <a
+                      href={src.codeBook.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      {src.codeBook.label}
+                      <ExternalLink className="size-3" />
+                    </a>
+                  )}
+                  <a
+                    href={src.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                  >
+                    {src.label}
+                    <ExternalLink className="size-3" />
+                  </a>
+                </span>
               )}
             </div>
             <div className="overflow-x-auto rounded-lg border bg-card">
@@ -241,6 +254,10 @@ export default function ZoningLibraryPage() {
                   {rows.map((r) => {
                     const n = counts?.get(`${r.jurisdiction}|${r.code}`) ?? 0
                     const focused = r.jurisdiction === focusJ && r.code === focusC
+                    // clicking the CODE opens the county's own regulations for it —
+                    // "the full breakdown of the zoning" (Alex) — via the verified
+                    // code-book search where one exists
+                    const external = zoningCodeLink(r.jurisdiction, r.code)
                     return (
                       <tr
                         key={r.code}
@@ -248,7 +265,20 @@ export default function ZoningLibraryPage() {
                         className={`border-b last:border-0 ${focused ? 'bg-blue-50' : ''}`}
                       >
                         <td className="w-28 px-3 py-2 align-top font-mono text-xs font-semibold whitespace-nowrap">
-                          {r.code}
+                          {external ? (
+                            <a
+                              href={external}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Open this district in the county's code"
+                              className="inline-flex items-center gap-1 text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                            >
+                              {r.code}
+                              <ExternalLink className="size-3 opacity-60" />
+                            </a>
+                          ) : (
+                            r.code
+                          )}
                         </td>
                         <td className="px-3 py-2 align-top">
                           {r.description &&
