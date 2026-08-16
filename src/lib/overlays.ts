@@ -15,7 +15,9 @@ import { isZonedIndustrial } from '@/hooks/use-zoning-map'
  * industrial overlay" ≡ "row matches (jurisdiction, code)" — which is what lets
  * "Include in search" be a filter-union over row fields instead of point-in-polygon.
  */
-export const OVERLAY_ZONING_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/map-overlays/overlay_zoning.v1.geojson`
+// v2 (2026-08-16): Tampa IG reclassified planned_development → industrial and joins
+// the industrial layer.
+export const OVERLAY_ZONING_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/map-overlays/overlay_zoning.v2.geojson`
 // The NWI lowlands overlay was wiped 2026-08-16 (Alex: "cover sucks") — at county zoom
 // NWI paints half of inland Florida as forested wetland, which is noise for his
 // workflow; parcel-level wet already lives in usable_acres on the property page. The

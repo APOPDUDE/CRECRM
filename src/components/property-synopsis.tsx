@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AddUnitDialog } from '@/components/add-unit-dialog'
 import { useUnits, useDeleteUnit, unitSizeLabel, type Unit } from '@/hooks/use-units'
+import { useDorCodes } from '@/hooks/use-dor-codes'
+import { dorNorm, zoningKindLabels } from '@/lib/zoning'
 import { formatCurrency, formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
 import type { Tables } from '@/lib/database.types'
@@ -72,6 +74,23 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
   const countyOwned = property.county_synced_at != null
   const acres = (v: number | null) => (v == null ? null : `${v} ac`)
 
+  // The grey line under the zoning code must MEAN something: several jurisdictions'
+  // layers are code-only, so their seeded description just repeats the code ("M-1 —
+  // M-1"). Fall through to the bucket, then the jurisdiction.
+  const zoningSub =
+    property.zoning_description &&
+    property.zoning_description.trim().toLowerCase() !== (property.zoning_code ?? '').trim().toLowerCase()
+      ? property.zoning_description
+      : (property.zoning_type ? zoningKindLabels[property.zoning_type] : null) ?? property.zoning_jurisdiction
+
+  // The county's use code with the FDOR meaning underneath (dor_codes is a cheap
+  // cached fetch; county 4-digit variants normalize to their standard class).
+  const { data: dorEntries } = useDorCodes(property.dor_use_code != null)
+  const dorStd = dorNorm(property.dor_use_code)
+  const dorDescription = dorStd
+    ? (dorEntries ?? []).find((e) => !e.county && e.code === dorStd)?.description ?? null
+    : null
+
   // "Usable" is the ground you could actually put something on: uplands less the
   // building's own footprint. Total acreage flatters a site that is mostly roof.
   const footprint =
@@ -93,7 +112,8 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
         )}
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-4">
+      {/* Five columns spread out (Alex): ten stats, exactly two rows. */}
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-5">
         <Stat label="Gross SF" value={formatSf(property.gross_sf)} locked={countyOwned} />
         <Stat label="Heated SF" value={formatSf(property.heated_sf)} locked={countyOwned} />
         <Stat label="Total acres" value={acres(property.land_acres)} locked={countyOwned} />
@@ -115,7 +135,13 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
           label="Zoning"
           value={property.zoning_code}
           // the jurisdiction's own wording; a code without its meaning is a lookup chore
-          sub={property.zoning_description ?? property.zoning_jurisdiction}
+          sub={zoningSub}
+        />
+        <Stat
+          label="County use (DOR)"
+          value={property.dor_use_code}
+          sub={dorDescription}
+          locked={countyOwned}
         />
         <Stat
           label="Building class"

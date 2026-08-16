@@ -1232,8 +1232,9 @@ export function PropertiesPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">War Room</h1>
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
+        {/* The search stretches the whole top (Alex) — everything else keeps its size. */}
+        <div className="flex w-full items-center gap-2 sm:flex-1">
+          <div className="relative min-w-40 flex-1">
             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             {/* No prefetch on focus any more: typing here is answered by Postgres, so the
                 search box no longer has a book to warm. */}

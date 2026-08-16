@@ -9,8 +9,9 @@ import type { OwnerContext } from '@/hooks/use-owners'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import type { CurrentAsking } from '@/hooks/use-comps'
 import type { LeaseComp } from '@/hooks/use-lease-comps'
-import type { LatLng } from '@/lib/geo'
+import { pointInPolygon, type LatLng } from '@/lib/geo'
 import { isZonedIndustrial } from '@/hooks/use-zoning-map'
+import type { Geometry } from 'geojson'
 import { MapOverlays } from '@/components/map-overlays'
 import type { OverlayState } from '@/lib/overlays'
 
@@ -86,17 +87,39 @@ function SizeWatcher() {
     // which is exactly the signal the loader below is already waiting for.
     const ro = new ResizeObserver(() => map.invalidateSize())
     ro.observe(map.getContainer())
-    // Belt and braces for the 0×0-at-init wedge: when Leaflet measures its container
-    // before layout settles, it caches a zero size, loads ONE tile and answers "0 in
-    // this area" — and the ResizeObserver's correction can be missed around mount.
-    // A couple of delayed nudges are free (no-ops once the size is right) and heal it
-    // deterministically; reproduced 2026-08-15 on the dev preview, stock code.
+    // Belt and braces for the 0×0 wedge: an embedded/backgrounded webview can zero the
+    // whole WINDOW (observed win=0x0 in the dev preview; phone tab restores behave the
+    // same) and come back without the ResizeObserver firing. Everything computed while
+    // zeroed — tile range, bounds listeners, pin visibility — is then stale, and
+    // invalidateSize alone sees "no size change" and does nothing. So: a slow
+    // heartbeat that, ONLY on the zero→visible transition, fires a real moveend to
+    // make the tile layer and every bounds listener recompute.
+    // While zeroed the webview FREEZES timers too, so the zero state can never be
+    // observed directly — detect it by the gap it leaves: a heartbeat that skipped
+    // ticks means we were frozen, and everything computed before the freeze is
+    // suspect. One synthetic moveend makes the tile layer and every bounds listener
+    // recompute; when nothing was actually wrong it costs a single re-render.
+    const resync = () => {
+      map.invalidateSize()
+      map.fire('moveend')
+    }
+    let lastTick = Date.now()
     const raf = requestAnimationFrame(() => map.invalidateSize())
-    const timer = window.setTimeout(() => map.invalidateSize(), 300)
+    const heartbeat = window.setInterval(() => {
+      map.invalidateSize()
+      const now = Date.now()
+      if (now - lastTick > 5000) resync()
+      lastTick = now
+    }, 2000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') resync()
+    }
+    document.addEventListener('visibilitychange', onVisible)
     return () => {
       ro.disconnect()
       cancelAnimationFrame(raf)
-      window.clearTimeout(timer)
+      window.clearInterval(heartbeat)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [map])
   return null
@@ -321,12 +344,21 @@ const parcelKeys = (field: string | null | undefined): string[] =>
 function ParcelLines({
   parcelIndex,
   colorById,
+  points,
+  getHoverHtml,
   onMatchedIds,
   onOpenProperty,
 }: {
   parcelIndex: Map<string, string>
   /** property id -> pin colour, so a held parcel outlines in its own colour */
   colorById: Map<string, string>
+  /** CRM points for GEOMETRY matching: a stored parcel number that doesn't line up
+   * with the county's key (20% of the book, the terse-address/format cases) used to
+   * strand the property on a dot next to an anonymous white outline — but if our
+   * point sits INSIDE a county polygon, that polygon IS the property. */
+  points: { id: string; lat: number; lng: number }[]
+  /** the same hover card the circles show — one generator, no drift */
+  getHoverHtml: (id: string) => string
   /** reports which CRM properties now have an outline drawn, so the parent can drop their dots */
   onMatchedIds: (ids: Set<string>) => void
   onOpenProperty: (id: string) => void
@@ -338,10 +370,13 @@ function ParcelLines({
 
   const map = useMapEvents({ moveend: schedule, zoomend: schedule })
   ensureParcelPane(map)
+  // Re-run on mount AND whenever the matching inputs land: the first load usually
+  // races the viewport fetch, so the geometry pass would otherwise run against an
+  // empty point list and leave every held parcel white until the next pan.
   useEffect(() => {
     schedule()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [points, parcelIndex])
 
   function schedule() {
     if (timer.current) window.clearTimeout(timer.current)
@@ -387,13 +422,40 @@ function ParcelLines({
     // and leave only the shape (the Regrid behaviour: dot far out, outline up close).
     // Derived from `kept`, not `feats` — a parcel trimmed by the cap has no outline drawn,
     // so its dot must stay or the property would vanish from the map entirely.
+    //
+    // TWO matching passes, both stamped onto the feature as `__crm`:
+    // 1. parcel-key equality (authoritative);
+    // 2. GEOMETRY — our point inside the county polygon. This is what turns the 20%
+    //    of the book whose stored parcel number doesn't line up with the county's key
+    //    from "a dot beside an anonymous white outline whose click shows county facts"
+    //    into a coloured outline that opens the property (Alex: "I should just click
+    //    right into the property").
     const matched = new Set<string>()
     for (const f of kept) {
       const svc = PARCEL_SERVICES.find((s) => s.name === f?.properties?.__svc)
       if (!svc) continue
       const k = parcelKey(svc.attrs(f.properties ?? {}).parcel)
       const id = k ? parcelIndex.get(k) : undefined
-      if (id) matched.add(id)
+      if (id) {
+        f.properties.__crm = id
+        matched.add(id)
+      }
+    }
+    let unclaimed = points.filter((pt) => !matched.has(pt.id))
+    for (const f of kept) {
+      if (f.properties.__crm || unclaimed.length === 0) continue
+      const rings = outerRings(f.geometry)
+      if (rings.length === 0) continue
+      const [minLat, minLng, maxLat, maxLng] = ringsBbox(rings)
+      for (const pt of unclaimed) {
+        if (pt.lat < minLat || pt.lat > maxLat || pt.lng < minLng || pt.lng > maxLng) continue
+        if (rings.some((ring) => pointInPolygon(ring, pt.lat, pt.lng))) {
+          f.properties.__crm = pt.id
+          matched.add(pt.id)
+          unclaimed = unclaimed.filter((u) => u.id !== pt.id)
+          break
+        }
+      }
     }
     setFc(kept.length ? { type: 'FeatureCollection', features: kept } : null)
     onMatchedIds(matched)
@@ -407,10 +469,7 @@ function ParcelLines({
       pane={PARCEL_PANE}
       data={fc as any}
       style={(feature: any) => {
-        const svc = PARCEL_SERVICES.find((s) => s.name === feature?.properties?.__svc)
-        if (!svc) return PARCEL_STYLE
-        const k = parcelKey(svc.attrs(feature.properties ?? {}).parcel)
-        const id = k ? parcelIndex.get(k) : undefined
+        const id = feature?.properties?.__crm as string | undefined
         const color = id ? colorById.get(id) : undefined
         return color ? parcelStyleFor(color) : PARCEL_STYLE
       }}
@@ -418,7 +477,7 @@ function ParcelLines({
         const svc = PARCEL_SERVICES.find((s) => s.name === feature?.properties?.__svc)
         if (!svc) return
         const a = svc.attrs(feature.properties ?? {})
-        const crmId = parcelKey(a.parcel) ? parcelIndex.get(parcelKey(a.parcel)!) : undefined
+        const crmId = feature?.properties?.__crm as string | undefined
         // Remember this parcel's own resting style — mouseout must restore ITS colour,
         // not the generic white, or hovering a held parcel would permanently bleach it.
         const ownColor = crmId ? colorById.get(crmId) : undefined
@@ -427,9 +486,10 @@ function ParcelLines({
         layer.on('mouseover', () => layer.setStyle(PARCEL_STYLE_HOVER))
         layer.on('mouseout', () => layer.setStyle(base))
         if (crmId) {
-          // a parcel we hold: click goes straight to the property page
+          // a parcel we hold: click opens the property, hover shows the SAME card the
+          // circles show — the outline IS the property now
           layer.on('click', () => onOpenProperty(crmId))
-          layer.bindTooltip(`${a.addr || a.parcel} — open in CRM`, { sticky: true })
+          layer.bindTooltip(() => getHoverHtml(crmId), { sticky: true })
         } else {
           const rows = [
             a.addr && `<b>${a.addr}</b>`,
@@ -443,6 +503,36 @@ function ParcelLines({
       }}
     />
   )
+}
+
+/** The outer ring(s) of a GeoJSON Polygon/MultiPolygon as {lat,lng} lists (holes ignored
+ * — a point in a courtyard still belongs to the parcel for our purposes). */
+function outerRings(geometry: Geometry | null | undefined): LatLng[][] {
+  if (!geometry) return []
+  const toRing = (ring: number[][]) => ring.map(([lng, lat]) => ({ lat, lng }))
+  if (geometry.type === 'Polygon') {
+    return geometry.coordinates[0] ? [toRing(geometry.coordinates[0])] : []
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return geometry.coordinates
+      .map((poly) => poly[0])
+      .filter((ring): ring is number[][] => ring != null)
+      .map(toRing)
+  }
+  return []
+}
+
+function ringsBbox(rings: LatLng[][]): [number, number, number, number] {
+  let minLat = Infinity, minLng = Infinity, maxLat = -Infinity, maxLng = -Infinity
+  for (const ring of rings) {
+    for (const v of ring) {
+      if (v.lat < minLat) minLat = v.lat
+      if (v.lat > maxLat) maxLat = v.lat
+      if (v.lng < minLng) minLng = v.lng
+      if (v.lng > maxLng) maxLng = v.lng
+    }
+  }
+  return [minLat, minLng, maxLat, maxLng]
 }
 
 /**
@@ -467,6 +557,84 @@ const LEGEND: { c: string; label: string }[] = [
   { c: PIN.verified, label: 'Verified owner' },
   { c: PIN.executed, label: 'Executed' },
 ]
+
+/**
+ * ONE hover card for both marker shapes. The circles and the parcel outlines used to
+ * show different information (the outline's click even opened a county-facts popup) —
+ * "which is bad" (Alex). Everything renders from this generator now: the circle's
+ * Tooltip and the held-parcel outline's sticky tooltip can never drift apart.
+ * Returns an HTML string because Leaflet's imperative bindTooltip needs one; the JSX
+ * side injects it verbatim.
+ */
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+function hoverCardHtml(
+  p: Property,
+  opts: {
+    ctx?: OwnerContext
+    ask?: CurrentAsking
+    lease?: LeaseComp
+    executed?: boolean
+    goodDeal?: boolean
+    industrialCrossovers?: Set<string>
+  },
+): string {
+  const { ctx, ask, lease, executed, goodDeal, industrialCrossovers } = opts
+  const off = p.listing_status === 'off_market'
+  const loc = [p.city, p.state].filter(Boolean).join(', ')
+  const askLabel = formatPsf(ask?.rate) ?? formatCurrency(ask?.price)
+  const bits = [
+    askLabel,
+    p.property_type ? propertyKindLabels[p.property_type] : null,
+    formatSf(p.gross_sf),
+    p.land_acres != null ? `${p.land_acres} AC` : null,
+    executed ? 'Executed' : off ? 'Off market' : 'On market',
+    goodDeal ? 'Good deal' : null,
+    // the hover answers "what can I do with the dirt" without a click
+    p.zoning_code
+      ? `Zoned ${p.zoning_code}${isZonedIndustrial(p, industrialCrossovers) ? ' (ind ok)' : ''}`
+      : null,
+  ].filter(Boolean) as string[]
+
+  const rows: string[] = [`<div class="font-medium">${esc(p.address ?? '')}</div>`]
+  if (loc) rows.push(`<div class="opacity-70">${esc(loc)}</div>`)
+  if (bits.length) rows.push(`<div class="opacity-70">${esc(bits.join(' · '))}</div>`)
+  if (lease) {
+    const l: string[] = [
+      `<div class="font-medium">${esc(lease.tenant_name || 'Tenant not named')}</div>`,
+      ...leaseLines(lease).map((line) => `<div class="opacity-70">${esc(line)}</div>`),
+    ]
+    if (lease.dm_name) {
+      // The person, not just the building: hover answers "who do I call".
+      l.push(
+        `<div class="${lease.dm_verified ? 'font-medium text-blue-700' : 'opacity-70'}">${
+          lease.dm_verified ? 'DM &#10003; ' : 'DM? '
+        }${esc(lease.dm_name)}${lease.dm_phone ? ` · ${esc(lease.dm_phone)}` : ''}</div>`,
+      )
+    }
+    rows.push(`<div class="mt-1 border-t pt-1">${l.join('')}</div>`)
+  }
+  if (ctx?.owner_name) {
+    const portfolio = ctx.owner_property_count ?? 0
+    const o: string[] = [
+      `<div class="font-medium">${esc(ctx.owner_name)}</div>`,
+      `<div class="opacity-70">${
+        ctx.owner_contact_verified
+          ? 'Verified contact'
+          : (ctx.owner_contact_count ?? 0) > 0
+            ? `${ctx.owner_contact_count} contact${ctx.owner_contact_count === 1 ? '' : 's'}, unverified`
+            : 'No contact yet'
+      }${portfolio > 1 ? ` · ${portfolio} properties` : ''}</div>`,
+    ]
+    if ((ctx.comm_count ?? 0) > 0) {
+      o.push(`<div class="opacity-70">${ctx.comm_count} conversation${ctx.comm_count === 1 ? '' : 's'}</div>`)
+    }
+    if (ctx.owner_do_not_call) o.push(`<div class="font-medium text-red-600">Do not call</div>`)
+    rows.push(`<div class="mt-1 border-t pt-1">${o.join('')}</div>`)
+  }
+  return `<div class="max-w-[15rem] text-xs leading-snug">${rows.join('')}</div>`
+}
 
 const shortDate = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
@@ -613,6 +781,37 @@ export function PropertiesMap({
     return m
   }, [parcelSource, colorOf])
 
+  // Everything the outline's hover card needs, by property id — the outlines show the
+  // SAME card the circles do.
+  const parcelById = useMemo(() => {
+    const m = new Map<string, Property>()
+    for (const p of parcelSource) m.set(p.id, p)
+    return m
+  }, [parcelSource])
+  const getHoverHtml = useCallback(
+    (id: string) => {
+      const p = parcelById.get(id)
+      if (!p) return ''
+      return hoverCardHtml(p, {
+        ctx: ownerContext?.get(id),
+        ask: asking?.get(id),
+        lease: leaseInfo?.get(id),
+        executed: executedIds?.has(id),
+        goodDeal: goodDealIds?.has(id),
+        industrialCrossovers,
+      })
+    },
+    [parcelById, ownerContext, asking, leaseInfo, executedIds, goodDealIds, industrialCrossovers],
+  )
+  // Light coordinate list for the geometry-matching pass.
+  const parcelPoints = useMemo(
+    () =>
+      parcelSource
+        .filter((p) => finite(p.lat) && finite(p.lng))
+        .map((p) => ({ id: p.id, lat: p.lat as number, lng: p.lng as number })),
+    [parcelSource],
+  )
+
   // Properties whose parcel outline is currently drawn — their dot is suppressed so the
   // shape stands alone, and comes back the moment you zoom out past PARCEL_ZOOM.
   const [outlinedIds, setOutlinedIds] = useState<Set<string>>(() => new Set())
@@ -716,6 +915,8 @@ export function PropertiesMap({
           <ParcelLines
             parcelIndex={parcelIndex}
             colorById={pinColorById}
+            points={parcelPoints}
+            getHoverHtml={getHoverHtml}
             onMatchedIds={applyOutlined}
             onOpenProperty={(pid) => navigate(`/properties/${pid}`)}
           />
@@ -780,26 +981,7 @@ export function PropertiesMap({
             // Zoomed in far enough that this property's parcel outline is drawn: the
             // outline IS the marker now, so skip the dot rather than stack both.
             if (outlinedIds.has(id)) return null
-            const executed = executedIds?.has(id)
-            const off = p.listing_status === 'off_market'
-            const ctx = ownerContext?.get(id)
             const fillColor = colorOf(id, p)
-            const loc = [p.city, p.state].filter(Boolean).join(', ')
-            const ask = asking?.get(id)
-            const askLabel = formatPsf(ask?.rate) ?? formatCurrency(ask?.price)
-            const bits = [
-              askLabel,
-              p.property_type ? propertyKindLabels[p.property_type] : null,
-              formatSf(p.gross_sf),
-              p.land_acres != null ? `${p.land_acres} AC` : null,
-              executed ? 'Executed' : off ? 'Off market' : 'On market',
-              goodDealIds?.has(id) ? 'Good deal' : null,
-              // the hover answers "what can I do with the dirt" without a click
-              p.zoning_code
-                ? `Zoned ${p.zoning_code}${isZonedIndustrial(p, industrialCrossovers) ? ' (ind ok)' : ''}`
-                : null,
-            ].filter(Boolean)
-            const portfolio = ctx?.owner_property_count ?? 0
             return (
               <CircleMarker
                 key={id}
@@ -811,57 +993,8 @@ export function PropertiesMap({
                 eventHandlers={{ click: () => { if (!drawMode) navigate(`/properties/${id}`) } }}
               >
                 <Tooltip direction="top" offset={[0, -6]}>
-                  <div className="max-w-[15rem] text-xs leading-snug">
-                    <div className="font-medium">{p.address}</div>
-                    {loc && <div className="opacity-70">{loc}</div>}
-                    {bits.length > 0 && <div className="opacity-70">{bits.join(' · ')}</div>}
-                    {leaseInfo?.get(id) && (
-                      <div className="mt-1 border-t pt-1">
-                        <div className="font-medium">
-                          {leaseInfo.get(id)!.tenant_name || 'Tenant not named'}
-                        </div>
-                        {leaseLines(leaseInfo.get(id)!).map((line) => (
-                          <div key={line} className="opacity-70">
-                            {line}
-                          </div>
-                        ))}
-                        {/* The person, not just the building: hover answers "who do I
-                            call" without leaving the map. */}
-                        {leaseInfo.get(id)!.dm_name && (
-                          <div
-                            className={
-                              leaseInfo.get(id)!.dm_verified ? 'font-medium text-blue-700' : 'opacity-70'
-                            }
-                          >
-                            {leaseInfo.get(id)!.dm_verified ? 'DM ✓ ' : 'DM? '}
-                            {leaseInfo.get(id)!.dm_name}
-                            {leaseInfo.get(id)!.dm_phone ? ` · ${leaseInfo.get(id)!.dm_phone}` : ''}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {ctx?.owner_name && (
-                      <div className="mt-1 border-t pt-1">
-                        <div className="font-medium">{ctx.owner_name}</div>
-                        <div className="opacity-70">
-                          {ctx.owner_contact_verified
-                            ? 'Verified contact'
-                            : (ctx.owner_contact_count ?? 0) > 0
-                              ? `${ctx.owner_contact_count} contact${ctx.owner_contact_count === 1 ? '' : 's'}, unverified`
-                              : 'No contact yet'}
-                          {portfolio > 1 ? ` · ${portfolio} properties` : ''}
-                        </div>
-                        {(ctx.comm_count ?? 0) > 0 && (
-                          <div className="opacity-70">
-                            {ctx.comm_count} conversation{ctx.comm_count === 1 ? '' : 's'}
-                          </div>
-                        )}
-                        {ctx.owner_do_not_call && (
-                          <div className="font-medium text-red-600">Do not call</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  {/* the ONE hover card — same generator the parcel outlines use */}
+                  <div dangerouslySetInnerHTML={{ __html: getHoverHtml(id) }} />
                 </Tooltip>
               </CircleMarker>
             )
