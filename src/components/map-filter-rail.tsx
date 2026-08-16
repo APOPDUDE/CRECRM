@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { format } from 'date-fns'
 import { Crosshair, MessageSquare, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { OverlayControls } from '@/components/overlay-controls'
 import { DorCodePicker } from '@/components/dor-code-picker'
+import { ZONING_FILTER_ORDER, zoningKindLabels, type DorSelection } from '@/lib/zoning'
 import type { OverlayState } from '@/lib/overlays'
 import type { LatLng } from '@/lib/geo'
 
@@ -127,15 +128,34 @@ export function MapFilterRail(props: {
   pushCount: number
   onPush: () => void
   onMessage: () => void
-  // DOR use codes (Phase 3)
-  dorCodes: string[]
-  onDorCodes: (next: string[]) => void
+  // Search leases — the windows apply on the map only while this is on
+  searchLeases: boolean
+  onSearchLeases: (on: boolean) => void
+  leaseMin: string
+  leaseMax: string
+  onLeaseMin: (v: string) => void
+  onLeaseMax: (v: string) => void
+  leaseMonth: string
+  onLeaseMonth: (v: string) => void
+  signMin: string
+  signMax: string
+  onSignMin: (v: string) => void
+  onSignMax: (v: string) => void
+  leaseSfMin: string
+  leaseSfMax: string
+  onLeaseSfMin: (v: string) => void
+  onLeaseSfMax: (v: string) => void
+  dmFilter: string
+  onDmFilter: (v: string) => void
+  // DOR use categories + the zoning axis
+  dorSel: DorSelection
+  onDorSel: (next: DorSelection) => void
+  zoningFilter: string
+  onZoningFilter: (v: string) => void
   // overlays (Phase 1)
   overlays: OverlayState
   onOverlays: (s: OverlayState) => void
   onOverlayIncludeOn: () => void
-  /** The plays chips, rendered by the parent (they set filter state it owns). */
-  playsSlot?: ReactNode
 }) {
   const p = props
   const drawing = p.draft !== null
@@ -307,17 +327,100 @@ export function MapFilterRail(props: {
         )}
       </div>
 
-      {/* County use codes — what the parcel IS today, per the appraiser */}
-      <div className="border-t pt-3">
-        <DorCodePicker checked={p.dorCodes} onChange={p.onDorCodes} />
+      {/* Search leases — new listing lands, draw the area, flip this on: every tenant
+          close to expiry nearby, with their decision maker on hover and in the export. */}
+      <div className="space-y-1.5 border-t pt-3">
+        <label className="flex cursor-pointer items-center gap-2">
+          <Checkbox checked={p.searchLeases} onCheckedChange={(v) => p.onSearchLeases(v === true)} />
+          <span className="font-medium">Search leases</span>
+        </label>
+        {p.searchLeases && (
+          <div className="space-y-2 pl-6">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Expires (months out)</Label>
+              {/^\d{4}-\d{2}$/.test(p.leaseMonth) ? (
+                <div className="flex items-center justify-between rounded-md border px-2 py-1">
+                  <span className="text-xs">
+                    Expiring {format(new Date(`${p.leaseMonth}-01T00:00:00`), 'MMMM yyyy')}
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => p.onLeaseMonth('')}>
+                    Clear
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <MinMax min={p.leaseMin} max={p.leaseMax} onMin={p.onLeaseMin} onMax={p.onLeaseMax} />
+                  <div className="flex flex-wrap gap-1.5">
+                    {[3, 6, 12].map((n) => (
+                      <Button
+                        key={n}
+                        variant={p.leaseMin === '' && p.leaseMax === String(n) ? 'secondary' : 'outline'}
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => {
+                          p.onLeaseMin('')
+                          p.onLeaseMax(String(n))
+                        }}
+                      >
+                        ≤ {n === 12 ? '1 yr' : `${n} mo`}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Signed (months ago)</Label>
+              <MinMax min={p.signMin} max={p.signMax} onMin={p.onSignMin} onMax={p.onSignMax} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Leased SF (the unit, not the shell)</Label>
+              <MinMax currency min={p.leaseSfMin} max={p.leaseSfMax} onMin={p.onLeaseSfMin} onMax={p.onLeaseSfMax} />
+            </div>
+            <Select value={p.dmFilter} onValueChange={p.onDmFilter}>
+              <SelectTrigger className="h-8 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any decision maker</SelectItem>
+                <SelectItem value="verified">Verified decision maker</SelectItem>
+                <SelectItem value="unverified">No verified decision maker</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
-      {/* Zoning district overlays + lowlands (Phase 1) */}
+      {/* County use codes — what the parcel IS today, per the appraiser */}
+      <div className="border-t pt-3">
+        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
+      </div>
+
+      {/* The zoning axis: what the parcel may BECOME. 'industrial_any' and
+          'non_industrial' carry the old play-chip searches now that the chips are gone. */}
+      <div className="space-y-1.5 border-t pt-3">
+        <Label>Zoned</Label>
+        <Select value={p.zoningFilter} onValueChange={p.onZoningFilter}>
+          <SelectTrigger className="h-8 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any zoning</SelectItem>
+            <SelectItem value="industrial_any">Industrial — zoned or used</SelectItem>
+            {ZONING_FILTER_ORDER.map((z) => (
+              <SelectItem key={z} value={z}>
+                {z === 'industrial' ? 'Industrial (incl. CG/CI/BPC)' : zoningKindLabels[z]}
+              </SelectItem>
+            ))}
+            <SelectItem value="non_industrial">Not industrial</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Zoning district overlays (Phase 1) */}
       <div className="border-t pt-3">
         <OverlayControls state={p.overlays} onChange={p.onOverlays} onIncludeOn={p.onOverlayIncludeOn} />
       </div>
-
-      {p.playsSlot && <div className="border-t pt-3">{p.playsSlot}</div>}
     </div>
   )
 }

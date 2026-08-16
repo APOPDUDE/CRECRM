@@ -16,20 +16,22 @@ import { isZonedIndustrial } from '@/hooks/use-zoning-map'
  * "Include in search" be a filter-union over row fields instead of point-in-polygon.
  */
 export const OVERLAY_ZONING_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/map-overlays/overlay_zoning.v1.geojson`
-export const OVERLAY_LOWLANDS_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/map-overlays/overlay_lowlands.v1.geojson`
+// The NWI lowlands overlay was wiped 2026-08-16 (Alex: "cover sucks") — at county zoom
+// NWI paints half of inland Florida as forested wetland, which is noise for his
+// workflow; parcel-level wet already lives in usable_acres on the property page. The
+// artifact + builder (data/zoning/build_overlays.py, bucket map-overlays) stay dormant
+// in case a better source appears.
 
 export type OverlayType = 'industrial' | 'retail' | 'office' | 'multifamily'
 export const OVERLAY_TYPES: OverlayType[] = ['industrial', 'retail', 'office', 'multifamily']
 
-/** Alex's colour spec (2026-08-15b). Lowlands is a muted swampy green on purpose —
- * retail got the bright green, and the two must stay tellable-apart when both are on. */
+/** Alex's colour spec (2026-08-15b). */
 export const OVERLAY_COLORS: Record<OverlayType, string> = {
   industrial: '#dc2626',
   retail: '#16a34a',
   office: '#2563eb',
   multifamily: '#9333ea',
 }
-export const LOWLANDS_COLOR = '#84cc16'
 
 export const OVERLAY_LABELS: Record<OverlayType, string> = {
   industrial: 'Industrial',
@@ -49,7 +51,6 @@ export type OverlayState = {
   retail: LayerSelection
   office: LayerSelection
   multifamily: LayerSelection
-  lowlands: boolean
   /** Layers whose properties JOIN the filtered set (union) so exports carry them. */
   include: Partial<Record<OverlayType, boolean>>
 }
@@ -59,11 +60,11 @@ export const OVERLAY_DEFAULT: OverlayState = {
   retail: 'off',
   office: 'off',
   multifamily: 'off',
-  lowlands: false,
   include: {},
 }
 
-/** A persisted value predating a shape change (or hand-edited) must not crash the map. */
+/** A persisted value predating a shape change (or hand-edited) must not crash the map —
+ * this also silently drops the retired `lowlands` flag from pre-wipe sessions. */
 export function safeOverlayState(v: unknown): OverlayState {
   const o = (v ?? {}) as Partial<OverlayState>
   const sel = (s: unknown): LayerSelection =>
@@ -73,7 +74,6 @@ export function safeOverlayState(v: unknown): OverlayState {
     retail: sel(o.retail),
     office: sel(o.office),
     multifamily: sel(o.multifamily),
-    lowlands: o.lowlands === true,
     include: typeof o.include === 'object' && o.include != null ? o.include : {},
   }
 }

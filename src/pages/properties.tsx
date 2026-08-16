@@ -53,10 +53,12 @@ import {
   OVERLAY_DEFAULT, activeIncludes, rowInOverlay, safeOverlayState, type OverlayState,
 } from '@/lib/overlays'
 import {
-  DOR_FILTER_ORDER, ZONING_FILTER_ORDER, ZONING_PLAYS,
-  dorBucket, dorBucketLabels, isIndustrialUse, matchesDorCodes, zoningKindLabels,
+  DOR_FILTER_ORDER, DOR_SELECTION_DEFAULT, ZONING_FILTER_ORDER,
+  dorBucket, dorBucketLabels, dorSelectionActive, isIndustrialUse, matchesDorSelection,
+  safeDorSelection, zoningKindLabels, type DorSelection,
 } from '@/lib/zoning'
 import { DorCodePicker } from '@/components/dor-code-picker'
+import { useDorCodes } from '@/hooks/use-dor-codes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
@@ -324,15 +326,19 @@ export function PropertiesPage() {
   // not zoned for it) is a search he runs, not a negation he should have to build.
   const [zoningFilter, setZoningFilter] = usePersistentState('properties:zoning', 'all')
   const [useFilter, setUseFilter] = usePersistentState('properties:use', 'all')
-  // The DOR-code picker's checked set: standard 3-digit codes ('048') plus county
-  // customs ('Sarasota|4804'). ANDs with the bucketed use select — codes are the
-  // scalpel, the bucket is the broad stroke, and the play chips only touch the bucket.
-  const [dorCodesRaw, setDorCodes] = usePersistentState<string[]>('properties:dorCodes', [])
-  const dorCodes = useMemo(
-    () => (Array.isArray(dorCodesRaw) ? dorCodesRaw.filter((k): k is string => typeof k === 'string') : []),
-    [dorCodesRaw],
-  )
-  const dorSet = useMemo(() => new Set(dorCodes), [dorCodes])
+  // The DOR picker's layers: four tri-state major categories + extra checked codes
+  // (standard 'other' codes and county customs). ANDs with the bucketed use select.
+  const [dorSelRaw, setDorSel] = usePersistentState<DorSelection>('properties:dorSel', DOR_SELECTION_DEFAULT)
+  const dorSel = useMemo(() => safeDorSelection(dorSelRaw), [dorSelRaw])
+  const dorActive = dorSelectionActive(dorSel)
+  // A category on 'all' matches by the dor_codes table's filing — that mapping has to
+  // be on hand for the filter, not just the picker.
+  const { data: dorEntries } = useDorCodes(dorActive)
+  const dorCategoryByCode = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const e of dorEntries ?? []) if (!e.county) m.set(e.code, e.category)
+    return m
+  }, [dorEntries])
   const [county, setCounty] = usePersistentState('properties:county', 'all')
   const { data: unitSizes } = useAvailableUnitSizes()
   const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
@@ -369,6 +375,11 @@ export function PropertiesPage() {
   // Frozen per mount so the filter can't reshuffle rows under you as the clock ticks.
   const activityCutoff = useMemo(() => Date.now() - ACTIVITY_DAYS * 86400000, [])
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
+  // "Search leases" (Alex, 2026-08-16): the lease windows live in the rail behind one
+  // toggle — new listing lands, draw the area, flip this on, and every tenant close to
+  // expiry nearby is on screen with their DM. On the map the windows only APPLY while
+  // it's on; the table's popover shows them unconditionally, so there they always apply.
+  const [searchLeases, setSearchLeases] = usePersistentState('properties:searchLeases', false)
   // Lease run-off window, in whole months from today. Kept as a filter rather than as
   // part of the lease lens so it narrows the table too — the lens only paints pins.
   const [leaseMin, setLeaseMin] = usePersistentState('properties:leaseMin', '')
@@ -429,6 +440,7 @@ export function PropertiesPage() {
   const marketSubsApply = view === 'table' || status === 'on_market'
   const activitySubApplies = view === 'table' || ownerFilter === 'verified'
   const countyApplies = view === 'table'
+  const leaseApplies = view === 'table' || searchLeases
 
   // ?owner=<id> shows one owner's whole portfolio. It behaves as a filter rather than a
   // separate mode, so the map, the table, the columns and the export all keep working.
@@ -442,7 +454,7 @@ export function PropertiesPage() {
     (ptype !== 'all' ? 1 : 0) +
     (zoningFilter !== 'all' ? 1 : 0) +
     (useFilter !== 'all' ? 1 : 0) +
-    (dorCodes.length > 0 ? 1 : 0) +
+    (dorActive ? 1 : 0) +
     (ownerFilter !== 'all' ? 1 : 0) +
     (activitySubApplies && activity !== 'all' ? 1 : 0) +
     (countyApplies && county !== 'all' ? 1 : 0) +
@@ -452,10 +464,10 @@ export function PropertiesPage() {
     (marketSubsApply && dealType === 'lease' && (psfMin || psfMax) ? 1 : 0) +
     // The three lease windows count separately: they are three questions, and a badge of
     // 1 for all of them would understate how narrow the list has become.
-    (leaseMonth || leaseMin || leaseMax ? 1 : 0) +
-    (signMin || signMax ? 1 : 0) +
-    (leaseSfMin || leaseSfMax ? 1 : 0) +
-    (dmFilter !== 'all' ? 1 : 0)
+    (leaseApplies && (leaseMonth || leaseMin || leaseMax) ? 1 : 0) +
+    (leaseApplies && (signMin || signMax) ? 1 : 0) +
+    (leaseApplies && (leaseSfMin || leaseSfMax) ? 1 : 0) +
+    (leaseApplies && dmFilter !== 'all' ? 1 : 0)
 
   /**
    * Is a question being asked about properties that might not be on screen?
@@ -519,7 +531,7 @@ export function PropertiesPage() {
   // table's tenant columns. On the bare market map they were ~1,300 rows of nothing, and
   // slow enough to crowd out the fetch that actually draws the pins.
   const { data: crossovers } = useIndustrialCrossovers()
-  const { data: leases = [] } = useLeaseComps(view === 'table' || leaseFilter.any || exportWantsLeases)
+  const { data: leases = [] } = useLeaseComps(view === 'table' || searchLeases || exportWantsLeases)
   /**
    * The viewport is fetched for two different jobs, and the second one outlives the first.
    *
@@ -588,6 +600,8 @@ export function PropertiesPage() {
     // The lens state is retired (Phase 2); a persisted value would otherwise sit in
     // localStorage forever.
     window.localStorage.removeItem('properties:colorBy')
+    // the flat checked-code list predates the category-layer picker (2026-08-16)
+    window.localStorage.removeItem('properties:dorCodes')
     const q = searchParams.get('q')
     const wantsMap = searchParams.get('view') === 'map'
     const wantsLease = searchParams.get('layer') === 'lease'
@@ -600,7 +614,7 @@ export function PropertiesPage() {
       setPtype('all')
       setZoningFilter('all')
       setUseFilter('all')
-      setDorCodes([])
+      setDorSel(DOR_SELECTION_DEFAULT)
       setCounty('all')
       setSfMin('')
       setSfMax('')
@@ -632,9 +646,11 @@ export function PropertiesPage() {
     if (wantsLease) {
       // Arriving from the dashboard graph: narrow to the lease window that was clicked
       // (the lease LENS is gone — the windows are plain filters now). Search is cleared
-      // too — a leftover query would cut the set.
+      // too — a leftover query would cut the set. The rail's Search-leases toggle
+      // comes on so the window actually applies on the map.
       setSearch('')
       resetFilters()
+      setSearchLeases(true)
       setLeaseMin(searchParams.get('expMin') ?? '')
       setLeaseMax(searchParams.get('expMax') ?? '')
       setLeaseMonth(searchParams.get('expMonth') ?? '')
@@ -733,7 +749,9 @@ export function PropertiesPage() {
       return v !== '' && Number.isFinite(n) ? n : null
     }
     const { monthPicked, expiryOn, signOn, sfOn, dmOn, any } = leaseFilter
-    if (!any) return null
+    // Dormant on the map unless "Search leases" is on — same visibility-mirrors-
+    // application rule as the market sub-filters.
+    if (!any || !leaseApplies) return null
     const sfLo = num(leaseSfMin)
     const sfHi = num(leaseSfMax)
     // An empty expiry minimum means "from today", not "since the beginning of time".
@@ -779,7 +797,7 @@ export function PropertiesPage() {
       if (better) top.set(l.property_id, l)
     }
     return { ids, top }
-  }, [leases, leaseFilter, leaseMin, leaseMax, leaseMonth, signMin, signMax, leaseSfMin, leaseSfMax, dmFilter])
+  }, [leases, leaseFilter, leaseApplies, leaseMin, leaseMax, leaseMonth, signMin, signMax, leaseSfMin, leaseSfMax, dmFilter])
   const leaseMatchIds = leaseMatch?.ids ?? null
 
   // Tenant + expiry ride along whenever a lease window is filtering, so the list answers
@@ -888,8 +906,8 @@ export function PropertiesPage() {
       }
       // The USE axis: the county's DOR code, bucketed.
       if (useFilter !== 'all' && dorBucket(p.dor_use_code) !== useFilter) return false
-      // The picker's exact codes — standard codes by normalization, county customs verbatim.
-      if (dorSet.size > 0 && !matchesDorCodes(p.county, p.dor_use_code, dorSet)) return false
+      // The picker's layers — categories via the dor_codes filing, customs verbatim.
+      if (dorActive && !matchesDorSelection(p.county, p.dor_use_code, dorSel, dorCategoryByCode)) return false
       if (countyApplies && county !== 'all' && p.county !== county) return false
       // A size search must also see the units. A landlord who will carve 30,000 SF
       // out of a 93,666 SF building answers a 30k requirement — but the building
@@ -910,7 +928,7 @@ export function PropertiesPage() {
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) return false
       return true
     })
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, marketSubsApply, activitySubApplies, countyApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorSet, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, marketSubsApply, activitySubApplies, countyApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -957,7 +975,7 @@ export function PropertiesPage() {
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorSet, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, polygon, leaseMatchIds])
+  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, polygon, leaseMatchIds])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -1078,7 +1096,7 @@ export function PropertiesPage() {
     setPtype('all')
     setZoningFilter('all')
     setUseFilter('all')
-    setDorCodes([])
+    setDorSel(DOR_SELECTION_DEFAULT)
     setOwnerFilter('all')
     setActivity('all')
     setCounty('all')
@@ -1122,33 +1140,6 @@ export function PropertiesPage() {
               ? 'Loading this area…'
               : `${mapView.data.totalInView.toLocaleString()} in this area`
 
-  /* The plays: one-tap client searches over the use × zoning axes. A chip SETS the
-     same filters the panel edits — it is a starting point to tweak, not a mode.
-     Active chip = its exact combo is live; tapping again clears both axes. */
-  const playChips = (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {ZONING_PLAYS.map((play) => {
-        const active = useFilter === play.use && zoningFilter === play.zoning
-        return (
-          <Button
-            key={play.key}
-            size="sm"
-            variant={active ? 'secondary' : 'outline'}
-            className="h-7 rounded-full px-3 text-xs"
-            title={play.hint}
-            onClick={() => {
-              setWantsBook(true)
-              setUseFilter(active ? 'all' : play.use)
-              setZoningFilter(active ? 'all' : play.zoning)
-            }}
-          >
-            {play.label}
-          </Button>
-        )
-      })}
-    </div>
-  )
-
   // One rail, two surfaces: the desktop aside and the phone bottom-sheet render the
   // same element, so they can never disagree about what a filter means.
   const railContent = (
@@ -1174,10 +1165,16 @@ export function PropertiesPage() {
       pushCount={pushable.length}
       onPush={() => setPushOpen(true)}
       onMessage={() => setOwnerMsgOpen(true)}
-      dorCodes={dorCodes} onDorCodes={setDorCodes}
+      searchLeases={searchLeases} onSearchLeases={setSearchLeases}
+      leaseMin={leaseMin} leaseMax={leaseMax} onLeaseMin={setLeaseMin} onLeaseMax={setLeaseMax}
+      leaseMonth={leaseMonth} onLeaseMonth={setLeaseMonth}
+      signMin={signMin} signMax={signMax} onSignMin={setSignMin} onSignMax={setSignMax}
+      leaseSfMin={leaseSfMin} leaseSfMax={leaseSfMax} onLeaseSfMin={setLeaseSfMin} onLeaseSfMax={setLeaseSfMax}
+      dmFilter={dmFilter} onDmFilter={setDmFilter}
+      dorSel={dorSel} onDorSel={setDorSel}
+      zoningFilter={zoningFilter} onZoningFilter={setZoningFilter}
       overlays={overlays} onOverlays={setOverlays}
       onOverlayIncludeOn={() => setWantsBook(true)}
-      playsSlot={playChips}
     />
   )
 
@@ -1302,8 +1299,10 @@ export function PropertiesPage() {
               </SheetContent>
             </Sheet>
           )}
-          {/* Opening the panel is the same signal as clicking the search box: a filter is
-              about to narrow the whole book, so start fetching it now. */}
+          {/* The popover is the TABLE's filter surface; the map's filters all live in
+              the rail now (Alex, 2026-08-16). Opening it is the same signal as clicking
+              the search box: a filter is about to narrow the book, so fetch it now. */}
+          {view === 'table' && (
           <Popover onOpenChange={(open) => open && setWantsBook(true)}>
             <PopoverTrigger asChild>
               <Button variant="outline">
@@ -1429,7 +1428,7 @@ export function PropertiesPage() {
                 </div>
               </div>
               {/* The picker lives in the rail on the map; the popover carries it for the table. */}
-              {view === 'table' && <DorCodePicker checked={dorCodes} onChange={setDorCodes} />}
+              {view === 'table' && <DorCodePicker selection={dorSel} onChange={setDorSel} />}
               {view === 'table' && (
                 <div className="space-y-1.5">
                   <Label>Verified owner</Label>
@@ -1601,6 +1600,7 @@ export function PropertiesPage() {
               </div>
             </PopoverContent>
           </Popover>
+          )}
           {view === 'table' && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1638,9 +1638,6 @@ export function PropertiesPage() {
           </Button>
         </div>
       </div>
-
-      {/* On the map the chips live at the bottom of the rail; here they head the table. */}
-      {view === 'table' && playChips}
 
       {/* "of the book" only means something when the book is loaded. On the map the
           top bar's count answers this, and under a search the book was never fetched —

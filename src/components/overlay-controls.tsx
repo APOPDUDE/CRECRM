@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
-  LOWLANDS_COLOR,
   OVERLAY_COLORS,
   OVERLAY_LABELS,
   OVERLAY_TYPES,
@@ -196,19 +195,6 @@ export function OverlayControls({
             )}
           </div>
         </div>
-      )}
-      <label className="flex cursor-pointer items-center gap-2 pt-1">
-        <Checkbox
-          checked={state.lowlands}
-          onCheckedChange={() => onChange({ ...state, lowlands: !state.lowlands })}
-        />
-        <Dot color={LOWLANDS_COLOR} />
-        <span>Lowlands</span>
-      </label>
-      {state.lowlands && state.retail !== 'off' && (
-        <p className="pl-6 text-xs text-muted-foreground">
-          Retail is the bright green; lowlands the muted swamp green.
-        </p>
       )}
     </div>
   )

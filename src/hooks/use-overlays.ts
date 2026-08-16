@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
 import {
-  OVERLAY_LOWLANDS_URL,
   OVERLAY_ZONING_URL,
   overlayBucket,
   overlayKey,
@@ -32,18 +31,6 @@ export function useZoningOverlay(enabled: boolean) {
     gcTime: Infinity,
     refetchOnWindowFocus: false,
     queryFn: () => fetchFc<ZoningFC>(OVERLAY_ZONING_URL),
-  })
-}
-
-/** The lowlands overlay (7.5 MB of wet ground). Same lifecycle as zoning. */
-export function useLowlandsOverlay(enabled: boolean) {
-  return useQuery({
-    queryKey: ['overlay', 'lowlands', OVERLAY_LOWLANDS_URL],
-    enabled,
-    staleTime: Infinity,
-    gcTime: Infinity,
-    refetchOnWindowFocus: false,
-    queryFn: () => fetchFc<FeatureCollection>(OVERLAY_LOWLANDS_URL),
   })
 }
 

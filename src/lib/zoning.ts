@@ -87,21 +87,78 @@ export function dorNorm(code: string | null | undefined): string | null {
   return v != null && v >= 0 && v <= 99 ? String(v).padStart(3, '0') : null
 }
 
+/** The four major use categories the picker offers as one-click layers (Alex). */
+export const DOR_MAJORS = ['industrial', 'retail', 'office', 'multifamily'] as const
+export type DorMajor = (typeof DOR_MAJORS)[number]
+
+/** What one major paints: nothing, its whole category, or a hand-picked code subset. */
+export type DorLayerSelection = 'off' | 'all' | string[]
+
 /**
- * Does a row answer the DOR-code picker's checked set? Two vocabularies, checked in
- * order: `County|RawCode` (a county-specific custom code, verbatim — Sarasota's 4804
- * only ever means Sarasota's 4804) and the normalized standard 3-digit code.
+ * The DOR picker's state, shaped like the zoning layers (Alex, 2026-08-16): four
+ * major categories as tri-state layers, plus `extra` — checked codes OUTSIDE the
+ * majors (standard 'other' codes like 001, and county customs keyed `County|Raw`).
  */
-export function matchesDorCodes(
+export type DorSelection = {
+  industrial: DorLayerSelection
+  retail: DorLayerSelection
+  office: DorLayerSelection
+  multifamily: DorLayerSelection
+  extra: string[]
+}
+
+export const DOR_SELECTION_DEFAULT: DorSelection = {
+  industrial: 'off',
+  retail: 'off',
+  office: 'off',
+  multifamily: 'off',
+  extra: [],
+}
+
+/** A persisted value predating a shape change must not crash the filter. */
+export function safeDorSelection(v: unknown): DorSelection {
+  const o = (v ?? {}) as Partial<DorSelection>
+  const sel = (s: unknown): DorLayerSelection =>
+    s === 'all' || s === 'off' ? s : Array.isArray(s) ? s.filter((k): k is string => typeof k === 'string') : 'off'
+  return {
+    industrial: sel(o.industrial),
+    retail: sel(o.retail),
+    office: sel(o.office),
+    multifamily: sel(o.multifamily),
+    extra: Array.isArray(o.extra) ? o.extra.filter((k): k is string => typeof k === 'string') : [],
+  }
+}
+
+export function dorSelectionActive(sel: DorSelection): boolean {
+  return DOR_MAJORS.some((m) => sel[m] !== 'off') || sel.extra.length > 0
+}
+
+/**
+ * Does a row answer the picker? A category on 'all' matches every code the dor_codes
+ * table files under it (`categoryOf`, from the seeded list — 027 rides with
+ * industrial there, per Alex); a subset matches its checked codes; `extra` matches
+ * standard codes by normalization and county customs verbatim.
+ */
+export function matchesDorSelection(
   county: string | null | undefined,
   code: string | null | undefined,
-  checked: ReadonlySet<string>,
+  sel: DorSelection,
+  categoryOf: ReadonlyMap<string, string>,
 ): boolean {
   const raw = (code ?? '').trim()
   if (!raw) return false
-  if (county && checked.has(`${county}|${raw}`)) return true
+  const customKey = county ? `${county}|${raw}` : null
   const norm = dorNorm(raw)
-  return norm != null && checked.has(norm)
+  if (customKey && sel.extra.includes(customKey)) return true
+  if (norm != null && sel.extra.includes(norm)) return true
+  if (norm == null) return false
+  const category = categoryOf.get(norm)
+  for (const major of DOR_MAJORS) {
+    const s = sel[major]
+    if (s === 'off') continue
+    if (s === 'all' ? category === major : s.includes(norm)) return true
+  }
+  return false
 }
 
 export function dorBucket(code: string | null | undefined): DorBucket | null {
@@ -121,46 +178,8 @@ export function dorBucket(code: string | null | undefined): DorBucket | null {
   return 'other'
 }
 
-/**
- * One-tap client searches — each chip is a preset over the two axes. `use`/`zoning`
- * land in the same filter state the panel edits, so a chip is a starting point you can
- * tweak, not a mode you are trapped in. 'non_industrial' is a real zoning filter value:
- * "used industrial but not zoned for it" is the grandfathered cohort — expansion-risk
- * owners and future relocation tenants both.
- */
-export const ZONING_PLAYS: {
-  key: string
-  label: string
-  hint: string
-  use: DorBucket | 'all'
-  zoning: ZoningKind | 'industrial_any' | 'non_industrial' | 'all'
-}[] = [
-  {
-    key: 'all_ind',
-    label: 'All industrial',
-    hint: 'Zoned industrial (incl. CG/CI/BPC) PLUS anything with an industrial county use that is not zoned for it',
-    use: 'all',
-    zoning: 'industrial_any',
-  },
-  {
-    key: 'house_on_ind',
-    label: 'House on industrial land',
-    hint: 'Single-family homes on industrially-zoned lots — teardown / land plays',
-    use: 'single_family',
-    zoning: 'industrial',
-  },
-  {
-    key: 'vacant_ind',
-    label: 'Vacant, zoned industrial',
-    hint: 'Empty land where industrial can be built',
-    use: 'vacant',
-    zoning: 'industrial',
-  },
-  {
-    key: 'grandfathered',
-    label: 'Grandfathered industrial',
-    hint: 'Used industrial but NOT zoned for it — relocation-risk owners and tenants',
-    use: 'industrial',
-    zoning: 'non_industrial',
-  },
-]
+// The ZONING_PLAYS preset chips lived here 2026-08-15 → 16; Alex removed them from the
+// War Room ("remove the all industrial house on industrial vacant..."). The same
+// searches remain one or two rail picks: All industrial = zoning 'industrial_any';
+// House on industrial = DOR 001 + zoning 'industrial'; Grandfathered = DOR industrial
+// category + zoning 'non_industrial'.

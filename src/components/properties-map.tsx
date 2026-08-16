@@ -449,14 +449,14 @@ function ParcelLines({
  * Interactive map of the (filtered) properties: pan/zoom, hover a pin for a quick card,
  * click it to open the detail page. Only properties with stored coordinates appear.
  *
- * ONE colour scheme (the lenses died with the Phase-2 overhaul): pin colour means
- * market status and nothing else — green = on market, slate = off market, gold =
- * executed under us. Verified-owner is a rail filter now, zoning is an overlay, and
- * lease run-off lives in the Filters panel — none of them are colours any more.
- * Off market moved red → slate on purpose: red now belongs to the industrial overlay.
+ * ONE colour scheme: gold = executed under us, BLUE = we can reach the owner today
+ * (phone- or email-verified — Alex 2026-08-16: "verified contacts should be blue
+ * still"), green = on market, slate = off market. Executed outranks verified outranks
+ * market status. Red belongs to the industrial overlay, not to pins.
  */
 const PIN = {
   executed: '#f59e0b',
+  verified: '#2563eb',
   on: '#059669',
   off: '#64748b',
 } as const
@@ -464,6 +464,7 @@ const PIN = {
 const LEGEND: { c: string; label: string }[] = [
   { c: PIN.on, label: 'On market' },
   { c: PIN.off, label: 'Off market' },
+  { c: PIN.verified, label: 'Verified owner' },
   { c: PIN.executed, label: 'Executed' },
 ]
 
@@ -591,11 +592,17 @@ export function PropertiesMap({
     return m
   }, [parcelSource])
 
-  // Executed wins over market status — a closed deal is usually off-market too.
+  // Executed wins (a closed deal is usually off-market too), then verified-owner blue.
   const colorOf = useCallback(
     (id: string, p: Property) =>
-      executedIds?.has(id) ? PIN.executed : p.listing_status === 'off_market' ? PIN.off : PIN.on,
-    [executedIds],
+      executedIds?.has(id)
+        ? PIN.executed
+        : ownerContext?.get(id)?.owner_reachable
+          ? PIN.verified
+          : p.listing_status === 'off_market'
+            ? PIN.off
+            : PIN.on,
+    [executedIds, ownerContext],
   )
 
   // Same colour the dot would have used, keyed by property, so the parcel outline can
