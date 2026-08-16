@@ -32,6 +32,7 @@ import {
   type PropertyMatch,
 } from '@/hooks/use-properties'
 import type { TablesUpdate } from '@/lib/database.types'
+import { useCurrentListingEvent } from '@/hooks/use-comps'
 import { friendlyDbError } from '@/lib/db-errors'
 import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
@@ -134,6 +135,7 @@ export function PropertyDetailPage() {
   const { data: property, isLoading, isError } = useProperty(id)
   const { data: deals } = usePropertyDeals(id)
   const { data: marketPos } = usePropertyMarketPosition(id)
+  const { data: listingEvent } = useCurrentListingEvent(id)
   const enrich = useEnrichProperty()
   const updateProperty = useUpdateProperty()
   const deleteProperty = useDeleteProperty()
@@ -170,7 +172,11 @@ export function PropertyDetailPage() {
   const fullAddress = [property.address, property.city, property.state, property.zip]
     .filter(Boolean)
     .join(', ')
-  const listingUrl = property.listing_url
+  // R7 dual-read: the listing event lives on the latest asking comp; the
+  // properties.* column is the fallback until it drops. The "Listing & other"
+  // editor grid below stays on the property columns — it WRITES them, and the
+  // importer dual-writes both sides until the drop block repoints editing.
+  const listingUrl = listingEvent?.listing_url ?? property.listing_url
   const sourceLabel =
     property.source === 'scrape' ? 'Scraped' : property.source === 'landlord_rep' ? 'My listing' : null
   const photos = property.photo_urls ?? []
@@ -472,7 +478,7 @@ export function PropertyDetailPage() {
           <InlineEditField label="Auction" value={property.is_auction} kind="boolean" onSave={saveField('is_auction')} />
           <InlineEditField label="Parcel number" value={property.parcel_number} kind="text" onSave={saveField('parcel_number')} />
           <InlineEditField label="Listed" value={property.listed_at} kind="date" onSave={saveField('listed_at')} />
-          <InlineEditField label="Days on market" value={property.days_on_market} kind="number" note="auto" />
+          <InlineEditField label="Days on market" value={listingEvent?.days_on_market ?? property.days_on_market} kind="number" note="auto" />
           <InlineEditField label="Listing URL" value={property.listing_url} kind="text" onSave={saveField('listing_url')} full />
           <InlineEditField label="Source" value={property.source} kind="text" note="auto" />
           <InlineEditField label="Specs" value={property.specs} kind="text" onSave={saveField('specs')} full />
