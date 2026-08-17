@@ -1327,6 +1327,7 @@ export type Database = {
       email_leads: {
         Row: {
           bounced_at: string | null
+          category: Database["public"]["Enums"]["contact_category"] | null
           company_name: string | null
           contact_id: string | null
           created_at: string
@@ -1360,6 +1361,7 @@ export type Database = {
         }
         Insert: {
           bounced_at?: string | null
+          category?: Database["public"]["Enums"]["contact_category"] | null
           company_name?: string | null
           contact_id?: string | null
           created_at?: string
@@ -1393,6 +1395,7 @@ export type Database = {
         }
         Update: {
           bounced_at?: string | null
+          category?: Database["public"]["Enums"]["contact_category"] | null
           company_name?: string | null
           contact_id?: string | null
           created_at?: string
