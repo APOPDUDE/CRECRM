@@ -24,6 +24,8 @@ import { ActivityPage } from '@/pages/activity'
 import ZoningLibraryPage from '@/pages/zoning-library'
 import { EmailPage } from '@/pages/email'
 import { OutreachImportPage } from '@/pages/outreach-import'
+import { OutreachCallsPage } from '@/pages/outreach-calls'
+import { OutreachPostcardsPage } from '@/pages/outreach-postcards'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,6 +78,8 @@ export default function App() {
                 <Route path="/zoning" element={<ZoningLibraryPage />} />
                 <Route path="/email" element={<EmailPage />} />
                 <Route path="/outreach/import" element={<OutreachImportPage />} />
+                <Route path="/outreach/calls" element={<OutreachCallsPage />} />
+                <Route path="/outreach/postcards" element={<OutreachPostcardsPage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -11,8 +11,10 @@ import {
   ListTodo,
   LogOut,
   Mail,
+  Mailbox,
   Map,
   Menu,
+  Phone,
   MoreHorizontal,
   Target,
   Upload,
@@ -49,12 +51,14 @@ const pipelinePrefixes = ['/pipelines', '/landlord-rep', '/tenant-rep']
 // Prospecting is a drawer like Pipelines (Alex, 2026-08-17): the outreach channels belong
 // together, because they are the same people worked in sequence — a Terrakotta list gets
 // called, then emailed, then mailed. Leads is the board those conversations graduate into.
-// Calls & texts and Postcards arrive with their pools; nothing is stubbed here before the
-// table behind it exists.
+// All three channels now sit on the outreach spine (outreach_calls / outreach_email /
+// outreach_mail), so each page shows the same people through its own channel's reach.
 const prospectingItems = [
   { to: '/prospecting', label: 'Leads', icon: Target },
   { to: '/outreach/import', label: 'Import list', icon: Upload },
+  { to: '/outreach/calls', label: 'Calls & texts', icon: Phone },
   { to: '/email', label: 'Email', icon: Mail },
+  { to: '/outreach/postcards', label: 'Postcards', icon: Mailbox },
 ]
 const prospectingPrefixes = ['/prospecting', '/outreach', '/email']
 

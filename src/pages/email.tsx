@@ -4,7 +4,6 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -22,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { OutreachListPicker } from '@/components/outreach-list-picker'
 import {
   holdLabel,
   missingTokens,
@@ -29,7 +29,6 @@ import {
   templateSteps,
   useEmailTemplates,
   useOutreachAudiencePreview,
-  useOutreachLists,
   type AudienceLead,
   type AudiencePreview,
 } from '@/hooks/use-email-campaigns'
@@ -97,7 +96,6 @@ export function EmailPage() {
   const [preview, setPreview] = useState<AudiencePreview | null>(null)
 
   const { data: templates, isLoading: templatesLoading } = useEmailTemplates()
-  const { data: outreachLists } = useOutreachLists()
   const audienceMut = useOutreachAudiencePreview()
 
   const template = useMemo(
@@ -188,67 +186,7 @@ export function EmailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Outreach lists</Label>
-            <div className="max-h-64 overflow-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10" />
-                    <TableHead>List</TableHead>
-                    <TableHead className="text-right">People</TableHead>
-                    <TableHead className="text-right">Emailable</TableHead>
-                    <TableHead className="text-right">Never answered</TableHead>
-                    <TableHead className="text-right">Reached</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(outreachLists ?? []).map((l) => (
-                    <TableRow key={l.list ?? ''}>
-                      <TableCell>
-                        <Checkbox
-                          checked={lists.includes(l.list ?? '')}
-                          onCheckedChange={(v) =>
-                            setLists((prev) =>
-                              v === true
-                                ? [...prev, l.list ?? '']
-                                : prev.filter((x) => x !== (l.list ?? '')),
-                            )
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="text-sm">{l.list}</TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        {l.targets}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {l.with_email}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {l.never_answered}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {l.reached}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!outreachLists?.length ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                        No lists yet — import one under Prospecting → Import list.
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </TableBody>
-              </Table>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Lists live on the outreach spine — every person imported once, pre-loaded on every
-              channel they have data for. They are <strong>not</strong> contacts and stay off the
-              property card until somebody actually replies. Anyone who replied, bounced, opted
-              out, said no by phone or is a confirmed wrong person is held automatically.
-            </p>
-          </div>
+          <OutreachListPicker channel="email" selected={lists} onChange={setLists} />
 
           <div className="flex flex-wrap items-end gap-6">
             <div className="space-y-1">

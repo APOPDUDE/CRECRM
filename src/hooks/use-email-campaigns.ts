@@ -77,38 +77,6 @@ export type AudiencePreview = {
   held: AudienceHold[]
 }
 
-/**
- * A list on the outreach spine, with per-channel reach. Lists live in Supabase
- * (outreach_targets.lists) -- GHL is a push destination, never the source of truth.
- */
-export type OutreachList = {
-  list: string | null
-  targets: number | null
-  with_email: number | null
-  with_phone: number | null
-  with_mail: number | null
-  with_property: number | null
-  reached: number | null
-  never_answered: number | null
-  held: number | null
-  last_import_at: string | null
-}
-
-export function useOutreachLists() {
-  return useQuery({
-    queryKey: ['outreach-lists'],
-    staleTime: 5 * 60_000,
-    queryFn: async (): Promise<OutreachList[]> => {
-      const { data, error } = await supabase
-        .from('v_outreach_lists')
-        .select('*')
-        .order('targets', { ascending: false })
-      if (error) throw error
-      return data ?? []
-    },
-  })
-}
-
 export type OutreachAudienceRequest = {
   lists: string[]
   audience: string

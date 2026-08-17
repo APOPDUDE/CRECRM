@@ -3561,6 +3561,14 @@ export type Database = {
         Args: { p: Json }
         Returns: Json
       }
+      outreach_call_audience: {
+        Args: { p: Json }
+        Returns: Json
+      }
+      outreach_mail_audience: {
+        Args: { p: Json }
+        Returns: Json
+      }
       import_outreach_targets: {
         Args: { p: Json }
         Returns: Json
