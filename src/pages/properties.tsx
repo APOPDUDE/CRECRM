@@ -40,6 +40,12 @@ import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { PARCEL_ZOOM, PropertiesMap } from '@/components/properties-map'
 import { MapFilterRail, type OwnerChannels } from '@/components/map-filter-rail'
+import {
+  PROPERTY_TAG_OPTIONS,
+  safeTagFilter,
+  useTaggedPropertyIds,
+  type PropertyTagKey,
+} from '@/hooks/use-property-tag-filter'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
 import {
@@ -339,6 +345,12 @@ export function PropertiesPage() {
     for (const e of dorEntries ?? []) if (!e.county) m.set(e.code, e.category)
     return m
   }, [dorEntries])
+  // Tags (Alex 2026-08-17): interested / not interested / owner operator / buyer, several
+  // at once. Resolved to a set of property ids server-side rather than read off the rows,
+  // because the four tags live in three different tables — see use-property-tag-filter.
+  const [tagFilterRaw, setTagFilter] = usePersistentState<PropertyTagKey[]>('properties:tags', [])
+  const tagFilter = useMemo(() => safeTagFilter(tagFilterRaw), [tagFilterRaw])
+  const { tagIds, isLoading: tagsLoading } = useTaggedPropertyIds(tagFilter)
   const [county, setCounty] = usePersistentState('properties:county', 'all')
   const { data: unitSizes } = useAvailableUnitSizes()
   const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
@@ -460,6 +472,7 @@ export function PropertiesPage() {
     (zonedApplies && zoningFilter !== 'all' ? 1 : 0) +
     (useFilter !== 'all' ? 1 : 0) +
     (dorActive ? 1 : 0) +
+    (tagFilter.length > 0 ? 1 : 0) +
     (ownerFilter !== 'all' ? 1 : 0) +
     (activitySubApplies && activity !== 'all' ? 1 : 0) +
     (countyApplies && county !== 'all' ? 1 : 0) +
@@ -903,6 +916,11 @@ export function PropertiesPage() {
         if (activity === 'quiet' && recent) continue
       }
       if (leaseMatchIds && !leaseMatchIds.has(p.id)) continue
+      // Tags. `tagIds` is null until the lookup lands, and an unresolved set deliberately
+      // matches NOTHING rather than everything — a filter that is on but not yet answered
+      // must not read as "no tags here", which is the mistake that makes a truncated set
+      // look like the whole truth. The rail says "Finding tagged properties…" meanwhile.
+      if (tagFilter.length > 0 && !tagIds?.has(p.id)) continue
       if (countyApplies && county !== 'all' && p.county !== county) continue
       // A size search must also see the units. A landlord who will carve 30,000 SF
       // out of a 93,666 SF building answers a 30k requirement — but the building
@@ -950,7 +968,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1134,6 +1152,7 @@ export function PropertiesPage() {
     setZoningFilter('all')
     setUseFilter('all')
     setDorSel(DOR_SELECTION_DEFAULT)
+    setTagFilter([])
     setOwnerFilter('all')
     setActivity('all')
     setCounty('all')
@@ -1191,6 +1210,7 @@ export function PropertiesPage() {
     setLeaseMin(''); setLeaseMax(''); setLeaseMonth('')
     setSignMin(''); setSignMax(''); setLeaseSfMin(''); setLeaseSfMax(''); setDmFilter('all')
     setDorSel(DOR_SELECTION_DEFAULT)
+    setTagFilter([])
     setOverlays(OVERLAY_DEFAULT)
     // the table popover's axes too — they'd silently come back with the table view
     setPtype('all'); setZoningFilter('all'); setUseFilter('all'); setCounty('all')
@@ -1208,6 +1228,9 @@ export function PropertiesPage() {
       onCancelDraw={() => setDraft(null)}
       onClearShape={() => setPolygon(null)}
       onClearAll={clearAllFilters}
+      tagFilter={tagFilter}
+      onTagFilter={setTagFilter}
+      tagsLoading={tagsLoading}
       sfMin={sfMin} sfMax={sfMax} onSfMin={setSfMin} onSfMax={setSfMax}
       acMin={acMin} acMax={acMax} onAcMin={setAcMin} onAcMax={setAcMax}
       status={status} onStatus={setStatus}
@@ -1390,6 +1413,34 @@ export function PropertiesPage() {
                   </SelectContent>
                 </Select>
               </div>
+              )}
+              {/* Tags — the same picks the map rail offers, so the filter is visible on
+                  whichever surface is applying it (a control that narrows the list from
+                  offscreen is the one bug this popover exists to avoid). */}
+              {view === 'table' && (
+                <div className="space-y-1.5">
+                  <Label>Tags</Label>
+                  <div className="space-y-1">
+                    {PROPERTY_TAG_OPTIONS.map((o) => (
+                      <label key={o.key} className="flex cursor-pointer items-center gap-2 text-xs">
+                        <Checkbox
+                          checked={tagFilter.includes(o.key)}
+                          onCheckedChange={(v) =>
+                            setTagFilter(
+                              v === true
+                                ? [...tagFilter, o.key]
+                                : tagFilter.filter((t) => t !== o.key),
+                            )
+                          }
+                        />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                  {tagFilter.length > 0 && tagsLoading && (
+                    <p className="text-xs text-muted-foreground">Finding tagged properties…</p>
+                  )}
+                </div>
               )}
               {view === 'table' && (
                 <div className="space-y-1.5">

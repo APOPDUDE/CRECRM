@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { OverlayControls } from '@/components/overlay-controls'
 import { DorCodePicker } from '@/components/dor-code-picker'
+import { PROPERTY_TAG_OPTIONS, type PropertyTagKey } from '@/hooks/use-property-tag-filter'
 import { type DorSelection } from '@/lib/zoning'
 import type { OverlayState } from '@/lib/overlays'
 import type { LatLng } from '@/lib/geo'
@@ -149,6 +150,10 @@ export function MapFilterRail(props: {
   onLeaseSfMax: (v: string) => void
   dmFilter: string
   onDmFilter: (v: string) => void
+  // Tags — multi-select, OR across the picks
+  tagFilter: PropertyTagKey[]
+  onTagFilter: (next: PropertyTagKey[]) => void
+  tagsLoading: boolean
   // DOR use categories + the zoning axis
   dorSel: DorSelection
   onDorSel: (next: DorSelection) => void
@@ -288,6 +293,51 @@ export function MapFilterRail(props: {
               </label>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Tags — how the owner has answered, and whether they occupy the building.
+          Several can be on at once and they OR together: "interested OR owner operator"
+          is one prospecting list, not an impossible intersection. */}
+      <div className="space-y-1.5 border-t pt-3">
+        <div className="flex items-center justify-between">
+          <Label>Tags</Label>
+          {p.tagFilter.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-xs text-muted-foreground"
+              onClick={() => p.onTagFilter([])}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+        <div className="space-y-1">
+          {PROPERTY_TAG_OPTIONS.map((o) => (
+            <label key={o.key} className="flex cursor-pointer items-center gap-2 text-xs">
+              <Checkbox
+                checked={p.tagFilter.includes(o.key)}
+                onCheckedChange={(v) =>
+                  p.onTagFilter(
+                    v === true
+                      ? [...p.tagFilter, o.key]
+                      : p.tagFilter.filter((t) => t !== o.key),
+                  )
+                }
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+        {p.tagFilter.length > 0 && (
+          <p className="pl-6 text-xs text-muted-foreground">
+            {p.tagsLoading
+              ? 'Finding tagged properties…'
+              : p.tagFilter.length > 1
+                ? 'Any of the checked tags'
+                : null}
+          </p>
         )}
       </div>
 

@@ -19,6 +19,24 @@ const TAG_TONE: Record<string, string> = {
 }
 
 /**
+ * Spellings that MUST collapse onto a managed tag before they are stored.
+ *
+ * Alex says "owner operator"; the stored tag, the GHL tag `ymlaLbJYPT3ycNfEkQn9` and the
+ * sync's managed vocabulary in `apply_ghl_tag` / `apply_ghl_tag_set` all say
+ * `owner occupier`. Typing his phrase into the free-text box would otherwise mint a
+ * SECOND tag that looks right on the chip, is ignored by the sync in both directions, and
+ * is invisible to the War Room's Tags filter — a silent split of one concept into two.
+ * The War Room shows the friendlier label; storage stays on the one value that syncs.
+ */
+const TAG_ALIASES: Record<string, string> = {
+  'owner operator': 'owner occupier',
+  'owner-operator': 'owner occupier',
+  'owner-occupier': 'owner occupier',
+  'owner user': 'owner occupier',
+  'owner-user': 'owner occupier',
+}
+
+/**
  * Tags on the BUILDING, not the owner.
  *
  * "Owner occupier" is a fact about a site — an owner with five properties may occupy
@@ -38,8 +56,10 @@ export function PropertyTags({ propertyId, tags }: { propertyId: string; tags: s
     )
 
   const add = (tag: string) => {
-    const t = tag.trim().toLowerCase()
+    const raw = tag.trim().toLowerCase()
+    const t = TAG_ALIASES[raw] ?? raw
     if (!t || current.includes(t)) return
+    if (t !== raw) toast.info(`Saved as "${t}" so it syncs with HighLevel`)
     save([...current, t])
   }
 
