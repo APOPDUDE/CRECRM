@@ -1324,6 +1324,123 @@ export type Database = {
         }
         Relationships: []
       }
+      email_leads: {
+        Row: {
+          bounced_at: string | null
+          company_name: string | null
+          contact_id: string | null
+          created_at: string
+          email: string
+          email_status: Database["public"]["Enums"]["email_deliverability"] | null
+          email_status_at: string | null
+          first_name: string | null
+          id: string
+          last_campaigned_at: string | null
+          last_name: string | null
+          last_reply_at: string | null
+          last_sent_at: string | null
+          lists: string[]
+          name_source: string | null
+          opted_out_at: string | null
+          parcel_id: string | null
+          phone: string | null
+          property_address: string | null
+          property_city: string | null
+          property_county: string | null
+          property_id: string | null
+          property_state: string | null
+          property_zip: string | null
+          raw: Json | null
+          reply_category: string | null
+          sent_count: number
+          smartlead_campaign_ids: string[]
+          smartlead_lead_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          bounced_at?: string | null
+          company_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          email: string
+          email_status?: Database["public"]["Enums"]["email_deliverability"] | null
+          email_status_at?: string | null
+          first_name?: string | null
+          id?: string
+          last_campaigned_at?: string | null
+          last_name?: string | null
+          last_reply_at?: string | null
+          last_sent_at?: string | null
+          lists?: string[]
+          name_source?: string | null
+          opted_out_at?: string | null
+          parcel_id?: string | null
+          phone?: string | null
+          property_address?: string | null
+          property_city?: string | null
+          property_county?: string | null
+          property_id?: string | null
+          property_state?: string | null
+          property_zip?: string | null
+          raw?: Json | null
+          reply_category?: string | null
+          sent_count?: number
+          smartlead_campaign_ids?: string[]
+          smartlead_lead_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          bounced_at?: string | null
+          company_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          email?: string
+          email_status?: Database["public"]["Enums"]["email_deliverability"] | null
+          email_status_at?: string | null
+          first_name?: string | null
+          id?: string
+          last_campaigned_at?: string | null
+          last_name?: string | null
+          last_reply_at?: string | null
+          last_sent_at?: string | null
+          lists?: string[]
+          name_source?: string | null
+          opted_out_at?: string | null
+          parcel_id?: string | null
+          phone?: string | null
+          property_address?: string | null
+          property_city?: string | null
+          property_county?: string | null
+          property_id?: string | null
+          property_state?: string | null
+          property_zip?: string | null
+          raw?: Json | null
+          reply_category?: string | null
+          sent_count?: number
+          smartlead_campaign_ids?: string[]
+          smartlead_lead_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_leads_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_leads_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_sequence_templates: {
         Row: {
           created_at: string
@@ -2902,6 +3019,19 @@ export type Database = {
         }
         Relationships: []
       }
+      v_email_lead_lists: {
+        Row: {
+          addresses: number | null
+          bounced: number | null
+          last_sent_at: string | null
+          list: string | null
+          never_answered: number | null
+          opted_out: number | null
+          replied: number | null
+          with_property: number | null
+        }
+        Relationships: []
+      }
       v_excess_land_decay: {
         Row: {
           beta: number | null
@@ -3316,6 +3446,30 @@ export type Database = {
       }
     }
     Functions: {
+      email_lead_audience: {
+        Args: { p?: Json }
+        Returns: Json
+      }
+      import_email_leads: {
+        Args: { p: Json }
+        Returns: Json
+      }
+      resolve_email_lead_properties: {
+        Args: { p?: Json }
+        Returns: Json
+      }
+      email_audience_build: {
+        Args: { p: Json }
+        Returns: Json
+      }
+      apply_smartlead_event: {
+        Args: { p: Json }
+        Returns: Json
+      }
+      unverify_contact: {
+        Args: { p: Json }
+        Returns: Json
+      }
       add_parcel_to_listing: {
         Args: {
           p_is_primary?: boolean

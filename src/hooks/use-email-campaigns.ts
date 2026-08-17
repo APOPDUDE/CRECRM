@@ -176,6 +176,7 @@ export const HOLD_LABELS: Record<string, string> = {
   campaigned_recently: 'Already emailed recently',
   business_domain_review: 'Business domain — needs a look',
   insert_conflict: 'Could not create the contact',
+  already_replied: 'Already replied — not a re-mail target',
 }
 
 export function holdLabel(reason: string): string {
@@ -184,4 +185,62 @@ export function holdLabel(reason: string): string {
   if (reason.startsWith('address_shared_by_')) return 'Address shared by several people'
   if (reason.startsWith('undeliverable:')) return `Undeliverable (${reason.split(':')[1]})`
   return reason
+}
+
+/* ------------------------------------------------------------------ the email lead pool */
+
+/**
+ * A list in the pool — a Smartlead campaign name or a GHL tag — with how many of its addresses
+ * never answered. This is the "re-email everyone from the off-market lists who never replied"
+ * picker.
+ */
+export type EmailLeadList = {
+  list: string
+  addresses: number
+  never_answered: number
+  replied: number
+  bounced: number
+  opted_out: number
+  with_property: number
+  last_sent_at: string | null
+}
+
+export function useEmailLeadLists() {
+  return useQuery({
+    queryKey: ['email-lead-lists'],
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<EmailLeadList[]> => {
+      const { data, error } = await supabase
+        .from('v_email_lead_lists')
+        .select('*')
+        .order('never_answered', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as EmailLeadList[]
+    },
+  })
+}
+
+export type PoolAudienceRequest = {
+  lists: string[]
+  audience: string
+  never_answered: boolean
+  recent_days: number
+  limit?: number
+}
+
+/**
+ * Build a re-mail audience straight from the pool. Goes to Postgres directly rather than through
+ * n8n — unlike the GHL path there is nothing to fetch from a third party, so there is no reason to
+ * take the detour. Returns the identical shape, so the page renders it with the same code.
+ */
+export function usePoolAudiencePreview() {
+  return useMutation({
+    mutationFn: async (req: PoolAudienceRequest): Promise<AudiencePreview> => {
+      const { data, error } = await supabase.rpc('email_lead_audience', {
+        p: { ...req, dry_run: true, limit: req.limit ?? 5000 },
+      })
+      if (error) throw error
+      return data as unknown as AudiencePreview
+    },
+  })
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Loader2, Mail, Send, Users, X } from 'lucide-react'
+import { AlertTriangle, Download, Loader2, Mail, Send, Users, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,12 +28,15 @@ import {
   renderTemplate,
   templateSteps,
   useAudiencePreview,
+  useEmailLeadLists,
   useEmailTemplates,
   useLaunchEmailCampaign,
+  usePoolAudiencePreview,
   type AudienceLead,
   type AudiencePreview,
 } from '@/hooks/use-email-campaigns'
 import { usePersistentState } from '@/hooks/use-persistent-state'
+import { downloadCsv, todayStamp, toCsv } from '@/lib/export-csv'
 import { automationEnabled } from '@/lib/n8n'
 import { cn } from '@/lib/utils'
 
@@ -95,6 +98,13 @@ function CountTile({
 }
 
 export function EmailPage() {
+  /**
+   * Two audience sources, one page. GHL tags go out through n8n (the private token must never
+   * reach the bundle); the pool is a straight RPC. Both return the identical shape, so everything
+   * below this line is source-agnostic.
+   */
+  const [source, setSource] = usePersistentState<'ghl' | 'pool'>('email-audience-source', 'ghl')
+  const [poolLists, setPoolLists] = usePersistentState<string[]>('email-pool-lists', [])
   const [tags, setTags] = usePersistentState<string[]>('email-audience-tags', [])
   const [tagDraft, setTagDraft] = useState('')
   // Alex 2026-08-17: "use all the emails" -- business domains are in by default.
@@ -107,8 +117,11 @@ export function EmailPage() {
   const [preview, setPreview] = useState<AudiencePreview | null>(null)
 
   const { data: templates, isLoading: templatesLoading } = useEmailTemplates()
+  const { data: leadLists } = useEmailLeadLists()
   const previewMut = useAudiencePreview()
+  const poolMut = usePoolAudiencePreview()
   const launchMut = useLaunchEmailCampaign()
+  const pending = previewMut.isPending || poolMut.isPending
 
   const template = useMemo(
     () => (templates ?? []).find((t) => t.key === templateKey),
@@ -116,7 +129,7 @@ export function EmailPage() {
   )
   const steps = useMemo(() => templateSteps(template), [template])
 
-  const audienceLabel = tags.join(' + ')
+  const audienceLabel = (source === 'pool' ? poolLists : tags).join(' + ')
   const lead: AudienceLead | undefined = preview?.sendable?.[previewIdx]
 
   const heldByReason = useMemo(() => {
@@ -133,17 +146,26 @@ export function EmailPage() {
   }
 
   const runPreview = async () => {
-    if (!tags.length) {
-      toast.error('Pick at least one GHL tag.')
+    const picked = source === 'pool' ? poolLists : tags
+    if (!picked.length) {
+      toast.error(source === 'pool' ? 'Pick at least one list.' : 'Pick at least one GHL tag.')
       return
     }
     try {
-      const res = await previewMut.mutateAsync({
-        tags,
-        audience: audienceLabel,
-        allow_business_domains: allowBusiness,
-        recent_days: recentDays,
-      })
+      const res =
+        source === 'pool'
+          ? await poolMut.mutateAsync({
+              lists: poolLists,
+              audience: audienceLabel,
+              never_answered: true,
+              recent_days: recentDays,
+            })
+          : await previewMut.mutateAsync({
+              tags,
+              audience: audienceLabel,
+              allow_business_domains: allowBusiness,
+              recent_days: recentDays,
+            })
       if (!res?.ok) {
         toast.error(res?.reason ?? 'The audience could not be built.')
         return
@@ -151,11 +173,43 @@ export function EmailPage() {
       setPreview(res)
       setPreviewIdx(0)
       toast.success(
-        `${res.counts.sendable} sendable from ${res.counts.ghl_rows} GHL rows (${res.counts.held} held).`,
+        source === 'pool'
+          ? `${res.counts.sendable} sendable from ${res.counts.addresses} pooled addresses (${res.counts.held} held).`
+          : `${res.counts.sendable} sendable from ${res.counts.ghl_rows} GHL rows (${res.counts.held} held).`,
       )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'The audience preview failed.')
     }
+  }
+
+  /**
+   * Smartlead's own verification only runs at IMPORT, in its UI ("Launch Verification &
+   * Proceed") — never on a live campaign. Alex picked that as the verifier, so a CSV import is
+   * the correct path for a pool campaign: an API push would silently skip verification entirely.
+   * Columns are the canonical merge vocabulary, so the seeded templates render as-is.
+   */
+  const exportCsv = () => {
+    if (!preview?.sendable?.length) return
+    const cols = [
+      'email', 'first_name', 'last_name', 'company_name', 'phone_number',
+      'owner_name', 'property_address', 'street', 'city', 'county', 'state', 'zip',
+      'property_type', 'building_sf', 'land_acres', 'parcel_id',
+      'crm_contact_id', 'crm_property_id', 'audience',
+    ]
+    const rows = preview.sendable.map((l) =>
+      cols.map((c) =>
+        c === 'email'
+          ? l.email
+          : c === 'phone_number'
+            ? (l.phone_number ?? '')
+            : (l.custom_fields?.[c] ?? ''),
+      ),
+    )
+    const slug = (audienceLabel || 'audience').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 48)
+    downloadCsv(`smartlead-${slug}-${todayStamp()}.csv`, toCsv(cols, rows))
+    toast.success(
+      `${rows.length} leads exported. Import into Smartlead and turn verification on at import.`,
+    )
   }
 
   const launch = async () => {
@@ -211,6 +265,83 @@ export function EmailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ['ghl', 'GHL tagged list'],
+                ['pool', 'Email pool — never answered'],
+              ] as const
+            ).map(([v, label]) => (
+              <Button
+                key={v}
+                size="sm"
+                variant={source === v ? 'default' : 'outline'}
+                onClick={() => {
+                  setSource(v)
+                  setPreview(null)
+                }}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+
+          {source === 'pool' ? (
+            <div className="space-y-2">
+              <Label>Lists to re-mail</Label>
+              <div className="max-h-64 overflow-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10" />
+                      <TableHead>List</TableHead>
+                      <TableHead className="text-right">Never answered</TableHead>
+                      <TableHead className="text-right">Addresses</TableHead>
+                      <TableHead className="text-right">Replied</TableHead>
+                      <TableHead className="text-right">Bounced</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(leadLists ?? []).map((l) => (
+                      <TableRow key={l.list ?? ''}>
+                        <TableCell>
+                          <Checkbox
+                            checked={poolLists.includes(l.list ?? '')}
+                            onCheckedChange={(v) =>
+                              setPoolLists((prev) =>
+                                v === true
+                                  ? [...prev, l.list ?? '']
+                                  : prev.filter((x) => x !== (l.list ?? '')),
+                              )
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="text-sm">{l.list}</TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          {l.never_answered}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {l.addresses}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {l.replied}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {l.bounced}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Every address we hold from Smartlead and GHL lives in the pool — they are{' '}
+                <strong>not</strong> contacts, and they stay off the property card until somebody
+                actually replies. Anyone who replied, bounced or opted out is filtered out
+                automatically.
+              </p>
+            </div>
+          ) : (
           <div className="space-y-2">
             <Label htmlFor="email-tag">GHL tags</Label>
             <div className="flex flex-wrap items-center gap-2">
@@ -254,15 +385,18 @@ export function EmailPage() {
               are always held back, whichever list they’re on.
             </p>
           </div>
+          )}
 
           <div className="flex flex-wrap items-end gap-6">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={allowBusiness}
-                onCheckedChange={(v) => setAllowBusiness(v === true)}
-              />
-              Include business-domain addresses
-            </label>
+            {source === 'ghl' ? (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={allowBusiness}
+                  onCheckedChange={(v) => setAllowBusiness(v === true)}
+                />
+                Include business-domain addresses
+              </label>
+            ) : null}
             <div className="space-y-1">
               <Label htmlFor="recent-days" className="text-xs">
                 Skip anyone emailed in the last
@@ -279,10 +413,11 @@ export function EmailPage() {
                 <span className="text-sm text-muted-foreground">days</span>
               </div>
             </div>
-            <Button onClick={runPreview} disabled={previewMut.isPending}>
-              {previewMut.isPending ? (
+            <Button onClick={runPreview} disabled={pending}>
+              {pending ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> Reading GHL…
+                  <Loader2 className="size-4 animate-spin" />{' '}
+                  {source === 'pool' ? 'Reading the pool…' : 'Reading GHL…'}
                 </>
               ) : (
                 'Preview audience'
@@ -290,7 +425,7 @@ export function EmailPage() {
             </Button>
           </div>
 
-          {!allowBusiness ? (
+          {source === 'ghl' && !allowBusiness ? (
             <p className="flex items-start gap-2 text-xs text-amber-700">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               Business-domain addresses are held by default. Skip-traced corporate addresses carry
@@ -309,11 +444,14 @@ export function EmailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              <CountTile label="GHL contact rows" value={preview.counts.ghl_rows} />
+              <CountTile
+                label={source === 'pool' ? 'Pooled addresses' : 'GHL contact rows'}
+                value={source === 'pool' ? preview.counts.addresses : preview.counts.ghl_rows}
+              />
               <CountTile
                 label="Distinct addresses"
                 value={preview.counts.addresses}
-                hint="one row per phone collapsed"
+                hint={source === 'pool' ? 'already one row per address' : 'one row per phone collapsed'}
               />
               <CountTile label="Sendable" value={preview.counts.sendable} tone="good" />
               <CountTile label="Held back" value={preview.counts.held} tone="warn" />
@@ -344,7 +482,9 @@ export function EmailPage() {
                     <TableHead>Address</TableHead>
                     <TableHead>Person</TableHead>
                     <TableHead>Property</TableHead>
-                    <TableHead className="text-right">GHL rows</TableHead>
+                    <TableHead className="text-right">
+                      {source === 'pool' ? 'Lists' : 'GHL rows'}
+                    </TableHead>
                     <TableHead>In CRM</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -363,7 +503,9 @@ export function EmailPage() {
                         {l.custom_fields?.property_address ?? '—'}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {l.ghl_rows_collapsed}
+                        {source === 'pool'
+                          ? ((l as unknown as { lists?: string[] }).lists?.length ?? 1)
+                          : l.ghl_rows_collapsed}
                       </TableCell>
                       <TableCell>
                         {l.crm_contact_id ? (
@@ -509,21 +651,36 @@ export function EmailPage() {
                   className="h-9 w-24"
                 />
               </div>
-              <Button onClick={launch} disabled={launchMut.isPending}>
-                {launchMut.isPending ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" /> Building…
-                  </>
-                ) : (
-                  `Build draft for ${preview.counts.sendable}`
-                )}
+              <Button variant="outline" onClick={exportCsv}>
+                <Download className="size-4" /> Export CSV for Smartlead
               </Button>
+              {source === 'ghl' ? (
+                <Button onClick={launch} disabled={launchMut.isPending}>
+                  {launchMut.isPending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Building…
+                    </>
+                  ) : (
+                    `Build draft for ${preview.counts.sendable}`
+                  )}
+                </Button>
+              ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
-              This creates the campaign in Smartlead as a <strong>draft</strong> and enrols the
-              leads — it does not start sending. Review it in Smartlead and start it there. The
-              whole account can send 230 emails a day across every campaign, so keep the daily
-              number modest while the list is new.
+              {source === 'pool' ? (
+                <>
+                  <strong>Export the CSV</strong> and import it into Smartlead with verification
+                  turned on. Smartlead only verifies at import — never on a live campaign — so a
+                  direct API push would skip the check you chose as the verifier.
+                </>
+              ) : (
+                <>
+                  This creates the campaign in Smartlead as a <strong>draft</strong> and enrols the
+                  leads — it does not start sending. Review it in Smartlead and start it there.
+                </>
+              )}{' '}
+              The whole account can send 230 emails a day across every campaign, so keep the daily
+              number modest while a list is new.
             </p>
           </CardContent>
         </Card>
