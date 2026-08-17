@@ -228,9 +228,9 @@ export function SuggestionsWidget() {
                                 >
                                   {p.address}
                                 </button>
-                                {p.listing_url && (
+                                {asking?.listing_url && (
                                   <a
-                                    href={p.listing_url}
+                                    href={asking.listing_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="shrink-0 text-muted-foreground hover:text-primary"

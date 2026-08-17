@@ -175,17 +175,30 @@ function FitToPoints({
   points,
   suspended,
   skipInitial,
+  forceKey,
 }: {
   points: MapPoint[]
   suspended?: boolean
   skipInitial?: boolean
+  /**
+   * Fit even on the mount-time run whenever this key is present and new — the
+   * portfolio deep link ("Portfolio View" on the owner card) must zoom to the
+   * owner's pins, and with a warm book cache that fit IS the first run, which
+   * skipInitial exists to suppress for plain back-navigation.
+   */
+  forceKey?: string
 }) {
   const map = useMap()
   const first = useRef(true)
+  const lastForce = useRef<string | null>(null)
   useEffect(() => {
     const isFirst = first.current
     first.current = false
-    if (isFirst && skipInitial) return
+    const forced = forceKey != null && forceKey !== lastForce.current && points.length > 0
+    // only latch the key once its fit actually ran — with a cold cache the points
+    // arrive a render after the key does, and latching early would eat the fit
+    if (points.length > 0) lastForce.current = forceKey ?? null
+    if (isFirst && skipInitial && !forced) return
     if (suspended || points.length === 0) return
     const bounds = L.latLngBounds(points.map((pt) => [pt.lat, pt.lng] as [number, number]))
     // How far apart the pins actually are decides how far to go in — not how many there are.
@@ -195,7 +208,7 @@ function FitToPoints({
     const span = bounds.getNorthEast().distanceTo(bounds.getSouthWest())
     const maxZoom = span < 250 ? 19 : points.length <= 3 ? 17 : 14
     map.fitBounds(bounds, { padding: [30, 30], maxZoom })
-  }, [points, map, suspended])
+  }, [points, map, suspended, forceKey])
   return null
 }
 
@@ -716,6 +729,7 @@ export function PropertiesMap({
   onViewportChange,
   totalInView,
   overlays,
+  fitKey,
 }: {
   properties: Property[]
   /**
@@ -763,6 +777,8 @@ export function PropertiesMap({
   totalInView?: number
   /** Which zoning/lowlands overlays paint (whole districts under the pins). */
   overlays?: OverlayState
+  /** Present = zoom to the plotted set even on mount (see FitToPoints.forceKey). */
+  fitKey?: string
 }) {
   const navigate = useNavigate()
   // read once per mount: restoring the exact spot the user left when they clicked a pin
@@ -980,6 +996,7 @@ export function PropertiesMap({
             points={points}
             suspended={drawMode || !!polygon || totalInView != null}
             skipInitial={!!initialView}
+            forceKey={fitKey}
           />
           {drawMode && onAddVertex && (
             <ShapeDrawer

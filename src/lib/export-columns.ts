@@ -51,7 +51,8 @@ export const EXPORT_COLUMNS: ExportColumn[] = [
   { id: 'year_built', label: 'Year Built', group: 'Property', cell: ({ p }) => p.year_built },
   { id: 'last_sale_date', label: 'Last Sale Date', group: 'Property', cell: ({ p }) => p.last_sale_date },
   { id: 'last_sale_price', label: 'Last Sale Price', group: 'Property', cell: ({ p }) => p.last_sale_price },
-  { id: 'listing_url', label: 'Listing URL', group: 'Property', cell: ({ p }) => p.listing_url },
+  // R7: the listing URL is a listing-event fact — it rides on the current asking comp.
+  { id: 'listing_url', label: 'Listing URL', group: 'Property', cell: ({ ask }) => ask?.listing_url ?? null },
   { id: 'crm_id', label: 'CRM Property ID', group: 'Property', cell: ({ p }) => p.id },
 
   // Owner / contact
@@ -88,7 +89,7 @@ export const EXPORT_COLUMNS: ExportColumn[] = [
     cell: ({ o }) => (o?.was_on_market ? 'yes' : 'never'),
   },
   { id: 'off_market_days', label: 'Days Off Market', group: 'Market', cell: ({ o }) => o?.off_market_days ?? null },
-  { id: 'days_on_market', label: 'Days On Market', group: 'Market', cell: ({ p }) => p.days_on_market },
+  { id: 'days_on_market', label: 'Days On Market', group: 'Market', cell: ({ ask }) => ask?.days_on_market ?? null },
   { id: 'ask_rate', label: 'Asking Rate $/SF', group: 'Market', cell: ({ ask }) => ask?.rate ?? null },
   { id: 'ask_price', label: 'Asking Price', group: 'Market', cell: ({ ask }) => ask?.price ?? null },
 

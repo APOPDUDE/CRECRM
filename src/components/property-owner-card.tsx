@@ -23,6 +23,27 @@ import { formatDate } from '@/lib/dates'
 import { formatPhone, normalizePhone } from '@/lib/format'
 
 /**
+ * How we know this person, from `contacts.verified_by` — verification is one
+ * person-level mark, and the OLD chip claimed the phone was verified no matter
+ * which channel actually proved the human (an email reply rendered as a
+ * verified NUMBER — the 1780 Calumet complaint). The label now names the
+ * channel when it is known and stays a neutral "verified" when it is not.
+ */
+function verifiedLabel(verifiedBy: string | null): string {
+  switch (verifiedBy) {
+    case 'response':
+      return 'replied'
+    case 'client':
+      return 'client'
+    case 'ghl_va':
+    case 'alex':
+      return 'confirmed by call'
+    default:
+      return 'verified'
+  }
+}
+
+/**
  * Who owns this building and whether we can actually reach them — the data-room answer,
  * right on the property page. The owning entity is a companies row (owners are retired);
  * its people are the contacts seated at it, and "verified" is `contacts.verified_at` —
@@ -146,7 +167,7 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
             <Button asChild variant="outline" size="sm" className="h-7 px-2.5 text-xs font-normal">
               <Link to={`/properties?owner=${companyId}&view=map`}>
                 <MapPin className="size-3.5" />
-                See all {portfolioCount} on the map
+                Portfolio View ({portfolioCount})
               </Link>
             </Button>
           )}
@@ -191,8 +212,8 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                         disabled={setPhone.isPending}
                         title={
                           ct.verified_at
-                            ? `Verified ${formatDate(ct.verified_at)} — click to unverify`
-                            : 'Click to mark this number verified'
+                            ? `Verified ${formatDate(ct.verified_at)} (${verifiedLabel(ct.verified_by)}) — click to unverify`
+                            : 'Click to mark this person verified'
                         }
                         onClick={() =>
                           setPhone.mutate({
@@ -207,7 +228,7 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                             : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent',
                         )}
                       >
-                        {ct.verified_at ? 'verified' : 'unverified'}
+                        {ct.verified_at ? verifiedLabel(ct.verified_by) : 'unverified'}
                       </button>
                     </span>
                   )}

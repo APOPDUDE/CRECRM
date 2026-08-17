@@ -22,13 +22,14 @@ export type MatchWithRelations = Tables<'pursuits'> & {
         | 'gross_sf'
         | 'source'
         | 'source_key'
-        | 'listing_url'
         | 'photo_urls'
         | 'specs'
       > & {
-        // current asking, merged from the comps time-series (not columns on properties)
+        // current asking + listing event, merged from the comps time-series
+        // (not columns on properties — the R7 drop took them off the table)
         asking_rate_psf: number | null
         asking_price: number | null
+        listing_url: string | null
       })
     | null
   client:
@@ -59,7 +60,7 @@ export type MatchWithRelations = Tables<'pursuits'> & {
 
 const MATCH_SELECT = `
   *,
-  property:properties!pursuits_property_id_fkey(id, address, city, state, gross_sf, source, source_key, listing_url, photo_urls, specs),
+  property:properties!pursuits_property_id_fkey(id, address, city, state, gross_sf, source, source_key, photo_urls, specs),
   client:clients!pursuits_client_id_fkey(
     id, status, deal_type, source, commission_pct, company_id, contact_id, intended_use,
     company:companies!clients_company_id_fkey(id, name),
@@ -102,6 +103,9 @@ async function withAsking(rows: MatchWithRelations[]): Promise<MatchWithRelation
             ...r.property,
             asking_rate_psf: asking.get(r.property.id)?.rate ?? null,
             asking_price: asking.get(r.property.id)?.price ?? null,
+            // the listing-event URL rides on the same comp row (R7) — the card's
+            // Crexi/LoopNet badge falls back to it when source_key has no prefix
+            listing_url: asking.get(r.property.id)?.listing_url ?? null,
           },
         }
       : r,

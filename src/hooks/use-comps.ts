@@ -207,21 +207,33 @@ export function useDeleteComp() {
  * `rate` (lease $/SF), `price` (sale total), `cap` (%), `sf` (available space on the
  * current lease asking). This replaces the dropped `properties.asking_*` cache —
  * pricing/space now live only on the comps time-series, keyed by property_id.
+ *
+ * R7: the three LIGHT listing-event facts the list surfaces show (table columns,
+ * CSV export, widget links) ride along — the asking comp IS the listing event, and
+ * the matching properties.* columns are being dropped. The heavy event text
+ * (brokers, title, description) stays on {@link useCurrentListingEvent}.
  */
 export type CurrentAsking = {
   rate: number | null
   price: number | null
   cap: number | null
   sf: number | null
+  listing_url: string | null
+  days_on_market: number | null
+  occupancy: string | null
 }
 
 type CurrentAskingRow = {
   property_id: string
   deal_type: string | null
+  as_of_date: string | null
   asking_lease_rate_psf: number | null
   sale_price: number | null
   cap_rate_pct: number | null
   sf: number | null
+  listing_url: string | null
+  days_on_market: number | null
+  occupancy: string | null
 }
 
 /**
@@ -239,7 +251,10 @@ export async function fetchCurrentAsking(
   const map = new Map<string, CurrentAsking>()
   const ids = propertyIds ? Array.from(new Set(propertyIds.filter(Boolean))) : undefined
   if (ids && ids.length === 0) return map
-  const select = 'property_id, deal_type, asking_lease_rate_psf, sale_price, cap_rate_pct, sf'
+  // one literal (no concat): a computed string widens to `string` and supabase-js
+  // loses the column types, so every row degrades to GenericStringError
+  const select =
+    'property_id, deal_type, as_of_date, asking_lease_rate_psf, sale_price, cap_rate_pct, sf, listing_url, days_on_market, occupancy'
   let rows: CurrentAskingRow[] = []
   if (ids) {
     const chunks = []
@@ -256,12 +271,43 @@ export async function fetchCurrentAsking(
       rows = rows.concat((data ?? []) as CurrentAskingRow[])
     }
   } else {
-    const { data, error } = await supabase.from('v_property_current_asking').select(select)
-    if (error) throw error
-    rows = (data ?? []) as CurrentAskingRow[]
+    // Whole-view fetch (the book): PAGE it. The view is past PostgREST's silent
+    // 1000-row cap (one asking row per property x deal_type), so a single select
+    // quietly truncated — pricing and listing URLs just vanished for the tail of
+    // the alphabet. Ordered by property_id so pages can't interleave a property.
+    const PAGE = 1000
+    for (let off = 0; ; off += PAGE) {
+      const { data, error } = await supabase
+        .from('v_property_current_asking')
+        .select(select)
+        .order('property_id')
+        .order('deal_type')
+        .range(off, off + PAGE - 1)
+      if (error) throw error
+      rows = rows.concat((data ?? []) as CurrentAskingRow[])
+      if ((data ?? []).length < PAGE) break
+    }
   }
+  // A property holds at most one row per deal_type; the NEWER event's listing facts
+  // win, the older row only fills what the newer left null (same rule as
+  // useCurrentListingEvent). Sort here — chunked requests arrive unordered.
+  rows.sort((a, b) =>
+    a.property_id === b.property_id
+      ? (b.as_of_date ?? '').localeCompare(a.as_of_date ?? '')
+      : a.property_id.localeCompare(b.property_id),
+  )
   for (const r of rows) {
-    const cur = map.get(r.property_id) ?? { rate: null, price: null, cap: null, sf: null }
+    const cur =
+      map.get(r.property_id) ??
+      ({
+        rate: null,
+        price: null,
+        cap: null,
+        sf: null,
+        listing_url: null,
+        days_on_market: null,
+        occupancy: null,
+      } as CurrentAsking)
     if (r.deal_type === 'lease') {
       if (r.asking_lease_rate_psf != null) cur.rate = r.asking_lease_rate_psf
       if (r.sf != null) cur.sf = r.sf
@@ -269,6 +315,9 @@ export async function fetchCurrentAsking(
       if (r.sale_price != null) cur.price = r.sale_price
     }
     if (r.cap_rate_pct != null && cur.cap == null) cur.cap = r.cap_rate_pct
+    if (r.listing_url != null && cur.listing_url == null) cur.listing_url = r.listing_url
+    if (r.days_on_market != null && cur.days_on_market == null) cur.days_on_market = r.days_on_market
+    if (r.occupancy != null && cur.occupancy == null) cur.occupancy = r.occupancy
     map.set(r.property_id, cur)
   }
   return map

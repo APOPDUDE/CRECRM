@@ -17,7 +17,6 @@ export type DealFlag = {
     property_type: Enums<'property_kind'> | null
     gross_sf: number | null
     land_acres: number | null
-    listing_url: string | null
   } | null
 }
 
@@ -28,7 +27,7 @@ export const PENDING_DEAL_FLAGS_CAP = 300
 const DEAL_FLAG_SELECT = `
   id, created_at, lease_vs_market_pct, sale_vs_market_pct, land_vs_market_pct,
   property:properties!deal_flags_property_id_fkey!inner(
-    id, address, city, state, county, property_type, gross_sf, land_acres, listing_url
+    id, address, city, state, county, property_type, gross_sf, land_acres
   )
 `
 

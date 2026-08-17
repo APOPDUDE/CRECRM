@@ -172,11 +172,11 @@ export function PropertyDetailPage() {
   const fullAddress = [property.address, property.city, property.state, property.zip]
     .filter(Boolean)
     .join(', ')
-  // R7 dual-read: the listing event lives on the latest asking comp; the
-  // properties.* column is the fallback until it drops. The "Listing & other"
-  // editor grid below stays on the property columns — it WRITES them, and the
-  // importer dual-writes both sides until the drop block repoints editing.
-  const listingUrl = listingEvent?.listing_url ?? property.listing_url
+  // R7: the listing event lives on the latest asking comp — the matching
+  // properties.* columns are dropped. The "Listing & other" grid shows the
+  // event fields read-only from the comp; edits belong on the comp itself
+  // (CompEditDialog in the comps section).
+  const listingUrl = listingEvent?.listing_url
   const sourceLabel =
     property.source === 'scrape' ? 'Scraped' : property.source === 'landlord_rep' ? 'My listing' : null
   const photos = property.photo_urls ?? []
@@ -445,9 +445,14 @@ export function PropertyDetailPage() {
           <InlineEditField label="Volts" note="e.g. 277-480" value={property.volts} kind="text" onSave={saveField('volts')} />
           <InlineEditField label="Amps" value={property.amps} kind="number" onSave={saveField('amps')} />
           <InlineEditField label="Building class" value={property.building_class} kind="text" onSave={saveField('building_class')} />
+          {/* properties.title is the operating business/DBA name on county-minted
+              rows (import_county_parcels writes it) — a fact about the place. The
+              LISTING headline is a different thing and lives on the asking comp
+              (the read-only Title row in "Listing & other"). */}
+          <InlineEditField label="Business name" value={property.title} kind="text" onSave={saveField('title')} />
           <InlineEditField label="Units" value={property.num_units} kind="number" onSave={saveField('num_units')} />
           <InlineEditField label="Year renovated" value={property.year_renovated} kind="number" onSave={saveField('year_renovated')} />
-          <InlineEditField label="Occupancy" value={property.occupancy} kind="text" onSave={saveField('occupancy')} />
+          <InlineEditField label="Occupancy" value={listingEvent?.occupancy ?? null} kind="text" note="listing comp" />
           <InlineEditField label="Zoning district" value={property.zoning_district} kind="text" onSave={saveField('zoning_district')} />
           <InlineEditField label="Zoning description" value={property.zoning_description} kind="text" onSave={saveField('zoning_description')} full />
         </dl>
@@ -455,6 +460,10 @@ export function PropertyDetailPage() {
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Listing &amp; other</h2>
+        {/* The listing-EVENT fields (broker, dates, sale terms, URL) live on the
+            property's latest asking comp (R7) and render read-only here — edit them
+            on the comp itself via the comps section's edit dialog. The rows with
+            onSave are durable property facts and still write properties.*. */}
         <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <InlineEditField
             label="Listing status"
@@ -466,20 +475,20 @@ export function PropertyDetailPage() {
             ]}
             onSave={saveField('listing_status')}
           />
-          <InlineEditField label="Title" value={property.title} kind="text" onSave={saveField('title')} full />
-          <InlineEditField label="Broker name" value={property.broker_name} kind="text" onSave={saveField('broker_name')} />
-          <InlineEditField label="Broker company" value={property.broker_company} kind="text" onSave={saveField('broker_company')} />
-          <InlineEditField label="Broker phone" value={property.broker_phone} kind="text" onSave={saveField('broker_phone')} />
-          <InlineEditField label="Broker email" value={property.broker_email} kind="text" onSave={saveField('broker_email')} />
-          <InlineEditField label="Sale type" value={property.sale_type} kind="text" onSave={saveField('sale_type')} />
-          <InlineEditField label="Sale conditions" value={property.sale_conditions} kind="text" onSave={saveField('sale_conditions')} />
+          <InlineEditField label="Title" value={listingEvent?.listing_title ?? null} kind="text" note="listing comp" full />
+          <InlineEditField label="Broker name" value={listingEvent?.broker_name ?? null} kind="text" note="listing comp" />
+          <InlineEditField label="Broker company" value={listingEvent?.broker_company ?? null} kind="text" note="listing comp" />
+          <InlineEditField label="Broker phone" value={listingEvent?.broker_phone ?? null} kind="text" note="listing comp" />
+          <InlineEditField label="Broker email" value={listingEvent?.broker_email ?? null} kind="text" note="listing comp" />
+          <InlineEditField label="Sale type" value={listingEvent?.sale_type ?? null} kind="text" note="listing comp" />
+          <InlineEditField label="Sale conditions" value={listingEvent?.sale_conditions ?? null} kind="text" note="listing comp" />
           <InlineEditField label="On ground lease" value={property.on_ground_lease} kind="boolean" onSave={saveField('on_ground_lease')} />
           <InlineEditField label="Opportunity zone" value={property.opportunity_zone} kind="boolean" onSave={saveField('opportunity_zone')} />
-          <InlineEditField label="Auction" value={property.is_auction} kind="boolean" onSave={saveField('is_auction')} />
+          <InlineEditField label="Auction" value={listingEvent?.is_auction ?? null} kind="boolean" note="listing comp" />
           <InlineEditField label="Parcel number" value={property.parcel_number} kind="text" onSave={saveField('parcel_number')} />
-          <InlineEditField label="Listed" value={property.listed_at} kind="date" onSave={saveField('listed_at')} />
-          <InlineEditField label="Days on market" value={listingEvent?.days_on_market ?? property.days_on_market} kind="number" note="auto" />
-          <InlineEditField label="Listing URL" value={property.listing_url} kind="text" onSave={saveField('listing_url')} full />
+          <InlineEditField label="Listed" value={listingEvent?.listed_at ?? null} kind="date" note="listing comp" />
+          <InlineEditField label="Days on market" value={listingEvent?.days_on_market ?? null} kind="number" note="listing comp" />
+          <InlineEditField label="Listing URL" value={listingEvent?.listing_url ?? null} kind="text" note="listing comp" full />
           <InlineEditField label="Source" value={property.source} kind="text" note="auto" />
           <InlineEditField label="Specs" value={property.specs} kind="text" onSave={saveField('specs')} full />
         </dl>

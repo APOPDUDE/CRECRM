@@ -11,7 +11,6 @@ export type SuggestionProperty = {
   property_type: Enums<'property_kind'> | null
   gross_sf: number | null
   land_acres: number | null
-  listing_url: string | null
   created_at: string
 }
 
@@ -38,7 +37,7 @@ export type Suggestion = {
 const SUGGESTION_SELECT = `
   id, created_at,
   property:properties!suggestions_property_id_fkey(
-    id, address, city, state, property_type, gross_sf, land_acres, listing_url, created_at
+    id, address, city, state, property_type, gross_sf, land_acres, created_at
   ),
   client:clients!suggestions_client_id_fkey!inner(
     id, property_type, deal_type, building_sf_min, building_sf_max, target_markets,

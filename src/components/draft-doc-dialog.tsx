@@ -28,6 +28,7 @@ import { useUpdateMatch } from '@/hooks/use-matches'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { useProperty } from '@/hooks/use-properties'
+import { useCurrentListingEvent } from '@/hooks/use-comps'
 import { usePursuitUnits } from '@/hooks/use-units'
 import { useUploadFiles } from '@/hooks/use-files'
 import type { DealDocTerms } from '@/lib/deal-docs'
@@ -95,6 +96,9 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
   const isSale = match.deal_type === 'sale'
   const isRfp = docType === 'rfp' && !isSale
   const { data: property } = useProperty(match.property_id)
+  // The listing broker (RFP recipient) is a listing-EVENT fact — it lives on the
+  // property's latest asking comp now (R7), not on properties columns.
+  const { data: listingEvent } = useCurrentListingEvent(open ? match.property_id : undefined)
   const { data: listing } = useActiveListingForProperty(open ? match.property_id : undefined)
   const { data: units = [] } = usePursuitUnits(open ? match.id : undefined)
   const updateMatch = useUpdateMatch()
@@ -165,10 +169,10 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
     setLandlordName(listing?.landlord?.name ?? '')
     setLandlordSigner(listing?.landlord_contact ? contactNameOf(listing.landlord_contact) : '')
     setRecipient(
-      [property?.broker_name, property?.broker_company].filter(Boolean).join(', ') || '',
+      [listingEvent?.broker_name, listingEvent?.broker_company].filter(Boolean).join(', ') || '',
     )
     // Prefill once per open — listing/property/units land async, so re-run as they arrive.
-  }, [open, match, listing, property, unitSf, unitRate])
+  }, [open, match, listing, property, listingEvent, unitSf, unitRate])
 
   const cityStateZip = useMemo(
     () => [property?.city, [property?.state, property?.zip].filter(Boolean).join(' ')].filter(Boolean).join(', '),

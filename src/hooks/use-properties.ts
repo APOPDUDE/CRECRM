@@ -59,9 +59,9 @@ export type Property = Pick<
   | 'id' | 'address' | 'city' | 'state' | 'zip' | 'county' | 'parcel_number'
   | 'site_address' | 'folio'
   | 'property_type' | 'gross_sf' | 'land_acres' | 'specs' | 'listing_status'
-  | 'days_on_market' | 'year_built' | 'zoning_description' | 'zoning_district'
-  | 'occupancy' | 'lat' | 'lng' | 'owner_company_id' | 'owner_name' | 'owner_mailing_address'
-  | 'last_sale_date' | 'last_sale_price' | 'listing_url' | 'created_at' | 'updated_at'
+  | 'year_built' | 'zoning_description' | 'zoning_district'
+  | 'lat' | 'lng' | 'owner_company_id' | 'owner_name' | 'owner_mailing_address'
+  | 'last_sale_date' | 'last_sale_price' | 'created_at' | 'updated_at'
   | 'zoning_type' | 'zoning_code' | 'zoning_jurisdiction' | 'dor_use_code'
 > & {
   /**
@@ -103,12 +103,15 @@ export function useProperties(enabled = true) {
     refetchOnWindowFocus: false,
     queryFn: async () => {
       const PAGE = 1000
+      // days_on_market / occupancy / listing_url left this select (R7): they are
+      // listing-EVENT facts and now ride on the current asking comp — the pages that
+      // showed them read the CurrentAsking map instead.
       const SELECT =
         'id, address, city, state, zip, county, parcel_number, site_address, folio, ' +
         'property_type, gross_sf, ' +
-        'land_acres, specs, listing_status, days_on_market, year_built, zoning_description, ' +
-        'zoning_district, occupancy, lat, lng, owner_company_id, owner_name, owner_mailing_address, ' +
-        'last_sale_date, last_sale_price, listing_url, created_at, updated_at, ' +
+        'land_acres, specs, listing_status, year_built, zoning_description, ' +
+        'zoning_district, lat, lng, owner_company_id, owner_name, owner_mailing_address, ' +
+        'last_sale_date, last_sale_price, created_at, updated_at, ' +
         'zoning_type, zoning_code, zoning_jurisdiction, dor_use_code'
       // The linked-deal counts used to ride as embedded `(count)` aggregates — two
       // correlated subqueries evaluated per book row to tally what is (2026-08-16)

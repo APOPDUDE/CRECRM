@@ -42,15 +42,15 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
   const { data: ev } = useCurrentListingEvent(propertyId ?? undefined)
   const updateProperty = useUpdateProperty()
   const asking = propertyId ? askingMap?.get(propertyId) : undefined
-  // R7 dual-read: the listing event lives on the latest asking comp now; the
-  // properties.* columns are the fallback until they drop.
-  const listingUrl = ev?.listing_url ?? p?.listing_url
-  const daysOnMarket = ev?.days_on_market ?? p?.days_on_market
-  const listedAt = ev?.listed_at ?? p?.listed_at
-  const brokerName = ev?.broker_name ?? p?.broker_name
-  const brokerCompany = ev?.broker_company ?? p?.broker_company
-  const brokerPhone = ev?.broker_phone ?? p?.broker_phone
-  const brokerEmail = ev?.broker_email ?? p?.broker_email
+  // R7: the listing event lives on the latest asking comp — the matching
+  // properties.* columns are dropped, so the comp is the only source.
+  const listingUrl = ev?.listing_url
+  const daysOnMarket = ev?.days_on_market
+  const listedAt = ev?.listed_at
+  const brokerName = ev?.broker_name
+  const brokerCompany = ev?.broker_company
+  const brokerPhone = ev?.broker_phone
+  const brokerEmail = ev?.broker_email
 
   const saveDescription = async (v: string | number | boolean | null) => {
     if (!p) return

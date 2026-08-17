@@ -293,8 +293,11 @@ export function useSetPhoneVerified() {
       const { error } = await supabase
         .from('contacts')
         .update(
+          // 'alex' — the CHECK vocabulary on contacts.verified_by
+          // (client|response|verified_owner|ghl_va|alex|manual, 20260816011054).
+          // The old 'Alex (manual)' string violates it and 400s the toggle.
           v.verified
-            ? { verified_at: new Date().toISOString(), verified_by: 'Alex (manual)' }
+            ? { verified_at: new Date().toISOString(), verified_by: 'alex' }
             : { verified_at: null, verified_by: null },
         )
         .eq('id', v.contactId)

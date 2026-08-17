@@ -155,10 +155,11 @@ const COLUMN_DEFS: ColumnDef[] = [
       ),
   },
   { id: 'market_status', label: 'Market status', className: MUTED, cell: (p) => (p.listing_status === 'off_market' ? 'Off market' : 'On market') },
-  { id: 'days_on_market', label: 'Days on market', className: MUTED, cell: (p) => (p.days_on_market != null ? String(p.days_on_market) : '') },
+  // Listing-event facts read the current asking comp (R7) — the properties columns are gone.
+  { id: 'days_on_market', label: 'Days on market', className: MUTED, cell: (_p, asking) => (asking?.days_on_market != null ? String(asking.days_on_market) : '') },
   { id: 'year_built', label: 'Year built', className: MUTED, cell: (p) => (p.year_built != null ? String(p.year_built) : '') },
   { id: 'zoning', label: 'Zoning', className: MUTED, cell: (p) => p.zoning_description ?? p.zoning_district ?? '' },
-  { id: 'occupancy', label: 'Occupancy', className: MUTED, cell: (p) => p.occupancy ?? '' },
+  { id: 'occupancy', label: 'Occupancy', className: MUTED, cell: (_p, asking) => asking?.occupancy ?? '' },
   { id: 'owner', label: 'Owner', className: MUTED, cell: (_p, _a, o) => o?.owner_name ?? '' },
   {
     id: 'owner_contact',
@@ -623,6 +624,7 @@ export function PropertiesPage() {
     const q = searchParams.get('q')
     const wantsMap = searchParams.get('view') === 'map'
     const wantsLease = searchParams.get('layer') === 'lease'
+    const owner = searchParams.get('owner')
     if (!q && !wantsMap && !wantsLease) return
     // Both deep links are "show me exactly this set", so the sticky filters that would
     // silently exclude it get cleared first.
@@ -674,7 +676,14 @@ export function PropertiesPage() {
       setLeaseMonth(searchParams.get('expMonth') ?? '')
     }
     if (wantsMap) setView('map')
-    setSearchParams({}, { replace: true })
+    // Portfolio View (?owner=<company id>): the param IS the filter, so it must
+    // survive this cleanup — stripping it here was why the owner card's button
+    // landed on a plain map with nothing selected. A persisted drawn shape is
+    // cleared too: it would suspend the fit-to-portfolio zoom (shapes suspend
+    // refits by design), and "show me this owner's holdings" outranks a saved
+    // shape exactly like the other deep links outrank saved filters.
+    if (owner) setPolygon(null)
+    setSearchParams(owner ? { owner } : {}, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -832,7 +841,13 @@ export function PropertiesPage() {
     () => (portfolioOwnerId ? book.filter((p) => p.owner_company_id === portfolioOwnerId) : []),
     [book, portfolioOwnerId],
   )
-  const portfolioOwnerName = portfolioAll[0]?.owner_name ?? null
+  // The COMPANY's name, not the first row's county deed string — a portfolio's
+  // parcels can carry different deed names (assemblage quirks), and the banner
+  // names the owner the button was pressed on.
+  const portfolioOwnerName =
+    (portfolioAll[0] && ownerCtx?.get(portfolioAll[0].id)?.owner_name) ??
+    portfolioAll[0]?.owner_name ??
+    null
 
   const { baseFiltered, includeCandidates } = useMemo(() => {
     // Empty when Postgres did the matching. Re-running the browser's own test over those
@@ -1803,6 +1818,9 @@ export function PropertiesPage() {
       <PropertiesMap
             properties={filtered}
             parcelProperties={parcelSource}
+            // Portfolio View: zoom to the owner's pins even when a saved viewport
+            // would normally suppress the mount-time fit.
+            fitKey={portfolioOwnerId ?? undefined}
             // Only the viewport fetch knows how many properties the box really holds; on
             // the query path `filtered` IS the whole answer, so there is no wider total.
             totalInView={viewportOnly ? mapView.data.totalInView : undefined}

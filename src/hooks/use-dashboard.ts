@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { fetchCurrentAsking } from '@/hooks/use-comps'
 import type { Enums } from '@/lib/database.types'
 
 export type DashMatch = {
@@ -77,10 +78,20 @@ export type OffMarketProperty = {
   address: string
   city: string | null
   state: string | null
+  /** from the property's latest asking comp — the listing event (R7), not a properties column */
   listing_url: string | null
   gross_sf: number | null
   property_type: Enums<'property_kind'> | null
   updated_at: string
+}
+
+/** Attach each row's listing URL from its current asking comp (R7 repoint). */
+async function withListingUrls<T extends { id: string }>(
+  rows: T[],
+): Promise<(T & { listing_url: string | null })[]> {
+  if (rows.length === 0) return []
+  const asking = await fetchCurrentAsking(rows.map((r) => r.id))
+  return rows.map((r) => ({ ...r, listing_url: asking.get(r.id)?.listing_url ?? null }))
 }
 
 const OFF_MARKET_CLEARED_KEY = 'off-market:cleared-at'
@@ -107,15 +118,15 @@ export function useRecentlyOffMarket() {
     queryFn: async (): Promise<OffMarketProperty[]> => {
       const { data, error } = await supabase
         .from('properties')
-        .select(
-          'id, address, city, state, listing_url, gross_sf, property_type, updated_at',
-        )
+        .select('id, address, city, state, gross_sf, property_type, updated_at')
         .eq('listing_status', 'off_market')
         .gte('updated_at', offMarketFloorIso())
         .order('updated_at', { ascending: false })
         .limit(100)
       if (error) throw error
-      return (data ?? []) as OffMarketProperty[]
+      return (await withListingUrls(
+        (data ?? []) as Omit<OffMarketProperty, 'listing_url'>[],
+      )) as OffMarketProperty[]
     },
   })
 }
@@ -138,6 +149,7 @@ export type NewListing = {
   address: string
   city: string | null
   state: string | null
+  /** from the property's latest asking comp — the listing event (R7), not a properties column */
   listing_url: string | null
   gross_sf: number | null
   land_acres: number | null
@@ -190,7 +202,7 @@ export function useNewListings(filter: NewListingsTypeFilter = 'industrial') {
       let q = supabase
         .from('properties')
         .select(
-          'id, address, city, state, listing_url, gross_sf, land_acres, property_type, created_at',
+          'id, address, city, state, gross_sf, land_acres, property_type, created_at',
           { count: 'exact' },
         )
         .eq('source', 'scrape')
@@ -203,7 +215,9 @@ export function useNewListings(filter: NewListingsTypeFilter = 'industrial') {
         .order('created_at', { ascending: false })
         .limit(NEW_LISTINGS_RENDER_CAP)
       if (error) throw error
-      const items = (data ?? []) as NewListing[]
+      const items = (await withListingUrls(
+        (data ?? []) as Omit<NewListing, 'listing_url'>[],
+      )) as NewListing[]
       const total = count ?? items.length
 
       // The widget hides only when NOTHING is new — the filtered lens still needs the
