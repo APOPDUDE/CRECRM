@@ -27,9 +27,12 @@ import { useBreadcrumbValue } from '@/hooks/use-breadcrumb'
 import { cn } from '@/lib/utils'
 
 // The daily drivers. Everything else lives behind "More" — they get opened rarely and
-// were only ever crowding the rail.
-const topItems = [{ to: '/', label: 'Dashboard', icon: LayoutDashboard }]
-const bottomItems = [{ to: '/properties', label: 'War Room', icon: Map }]
+// were only ever crowding the rail. War Room sits directly under Dashboard (Alex, 2026-08-17):
+// it is the map he actually starts from, and it was buried below Pipelines.
+const topItems = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/properties', label: 'War Room', icon: Map },
+]
 
 // The three books of business. Landlord and Tenant are deal boards; Buyers is a roster
 // you search when a deal hits the market.
@@ -42,13 +45,22 @@ const pipelineItems = [
 // Detail boards live outside /pipelines but belong to it as far as the rail is concerned.
 const pipelinePrefixes = ['/pipelines', '/landlord-rep', '/tenant-rep']
 
+// Prospecting is a drawer like Pipelines (Alex, 2026-08-17): the outreach channels belong
+// together, because they are the same people worked in sequence — a Terrakotta list gets
+// called, then emailed, then mailed. Leads is the board those conversations graduate into.
+// Calls & texts and Postcards arrive with their pools; nothing is stubbed here before the
+// table behind it exists.
+const prospectingItems = [
+  { to: '/prospecting', label: 'Leads', icon: Target },
+  { to: '/email', label: 'Email', icon: Mail },
+]
+const prospectingPrefixes = ['/prospecting', '/email']
+
 const moreItems = [
-  { to: '/prospecting', label: 'Prospecting', icon: Target },
   { to: '/tasks', label: 'Tasks', icon: ListTodo },
   { to: '/contacts', label: 'Contacts', icon: Contact },
   { to: '/companies', label: 'Companies', icon: Users },
   { to: '/zoning', label: 'Zoning', icon: Landmark },
-  { to: '/email', label: 'Email', icon: Mail },
 ]
 
 const sectionLabels: Record<string, string> = {
@@ -79,8 +91,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   // location is never hidden behind a collapsed section.
   const inMore = moreItems.some((i) => pathname.startsWith(i.to))
   const inPipelines = pipelinePrefixes.some((p) => pathname.startsWith(p))
+  const inProspecting = prospectingPrefixes.some((p) => pathname.startsWith(p))
   const [moreOpen, setMoreOpen] = useState(inMore)
   const [pipelinesOpen, setPipelinesOpen] = useState(inPipelines)
+  const [prospectingOpen, setProspectingOpen] = useState(inProspecting)
 
   return (
     <nav className="flex flex-col gap-1 px-2">
@@ -118,12 +132,32 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       )}
 
-      {bottomItems.map((item) => (
-        <NavLink key={item.to} to={item.to} onClick={onNavigate} className={navLinkClass}>
-          <item.icon className="size-4" />
-          {item.label}
-        </NavLink>
-      ))}
+      <button
+        type="button"
+        onClick={() => setProspectingOpen((v) => !v)}
+        aria-expanded={prospectingOpen}
+        className={cn(
+          'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 hover:text-white',
+          inProspecting ? 'text-white' : 'text-slate-300',
+        )}
+      >
+        <Target className="size-4" />
+        Prospecting
+        <ChevronDown
+          className={cn('ml-auto size-4 transition-transform', prospectingOpen && 'rotate-180')}
+        />
+      </button>
+
+      {prospectingOpen && (
+        <div className="ml-4 flex flex-col gap-1 border-l border-white/10 pl-2">
+          {prospectingItems.map((item) => (
+            <NavLink key={item.to} to={item.to} onClick={onNavigate} className={navLinkClass}>
+              <item.icon className="size-4" />
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
 
       <button
         type="button"
