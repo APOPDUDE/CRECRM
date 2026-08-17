@@ -922,13 +922,23 @@ export function BuyersPage() {
                   [intakeBeingFilled.first_name, intakeBeingFilled.last_name]
                     .filter(Boolean)
                     .join(' ') || intakeBeingFilled.phone,
+                // No CRM contact matched at tag time — hand the form everything the intake
+                // knows so submitting creates the contact instead of asking for a retype.
+                newContact: intakeBeingFilled.contact_id
+                  ? null
+                  : {
+                      firstName: intakeBeingFilled.first_name,
+                      lastName: intakeBeingFilled.last_name,
+                      phone: intakeBeingFilled.phone,
+                      email: intakeBeingFilled.email,
+                    },
               }
             : null
         }
-        onCreated={(clientId) => {
+        onCreated={(clientId, contactId) => {
           // Only now does the queue entry become a real buyer — approving is what closes it.
           if (intakeBeingFilled) {
-            approveIntake.mutate({ intakeId: intakeBeingFilled.id, clientId })
+            approveIntake.mutate({ intakeId: intakeBeingFilled.id, clientId, contactId })
           }
         }}
       />

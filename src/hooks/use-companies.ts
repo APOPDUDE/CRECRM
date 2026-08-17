@@ -1,16 +1,52 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
 
 export type Company = Tables<'companies'>
 
-export function useCompanies() {
+/** Shortest query worth sending — one letter would just return the row cap. */
+export const COMPANY_SEARCH_MIN = 2
+
+/**
+ * A LIMITED page of the companies list, plus the true total. The table holds the whole
+ * owner book (~24k rows) and PostgREST caps a response at 1000 rows, so "fetch them all
+ * and filter in the browser" silently became "fetch the first 1000 names alphabetically" —
+ * which is why a freshly created company could never be found in any picker. Finding a
+ * specific company is useCompanySearch's job, and that runs over the whole table in Postgres.
+ */
+export function useCompanyBook(limit = 100) {
   return useQuery({
-    queryKey: ['companies'],
+    queryKey: ['companies', 'book', { limit }],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
-      const { data, error } = await supabase.from('companies').select('*').order('name')
+      const { data, error, count } = await supabase
+        .from('companies')
+        .select('*', { count: 'exact' })
+        .order('name')
+        .limit(limit)
       if (error) throw error
-      return data
+      return { rows: data ?? [], total: count ?? 0 }
+    },
+  })
+}
+
+/** Search every company in Postgres — matched on name, phone or website. */
+export function useCompanySearch(query: string, limit = 50) {
+  // or() uses commas and parens as syntax, so they cannot ride along in the query text
+  const q = query.replace(/[,()]/g, ' ').replace(/\s+/g, ' ').trim()
+  return useQuery({
+    queryKey: ['companies', 'search', { q, limit }],
+    enabled: q.length >= COMPANY_SEARCH_MIN,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .or(`name.ilike.%${q}%,phone.ilike.%${q}%,website.ilike.%${q}%`)
+        .order('name')
+        .limit(limit)
+      if (error) throw error
+      return data ?? []
     },
   })
 }

@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CompanySelect } from '@/components/company-select'
-import { useCompanies } from '@/hooks/use-companies'
+import { useCompany } from '@/hooks/use-companies'
 import { useUpsertComp, type PropertyComp } from '@/hooks/use-comps'
 import { useAuth } from '@/hooks/use-auth'
 import type { TablesUpdate } from '@/lib/database.types'
@@ -62,8 +62,9 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
   const [expire, setExpire] = useState('')
   const [fee, setFee] = useState('')
   const [tenantCompanyId, setTenantCompanyId] = useState<string | null>(null)
-  // Only to resolve the picked company's name into tenant_name (cached list, no refetch).
-  const { data: companies = [] } = useCompanies()
+  // Only to resolve the picked company's name into tenant_name. Fetched by id — the old
+  // "find it in the full list" broke silently once the list hit PostgREST's 1000-row cap.
+  const { data: pickedCompany } = useCompany(tenantCompanyId ?? undefined)
 
   useEffect(() => {
     if (!open) return
@@ -117,8 +118,9 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
         // disagree. Clearing the picker keeps the old name but nulls the link — the DB
         // trigger then re-resolves (or re-creates) the company from the name.
         payload.tenant_company_id = tenantCompanyId
-        const picked = companies.find((co) => co.id === tenantCompanyId)
-        if (picked) payload.tenant_name = picked.name
+        if (pickedCompany && pickedCompany.id === tenantCompanyId) {
+          payload.tenant_name = pickedCompany.name
+        }
       }
     }
     if (editing) payload.id = comp!.id

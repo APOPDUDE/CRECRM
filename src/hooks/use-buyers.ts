@@ -157,12 +157,29 @@ export function useMarkContactAsBuyer() {
 export function useApproveBuyerIntake() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ intakeId, clientId }: { intakeId: string; clientId: string }) => {
+    mutationFn: async ({
+      intakeId,
+      clientId,
+      contactId,
+    }: {
+      intakeId: string
+      clientId: string
+      /** The contact the client hangs on — recorded on intakes that had no match at tag time. */
+      contactId?: string | null
+    }) => {
       const { error } = await supabase.rpc('approve_buyer_intake', {
         p_intake_id: intakeId,
         p_client_id: clientId,
       })
       if (error) throw error
+      if (contactId) {
+        // Best-effort back-link for history/dedupe; the approve itself already succeeded.
+        await supabase
+          .from('buyer_intakes')
+          .update({ contact_id: contactId })
+          .eq('id', intakeId)
+          .is('contact_id', null)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['buyer_intakes'] })

@@ -23,8 +23,14 @@ import {
 import { CompanyFormDialog, companyTypeLabels } from '@/components/company-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
-import { useCompanies, useDeleteCompany } from '@/hooks/use-companies'
+import {
+  COMPANY_SEARCH_MIN,
+  useCompanyBook,
+  useCompanySearch,
+  useDeleteCompany,
+} from '@/hooks/use-companies'
 import type { Company } from '@/hooks/use-companies'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { friendlyDbError } from '@/lib/db-errors'
 
 const typeBadgeClasses: Record<Company['type'], string> = {
@@ -46,7 +52,6 @@ export function CompanyTypeBadge({ type }: { type: Company['type'] }) {
 
 export function CompaniesPage() {
   const navigate = useNavigate()
-  const { data: companies, isLoading, isError, refetch } = useCompanies()
   const deleteCompany = useDeleteCompany()
 
   const [search, setSearch] = useState('')
@@ -54,15 +59,21 @@ export function CompaniesPage() {
   const [editing, setEditing] = useState<Company | null>(null)
   const [deleting, setDeleting] = useState<Company | null>(null)
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return companies ?? []
-    return (companies ?? []).filter((c) =>
-      [c.name, c.phone, c.website, companyTypeLabels[c.type]]
-        .filter(Boolean)
-        .some((field) => field!.toLowerCase().includes(q)),
-    )
-  }, [companies, search])
+  // Typing searches the whole table in Postgres. The old version fetched "all" companies
+  // and filtered in the browser — PostgREST silently caps that at 1000 rows, so with ~24k
+  // companies most of the book (including anything just created) was unfindable here.
+  const query = useDebouncedValue(search.trim(), 250)
+  const searching = query.length >= COMPANY_SEARCH_MIN
+  const book = useCompanyBook(100)
+  const results = useCompanySearch(query, 200)
+  const filtered = useMemo(
+    () => (searching ? (results.data ?? []) : (book.data?.rows ?? [])),
+    [searching, results.data, book.data],
+  )
+  const total = book.data?.total ?? 0
+  const isLoading = searching ? results.isLoading : book.isLoading
+  const isError = searching ? results.isError : book.isError
+  const refetch = searching ? results.refetch : book.refetch
 
   const openCreate = () => {
     setEditing(null)
@@ -144,7 +155,7 @@ export function CompaniesPage() {
         </div>
       ) : isError ? (
         <ListErrorState message="Could not load companies." onRetry={() => refetch()} />
-      ) : (companies ?? []).length === 0 ? (
+      ) : !searching && total === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
             No companies yet — add the landlords, tenants and brokers you work with.
@@ -160,6 +171,13 @@ export function CompaniesPage() {
         </div>
       ) : (
         <>
+          <p className="text-xs text-muted-foreground">
+            {searching
+              ? `${filtered.length} match${filtered.length === 1 ? '' : 'es'}`
+              : total > filtered.length
+                ? `Showing the first ${filtered.length} of ${total.toLocaleString()} companies — search to find the rest`
+                : `${total.toLocaleString()} companies`}
+          </p>
           {/* Desktop table */}
           <div className="hidden rounded-lg border md:block">
             <Table>

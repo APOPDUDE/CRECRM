@@ -29,9 +29,11 @@ import {
 } from '@/components/buyer-criteria-fields'
 import type { BuyerCriteria } from '@/components/buyer-criteria-fields'
 import { useAuth } from '@/hooks/use-auth'
+import { useUpsertContactByPhone } from '@/hooks/use-contacts'
 import { useCreateTenantRep } from '@/hooks/use-tenant-reps'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
+import { formatPhone } from '@/lib/format'
 
 const NONE = '__none__'
 
@@ -56,13 +58,25 @@ export function AddBuyerDialog({
     companyId?: string | null
     /** Shown on the contact picker, which can't always resolve a name from its capped list. */
     contactLabel?: string | null
+    /**
+     * Identity captured at intake time (the GHL buyer tag) when no CRM contact exists yet.
+     * Submitting creates the contact from this automatically — filling in a buyer must
+     * never mean retyping a name and phone the intake already knows.
+     */
+    newContact?: {
+      firstName: string | null
+      lastName: string | null
+      phone: string | null
+      email: string | null
+    } | null
   } | null
-  /** The client that was just created, so a caller can link its queue entry to it. */
-  onCreated?: (clientId: string) => void
+  /** The client + the contact it hangs on, so a caller can link its queue entry to both. */
+  onCreated?: (clientId: string, contactId: string) => void
 }) {
   const { session } = useAuth()
   const userId = session?.user.id
   const createClient = useCreateTenantRep()
+  const upsertContact = useUpsertContactByPhone()
 
   const [contactId, setContactId] = useState<string | null>(null)
   const [companyId, setCompanyId] = useState<string | null>(null)
@@ -81,13 +95,53 @@ export function AddBuyerDialog({
     setCriteria(emptyBuyerCriteria())
   }, [open, prefill?.contactId, prefill?.companyId])
 
-  const handleSubmit = (e: FormEvent) => {
+  const newContact = prefill?.newContact ?? null
+  // The contacts table demands an identity (phone or email) — without one the intake
+  // can't become a contact automatically and the picker has to be used.
+  const canCreateFromIntake = !!newContact && !!(newContact.phone || newContact.email)
+  const newContactLabel = newContact
+    ? [newContact.firstName, newContact.lastName].filter(Boolean).join(' ') ||
+      formatPhone(newContact.phone) ||
+      newContact.email ||
+      null
+    : null
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!contactId || !userId) return
+    if (!userId) return
+    if (!contactId && !canCreateFromIntake) return
+
+    // No contact picked but the intake knows who this is: mint the contact right here,
+    // seated at whatever company was picked (or created) above. Keyed by phone, so if a
+    // contact with this number appeared since the intake, it is updated, not duplicated.
+    let cid = contactId
+    if (!cid && newContact) {
+      try {
+        const created = await upsertContact.mutateAsync({
+          first_name:
+            newContact.firstName?.trim() ||
+            formatPhone(newContact.phone) ||
+            newContact.email ||
+            'Unknown',
+          last_name: newContact.lastName?.trim() || null,
+          phone: newContact.phone || null,
+          email: newContact.email || null,
+          company_id: companyId,
+          source: 'ghl',
+        })
+        cid = created.id
+      } catch (error) {
+        toast.error(friendlyDbError(error, 'Could not create the contact'))
+        return
+      }
+    }
+    if (!cid) return
+    const finalContactId = cid
+
     createClient.mutate(
       {
         owner_id: userId,
-        contact_id: contactId,
+        contact_id: finalContactId,
         company_id: companyId,
         is_rep: true,
         deal_type: 'sale',
@@ -100,7 +154,7 @@ export function AddBuyerDialog({
       {
         onSuccess: (created) => {
           toast.success('Buyer added')
-          if (created?.id) onCreated?.(created.id)
+          if (created?.id) onCreated?.(created.id, finalContactId)
           onOpenChange(false)
         },
         onError: (error) => toast.error(friendlyDbError(error, 'Could not add buyer')),
@@ -121,9 +175,20 @@ export function AddBuyerDialog({
               value={contactId}
               onChange={setContactId}
               companyId={companyId ?? undefined}
-              placeholder="Select or create contact"
+              placeholder={
+                !contactId && canCreateFromIntake && newContactLabel
+                  ? `New contact: ${newContactLabel}`
+                  : 'Select or create contact'
+              }
               fallbackLabel={contactId && contactId === prefill?.contactId ? prefill?.contactLabel : null}
             />
+            {!contactId && newContact && (
+              <p className="text-xs text-muted-foreground">
+                {canCreateFromIntake
+                  ? `“${newContactLabel}” isn't a contact yet — they'll be created automatically when you add the buyer.`
+                  : 'This intake has no phone or email, so pick or create the contact by hand.'}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Company</Label>
@@ -187,8 +252,15 @@ export function AddBuyerDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={createClient.isPending || !contactId}>
-              {createClient.isPending ? 'Adding…' : 'Add buyer'}
+            <Button
+              type="submit"
+              disabled={
+                createClient.isPending ||
+                upsertContact.isPending ||
+                (!contactId && !canCreateFromIntake)
+              }
+            >
+              {createClient.isPending || upsertContact.isPending ? 'Adding…' : 'Add buyer'}
             </Button>
           </DialogFooter>
         </form>
