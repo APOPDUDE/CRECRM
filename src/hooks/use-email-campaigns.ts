@@ -83,18 +83,22 @@ export type OutreachAudienceRequest = {
   never_answered: boolean
   recent_days: number
   limit?: number
+  /** Naming a campaign makes the call COMMITTING: it stamps last_campaigned_at on every
+   *  sendable address, which is the double-send guard. Omit for a preview. */
+  campaign_id?: string
 }
 
 /**
  * Build an email audience from the spine. A straight RPC -- there is nothing to fetch from a
- * third party any more, the list IS a Supabase query. Always a dry run from the page; the
- * committing run (which stamps last_campaigned_at) happens at export time.
+ * third party any more, the list IS a Supabase query. The page previews with a dry run; the
+ * CSV export re-runs it with campaign_id set, so the rows in the file are exactly the rows
+ * that got stamped.
  */
 export function useOutreachAudiencePreview() {
   return useMutation({
     mutationFn: async (req: OutreachAudienceRequest): Promise<AudiencePreview> => {
       const { data, error } = await supabase.rpc('outreach_audience', {
-        p: { ...req, dry_run: true, limit: req.limit ?? 5000 },
+        p: { ...req, dry_run: !req.campaign_id, limit: req.limit ?? 5000 },
       })
       if (error) throw error
       return data as unknown as AudiencePreview

@@ -144,16 +144,36 @@ export function EmailPage() {
    * Proceed") — never on a live campaign. Alex picked that as the verifier, so a CSV import is
    * the correct path: an API push would silently skip verification entirely. Columns are the
    * canonical merge vocabulary, so the seeded templates render as-is.
+   *
+   * Exporting is the COMMITTING step: the audience is rebuilt with campaign_id set, which
+   * stamps last_campaigned_at on every exported address — the double-send guard. Lose the file?
+   * Set "skip anyone emailed" to 0 days and export again; the same rows come back.
    */
-  const exportCsv = () => {
+  const exportCsv = async () => {
     if (!preview?.sendable?.length) return
+    const slug = (audienceLabel || 'audience').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 48)
+    const name = campaignName.trim() || `AXIS · ${audienceLabel} · ${template?.name ?? ''}`
+    let committed: AudiencePreview
+    try {
+      committed = await audienceMut.mutateAsync({
+        lists,
+        audience: audienceLabel,
+        never_answered: true,
+        recent_days: recentDays,
+        campaign_id: name,
+      })
+      if (!committed.ok) throw new Error(committed.reason ?? 'audience rebuild failed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'The export failed — nothing was stamped.')
+      return
+    }
     const cols = [
       'email', 'first_name', 'last_name', 'company_name', 'phone_number',
       'owner_name', 'property_address', 'street', 'city', 'county', 'state', 'zip',
       'property_type', 'building_sf', 'land_acres', 'parcel_id',
       'crm_contact_id', 'crm_property_id', 'audience',
     ]
-    const rows = preview.sendable.map((l) =>
+    const rows = committed.sendable.map((l) =>
       cols.map((c) =>
         c === 'email'
           ? l.email
@@ -162,10 +182,10 @@ export function EmailPage() {
             : (l.custom_fields?.[c] ?? ''),
       ),
     )
-    const slug = (audienceLabel || 'audience').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 48)
+    setPreview(committed)
     downloadCsv(`smartlead-${slug}-${todayStamp()}.csv`, toCsv(cols, rows))
     toast.success(
-      `${rows.length} leads exported. Import into Smartlead and turn verification on at import.`,
+      `${rows.length} leads exported and marked campaigned. Import into Smartlead and turn verification on at import.`,
     )
   }
 
