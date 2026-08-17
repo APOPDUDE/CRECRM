@@ -14,6 +14,10 @@ export const N8N_PATHS = {
   scrapeUrl: 'cre-scrape-url',
   scrapeCrexi: 'cre-scrape-crexi',
   searchTenant: 'cre-search-tenant',
+  /** Preview a GHL tagged list as a deduped, suppression-checked email audience. Writes nothing. */
+  emailAudience: 'cre-email-audience',
+  /** Build the Smartlead campaign from a stored template. Answers immediately, works on. */
+  emailLaunch: 'cre-email-launch',
 } as const
 
 /** The live custom tenant-intake form (n8n-hosted HTML form). */

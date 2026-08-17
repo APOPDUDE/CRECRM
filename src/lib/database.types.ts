@@ -995,6 +995,14 @@ export type Database = {
           created_at: string
           do_not_call: boolean
           email: string | null
+          email_bounced_at: string | null
+          email_campaign_id: string | null
+          email_identity_suspect_at: string | null
+          email_last_campaigned_at: string | null
+          email_opt_out_at: string | null
+          email_status: Database["public"]["Enums"]["email_deliverability"] | null
+          email_status_at: string | null
+          email_status_source: string | null
           email_verified_at: string | null
           first_name: string
           ghl_contact_id: string | null
@@ -1014,6 +1022,7 @@ export type Database = {
           updated_at: string
           verified_at: string | null
           verified_by: string | null
+          verified_evidence_id: string | null
         }
         Insert: {
           archived?: boolean
@@ -1025,6 +1034,14 @@ export type Database = {
           created_at?: string
           do_not_call?: boolean
           email?: string | null
+          email_bounced_at?: string | null
+          email_campaign_id?: string | null
+          email_identity_suspect_at?: string | null
+          email_last_campaigned_at?: string | null
+          email_opt_out_at?: string | null
+          email_status?: Database["public"]["Enums"]["email_deliverability"] | null
+          email_status_at?: string | null
+          email_status_source?: string | null
           email_verified_at?: string | null
           first_name: string
           ghl_contact_id?: string | null
@@ -1044,6 +1061,7 @@ export type Database = {
           updated_at?: string
           verified_at?: string | null
           verified_by?: string | null
+          verified_evidence_id?: string | null
         }
         Update: {
           archived?: boolean
@@ -1055,6 +1073,14 @@ export type Database = {
           created_at?: string
           do_not_call?: boolean
           email?: string | null
+          email_bounced_at?: string | null
+          email_campaign_id?: string | null
+          email_identity_suspect_at?: string | null
+          email_last_campaigned_at?: string | null
+          email_opt_out_at?: string | null
+          email_status?: Database["public"]["Enums"]["email_deliverability"] | null
+          email_status_at?: string | null
+          email_status_source?: string | null
           email_verified_at?: string | null
           first_name?: string
           ghl_contact_id?: string | null
@@ -1074,6 +1100,7 @@ export type Database = {
           updated_at?: string
           verified_at?: string | null
           verified_by?: string | null
+          verified_evidence_id?: string | null
         }
         Relationships: [
           {
@@ -1294,6 +1321,48 @@ export type Database = {
           subject?: string | null
           tags?: string[] | null
           transcript?: string | null
+        }
+        Relationships: []
+      }
+      email_sequence_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          evidence: string | null
+          id: string
+          is_active: boolean
+          key: string
+          name: string
+          purpose: Database["public"]["Enums"]["email_campaign_purpose"]
+          requires_postal_address: boolean
+          steps: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          evidence?: string | null
+          id?: string
+          is_active?: boolean
+          key: string
+          name: string
+          purpose: Database["public"]["Enums"]["email_campaign_purpose"]
+          requires_postal_address?: boolean
+          steps: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          evidence?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string
+          name?: string
+          purpose?: Database["public"]["Enums"]["email_campaign_purpose"]
+          requires_postal_address?: boolean
+          steps?: Json
+          updated_at?: string
         }
         Relationships: []
       }
@@ -3597,6 +3666,21 @@ export type Database = {
         | "other"
         | "vendor"
         | "owning_entity"
+      email_campaign_purpose:
+        | "off_market_seller"
+        | "buyer_list"
+        | "listing_to_nearby"
+        | "space_seeker"
+        | "expiring_lease"
+        | "general"
+      email_deliverability:
+        | "valid"
+        | "catch_all"
+        | "unknown"
+        | "invalid"
+        | "spamtrap"
+        | "abuse"
+        | "do_not_mail"
       contact_category:
         | "landlord"
         | "owning_entity"
@@ -3834,6 +3918,23 @@ export const Constants = {
         "other",
         "vendor",
         "owning_entity",
+      ],
+      email_campaign_purpose: [
+        "off_market_seller",
+        "buyer_list",
+        "listing_to_nearby",
+        "space_seeker",
+        "expiring_lease",
+        "general",
+      ],
+      email_deliverability: [
+        "valid",
+        "catch_all",
+        "unknown",
+        "invalid",
+        "spamtrap",
+        "abuse",
+        "do_not_mail",
       ],
       contact_category: [
         "landlord",

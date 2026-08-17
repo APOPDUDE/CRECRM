@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
+  Mail,
   Map,
   Menu,
   MoreHorizontal,
@@ -47,10 +48,12 @@ const moreItems = [
   { to: '/contacts', label: 'Contacts', icon: Contact },
   { to: '/companies', label: 'Companies', icon: Users },
   { to: '/zoning', label: 'Zoning', icon: Landmark },
+  { to: '/email', label: 'Email', icon: Mail },
 ]
 
 const sectionLabels: Record<string, string> = {
   '': 'Dashboard',
+  email: 'Email campaigns',
   pipelines: 'Pipelines',
   prospecting: 'Prospecting',
   // Detail/match boards still live under these path prefixes — keep their breadcrumb labels.

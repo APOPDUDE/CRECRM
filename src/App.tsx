@@ -22,6 +22,7 @@ import { PropertiesPage } from '@/pages/properties'
 import { PropertyDetailPage } from '@/pages/property-detail'
 import { ActivityPage } from '@/pages/activity'
 import ZoningLibraryPage from '@/pages/zoning-library'
+import { EmailPage } from '@/pages/email'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ export default function App() {
                 <Route path="/properties" element={<PropertiesPage />} />
                 <Route path="/properties/:id" element={<PropertyDetailPage />} />
                 <Route path="/zoning" element={<ZoningLibraryPage />} />
+                <Route path="/email" element={<EmailPage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
