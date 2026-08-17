@@ -18,6 +18,11 @@ export const N8N_PATHS = {
   emailAudience: 'cre-email-audience',
   /** Build the Smartlead campaign from a stored template. Answers immediately, works on. */
   emailLaunch: 'cre-email-launch',
+  /**
+   * Push one outreach list's phone channel into GHL (upsert by phone, tag list-<name>).
+   * n8n reads the list from Supabase itself — the browser only names the list.
+   */
+  outreachGhlPush: 'cre-outreach-ghl-push',
 } as const
 
 /** The live custom tenant-intake form (n8n-hosted HTML form). */

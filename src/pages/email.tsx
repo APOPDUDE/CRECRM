@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Download, Loader2, Mail, Send, Users, X } from 'lucide-react'
+import { Download, Loader2, Mail, Send, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,39 +27,30 @@ import {
   missingTokens,
   renderTemplate,
   templateSteps,
-  useAudiencePreview,
-  useEmailLeadLists,
   useEmailTemplates,
-  useLaunchEmailCampaign,
-  usePoolAudiencePreview,
+  useOutreachAudiencePreview,
+  useOutreachLists,
   type AudienceLead,
   type AudiencePreview,
 } from '@/hooks/use-email-campaigns'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { downloadCsv, todayStamp, toCsv } from '@/lib/export-csv'
-import { automationEnabled } from '@/lib/n8n'
 import { cn } from '@/lib/utils'
 
 /**
- * Email campaigns — pick a GHL tagged list, see what it really is, and build a Smartlead
- * campaign from a template whose copy has measured reply rates behind it.
+ * Email campaigns — pick lists from the OUTREACH SPINE, see what they really are, and export a
+ * Smartlead-ready CSV from a template whose copy has measured reply rates behind it.
  *
- * The number that justifies this page: the tag "2810 buyers" holds 194 GHL contact rows, but
- * they are 66 people. Terrakotta mints one contact per PHONE NUMBER, so the same person, the
- * same property and the same address repeat up to five times. Handing a tag straight to
- * Smartlead mails one human five times from one campaign. The collapse, the suppression and the
- * identity resolution all happen in Postgres (email_audience_build); this page's whole job is to
- * show Alex the result BEFORE anything is spent.
+ * The audience is a Supabase query now (outreach_targets.lists), not a GHL tag pull. That is
+ * the whole point of the spine: the Nicole list imported into GHL as 552 contacts of which 45
+ * were tagged, and nobody could reconcile it because the list lived only as a GHL tag. Lists
+ * live in the CRM; GHL is a push destination for the phone channel.
+ *
+ * The collapse, the suppression and the identity resolution all happen in Postgres
+ * (outreach_audience); this page's whole job is to show Alex the result BEFORE anything is
+ * spent. A phone "no" (said_no:phone) and a confirmed wrong person hold automatically; a wrong
+ * NUMBER never suppresses the email channel.
  */
-
-/** Suggestions only — a tag typed here is passed through verbatim, and a wrong one previews as 0. */
-const SUGGESTED_TAGS = [
-  '2810 buyers',
-  'list-nicole-verified-contacts-already',
-  'list-nicole-x2',
-  'owner-verified',
-  'buyer',
-]
 
 const PURPOSE_LABELS: Record<string, string> = {
   off_market_seller: 'Off-market offer',
@@ -98,30 +89,16 @@ function CountTile({
 }
 
 export function EmailPage() {
-  /**
-   * Two audience sources, one page. GHL tags go out through n8n (the private token must never
-   * reach the bundle); the pool is a straight RPC. Both return the identical shape, so everything
-   * below this line is source-agnostic.
-   */
-  const [source, setSource] = usePersistentState<'ghl' | 'pool'>('email-audience-source', 'ghl')
-  const [poolLists, setPoolLists] = usePersistentState<string[]>('email-pool-lists', [])
-  const [tags, setTags] = usePersistentState<string[]>('email-audience-tags', [])
-  const [tagDraft, setTagDraft] = useState('')
-  // Alex 2026-08-17: "use all the emails" -- business domains are in by default.
-  const [allowBusiness, setAllowBusiness] = useState(true)
+  const [lists, setLists] = usePersistentState<string[]>('email-outreach-lists', [])
   const [recentDays, setRecentDays] = useState(60)
   const [templateKey, setTemplateKey] = useState<string>('')
   const [campaignName, setCampaignName] = useState('')
-  const [dailyCap, setDailyCap] = useState(20)
   const [previewIdx, setPreviewIdx] = useState(0)
   const [preview, setPreview] = useState<AudiencePreview | null>(null)
 
   const { data: templates, isLoading: templatesLoading } = useEmailTemplates()
-  const { data: leadLists } = useEmailLeadLists()
-  const previewMut = useAudiencePreview()
-  const poolMut = usePoolAudiencePreview()
-  const launchMut = useLaunchEmailCampaign()
-  const pending = previewMut.isPending || poolMut.isPending
+  const { data: outreachLists } = useOutreachLists()
+  const audienceMut = useOutreachAudiencePreview()
 
   const template = useMemo(
     () => (templates ?? []).find((t) => t.key === templateKey),
@@ -129,7 +106,7 @@ export function EmailPage() {
   )
   const steps = useMemo(() => templateSteps(template), [template])
 
-  const audienceLabel = (source === 'pool' ? poolLists : tags).join(' + ')
+  const audienceLabel = lists.join(' + ')
   const lead: AudienceLead | undefined = preview?.sendable?.[previewIdx]
 
   const heldByReason = useMemo(() => {
@@ -138,34 +115,18 @@ export function EmailPage() {
     return [...m.entries()].sort((a, b) => b[1] - a[1])
   }, [preview])
 
-  const addTag = (raw: string) => {
-    const t = raw.trim()
-    if (!t) return
-    setTags((prev) => (prev.includes(t) ? prev : [...prev, t]))
-    setTagDraft('')
-  }
-
   const runPreview = async () => {
-    const picked = source === 'pool' ? poolLists : tags
-    if (!picked.length) {
-      toast.error(source === 'pool' ? 'Pick at least one list.' : 'Pick at least one GHL tag.')
+    if (!lists.length) {
+      toast.error('Pick at least one list.')
       return
     }
     try {
-      const res =
-        source === 'pool'
-          ? await poolMut.mutateAsync({
-              lists: poolLists,
-              audience: audienceLabel,
-              never_answered: true,
-              recent_days: recentDays,
-            })
-          : await previewMut.mutateAsync({
-              tags,
-              audience: audienceLabel,
-              allow_business_domains: allowBusiness,
-              recent_days: recentDays,
-            })
+      const res = await audienceMut.mutateAsync({
+        lists,
+        audience: audienceLabel,
+        never_answered: true,
+        recent_days: recentDays,
+      })
       if (!res?.ok) {
         toast.error(res?.reason ?? 'The audience could not be built.')
         return
@@ -173,9 +134,7 @@ export function EmailPage() {
       setPreview(res)
       setPreviewIdx(0)
       toast.success(
-        source === 'pool'
-          ? `${res.counts.sendable} sendable from ${res.counts.addresses} pooled addresses (${res.counts.held} held).`
-          : `${res.counts.sendable} sendable from ${res.counts.ghl_rows} GHL rows (${res.counts.held} held).`,
+        `${res.counts.sendable} sendable from ${res.counts.addresses} addresses (${res.counts.held} held).`,
       )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'The audience preview failed.')
@@ -185,8 +144,8 @@ export function EmailPage() {
   /**
    * Smartlead's own verification only runs at IMPORT, in its UI ("Launch Verification &
    * Proceed") — never on a live campaign. Alex picked that as the verifier, so a CSV import is
-   * the correct path for a pool campaign: an API push would silently skip verification entirely.
-   * Columns are the canonical merge vocabulary, so the seeded templates render as-is.
+   * the correct path: an API push would silently skip verification entirely. Columns are the
+   * canonical merge vocabulary, so the seeded templates render as-is.
    */
   const exportCsv = () => {
     if (!preview?.sendable?.length) return
@@ -212,42 +171,6 @@ export function EmailPage() {
     )
   }
 
-  const launch = async () => {
-    if (!preview || !template) return
-    try {
-      const res = await launchMut.mutateAsync({
-        tags,
-        audience: audienceLabel,
-        allow_business_domains: allowBusiness,
-        recent_days: recentDays,
-        template_key: template.key,
-        campaign_name: campaignName.trim() || `AXIS · ${audienceLabel} · ${template.name}`,
-        daily_cap: dailyCap,
-        mode: 'stage',
-      })
-      toast.success(
-        res?.queued
-          ? 'Building the campaign in Smartlead — it will land as a draft, and Slack will confirm.'
-          : 'Sent to the launcher.',
-      )
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'The launch failed.')
-    }
-  }
-
-  if (!automationEnabled()) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-xl font-semibold">Email campaigns</h1>
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Automation isn’t configured for this environment, so campaigns can’t be built here.
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -265,138 +188,69 @@ export function EmailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ['ghl', 'GHL tagged list'],
-                ['pool', 'Email pool — never answered'],
-              ] as const
-            ).map(([v, label]) => (
-              <Button
-                key={v}
-                size="sm"
-                variant={source === v ? 'default' : 'outline'}
-                onClick={() => {
-                  setSource(v)
-                  setPreview(null)
-                }}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-
-          {source === 'pool' ? (
-            <div className="space-y-2">
-              <Label>Lists to re-mail</Label>
-              <div className="max-h-64 overflow-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10" />
-                      <TableHead>List</TableHead>
-                      <TableHead className="text-right">Never answered</TableHead>
-                      <TableHead className="text-right">Addresses</TableHead>
-                      <TableHead className="text-right">Replied</TableHead>
-                      <TableHead className="text-right">Bounced</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(leadLists ?? []).map((l) => (
-                      <TableRow key={l.list ?? ''}>
-                        <TableCell>
-                          <Checkbox
-                            checked={poolLists.includes(l.list ?? '')}
-                            onCheckedChange={(v) =>
-                              setPoolLists((prev) =>
-                                v === true
-                                  ? [...prev, l.list ?? '']
-                                  : prev.filter((x) => x !== (l.list ?? '')),
-                              )
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className="text-sm">{l.list}</TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">
-                          {l.never_answered}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {l.addresses}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {l.replied}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {l.bounced}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Every address we hold from Smartlead and GHL lives in the pool — they are{' '}
-                <strong>not</strong> contacts, and they stay off the property card until somebody
-                actually replies. Anyone who replied, bounced or opted out is filtered out
-                automatically.
-              </p>
-            </div>
-          ) : (
           <div className="space-y-2">
-            <Label htmlFor="email-tag">GHL tags</Label>
-            <div className="flex flex-wrap items-center gap-2">
-              {tags.map((t) => (
-                <Badge key={t} variant="outline" className="gap-1 py-1">
-                  {t}
-                  <button
-                    type="button"
-                    aria-label={`Remove ${t}`}
-                    onClick={() => setTags((prev) => prev.filter((x) => x !== t))}
-                    className="ml-0.5 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </Badge>
-              ))}
-              <Input
-                id="email-tag"
-                value={tagDraft}
-                onChange={(e) => setTagDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ',') {
-                    e.preventDefault()
-                    addTag(tagDraft)
-                  }
-                }}
-                onBlur={() => addTag(tagDraft)}
-                placeholder="Type a tag and press Enter…"
-                className="h-8 w-56"
-                list="email-tag-suggestions"
-              />
-              <datalist id="email-tag-suggestions">
-                {SUGGESTED_TAGS.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
+            <Label>Outreach lists</Label>
+            <div className="max-h-64 overflow-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10" />
+                    <TableHead>List</TableHead>
+                    <TableHead className="text-right">People</TableHead>
+                    <TableHead className="text-right">Emailable</TableHead>
+                    <TableHead className="text-right">Never answered</TableHead>
+                    <TableHead className="text-right">Reached</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(outreachLists ?? []).map((l) => (
+                    <TableRow key={l.list ?? ''}>
+                      <TableCell>
+                        <Checkbox
+                          checked={lists.includes(l.list ?? '')}
+                          onCheckedChange={(v) =>
+                            setLists((prev) =>
+                              v === true
+                                ? [...prev, l.list ?? '']
+                                : prev.filter((x) => x !== (l.list ?? '')),
+                            )
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className="text-sm">{l.list}</TableCell>
+                      <TableCell className="text-right font-medium tabular-nums">
+                        {l.targets}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {l.with_email}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {l.never_answered}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {l.reached}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!outreachLists?.length ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                        No lists yet — import one under Prospecting → Import list.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
             </div>
             <p className="text-xs text-muted-foreground">
-              Contacts carrying any of these tags. People tagged <code>dnc</code>,{' '}
-              <code>do not call</code>, <code>not interested</code> or <code>wrong person</code>{' '}
-              are always held back, whichever list they’re on.
+              Lists live on the outreach spine — every person imported once, pre-loaded on every
+              channel they have data for. They are <strong>not</strong> contacts and stay off the
+              property card until somebody actually replies. Anyone who replied, bounced, opted
+              out, said no by phone or is a confirmed wrong person is held automatically.
             </p>
           </div>
-          )}
 
           <div className="flex flex-wrap items-end gap-6">
-            {source === 'ghl' ? (
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={allowBusiness}
-                  onCheckedChange={(v) => setAllowBusiness(v === true)}
-                />
-                Include business-domain addresses
-              </label>
-            ) : null}
             <div className="space-y-1">
               <Label htmlFor="recent-days" className="text-xs">
                 Skip anyone emailed in the last
@@ -413,26 +267,16 @@ export function EmailPage() {
                 <span className="text-sm text-muted-foreground">days</span>
               </div>
             </div>
-            <Button onClick={runPreview} disabled={pending}>
-              {pending ? (
+            <Button onClick={runPreview} disabled={audienceMut.isPending}>
+              {audienceMut.isPending ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" />{' '}
-                  {source === 'pool' ? 'Reading the pool…' : 'Reading GHL…'}
+                  <Loader2 className="size-4 animate-spin" /> Building the audience…
                 </>
               ) : (
                 'Preview audience'
               )}
             </Button>
           </div>
-
-          {source === 'ghl' && !allowBusiness ? (
-            <p className="flex items-start gap-2 text-xs text-amber-700">
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-              Business-domain addresses are held by default. Skip-traced corporate addresses carry
-              name collisions — a surname matched to a big company’s domain — and a cold pitch to
-              the wrong executive is a reputation problem, not a bounce.
-            </p>
-          ) : null}
         </CardContent>
       </Card>
 
@@ -444,21 +288,18 @@ export function EmailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              <CountTile
-                label={source === 'pool' ? 'Pooled addresses' : 'GHL contact rows'}
-                value={source === 'pool' ? preview.counts.addresses : preview.counts.ghl_rows}
-              />
-              <CountTile
-                label="Distinct addresses"
-                value={preview.counts.addresses}
-                hint={source === 'pool' ? 'already one row per address' : 'one row per phone collapsed'}
-              />
+              <CountTile label="Addresses considered" value={preview.counts.addresses} />
               <CountTile label="Sendable" value={preview.counts.sendable} tone="good" />
               <CountTile label="Held back" value={preview.counts.held} tone="warn" />
               <CountTile
                 label="Consumer mailboxes"
                 value={preview.sendable.filter((l) => l.domain_type === 'consumer').length}
                 hint="of the sendable"
+              />
+              <CountTile
+                label="Property-linked"
+                value={preview.sendable.filter((l) => l.crm_property_id).length}
+                hint="personalise from CRM facts"
               />
             </div>
 
@@ -482,9 +323,7 @@ export function EmailPage() {
                     <TableHead>Address</TableHead>
                     <TableHead>Person</TableHead>
                     <TableHead>Property</TableHead>
-                    <TableHead className="text-right">
-                      {source === 'pool' ? 'Lists' : 'GHL rows'}
-                    </TableHead>
+                    <TableHead className="text-right">Lists</TableHead>
                     <TableHead>In CRM</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -503,9 +342,7 @@ export function EmailPage() {
                         {l.custom_fields?.property_address ?? '—'}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {source === 'pool'
-                          ? ((l as unknown as { lists?: string[] }).lists?.length ?? 1)
-                          : l.ghl_rows_collapsed}
+                        {(l as unknown as { lists?: string[] }).lists?.length ?? 1}
                       </TableCell>
                       <TableCell>
                         {l.crm_contact_id ? (
@@ -618,7 +455,7 @@ export function EmailPage() {
         </Card>
       ) : null}
 
-      {/* ------------------------------------------------------------------ 3. Launch */}
+      {/* ------------------------------------------------------------------ 3. Export */}
       {preview && preview.sendable.length && template ? (
         <Card>
           <CardHeader className="pb-3">
@@ -638,49 +475,16 @@ export function EmailPage() {
                   className="w-96"
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="daily-cap" className="text-xs">
-                  Send per day
-                </Label>
-                <Input
-                  id="daily-cap"
-                  type="number"
-                  min={1}
-                  value={dailyCap}
-                  onChange={(e) => setDailyCap(Number(e.target.value) || 1)}
-                  className="h-9 w-24"
-                />
-              </div>
-              <Button variant="outline" onClick={exportCsv}>
+              <Button onClick={exportCsv}>
                 <Download className="size-4" /> Export CSV for Smartlead
               </Button>
-              {source === 'ghl' ? (
-                <Button onClick={launch} disabled={launchMut.isPending}>
-                  {launchMut.isPending ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" /> Building…
-                    </>
-                  ) : (
-                    `Build draft for ${preview.counts.sendable}`
-                  )}
-                </Button>
-              ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
-              {source === 'pool' ? (
-                <>
-                  <strong>Export the CSV</strong> and import it into Smartlead with verification
-                  turned on. Smartlead only verifies at import — never on a live campaign — so a
-                  direct API push would skip the check you chose as the verifier.
-                </>
-              ) : (
-                <>
-                  This creates the campaign in Smartlead as a <strong>draft</strong> and enrols the
-                  leads — it does not start sending. Review it in Smartlead and start it there.
-                </>
-              )}{' '}
-              The whole account can send 230 emails a day across every campaign, so keep the daily
-              number modest while a list is new.
+              <strong>Export the CSV</strong> and import it into Smartlead with verification
+              turned on. Smartlead only verifies at import — never on a live campaign — so a
+              direct API push would skip the check you chose as the verifier. The whole account
+              can send 230 emails a day across every campaign, so keep the daily number modest
+              while a list is new.
             </p>
           </CardContent>
         </Card>

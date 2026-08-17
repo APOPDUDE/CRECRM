@@ -15,6 +15,7 @@ import {
   Menu,
   MoreHorizontal,
   Target,
+  Upload,
   Users,
   Wallet,
   Warehouse,
@@ -52,9 +53,10 @@ const pipelinePrefixes = ['/pipelines', '/landlord-rep', '/tenant-rep']
 // table behind it exists.
 const prospectingItems = [
   { to: '/prospecting', label: 'Leads', icon: Target },
+  { to: '/outreach/import', label: 'Import list', icon: Upload },
   { to: '/email', label: 'Email', icon: Mail },
 ]
-const prospectingPrefixes = ['/prospecting', '/email']
+const prospectingPrefixes = ['/prospecting', '/outreach', '/email']
 
 const moreItems = [
   { to: '/tasks', label: 'Tasks', icon: ListTodo },

@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { callN8nWebhook, N8N_PATHS } from '@/lib/n8n'
 import type { Tables } from '@/lib/database.types'
 
 export type EmailTemplate = Tables<'email_sequence_templates'>
@@ -78,51 +77,60 @@ export type AudiencePreview = {
   held: AudienceHold[]
 }
 
-export type AudienceRequest = {
-  tags: string[]
-  audience: string
-  allow_business_domains: boolean
-  recent_days: number
+/**
+ * A list on the outreach spine, with per-channel reach. Lists live in Supabase
+ * (outreach_targets.lists) -- GHL is a push destination, never the source of truth.
+ */
+export type OutreachList = {
+  list: string | null
+  targets: number | null
+  with_email: number | null
+  with_phone: number | null
+  with_mail: number | null
+  with_property: number | null
+  reached: number | null
+  never_answered: number | null
+  held: number | null
+  last_import_at: string | null
 }
 
-/**
- * Preview an audience. Goes out through n8n because the GHL private token must never reach the
- * browser bundle; n8n pages GHL, flattens the custom fields, and hands the rows to the
- * email_audience_build RPC. Always a dry run — the preview must not have already changed the
- * book by the time Alex reads it.
- */
-export function useAudiencePreview() {
-  return useMutation({
-    mutationFn: async (req: AudienceRequest): Promise<AudiencePreview> =>
-      callN8nWebhook<AudiencePreview>(
-        `${N8N_PATHS.emailAudience}?key=axis-2026`,
-        { ...req, dry_run: true },
-        { timeoutMs: 180_000 },
-      ),
+export function useOutreachLists() {
+  return useQuery({
+    queryKey: ['outreach-lists'],
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<OutreachList[]> => {
+      const { data, error } = await supabase
+        .from('v_outreach_lists')
+        .select('*')
+        .order('targets', { ascending: false })
+      if (error) throw error
+      return data ?? []
+    },
   })
 }
 
-export type LaunchRequest = AudienceRequest & {
-  template_key: string
-  campaign_name: string
-  daily_cap: number
-  /** 'stage' leaves the Smartlead campaign DRAFTED for a human to start; 'send' starts it. */
-  mode: 'stage' | 'send'
+export type OutreachAudienceRequest = {
+  lists: string[]
+  audience: string
+  never_answered: boolean
+  recent_days: number
+  limit?: number
 }
 
-export type LaunchResult = { queued?: boolean; campaign_name?: string; message?: string }
-
 /**
- * Build the campaign in Smartlead. Answers immediately with `queued` and keeps working in the
- * background — enrolling a few hundred leads runs far past any HTTP timeout, and Cloudflare
- * closes the response near 100s.
+ * Build an email audience from the spine. A straight RPC -- there is nothing to fetch from a
+ * third party any more, the list IS a Supabase query. Always a dry run from the page; the
+ * committing run (which stamps last_campaigned_at) happens at export time.
  */
-export function useLaunchEmailCampaign() {
+export function useOutreachAudiencePreview() {
   return useMutation({
-    mutationFn: async (req: LaunchRequest): Promise<LaunchResult> =>
-      callN8nWebhook<LaunchResult>(`${N8N_PATHS.emailLaunch}?key=axis-2026`, req, {
-        timeoutMs: 120_000,
-      }),
+    mutationFn: async (req: OutreachAudienceRequest): Promise<AudiencePreview> => {
+      const { data, error } = await supabase.rpc('outreach_audience', {
+        p: { ...req, dry_run: true, limit: req.limit ?? 5000 },
+      })
+      if (error) throw error
+      return data as unknown as AudiencePreview
+    },
   })
 }
 
@@ -162,8 +170,9 @@ export function missingTokens(text: string, lead: AudienceLead | undefined): str
   return [...out]
 }
 
-/** Plain-English labels for the hold reasons email_audience_build emits. */
+/** Plain-English labels for the hold reasons outreach_audience emits. */
 export const HOLD_LABELS: Record<string, string> = {
+  wrong_person: 'Confirmed wrong person',
   ghl_dnd: 'Do-not-disturb in GHL',
   multi_property: 'Rows disagree on which property',
   ambiguous_contact: 'Two CRM contacts share this address',
@@ -187,60 +196,3 @@ export function holdLabel(reason: string): string {
   return reason
 }
 
-/* ------------------------------------------------------------------ the email lead pool */
-
-/**
- * A list in the pool — a Smartlead campaign name or a GHL tag — with how many of its addresses
- * never answered. This is the "re-email everyone from the off-market lists who never replied"
- * picker.
- */
-export type EmailLeadList = {
-  list: string
-  addresses: number
-  never_answered: number
-  replied: number
-  bounced: number
-  opted_out: number
-  with_property: number
-  last_sent_at: string | null
-}
-
-export function useEmailLeadLists() {
-  return useQuery({
-    queryKey: ['email-lead-lists'],
-    staleTime: 5 * 60_000,
-    queryFn: async (): Promise<EmailLeadList[]> => {
-      const { data, error } = await supabase
-        .from('v_email_lead_lists')
-        .select('*')
-        .order('never_answered', { ascending: false })
-      if (error) throw error
-      return (data ?? []) as EmailLeadList[]
-    },
-  })
-}
-
-export type PoolAudienceRequest = {
-  lists: string[]
-  audience: string
-  never_answered: boolean
-  recent_days: number
-  limit?: number
-}
-
-/**
- * Build a re-mail audience straight from the pool. Goes to Postgres directly rather than through
- * n8n — unlike the GHL path there is nothing to fetch from a third party, so there is no reason to
- * take the detour. Returns the identical shape, so the page renders it with the same code.
- */
-export function usePoolAudiencePreview() {
-  return useMutation({
-    mutationFn: async (req: PoolAudienceRequest): Promise<AudiencePreview> => {
-      const { data, error } = await supabase.rpc('email_lead_audience', {
-        p: { ...req, dry_run: true, limit: req.limit ?? 5000 },
-      })
-      if (error) throw error
-      return data as unknown as AudiencePreview
-    },
-  })
-}

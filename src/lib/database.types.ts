@@ -1324,119 +1324,264 @@ export type Database = {
         }
         Relationships: []
       }
-      email_leads: {
+      outreach_calls: {
         Row: {
-          bounced_at: string | null
-          category: Database["public"]["Enums"]["contact_category"] | null
-          company_name: string | null
-          contact_id: string | null
+          attempts: number
           created_at: string
-          email: string
-          email_status: Database["public"]["Enums"]["email_deliverability"] | null
-          email_status_at: string | null
-          first_name: string | null
+          disposition: string | null
+          dnc: boolean
+          ghl_contact_id: string | null
           id: string
-          last_campaigned_at: string | null
-          last_name: string | null
-          last_reply_at: string | null
-          last_sent_at: string | null
-          lists: string[]
-          name_source: string | null
-          opted_out_at: string | null
-          parcel_id: string | null
-          phone: string | null
-          property_address: string | null
-          property_city: string | null
-          property_county: string | null
-          property_id: string | null
-          property_state: string | null
-          property_zip: string | null
-          raw: Json | null
-          reply_category: string | null
-          sent_count: number
-          smartlead_campaign_ids: string[]
-          smartlead_lead_id: string | null
-          source: string
+          last_call_at: string | null
+          line_type: string | null
+          phone: string
+          phone_grade: string | null
+          target_id: string
           updated_at: string
         }
         Insert: {
-          bounced_at?: string | null
-          category?: Database["public"]["Enums"]["contact_category"] | null
-          company_name?: string | null
-          contact_id?: string | null
+          attempts?: number
           created_at?: string
-          email: string
-          email_status?: Database["public"]["Enums"]["email_deliverability"] | null
-          email_status_at?: string | null
-          first_name?: string | null
+          disposition?: string | null
+          dnc?: boolean
+          ghl_contact_id?: string | null
           id?: string
-          last_campaigned_at?: string | null
-          last_name?: string | null
-          last_reply_at?: string | null
-          last_sent_at?: string | null
-          lists?: string[]
-          name_source?: string | null
-          opted_out_at?: string | null
-          parcel_id?: string | null
-          phone?: string | null
-          property_address?: string | null
-          property_city?: string | null
-          property_county?: string | null
-          property_id?: string | null
-          property_state?: string | null
-          property_zip?: string | null
-          raw?: Json | null
-          reply_category?: string | null
-          sent_count?: number
-          smartlead_campaign_ids?: string[]
-          smartlead_lead_id?: string | null
-          source?: string
+          last_call_at?: string | null
+          line_type?: string | null
+          phone: string
+          phone_grade?: string | null
+          target_id: string
           updated_at?: string
         }
         Update: {
-          bounced_at?: string | null
-          category?: Database["public"]["Enums"]["contact_category"] | null
-          company_name?: string | null
-          contact_id?: string | null
+          attempts?: number
           created_at?: string
-          email?: string
-          email_status?: Database["public"]["Enums"]["email_deliverability"] | null
-          email_status_at?: string | null
-          first_name?: string | null
+          disposition?: string | null
+          dnc?: boolean
+          ghl_contact_id?: string | null
           id?: string
-          last_campaigned_at?: string | null
-          last_name?: string | null
-          last_reply_at?: string | null
-          last_sent_at?: string | null
-          lists?: string[]
-          name_source?: string | null
-          opted_out_at?: string | null
-          parcel_id?: string | null
-          phone?: string | null
-          property_address?: string | null
-          property_city?: string | null
-          property_county?: string | null
-          property_id?: string | null
-          property_state?: string | null
-          property_zip?: string | null
-          raw?: Json | null
-          reply_category?: string | null
-          sent_count?: number
-          smartlead_campaign_ids?: string[]
-          smartlead_lead_id?: string | null
-          source?: string
+          last_call_at?: string | null
+          line_type?: string | null
+          phone?: string
+          phone_grade?: string | null
+          target_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "email_leads_contact_id_fkey"
+            foreignKeyName: "outreach_calls_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_email: {
+        Row: {
+          bounced_at: string | null
+          created_at: string
+          email: string
+          email_status: Database["public"]["Enums"]["email_deliverability"] | null
+          email_status_at: string | null
+          email_verified_at: string | null
+          id: string
+          last_campaigned_at: string | null
+          last_reply_at: string | null
+          last_sent_at: string | null
+          opted_out_at: string | null
+          reply_category: string | null
+          sent_count: number
+          target_id: string
+          updated_at: string
+        }
+        Insert: {
+          bounced_at?: string | null
+          created_at?: string
+          email: string
+          email_status?: Database["public"]["Enums"]["email_deliverability"] | null
+          email_status_at?: string | null
+          email_verified_at?: string | null
+          id?: string
+          last_campaigned_at?: string | null
+          last_reply_at?: string | null
+          last_sent_at?: string | null
+          opted_out_at?: string | null
+          reply_category?: string | null
+          sent_count?: number
+          target_id: string
+          updated_at?: string
+        }
+        Update: {
+          bounced_at?: string | null
+          created_at?: string
+          email?: string
+          email_status?: Database["public"]["Enums"]["email_deliverability"] | null
+          email_status_at?: string | null
+          email_verified_at?: string | null
+          id?: string
+          last_campaigned_at?: string | null
+          last_reply_at?: string | null
+          last_sent_at?: string | null
+          opted_out_at?: string | null
+          reply_category?: string | null
+          sent_count?: number
+          target_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_email_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_mail: {
+        Row: {
+          created_at: string
+          id: string
+          mail_address: string
+          mail_city: string | null
+          mail_state: string | null
+          mail_status: string | null
+          mail_zip: string | null
+          qr_code: string | null
+          scanned_at: string | null
+          sent_at: string | null
+          target_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mail_address: string
+          mail_city?: string | null
+          mail_state?: string | null
+          mail_status?: string | null
+          mail_zip?: string | null
+          qr_code?: string | null
+          scanned_at?: string | null
+          sent_at?: string | null
+          target_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mail_address?: string
+          mail_city?: string | null
+          mail_state?: string | null
+          mail_status?: string | null
+          mail_zip?: string | null
+          qr_code?: string | null
+          scanned_at?: string | null
+          sent_at?: string | null
+          target_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_mail_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_targets: {
+        Row: {
+          company_id: string | null
+          company_name: string | null
+          contact_id: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          hold_reason: string | null
+          id: string
+          last_name: string | null
+          lists: string[]
+          mailing_address: string | null
+          mailing_city: string | null
+          mailing_state: string | null
+          mailing_zip: string | null
+          name_source: string | null
+          parcel_id: string | null
+          phone: string | null
+          property_id: string | null
+          raw: Json | null
+          source: string
+          updated_at: string
+          wrong_person_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          company_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          hold_reason?: string | null
+          id?: string
+          last_name?: string | null
+          lists?: string[]
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
+          name_source?: string | null
+          parcel_id?: string | null
+          phone?: string | null
+          property_id?: string | null
+          raw?: Json | null
+          source: string
+          updated_at?: string
+          wrong_person_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          company_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          hold_reason?: string | null
+          id?: string
+          last_name?: string | null
+          lists?: string[]
+          mailing_address?: string | null
+          mailing_city?: string | null
+          mailing_state?: string | null
+          mailing_zip?: string | null
+          name_source?: string | null
+          parcel_id?: string | null
+          phone?: string | null
+          property_id?: string | null
+          raw?: Json | null
+          source?: string
+          updated_at?: string
+          wrong_person_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_targets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_targets_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "email_leads_property_id_fkey"
+            foreignKeyName: "outreach_targets_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
@@ -2983,15 +3128,17 @@ export type Database = {
         }
         Relationships: []
       }
-      v_email_lead_lists: {
+      v_outreach_lists: {
         Row: {
-          addresses: number | null
-          bounced: number | null
-          last_sent_at: string | null
+          held: number | null
+          last_import_at: string | null
           list: string | null
           never_answered: number | null
-          opted_out: number | null
-          replied: number | null
+          reached: number | null
+          targets: number | null
+          with_email: number | null
+          with_mail: number | null
+          with_phone: number | null
           with_property: number | null
         }
         Relationships: []
@@ -3410,16 +3557,12 @@ export type Database = {
       }
     }
     Functions: {
-      email_lead_audience: {
-        Args: { p?: Json }
-        Returns: Json
-      }
-      import_email_leads: {
+      outreach_audience: {
         Args: { p: Json }
         Returns: Json
       }
-      resolve_email_lead_properties: {
-        Args: { p?: Json }
+      import_outreach_targets: {
+        Args: { p: Json }
         Returns: Json
       }
       email_audience_build: {
