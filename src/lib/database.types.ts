@@ -1919,10 +1919,6 @@ export type Database = {
           appraiser_data: Json | null
           appraiser_updated_at: string | null
           assessed_value: number | null
-          broker_company: string | null
-          broker_email: string | null
-          broker_name: string | null
-          broker_phone: string | null
           building_class: string | null
           building_far: string | null
           city: string | null
@@ -1934,7 +1930,6 @@ export type Database = {
           county_synced_at: string | null
           created_at: string
           cross_docks: boolean | null
-          days_on_market: number | null
           description: string | null
           dock_high_doors: number | null
           dock_levelers: number | null
@@ -1945,21 +1940,17 @@ export type Database = {
           gross_sf: number | null
           heated_sf: number | null
           id: string
-          is_auction: boolean | null
           just_value: number | null
           land_acres: number | null
           last_sale_date: string | null
           last_sale_price: number | null
           last_seen_in_sweep: string | null
           lat: number | null
-          listed_at: string | null
           listing_status: Database["public"]["Enums"]["listing_market_status"]
-          listing_url: string | null
           lng: number | null
           lowlands_acres_county: number | null
           net_usable_acres: number | null
           num_units: number | null
-          occupancy: string | null
           on_ground_lease: boolean | null
           opportunity_zone: boolean | null
           owner_company_id: string | null
@@ -1973,16 +1964,12 @@ export type Database = {
           photo_urls: string[] | null
           property_sub_types: string[] | null
           property_type: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions: string | null
-          sale_status: number | null
-          sale_type: string | null
           scrape_facts: Json | null
           scraped_at: string | null
           search_text: string | null
           site_address: string | null
           source: string | null
           source_key: string | null
-          source_last_updated: string | null
           specs: string | null
           sprinkler_system: string | null
           state: string | null
@@ -2013,10 +2000,6 @@ export type Database = {
           appraiser_data?: Json | null
           appraiser_updated_at?: string | null
           assessed_value?: number | null
-          broker_company?: string | null
-          broker_email?: string | null
-          broker_name?: string | null
-          broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
           city?: string | null
@@ -2028,7 +2011,6 @@ export type Database = {
           county_synced_at?: string | null
           created_at?: string
           cross_docks?: boolean | null
-          days_on_market?: number | null
           description?: string | null
           dock_high_doors?: number | null
           dock_levelers?: number | null
@@ -2039,21 +2021,17 @@ export type Database = {
           gross_sf?: number | null
           heated_sf?: number | null
           id?: string
-          is_auction?: boolean | null
           just_value?: number | null
           land_acres?: number | null
           last_sale_date?: string | null
           last_sale_price?: number | null
           last_seen_in_sweep?: string | null
           lat?: number | null
-          listed_at?: string | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
-          listing_url?: string | null
           lng?: number | null
           lowlands_acres_county?: number | null
           net_usable_acres?: number | null
           num_units?: number | null
-          occupancy?: string | null
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
           owner_company_id?: string | null
@@ -2067,16 +2045,12 @@ export type Database = {
           photo_urls?: string[] | null
           property_sub_types?: string[] | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions?: string | null
-          sale_status?: number | null
-          sale_type?: string | null
           scrape_facts?: Json | null
           scraped_at?: string | null
           search_text?: string | null
           site_address?: string | null
           source?: string | null
           source_key?: string | null
-          source_last_updated?: string | null
           specs?: string | null
           sprinkler_system?: string | null
           state?: string | null
@@ -2107,10 +2081,6 @@ export type Database = {
           appraiser_data?: Json | null
           appraiser_updated_at?: string | null
           assessed_value?: number | null
-          broker_company?: string | null
-          broker_email?: string | null
-          broker_name?: string | null
-          broker_phone?: string | null
           building_class?: string | null
           building_far?: string | null
           city?: string | null
@@ -2122,7 +2092,6 @@ export type Database = {
           county_synced_at?: string | null
           created_at?: string
           cross_docks?: boolean | null
-          days_on_market?: number | null
           description?: string | null
           dock_high_doors?: number | null
           dock_levelers?: number | null
@@ -2133,21 +2102,17 @@ export type Database = {
           gross_sf?: number | null
           heated_sf?: number | null
           id?: string
-          is_auction?: boolean | null
           just_value?: number | null
           land_acres?: number | null
           last_sale_date?: string | null
           last_sale_price?: number | null
           last_seen_in_sweep?: string | null
           lat?: number | null
-          listed_at?: string | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
-          listing_url?: string | null
           lng?: number | null
           lowlands_acres_county?: number | null
           net_usable_acres?: number | null
           num_units?: number | null
-          occupancy?: string | null
           on_ground_lease?: boolean | null
           opportunity_zone?: boolean | null
           owner_company_id?: string | null
@@ -2161,16 +2126,12 @@ export type Database = {
           photo_urls?: string[] | null
           property_sub_types?: string[] | null
           property_type?: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions?: string | null
-          sale_status?: number | null
-          sale_type?: string | null
           scrape_facts?: Json | null
           scraped_at?: string | null
           search_text?: string | null
           site_address?: string | null
           source?: string | null
           source_key?: string | null
-          source_last_updated?: string | null
           specs?: string | null
           sprinkler_system?: string | null
           state?: string | null
