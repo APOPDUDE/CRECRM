@@ -1956,6 +1956,9 @@ export type Database = {
           owner_company_id: string | null
           owner_id: string | null
           owner_mailing_address: string | null
+          owner_mailing_city: string | null
+          owner_mailing_state: string | null
+          owner_mailing_zip: string | null
           owner_name: string | null
           parcel_key: string | null
           parcel_number: string | null
@@ -2037,6 +2040,9 @@ export type Database = {
           owner_company_id?: string | null
           owner_id?: string | null
           owner_mailing_address?: string | null
+          owner_mailing_city?: string | null
+          owner_mailing_state?: string | null
+          owner_mailing_zip?: string | null
           owner_name?: string | null
           parcel_key?: string | null
           parcel_number?: string | null
@@ -2118,6 +2124,9 @@ export type Database = {
           owner_company_id?: string | null
           owner_id?: string | null
           owner_mailing_address?: string | null
+          owner_mailing_city?: string | null
+          owner_mailing_state?: string | null
+          owner_mailing_zip?: string | null
           owner_name?: string | null
           parcel_key?: string | null
           parcel_number?: string | null
