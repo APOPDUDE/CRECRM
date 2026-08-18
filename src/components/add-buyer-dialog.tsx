@@ -29,9 +29,12 @@ import {
   emptyBuyerCriteria,
 } from '@/components/buyer-criteria-fields'
 import type { BuyerCriteria } from '@/components/buyer-criteria-fields'
+import { Building2, Plus, X } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { useContactConversations } from '@/hooks/use-communications'
 import { useUpsertContactByPhone } from '@/hooks/use-contacts'
+import { usePropertySearch, type ParcelSearchResult } from '@/hooks/use-listing-parcels'
+import { useCreateMatch } from '@/hooks/use-matches'
 import { useCreateTenantRep } from '@/hooks/use-tenant-reps'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
@@ -80,12 +83,22 @@ export function AddBuyerDialog({
   const createClient = useCreateTenantRep()
   const upsertContact = useUpsertContactByPhone()
 
+  const createMatch = useCreateMatch()
+
   const [contactId, setContactId] = useState<string | null>(null)
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [source, setSource] = useState<string>(NONE)
   const [capRate, setCapRate] = useState('')
   const [notes, setNotes] = useState('')
   const [criteria, setCriteria] = useState<BuyerCriteria>(emptyBuyerCriteria)
+  // The property whose sign/listing/text generated this buyer. Picking one creates a
+  // pursuit on submit, so they land on that property's board and their own in-play list.
+  const [propSearch, setPropSearch] = useState('')
+  const [inquiredProp, setInquiredProp] = useState<Pick<
+    ParcelSearchResult,
+    'id' | 'address' | 'city'
+  > | null>(null)
+  const propResults = usePropertySearch(propSearch)
 
   useEffect(() => {
     if (!open) return
@@ -95,6 +108,8 @@ export function AddBuyerDialog({
     setCapRate('')
     setNotes('')
     setCriteria(emptyBuyerCriteria())
+    setPropSearch('')
+    setInquiredProp(null)
   }, [open, prefill?.contactId, prefill?.companyId])
 
   // The calls, texts and VA notes already logged against this person — shown in the form
@@ -160,6 +175,25 @@ export function AddBuyerDialog({
       {
         onSuccess: (created) => {
           toast.success('Buyer added')
+          // The inquiry that brought them in becomes a pursuit: a card on that property's
+          // board and a row in the buyer's in-play list. Fire-and-forget so a pursuit
+          // hiccup never blocks the buyer that just saved.
+          if (created?.id && inquiredProp) {
+            createMatch.mutate(
+              {
+                owner_id: userId,
+                client_id: created.id,
+                property_id: inquiredProp.id,
+                stage: 'inquiring',
+              },
+              {
+                onError: () =>
+                  toast.error(
+                    `Buyer saved, but could not log the inquiry on ${inquiredProp.address}`,
+                  ),
+              },
+            )
+          }
           if (created?.id) onCreated?.(created.id, finalContactId)
           onOpenChange(false)
         },
@@ -213,6 +247,63 @@ export function AddBuyerDialog({
               defaultType="other"
               placeholder="Select or create company"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="add-buyer-prop">Inquired about property</Label>
+            {inquiredProp ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-sm">
+                <Building2 className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate">
+                  {inquiredProp.address}
+                  {inquiredProp.city ? `, ${inquiredProp.city}` : ''}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Clear property"
+                  onClick={() => setInquiredProp(null)}
+                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <Input
+                  id="add-buyer-prop"
+                  value={propSearch}
+                  onChange={(e) => setPropSearch(e.target.value)}
+                  placeholder="Search the property they called about…"
+                  autoComplete="off"
+                />
+                {(propResults.data?.length ?? 0) > 0 && (
+                  <ul className="divide-y overflow-hidden rounded-lg border">
+                    {propResults.data!.slice(0, 6).map((p) => (
+                      <li key={p.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInquiredProp(p)
+                            setPropSearch('')
+                          }}
+                          className="flex w-full items-center gap-2 p-2 text-left text-sm hover:bg-accent/50"
+                        >
+                          <Plus className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 flex-1 truncate">
+                            {p.address}
+                            {p.city ? `, ${p.city}` : ''}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Optional — logs them as an inquiry on that property's board and adds it to
+              their list.
+            </p>
           </div>
 
           <BuyerCriteriaFields value={criteria} onChange={setCriteria} idPrefix="add-buyer" />
