@@ -21,6 +21,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
+import { ConversationLog } from '@/components/conversation-log'
 import { leadSourceLabels } from '@/components/source-badge'
 import {
   BuyerCriteriaFields,
@@ -29,6 +30,7 @@ import {
 } from '@/components/buyer-criteria-fields'
 import type { BuyerCriteria } from '@/components/buyer-criteria-fields'
 import { useAuth } from '@/hooks/use-auth'
+import { useContactConversations } from '@/hooks/use-communications'
 import { useUpsertContactByPhone } from '@/hooks/use-contacts'
 import { useCreateTenantRep } from '@/hooks/use-tenant-reps'
 import type { Enums } from '@/lib/database.types'
@@ -94,6 +96,10 @@ export function AddBuyerDialog({
     setNotes('')
     setCriteria(emptyBuyerCriteria())
   }, [open, prefill?.contactId, prefill?.companyId])
+
+  // The calls, texts and VA notes already logged against this person — shown in the form
+  // so filling in criteria doesn't mean remembering the conversation cold.
+  const conversations = useContactConversations(contactId ?? undefined)
 
   const newContact = prefill?.newContact ?? null
   // The contacts table demands an identity (phone or email) — without one the intake
@@ -190,6 +196,15 @@ export function AddBuyerDialog({
               </p>
             )}
           </div>
+
+          {contactId && (conversations.data?.length ?? 0) > 0 && (
+            <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                Recent conversations with this contact
+              </p>
+              <ConversationLog comms={conversations.data!} />
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Company</Label>
             <CompanySelect
