@@ -63,6 +63,7 @@ export type Property = Pick<
   | 'lat' | 'lng' | 'owner_company_id' | 'owner_name' | 'owner_mailing_address'
   | 'last_sale_date' | 'last_sale_price' | 'created_at' | 'updated_at'
   | 'zoning_type' | 'zoning_code' | 'zoning_jurisdiction' | 'dor_use_code'
+  | 'source_key'
 > & {
   /**
    * `address` exactly as the source gave it to us, before the county situs address wins.
@@ -112,7 +113,7 @@ export function useProperties(enabled = true) {
         'land_acres, specs, listing_status, year_built, zoning_description, ' +
         'zoning_district, lat, lng, owner_company_id, owner_name, owner_mailing_address, ' +
         'last_sale_date, last_sale_price, created_at, updated_at, ' +
-        'zoning_type, zoning_code, zoning_jurisdiction, dor_use_code'
+        'zoning_type, zoning_code, zoning_jurisdiction, dor_use_code, source_key'
       // The linked-deal counts used to ride as embedded `(count)` aggregates — two
       // correlated subqueries evaluated per book row to tally what is (2026-08-16)
       // 10 listings + 176 pursuits in total. Fetching the deal tables' property_ids

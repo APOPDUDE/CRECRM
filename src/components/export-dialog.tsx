@@ -26,6 +26,7 @@ import {
   type ExportGroup,
 } from '@/lib/export-columns'
 import { useUserPref } from '@/hooks/use-user-prefs'
+import { listingIdFromSourceKey, normalizeListingUrl } from '@/lib/listing-url'
 import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
 import { supabase } from '@/lib/supabase'
 import type { PropertyWithCounts } from '@/hooks/use-properties'
@@ -196,6 +197,25 @@ function ExportDialogBody({
       }
       return cols.map((c) => c.cell(ctx))
     })
+    // Tripwire for the crossed-URL bug (2026-08-18): every emitted listing link must
+    // carry the listing id of that row's OWN source_key. A mismatch means the column
+    // was re-pointed at a scraped URL field again — refuse the whole export rather
+    // than hand out links to someone else's building.
+    const urlCol = cols.findIndex((c) => c.id === 'listing_url')
+    if (urlCol >= 0) {
+      for (let i = 0; i < exportRows.length; i++) {
+        const p = exportRows[i]
+        const emitted = csvRows[i][urlCol]
+        const emittedId = emitted ? (normalizeListingUrl(String(emitted))?.id ?? null) : null
+        const keyId = listingIdFromSourceKey(p.source_key)?.id ?? null
+        if (emittedId !== keyId) {
+          toast.error(
+            `Listing URL mismatch on ${p.address ?? p.id} (source_key ${p.source_key ?? 'none'}) — export aborted`,
+          )
+          return
+        }
+      }
+    }
     downloadCsv(
       `export-${todayStamp()}-${exportRows.length}.csv`,
       toCsv(cols.map((c) => c.label), csvRows),

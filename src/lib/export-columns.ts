@@ -4,6 +4,7 @@ import type { CurrentAsking } from '@/hooks/use-comps'
 import type { LeaseComp } from '@/hooks/use-lease-comps'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import { isZonedIndustrial } from '@/hooks/use-zoning-map'
+import { listingUrlFromSourceKey } from '@/lib/listing-url'
 import { dorBucket, dorBucketLabels } from '@/lib/zoning'
 
 /**
@@ -51,8 +52,14 @@ export const EXPORT_COLUMNS: ExportColumn[] = [
   { id: 'year_built', label: 'Year Built', group: 'Property', cell: ({ p }) => p.year_built },
   { id: 'last_sale_date', label: 'Last Sale Date', group: 'Property', cell: ({ p }) => p.last_sale_date },
   { id: 'last_sale_price', label: 'Last Sale Price', group: 'Property', cell: ({ p }) => p.last_sale_price },
-  // R7: the listing URL is a listing-event fact — it rides on the current asking comp.
-  { id: 'listing_url', label: 'Listing URL', group: 'Property', cell: ({ ask }) => ask?.listing_url ?? null },
+  // Crossed-URL bug (2026-08-18): scraped comp URLs can carry a NEIGHBORING listing's
+  // id (claim-by-address in the importer), so the link is derived from this row's own
+  // source_key — the one field that IS the property's listing identity. Non-listing
+  // keys (parcel:/addr:/null) export an empty cell.
+  {
+    id: 'listing_url', label: 'Listing URL', group: 'Property',
+    cell: ({ p }) => listingUrlFromSourceKey(p.source_key, p.source_address ?? p.address, p.city),
+  },
   { id: 'crm_id', label: 'CRM Property ID', group: 'Property', cell: ({ p }) => p.id },
 
   // Owner / contact
