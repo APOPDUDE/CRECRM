@@ -157,6 +157,11 @@ export function MapFilterRail(props: {
   // DOR use categories + the zoning axis
   dorSel: DorSelection
   onDorSel: (next: DorSelection) => void
+  // Condo units (separately-owned unit parcels) — excluded from canvassing by default
+  includeCondos: boolean
+  onIncludeCondos: (on: boolean) => void
+  /** How many rows the exclusion is currently hiding — 0 while it hides nothing. */
+  condoHidden: number
   // overlays (Phase 1)
   overlays: OverlayState
   onOverlays: (s: OverlayState) => void
@@ -235,6 +240,23 @@ export function MapFilterRail(props: {
       {/* County use codes — what the parcel IS today, per the appraiser */}
       <div className="border-t pt-3">
         <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
+      </div>
+
+      {/* Condo units — the Motor Enclave problem: one address, 236 separately-owned
+          bays. Out of every search by default; this is the way back in. */}
+      <div className="space-y-1 border-t pt-3">
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <Checkbox
+            checked={p.includeCondos}
+            onCheckedChange={(v) => p.onIncludeCondos(v === true)}
+          />
+          Include condo units
+        </label>
+        {!p.includeCondos && p.condoHidden > 0 && (
+          <p className="pl-6 text-xs text-muted-foreground">
+            {p.condoHidden.toLocaleString()} hidden in this view
+          </p>
+        )}
       </div>
 
       {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")

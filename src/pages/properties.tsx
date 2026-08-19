@@ -333,6 +333,13 @@ export function PropertiesPage() {
   // not zoned for it) is a search he runs, not a negation he should have to build.
   const [zoningFilter, setZoningFilter] = usePersistentState('properties:zoning', 'all')
   const [useFilter, setUseFilter] = usePersistentState('properties:use', 'all')
+  // Condo units are OUT of a market canvass by default (Alex 2026-08-19): 2,077
+  // separately-owned units — 236 at the Motor Enclave alone — flood any area search.
+  // The flag is `properties.is_condo_unit`, computed in Postgres (refresh_condo_units());
+  // this toggle only decides whether the page shows them. Deliberately NOT part of
+  // activeFilterCount: its default-on exclusion must not flip the bare map into the
+  // whole-book fetch, so it lenses whatever set is already on screen instead.
+  const [includeCondos, setIncludeCondos] = usePersistentState('properties:includeCondos', false)
   // The DOR picker's layers: four tri-state major categories + extra checked codes
   // (standard 'other' codes and county customs). ANDs with the bucketed use select.
   const [dorSelRaw, setDorSel] = usePersistentState<DorSelection>('properties:dorSel', DOR_SELECTION_DEFAULT)
@@ -662,6 +669,9 @@ export function PropertiesPage() {
     if (q) {
       setSearch(q)
       resetFilters()
+      // "Show me this one property" must also win over the condo exclusion — a
+      // mini-map link into a garage unit would otherwise land on an empty map.
+      setIncludeCondos(true)
     }
     if (wantsLease) {
       // Arriving from the dashboard graph: narrow to the lease window that was clicked
@@ -849,7 +859,7 @@ export function PropertiesPage() {
     portfolioAll[0]?.owner_name ??
     null
 
-  const { baseFiltered, includeCandidates } = useMemo(() => {
+  const { baseFiltered, includeCandidates, condoHidden } = useMemo(() => {
     // Empty when Postgres did the matching. Re-running the browser's own test over those
     // rows would quietly drop the hits it found by parcel number or folio, which do not
     // appear in the haystack at all — the same trap `contact-select` avoids with
@@ -868,9 +878,11 @@ export function PropertiesPage() {
     // hides the two off-market parcels next door — which is the assemblage you were
     // trying to see.
     if (portfolioOwnerId) {
+      // Condo units stay too: an owner's 30 garage units ARE their portfolio.
       return {
         baseFiltered: book.filter((p) => p.owner_company_id === portfolioOwnerId),
         includeCandidates: [] as typeof book,
+        condoHidden: 0,
       }
     }
     // One pass, two buckets: rows passing EVERY filter (base), and rows failing ONLY the
@@ -879,11 +891,19 @@ export function PropertiesPage() {
     // status — Alex 2026-08-16: "it should only include the ones in the drawn area".
     const base: typeof book = []
     const candidates: typeof book = []
+    let condosDropped = 0
     for (const p of book) {
       // Every token must appear somewhere in the property's combined text, so a full
       // "3206 Sydney Rd Plant City, FL 33566" matches even though the street, city, state and
       // zip live in different columns.
       if (tokens.length && !matchesTokens(haystacks.get(p.id) ?? '', tokens)) continue
+      // Condo exclusion is a hard filter, not a use axis: the overlay union must never
+      // forgive it. Counted so the count line and empty states can say what was hidden
+      // instead of letting a searched-for unit silently vanish.
+      if (!includeCondos && p.is_condo_unit) {
+        condosDropped++
+        continue
+      }
       // 'executed' is a lens on OUR deals, not a listing_status value — hence its own branch.
       if (status === 'executed') {
         if (!executedIds?.has(p.id)) continue
@@ -982,8 +1002,8 @@ export function PropertiesPage() {
       if (passesUse) base.push(p)
       else candidates.push(p)
     }
-    return { baseFiltered: base, includeCandidates: candidates }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+    return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1045,7 +1065,7 @@ export function PropertiesPage() {
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, polygon, leaseMatchIds])
+  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, polygon, leaseMatchIds])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -1185,16 +1205,22 @@ export function PropertiesPage() {
     setLeaseSfMin('')
     setLeaseSfMax('')
     setDmFilter('all')
+    setIncludeCondos(false)
   }
+
+  // Said out loud wherever a count is: rows the condo exclusion removed from the
+  // current set. Without it, a hidden unit reads as "we don't have that property".
+  const condoSuffix =
+    condoHidden > 0 ? ` · ${condoHidden.toLocaleString()} condo units hidden` : ''
 
   /** The top bar's map count — same honesty rules the old toolbar line followed. */
   const mapStatusText =
     overlayIncludes.length > 0
       ? isLoading
         ? 'Loading the book to include the overlay…'
-        : `${filtered.length.toLocaleString()} matching incl. overlay properties`
+        : `${filtered.length.toLocaleString()} matching incl. overlay properties${condoSuffix}`
       : polygon
-        ? `${filtered.length.toLocaleString()} in shape`
+        ? `${filtered.length.toLocaleString()} in shape${condoSuffix}`
         : searchOnly
           ? searching
             ? 'Searching…'
@@ -1202,14 +1228,16 @@ export function PropertiesPage() {
               ? filtered.length < MAP_SEARCH_LIMIT
                 ? `${filtered.length.toLocaleString()} of the first ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
                 : `First ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
-              : `${filtered.length.toLocaleString()} matching`
+              : `${filtered.length.toLocaleString()} matching${condoSuffix}`
           : hasQuery
             ? isLoading
               ? 'Loading the book to filter it…'
-              : `${filtered.length.toLocaleString()} matching`
+              : `${filtered.length.toLocaleString()} matching${condoSuffix}`
             : mapView.isFetching
               ? 'Loading this area…'
-              : `${mapView.data.totalInView.toLocaleString()} in this area`
+              : // The box count comes from the server, which counts condo units too —
+                // subtract what the lens dropped so the number matches the pins.
+                `${Math.max(0, mapView.data.totalInView - condoHidden).toLocaleString()} in this area${condoSuffix}`
 
   // "Clear all": every rail filter back to its default in one tap (Alex 2026-08-16).
   // The search box survives — clearing FILTERS shouldn't eat a typed address.
@@ -1229,6 +1257,8 @@ export function PropertiesPage() {
     setOverlays(OVERLAY_DEFAULT)
     // the table popover's axes too — they'd silently come back with the table view
     setPtype('all'); setZoningFilter('all'); setUseFilter('all'); setCounty('all')
+    // back to the canvassing default: condo units out
+    setIncludeCondos(false)
   }
 
   // One rail, two surfaces: the desktop aside and the phone bottom-sheet render the
@@ -1267,6 +1297,8 @@ export function PropertiesPage() {
       leaseSfMin={leaseSfMin} leaseSfMax={leaseSfMax} onLeaseSfMin={setLeaseSfMin} onLeaseSfMax={setLeaseSfMax}
       dmFilter={dmFilter} onDmFilter={setDmFilter}
       dorSel={dorSel} onDorSel={setDorSel}
+      includeCondos={includeCondos} onIncludeCondos={setIncludeCondos}
+      condoHidden={condoHidden}
       overlays={overlays} onOverlays={setOverlays}
       onOverlayIncludeOn={() => setWantsBook(true)}
     />
@@ -1550,6 +1582,20 @@ export function PropertiesPage() {
                   </Select>
                 </div>
               </div>
+              {/* Condo units are out by default — canvassing wants buildings, not the 236
+                  separately-owned garage bays inside one of them. */}
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <Checkbox
+                  checked={includeCondos}
+                  onCheckedChange={(v) => setIncludeCondos(v === true)}
+                />
+                Include condo units
+                {!includeCondos && condoHidden > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    ({condoHidden.toLocaleString()} hidden)
+                  </span>
+                )}
+              </label>
               {/* The picker lives in the rail on the map; the popover carries it for the table. */}
               {view === 'table' && <DorCodePicker selection={dorSel} onChange={setDorSel} />}
               {view === 'table' && (
@@ -1768,11 +1814,12 @@ export function PropertiesPage() {
       {view === 'table' && !isLoading && !isError && !viewportOnly && !searchOnly && (properties ?? []).length > 0 && (
         <p className="text-xs text-muted-foreground">
           Showing {filtered.length} of {(properties ?? []).length} properties
+          {condoSuffix}
         </p>
       )}
       {!isError && searchOnly && view === 'table' && !searching && (
         <p className="text-xs text-muted-foreground">
-          {filtered.length.toLocaleString()} matching “{search.trim()}”
+          {filtered.length.toLocaleString()} matching “{search.trim()}”{condoSuffix}
           {mapSearch.searchCapped && ` — first ${MAP_SEARCH_LIMIT.toLocaleString()}, narrow the search`}
         </p>
       )}
@@ -1823,7 +1870,11 @@ export function PropertiesPage() {
             fitKey={portfolioOwnerId ?? undefined}
             // Only the viewport fetch knows how many properties the box really holds; on
             // the query path `filtered` IS the whole answer, so there is no wider total.
-            totalInView={viewportOnly ? mapView.data.totalInView : undefined}
+            // Minus what the condo lens dropped — "1 of 241 here" would promise 237 pins
+            // that zooming can never produce.
+            totalInView={
+              viewportOnly ? Math.max(0, mapView.data.totalInView - condoHidden) : undefined
+            }
             onViewportChange={setViewport}
             emptyHint={
               searchOnly
@@ -1832,19 +1883,25 @@ export function PropertiesPage() {
                   : mapSearch.isError
                     ? 'Could not run that search — try again.'
                     : filtered.length === 0
-                      ? `Nothing matches “${search.trim()}”.`
+                      ? condoHidden > 0
+                        ? `Only condo units match “${search.trim()}” (${condoHidden.toLocaleString()} hidden) — turn on “Include condo units” to see them.`
+                        : `Nothing matches “${search.trim()}”.`
                       : undefined
                 : hasQuery
                   ? isLoading
                     ? 'Loading the book to filter it…'
                     : filtered.length === 0
-                      ? 'Nothing matches the current search/filters.'
+                      ? condoHidden > 0
+                        ? `Only condo units match (${condoHidden.toLocaleString()} hidden) — turn on “Include condo units” to see them.`
+                        : 'Nothing matches the current search/filters.'
                       : undefined
                   : mapView.isError
                     ? 'Could not load the properties in this area — pan to retry.'
                     : mapView.isFetching
                       ? 'Loading the properties in view…'
-                      : 'No properties here yet — pan or zoom out to find some.'
+                      : condoHidden > 0
+                        ? `Only condo units here (${condoHidden.toLocaleString()} hidden) — turn on “Include condo units” to see them.`
+                        : 'No properties here yet — pan or zoom out to find some.'
             }
             goodDealIds={goodDealIds}
             executedIds={executedIds}
@@ -1886,7 +1943,18 @@ export function PropertiesPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
-          <p className="text-sm text-muted-foreground">No properties match “{search.trim()}”</p>
+          {condoHidden > 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Only condo units match — {condoHidden.toLocaleString()} hidden by the condo filter.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => setIncludeCondos(true)}>
+                Include condo units
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No properties match “{search.trim()}”</p>
+          )}
         </div>
       ) : (
         <>
