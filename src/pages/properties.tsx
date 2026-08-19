@@ -1591,7 +1591,7 @@ export function PropertiesPage() {
                       <SelectItem value="industrial_any">Industrial — zoned or used</SelectItem>
                       {ZONING_FILTER_ORDER.map((z) => (
                         <SelectItem key={z} value={z}>
-                          {z === 'industrial' ? 'Industrial (incl. CG/CI/BPC)' : zoningKindLabels[z]}
+                          {z === 'industrial' ? 'Industrial (incl. CI)' : zoningKindLabels[z]}
                         </SelectItem>
                       ))}
                       <SelectItem value="non_industrial">Not industrial</SelectItem>

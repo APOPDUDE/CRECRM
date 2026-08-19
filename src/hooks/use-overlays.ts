@@ -43,12 +43,16 @@ export type OverlayCodeEntry = {
 }
 
 /** The code picker's rows, straight from the overlay's own features — the shapes and
- * the checklist can never disagree about which districts exist. */
-export function overlayCodeEntries(fc: ZoningFC | undefined): OverlayCodeEntry[] {
+ * the checklist can never disagree about which districts exist. `crossovers` decides
+ * which bucket a crossover code files under (same live set the shapes use). */
+export function overlayCodeEntries(
+  fc: ZoningFC | undefined,
+  crossovers?: Set<string>,
+): OverlayCodeEntry[] {
   if (!fc) return []
   const out: OverlayCodeEntry[] = []
   for (const f of fc.features) {
-    const bucket = overlayBucket(f.properties)
+    const bucket = overlayBucket(f.properties, crossovers)
     if (!bucket) continue
     out.push({
       key: overlayKey(f.properties.j, f.properties.c),

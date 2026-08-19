@@ -3,6 +3,7 @@ import L from 'leaflet'
 import { GeoJSON, useMap } from 'react-leaflet'
 import { OVERLAY_COLORS, featurePaints, overlayBucket, type OverlayState } from '@/lib/overlays'
 import { useZoningOverlay, type ZoningFeature } from '@/hooks/use-overlays'
+import { useIndustrialCrossovers } from '@/hooks/use-zoning-map'
 
 /**
  * The district overlay lives UNDER the parcel outlines (350) and pins (400): it is
@@ -39,12 +40,16 @@ export function MapOverlays({ state }: { state: OverlayState }) {
     state.industrial !== 'off' || state.retail !== 'off' ||
     state.office !== 'off' || state.multifamily !== 'off'
   const { data: zoningFc } = useZoningOverlay(anyZoning)
+  // Which layer a crossover district files under comes from the DB, not the artifact's
+  // baked flag — see overlayBucket.
+  const { data: crossovers } = useIndustrialCrossovers()
 
   // The filter is baked into the layer at creation, so the key must change whenever
-  // the answer to "does this district paint?" can change.
+  // the answer to "does this district paint?" can change — including the crossover
+  // set landing (or changing size after a reclassification).
   const selectionKey = useMemo(
-    () => JSON.stringify([state.industrial, state.retail, state.office, state.multifamily]),
-    [state.industrial, state.retail, state.office, state.multifamily],
+    () => JSON.stringify([state.industrial, state.retail, state.office, state.multifamily, crossovers?.size ?? -1]),
+    [state.industrial, state.retail, state.office, state.multifamily, crossovers],
   )
 
   if (!anyZoning || !zoningFc) return null
@@ -53,9 +58,9 @@ export function MapOverlays({ state }: { state: OverlayState }) {
       key={selectionKey}
       data={zoningFc}
       interactive={false}
-      filter={(f) => featurePaints((f as ZoningFeature).properties, state)}
+      filter={(f) => featurePaints((f as ZoningFeature).properties, state, crossovers)}
       style={(f) => {
-        const bucket = overlayBucket((f as ZoningFeature).properties)
+        const bucket = overlayBucket((f as ZoningFeature).properties, crossovers)
         const color = bucket ? OVERLAY_COLORS[bucket] : '#94a3b8'
         return {
           pane: ZONING_PANE,

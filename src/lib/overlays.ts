@@ -100,18 +100,33 @@ export type ZoningFeatureProps = {
 }
 
 /**
- * Which layer a district belongs to. Industrial-capable crossovers (Hillsborough
- * CG/CI, Polk BPC) live under Industrial — "zoned industrial" means allows_industrial
+ * Which layer a district belongs to. Industrial-capable crossovers (Hillsborough CI —
+ * CG left the set 2026-08-19, Alex: "auto deselect CG in industrial zoning keep it in
+ * retail") live under Industrial — "zoned industrial" means allows_industrial
  * everywhere in the app, and the overlay must agree with the filter.
+ *
+ * The LIVE crossover set (zoning_code_map, via useIndustrialCrossovers) is the truth;
+ * the artifact's baked `i` flag is a build-time copy, consulted only while the set is
+ * still loading. That is what lets a reclassification be one DB row flip instead of an
+ * overlay artifact rebuild.
  */
-export function overlayBucket(p: ZoningFeatureProps): OverlayType | null {
-  if (p.i) return 'industrial'
+export function overlayBucket(
+  p: ZoningFeatureProps,
+  crossovers?: Set<string>,
+): OverlayType | null {
+  const industrial =
+    p.t === 'industrial' || (crossovers ? crossovers.has(overlayKey(p.j, p.c)) : p.i)
+  if (industrial) return 'industrial'
   return p.t === 'retail' || p.t === 'office' || p.t === 'multifamily' ? p.t : null
 }
 
 /** Does the current selection paint this district? */
-export function featurePaints(p: ZoningFeatureProps, state: OverlayState): boolean {
-  const bucket = overlayBucket(p)
+export function featurePaints(
+  p: ZoningFeatureProps,
+  state: OverlayState,
+  crossovers?: Set<string>,
+): boolean {
+  const bucket = overlayBucket(p, crossovers)
   if (!bucket) return false
   const sel = state[bucket]
   if (sel === 'off') return false

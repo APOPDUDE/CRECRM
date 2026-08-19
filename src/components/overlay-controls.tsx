@@ -12,6 +12,7 @@ import {
   type OverlayType,
 } from '@/lib/overlays'
 import { overlayCodeEntries, useZoningOverlay, type OverlayCodeEntry } from '@/hooks/use-overlays'
+import { useIndustrialCrossovers } from '@/hooks/use-zoning-map'
 
 function Dot({ color }: { color: string }) {
   return (
@@ -46,7 +47,10 @@ export function OverlayControls({
   const [codeSearch, setCodeSearch] = useState('')
 
   const { data: fc, isFetching } = useZoningOverlay(expanded || anyZoning)
-  const entries = useMemo(() => overlayCodeEntries(fc), [fc])
+  // The live crossover set decides which layer a code files under (CG left the
+  // industrial bucket by DB flip, 2026-08-19) — same set the shapes and filters read.
+  const { data: crossovers } = useIndustrialCrossovers()
+  const entries = useMemo(() => overlayCodeEntries(fc, crossovers), [fc, crossovers])
   const keysByBucket = useMemo(() => {
     const m = new Map<OverlayType, string[]>()
     for (const e of entries) {

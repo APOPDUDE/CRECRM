@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase'
 
 /**
  * The crossover codes: zoning that ALLOWS industrial without being industrial-primary
- * (Hillsborough CG/CI, Polk BPC — Alex's "can be both" call, 2026-08-15).
+ * (Hillsborough CI — Alex's "can be both" call, 2026-08-15; CG left the set 2026-08-19,
+ * "keep it in retail", and Polk BPC was reclassified industrial-primary).
  *
  * "Zoned industrial" in every filter means `zoning_type === 'industrial' OR crossover`.
  * Only the handful of crossover rows ship to the client; the industrial-primary case is
