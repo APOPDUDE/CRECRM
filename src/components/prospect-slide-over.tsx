@@ -153,7 +153,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
         <div className="space-y-4 p-4">
           {p.contact && (p.contact.phone || p.contact.email) && (
             <div className="-mt-1">
-              <ContactActions phone={p.contact.phone} email={p.contact.email} />
+              <ContactActions phone={p.contact.phone} email={p.contact.email} ghlContactId={p.contact.ghl_contact_id} />
             </div>
           )}
 

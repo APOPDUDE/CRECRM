@@ -45,13 +45,16 @@ export type MatchWithRelations = Tables<'pursuits'> & {
         | 'intended_use'
       > & {
         company: Pick<Company, 'id' | 'name'> | null
-        contact: Pick<Contact, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'title'> | null
+        contact: Pick<Contact, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'title' | 'ghl_contact_id'> | null
         broker: Pick<Contact, 'id' | 'first_name' | 'last_name'> | null
       })
     | null
   // convenience aliases (derived from client)
   tenant_company: Pick<Company, 'id' | 'name'> | null
-  tenant_contact: Pick<Contact, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'title'> | null
+  tenant_contact: Pick<
+    Contact,
+    'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'title' | 'ghl_contact_id'
+  > | null
   broker: Pick<Contact, 'id' | 'first_name' | 'last_name'> | null
   source: Enums<'lead_source'> | null
   /** alias of client_id, kept for call sites that route by the tenant side */
@@ -64,7 +67,7 @@ const MATCH_SELECT = `
   client:clients!pursuits_client_id_fkey(
     id, status, deal_type, source, commission_pct, company_id, contact_id, intended_use,
     company:companies!clients_company_id_fkey(id, name),
-    contact:contacts!clients_contact_id_fkey(id, first_name, last_name, email, phone, title),
+    contact:contacts!clients_contact_id_fkey(id, first_name, last_name, email, phone, title, ghl_contact_id),
     broker:contacts!clients_broker_contact_id_fkey(id, first_name, last_name)
   )
 `

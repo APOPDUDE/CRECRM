@@ -594,7 +594,7 @@ export function TenantBoardPage() {
                       <div className="text-xs text-muted-foreground">{contact.title}</div>
                     )}
                   </button>
-                  <ContactActions phone={contact.phone} email={contact.email} />
+                  <ContactActions phone={contact.phone} email={contact.email} ghlContactId={contact.ghl_contact_id} />
                 </div>
               </SidebarSection>
             )}

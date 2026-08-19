@@ -21,6 +21,7 @@ import type { Property } from '@/hooks/use-properties'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/dates'
 import { formatPhone, normalizePhone } from '@/lib/format'
+import { ghlContactUrl } from '@/lib/ghl'
 
 /**
  * How we know this person, from `contacts.verified_by` — verification is one
@@ -199,7 +200,10 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                   {ct.phone && (
                     <span className="inline-flex items-center gap-1">
                       <a
-                        href={`tel:${ct.phone}`}
+                        href={ct.ghl_contact_id ? ghlContactUrl(ct.ghl_contact_id) : `tel:${ct.phone}`}
+                        {...(ct.ghl_contact_id
+                          ? { target: '_blank', rel: 'noopener noreferrer', title: 'Call via GHL' }
+                          : {})}
                         className={cn(
                           'hover:underline',
                           ct.verified_at ? 'font-medium text-blue-700' : 'text-muted-foreground',

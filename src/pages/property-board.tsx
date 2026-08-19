@@ -477,7 +477,7 @@ export function PropertyBoardPage() {
                       <div className="text-xs text-muted-foreground">{landlordContact.title}</div>
                     )}
                   </button>
-                  <ContactActions phone={landlordContact.phone} email={landlordContact.email} />
+                  <ContactActions phone={landlordContact.phone} email={landlordContact.email} ghlContactId={landlordContact.ghl_contact_id} />
                 </div>
               </SidebarSection>
             )}

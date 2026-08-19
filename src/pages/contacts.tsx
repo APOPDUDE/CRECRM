@@ -30,6 +30,7 @@ import { Badge } from '@/components/ui/badge'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
+import { GhlPhoneLink } from '@/components/ghl-phone-link'
 import {
   CONTACT_SEARCH_MIN,
   useContactBook,
@@ -281,7 +282,11 @@ export function ContactsPage() {
                     <TableCell className="text-muted-foreground">{contact.company?.name}</TableCell>
                     <TableCell className="text-muted-foreground">{contact.title}</TableCell>
                     <TableCell className="text-muted-foreground">{contact.email}</TableCell>
-                    <TableCell className="text-muted-foreground">{contact.phone}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {contact.phone && (
+                        <GhlPhoneLink phone={contact.phone} ghlContactId={contact.ghl_contact_id} />
+                      )}
+                    </TableCell>
                     <TableCell>{rowMenu(contact)}</TableCell>
                   </TableRow>
                 ))}
