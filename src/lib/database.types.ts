@@ -44,6 +44,36 @@ export type Database = {
         }
         Relationships: []
       }
+      _fp_valuation_post_20260819: {
+        Row: {
+          id: string
+          val: Json | null
+        }
+        Insert: {
+          id: string
+          val?: Json | null
+        }
+        Update: {
+          id?: string
+          val?: Json | null
+        }
+        Relationships: []
+      }
+      _fp_valuation_pre_20260819: {
+        Row: {
+          id: string | null
+          val: Json | null
+        }
+        Insert: {
+          id?: string | null
+          val?: Json | null
+        }
+        Update: {
+          id?: string | null
+          val?: Json | null
+        }
+        Relationships: []
+      }
       _gov_purge_set_20260816: {
         Row: {
           id: string | null
@@ -200,6 +230,258 @@ export type Database = {
         }
         Update: {
           id?: string | null
+        }
+        Relationships: []
+      }
+      _rollback_1845_university_20260818: {
+        Row: {
+          address: string | null
+          amps: number | null
+          appraiser_data: Json | null
+          appraiser_updated_at: string | null
+          assessed_value: number | null
+          building_class: string | null
+          building_far: string | null
+          city: string | null
+          clear_height_ft: number | null
+          column_spacing: string | null
+          construction_material: string | null
+          construction_status: string | null
+          county: string | null
+          county_synced_at: string | null
+          created_at: string | null
+          cross_docks: boolean | null
+          description: string | null
+          dock_high_doors: number | null
+          dock_levelers: number | null
+          dor_use_code: string | null
+          folio: string | null
+          grade_level_doors: number | null
+          gross_leasable_area: string | null
+          gross_sf: number | null
+          heated_sf: number | null
+          id: string | null
+          is_condo_unit: boolean | null
+          just_value: number | null
+          land_acres: number | null
+          last_sale_date: string | null
+          last_sale_price: number | null
+          last_seen_in_sweep: string | null
+          lat: number | null
+          listing_status:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          lng: number | null
+          lowlands_acres_county: number | null
+          net_usable_acres: number | null
+          num_units: number | null
+          on_ground_lease: boolean | null
+          opportunity_zone: boolean | null
+          owner_company_id: string | null
+          owner_mailing_address: string | null
+          owner_name: string | null
+          parcel_key: string | null
+          parcel_number: string | null
+          parking_ratio: string | null
+          parking_spaces: number | null
+          photo_urls: string[] | null
+          property_sub_types: string[] | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          scrape_facts: Json | null
+          scraped_at: string | null
+          search_text: string | null
+          site_address: string | null
+          source: string | null
+          source_key: string | null
+          specs: string | null
+          sprinkler_system: string | null
+          state: string | null
+          stories: number | null
+          tags: string[] | null
+          three_phase_power: boolean | null
+          title: string | null
+          truck_court_ft: number | null
+          updated_at: string | null
+          usable_acres: number | null
+          usable_acres_source: string | null
+          usable_acres_updated_at: string | null
+          volts: string | null
+          wet_acres_nwi: number | null
+          year_built: number | null
+          year_renovated: number | null
+          zip: string | null
+          zoning_code: string | null
+          zoning_description: string | null
+          zoning_district: string | null
+          zoning_jurisdiction: string | null
+          zoning_type: Database["public"]["Enums"]["zoning_kind"] | null
+          zoning_updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          amps?: number | null
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
+          assessed_value?: number | null
+          building_class?: string | null
+          building_far?: string | null
+          city?: string | null
+          clear_height_ft?: number | null
+          column_spacing?: string | null
+          construction_material?: string | null
+          construction_status?: string | null
+          county?: string | null
+          county_synced_at?: string | null
+          created_at?: string | null
+          cross_docks?: boolean | null
+          description?: string | null
+          dock_high_doors?: number | null
+          dock_levelers?: number | null
+          dor_use_code?: string | null
+          folio?: string | null
+          grade_level_doors?: number | null
+          gross_leasable_area?: string | null
+          gross_sf?: number | null
+          heated_sf?: number | null
+          id?: string | null
+          is_condo_unit?: boolean | null
+          just_value?: number | null
+          land_acres?: number | null
+          last_sale_date?: string | null
+          last_sale_price?: number | null
+          last_seen_in_sweep?: string | null
+          lat?: number | null
+          listing_status?:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          lng?: number | null
+          lowlands_acres_county?: number | null
+          net_usable_acres?: number | null
+          num_units?: number | null
+          on_ground_lease?: boolean | null
+          opportunity_zone?: boolean | null
+          owner_company_id?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          parcel_key?: string | null
+          parcel_number?: string | null
+          parking_ratio?: string | null
+          parking_spaces?: number | null
+          photo_urls?: string[] | null
+          property_sub_types?: string[] | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          scrape_facts?: Json | null
+          scraped_at?: string | null
+          search_text?: string | null
+          site_address?: string | null
+          source?: string | null
+          source_key?: string | null
+          specs?: string | null
+          sprinkler_system?: string | null
+          state?: string | null
+          stories?: number | null
+          tags?: string[] | null
+          three_phase_power?: boolean | null
+          title?: string | null
+          truck_court_ft?: number | null
+          updated_at?: string | null
+          usable_acres?: number | null
+          usable_acres_source?: string | null
+          usable_acres_updated_at?: string | null
+          volts?: string | null
+          wet_acres_nwi?: number | null
+          year_built?: number | null
+          year_renovated?: number | null
+          zip?: string | null
+          zoning_code?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
+          zoning_jurisdiction?: string | null
+          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
+          zoning_updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          amps?: number | null
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
+          assessed_value?: number | null
+          building_class?: string | null
+          building_far?: string | null
+          city?: string | null
+          clear_height_ft?: number | null
+          column_spacing?: string | null
+          construction_material?: string | null
+          construction_status?: string | null
+          county?: string | null
+          county_synced_at?: string | null
+          created_at?: string | null
+          cross_docks?: boolean | null
+          description?: string | null
+          dock_high_doors?: number | null
+          dock_levelers?: number | null
+          dor_use_code?: string | null
+          folio?: string | null
+          grade_level_doors?: number | null
+          gross_leasable_area?: string | null
+          gross_sf?: number | null
+          heated_sf?: number | null
+          id?: string | null
+          is_condo_unit?: boolean | null
+          just_value?: number | null
+          land_acres?: number | null
+          last_sale_date?: string | null
+          last_sale_price?: number | null
+          last_seen_in_sweep?: string | null
+          lat?: number | null
+          listing_status?:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          lng?: number | null
+          lowlands_acres_county?: number | null
+          net_usable_acres?: number | null
+          num_units?: number | null
+          on_ground_lease?: boolean | null
+          opportunity_zone?: boolean | null
+          owner_company_id?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          parcel_key?: string | null
+          parcel_number?: string | null
+          parking_ratio?: string | null
+          parking_spaces?: number | null
+          photo_urls?: string[] | null
+          property_sub_types?: string[] | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          scrape_facts?: Json | null
+          scraped_at?: string | null
+          search_text?: string | null
+          site_address?: string | null
+          source?: string | null
+          source_key?: string | null
+          specs?: string | null
+          sprinkler_system?: string | null
+          state?: string | null
+          stories?: number | null
+          tags?: string[] | null
+          three_phase_power?: boolean | null
+          title?: string | null
+          truck_court_ft?: number | null
+          updated_at?: string | null
+          usable_acres?: number | null
+          usable_acres_source?: string | null
+          usable_acres_updated_at?: string | null
+          volts?: string | null
+          wet_acres_nwi?: number | null
+          year_built?: number | null
+          year_renovated?: number | null
+          zip?: string | null
+          zoning_code?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
+          zoning_jurisdiction?: string | null
+          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
+          zoning_updated_at?: string | null
         }
         Relationships: []
       }
@@ -1004,6 +1286,258 @@ export type Database = {
           verification_note?: string | null
           verification_status?: string | null
           verification_updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _rollback_parcel_fix_20260818: {
+        Row: {
+          address: string | null
+          amps: number | null
+          appraiser_data: Json | null
+          appraiser_updated_at: string | null
+          assessed_value: number | null
+          building_class: string | null
+          building_far: string | null
+          city: string | null
+          clear_height_ft: number | null
+          column_spacing: string | null
+          construction_material: string | null
+          construction_status: string | null
+          county: string | null
+          county_synced_at: string | null
+          created_at: string | null
+          cross_docks: boolean | null
+          description: string | null
+          dock_high_doors: number | null
+          dock_levelers: number | null
+          dor_use_code: string | null
+          folio: string | null
+          grade_level_doors: number | null
+          gross_leasable_area: string | null
+          gross_sf: number | null
+          heated_sf: number | null
+          id: string | null
+          is_condo_unit: boolean | null
+          just_value: number | null
+          land_acres: number | null
+          last_sale_date: string | null
+          last_sale_price: number | null
+          last_seen_in_sweep: string | null
+          lat: number | null
+          listing_status:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          lng: number | null
+          lowlands_acres_county: number | null
+          net_usable_acres: number | null
+          num_units: number | null
+          on_ground_lease: boolean | null
+          opportunity_zone: boolean | null
+          owner_company_id: string | null
+          owner_mailing_address: string | null
+          owner_name: string | null
+          parcel_key: string | null
+          parcel_number: string | null
+          parking_ratio: string | null
+          parking_spaces: number | null
+          photo_urls: string[] | null
+          property_sub_types: string[] | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          scrape_facts: Json | null
+          scraped_at: string | null
+          search_text: string | null
+          site_address: string | null
+          source: string | null
+          source_key: string | null
+          specs: string | null
+          sprinkler_system: string | null
+          state: string | null
+          stories: number | null
+          tags: string[] | null
+          three_phase_power: boolean | null
+          title: string | null
+          truck_court_ft: number | null
+          updated_at: string | null
+          usable_acres: number | null
+          usable_acres_source: string | null
+          usable_acres_updated_at: string | null
+          volts: string | null
+          wet_acres_nwi: number | null
+          year_built: number | null
+          year_renovated: number | null
+          zip: string | null
+          zoning_code: string | null
+          zoning_description: string | null
+          zoning_district: string | null
+          zoning_jurisdiction: string | null
+          zoning_type: Database["public"]["Enums"]["zoning_kind"] | null
+          zoning_updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          amps?: number | null
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
+          assessed_value?: number | null
+          building_class?: string | null
+          building_far?: string | null
+          city?: string | null
+          clear_height_ft?: number | null
+          column_spacing?: string | null
+          construction_material?: string | null
+          construction_status?: string | null
+          county?: string | null
+          county_synced_at?: string | null
+          created_at?: string | null
+          cross_docks?: boolean | null
+          description?: string | null
+          dock_high_doors?: number | null
+          dock_levelers?: number | null
+          dor_use_code?: string | null
+          folio?: string | null
+          grade_level_doors?: number | null
+          gross_leasable_area?: string | null
+          gross_sf?: number | null
+          heated_sf?: number | null
+          id?: string | null
+          is_condo_unit?: boolean | null
+          just_value?: number | null
+          land_acres?: number | null
+          last_sale_date?: string | null
+          last_sale_price?: number | null
+          last_seen_in_sweep?: string | null
+          lat?: number | null
+          listing_status?:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          lng?: number | null
+          lowlands_acres_county?: number | null
+          net_usable_acres?: number | null
+          num_units?: number | null
+          on_ground_lease?: boolean | null
+          opportunity_zone?: boolean | null
+          owner_company_id?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          parcel_key?: string | null
+          parcel_number?: string | null
+          parking_ratio?: string | null
+          parking_spaces?: number | null
+          photo_urls?: string[] | null
+          property_sub_types?: string[] | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          scrape_facts?: Json | null
+          scraped_at?: string | null
+          search_text?: string | null
+          site_address?: string | null
+          source?: string | null
+          source_key?: string | null
+          specs?: string | null
+          sprinkler_system?: string | null
+          state?: string | null
+          stories?: number | null
+          tags?: string[] | null
+          three_phase_power?: boolean | null
+          title?: string | null
+          truck_court_ft?: number | null
+          updated_at?: string | null
+          usable_acres?: number | null
+          usable_acres_source?: string | null
+          usable_acres_updated_at?: string | null
+          volts?: string | null
+          wet_acres_nwi?: number | null
+          year_built?: number | null
+          year_renovated?: number | null
+          zip?: string | null
+          zoning_code?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
+          zoning_jurisdiction?: string | null
+          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
+          zoning_updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          amps?: number | null
+          appraiser_data?: Json | null
+          appraiser_updated_at?: string | null
+          assessed_value?: number | null
+          building_class?: string | null
+          building_far?: string | null
+          city?: string | null
+          clear_height_ft?: number | null
+          column_spacing?: string | null
+          construction_material?: string | null
+          construction_status?: string | null
+          county?: string | null
+          county_synced_at?: string | null
+          created_at?: string | null
+          cross_docks?: boolean | null
+          description?: string | null
+          dock_high_doors?: number | null
+          dock_levelers?: number | null
+          dor_use_code?: string | null
+          folio?: string | null
+          grade_level_doors?: number | null
+          gross_leasable_area?: string | null
+          gross_sf?: number | null
+          heated_sf?: number | null
+          id?: string | null
+          is_condo_unit?: boolean | null
+          just_value?: number | null
+          land_acres?: number | null
+          last_sale_date?: string | null
+          last_sale_price?: number | null
+          last_seen_in_sweep?: string | null
+          lat?: number | null
+          listing_status?:
+            | Database["public"]["Enums"]["listing_market_status"]
+            | null
+          lng?: number | null
+          lowlands_acres_county?: number | null
+          net_usable_acres?: number | null
+          num_units?: number | null
+          on_ground_lease?: boolean | null
+          opportunity_zone?: boolean | null
+          owner_company_id?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          parcel_key?: string | null
+          parcel_number?: string | null
+          parking_ratio?: string | null
+          parking_spaces?: number | null
+          photo_urls?: string[] | null
+          property_sub_types?: string[] | null
+          property_type?: Database["public"]["Enums"]["property_kind"] | null
+          scrape_facts?: Json | null
+          scraped_at?: string | null
+          search_text?: string | null
+          site_address?: string | null
+          source?: string | null
+          source_key?: string | null
+          specs?: string | null
+          sprinkler_system?: string | null
+          state?: string | null
+          stories?: number | null
+          tags?: string[] | null
+          three_phase_power?: boolean | null
+          title?: string | null
+          truck_court_ft?: number | null
+          updated_at?: string | null
+          usable_acres?: number | null
+          usable_acres_source?: string | null
+          usable_acres_updated_at?: string | null
+          volts?: string | null
+          wet_acres_nwi?: number | null
+          year_built?: number | null
+          year_renovated?: number | null
+          zip?: string | null
+          zoning_code?: string | null
+          zoning_description?: string | null
+          zoning_district?: string | null
+          zoning_jurisdiction?: string | null
+          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
+          zoning_updated_at?: string | null
         }
         Relationships: []
       }
@@ -3251,6 +3785,8 @@ export type Database = {
           is_condo_unit: boolean
           just_value: number | null
           land_acres: number | null
+          land_just_value: number | null
+          land_value_share: number | null
           last_sale_date: string | null
           last_sale_price: number | null
           last_seen_in_sweep: string | null
@@ -3332,6 +3868,8 @@ export type Database = {
           is_condo_unit?: boolean
           just_value?: number | null
           land_acres?: number | null
+          land_just_value?: number | null
+          land_value_share?: number | null
           last_sale_date?: string | null
           last_sale_price?: number | null
           last_seen_in_sweep?: string | null
@@ -3413,6 +3951,8 @@ export type Database = {
           is_condo_unit?: boolean
           just_value?: number | null
           land_acres?: number | null
+          land_just_value?: number | null
+          land_value_share?: number | null
           last_sale_date?: string | null
           last_sale_price?: number | null
           last_seen_in_sweep?: string | null
@@ -4832,6 +5372,7 @@ export type Database = {
           skipped_noise: number
         }[]
       }
+      import_land_values: { Args: { p: Json }; Returns: Json }
       import_lease_comps: { Args: { p: Json }; Returns: Json }
       import_outreach_targets: { Args: { p: Json }; Returns: Json }
       import_owner_addresses: { Args: { p: Json }; Returns: Json }

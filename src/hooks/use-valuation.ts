@@ -10,6 +10,9 @@ import { supabase } from '@/lib/supabase'
 
 export type ValuationBucket = 'lease' | 'sale' | 'land'
 
+/** 'transfer' = a county-recorded sale, shown as evidence but never in the estimate. */
+export type ValuationCompKind = 'asking' | 'executed' | 'transfer'
+
 export interface ValuationComp {
   comp_id: string
   property_id: string
@@ -19,7 +22,7 @@ export interface ValuationComp {
   property_type: string | null
   building_class: 'A' | 'B' | 'C' | null
   bucket: ValuationBucket
-  kind: 'asking' | 'executed'
+  kind: ValuationCompKind
   verified: boolean | null
   tenant_name: string | null
   lease_structure: string | null
@@ -45,6 +48,30 @@ export interface ValuationComp {
   /** Share of the estimate this comp carries, 0 when struck. */
   weight_pct: number | null
   included: boolean
+  /**
+   * True = one of the top-30 rows the estimate is computed from (strikeable).
+   * False = display depth for the comp tabs, or a county transfer — evidence only.
+   */
+  in_estimate: boolean
+  /** The comp's OWN source_key — the only thing a listing link may be built from. */
+  source_key: string | null
+  deal_type: 'lease' | 'sale' | null
+  /** LoopNet/CoStar "Investment" vs "Owner User". Sparse until CoStar lands. */
+  sale_type: string | null
+  days_on_market: number | null
+  listed_at: string | null
+  occupancy: string | null
+  /** False = the comp property has left the market; its listing link is likely dead. */
+  listing_active: boolean | null
+  /** County's land share of value (LND_VAL / JV) for the comp's parcel. */
+  county_land_share: number | null
+  /** Sale price × county land share — what the dirt sold for, roughly. */
+  land_alloc: number | null
+  building_alloc: number | null
+  /** Building's share of the price over its SF. */
+  building_psf_alloc: number | null
+  /** Land's share of the price over its acres. */
+  land_per_acre_alloc: number | null
 }
 
 interface BucketStats {
@@ -111,6 +138,8 @@ export interface LandComponent {
   /** Acres that can actually be let as yard — capped; past that it's a land play. */
   rentable_acres: number
   rent_capped: boolean
+  /** The building's own footprint in acres (gross SF / 43,560). */
+  footprint_acres: number
   /** Median site coverage of the county's improved sales. */
   typ_coverage: number
   supported_acres: number
@@ -166,6 +195,10 @@ export interface PropertyValuation {
     year_built: number | null
     just_value: number | null
     assessed_value: number | null
+    net_usable_acres: number | null
+    /** County land value + land share of JV (FDOR roll) — context for the sale splits. */
+    land_just_value: number | null
+    land_value_share: number | null
   }
   method: ValuationMethod
   land_component: LandComponent
