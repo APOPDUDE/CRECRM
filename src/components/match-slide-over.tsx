@@ -162,6 +162,7 @@ export function MatchSlideOver({ matchId, open, onOpenChange }: MatchSlideOverPr
                         <ContactActions
                           phone={match.tenant_contact.phone}
                           email={match.tenant_contact.email}
+                          ghlContactId={match.tenant_contact.ghl_contact_id}
                         />
                       </div>
                     )}

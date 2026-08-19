@@ -48,7 +48,7 @@ export function useTenantReps() {
 const TENANT_REP_DETAIL_SELECT = `
   *,
   company:companies!clients_company_id_fkey(id, name, type, phone, website, industry, notes),
-  contact:contacts!clients_contact_id_fkey(id, first_name, last_name, title, email, phone, company_id, notes),
+  contact:contacts!clients_contact_id_fkey(id, first_name, last_name, title, email, phone, company_id, notes, ghl_contact_id),
   broker:contacts!clients_broker_contact_id_fkey(id, first_name, last_name)
 `
 
@@ -59,7 +59,7 @@ export type TenantRepDetail = Tables<'clients'> & {
   > | null
   contact: Pick<
     Tables<'contacts'>,
-    'id' | 'first_name' | 'last_name' | 'title' | 'email' | 'phone' | 'company_id' | 'notes'
+    'id' | 'first_name' | 'last_name' | 'title' | 'email' | 'phone' | 'company_id' | 'notes' | 'ghl_contact_id'
   > | null
   broker: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
 }

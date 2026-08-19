@@ -164,6 +164,7 @@ export type OwnerPersonRow = Pick<
   | 'verified_at'
   | 'verified_by'
   | 'company_id'
+  | 'ghl_contact_id'
 >
 
 /** The humans seated at an owning company, verified first. */
@@ -175,7 +176,7 @@ export function useOwnerContacts(ownerCompanyId: string | null | undefined) {
       const { data, error } = await supabase
         .from('contacts')
         .select(
-          'id, first_name, last_name, phone, email, title, do_not_call, campaign_lists, email_verified_at, verified_at, verified_by, company_id',
+          'id, first_name, last_name, phone, email, title, do_not_call, campaign_lists, email_verified_at, verified_at, verified_by, company_id, ghl_contact_id',
         )
         .eq('company_id', ownerCompanyId!)
       if (error) throw error

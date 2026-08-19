@@ -4,7 +4,7 @@ import type { Enums, Tables, TablesUpdate } from '@/lib/database.types'
 
 /** A pre-pipeline lead: contact/company + attached properties + description + tasks. */
 export type ProspectWithRelations = Tables<'prospects'> & {
-  contact: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name' | 'phone' | 'email'> | null
+  contact: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name' | 'phone' | 'email' | 'ghl_contact_id'> | null
   company: Pick<Tables<'companies'>, 'id' | 'name'> | null
   properties: {
     property_id: string
@@ -14,7 +14,7 @@ export type ProspectWithRelations = Tables<'prospects'> & {
 
 const PROSPECT_SELECT = `
   *,
-  contact:contacts!prospects_contact_id_fkey(id, first_name, last_name, phone, email),
+  contact:contacts!prospects_contact_id_fkey(id, first_name, last_name, phone, email, ghl_contact_id),
   company:companies!prospects_company_id_fkey(id, name),
   properties:prospect_properties(property_id, property:properties!prospect_properties_property_id_fkey(id, address, city, state))
 `

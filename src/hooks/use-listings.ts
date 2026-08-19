@@ -52,7 +52,7 @@ const LISTING_DETAIL_SELECT = `
   *,
   property:properties!listings_property_id_fkey(*),
   landlord:companies!listings_landlord_company_id_fkey(id, name, phone),
-  landlord_contact:contacts!listings_landlord_contact_id_fkey(id, first_name, last_name, title, email, phone),
+  landlord_contact:contacts!listings_landlord_contact_id_fkey(id, first_name, last_name, title, email, phone, ghl_contact_id),
   broker:contacts!listings_broker_contact_id_fkey(id, first_name, last_name)
 `
 
@@ -61,7 +61,7 @@ export type ListingDetail = Tables<'listings'> & {
   landlord: Pick<Tables<'companies'>, 'id' | 'name' | 'phone'> | null
   landlord_contact: Pick<
     Tables<'contacts'>,
-    'id' | 'first_name' | 'last_name' | 'title' | 'email' | 'phone'
+    'id' | 'first_name' | 'last_name' | 'title' | 'email' | 'phone' | 'ghl_contact_id'
   > | null
   broker: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
 }
