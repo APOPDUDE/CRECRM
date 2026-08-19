@@ -725,6 +725,7 @@ export function PropertyBoardPage() {
                     city={listing.property?.city}
                     state={listing.property?.state}
                     zip={listing.property?.zip}
+                    parcelNumber={listing.property?.parcel_number}
                   />
                 </div>
               </SidebarSection>
