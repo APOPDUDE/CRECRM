@@ -36,6 +36,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { GhlPhoneLink } from '@/components/ghl-phone-link'
 import { ListErrorState } from '@/components/list-error-state'
 import { PaymentCheckActions } from '@/components/payment-check-actions'
 import { TaskCompleteDialog } from '@/components/task-complete-dialog'
@@ -276,6 +277,9 @@ export function TasksPage() {
               </span>
             )}
             {task.contact && <span className="truncate">· {contactNameOf(task.contact)}</span>}
+            {task.contact?.phone && (
+              <GhlPhoneLink phone={task.contact.phone} ghlContactId={task.contact.ghl_contact_id} />
+            )}
           </div>
         </div>
 

@@ -6,14 +6,17 @@ import type { ParentType } from '@/hooks/use-notes'
 import { formatDate } from '@/lib/dates'
 
 export type TaskWithContact = Tables<'tasks'> & {
-  contact: Pick<Tables<'contacts'>, 'id' | 'first_name' | 'last_name'> | null
+  contact: Pick<
+    Tables<'contacts'>,
+    'id' | 'first_name' | 'last_name' | 'phone' | 'ghl_contact_id'
+  > | null
   /** When a task hangs off a pursuit (e.g. payment checks), its client for routing. */
   pursuit: { client_id: string } | null
 }
 
 const TASK_SELECT = `
   *,
-  contact:contacts!tasks_contact_id_fkey(id, first_name, last_name),
+  contact:contacts!tasks_contact_id_fkey(id, first_name, last_name, phone, ghl_contact_id),
   pursuit:pursuits!tasks_pursuit_id_fkey(client_id)
 `
 

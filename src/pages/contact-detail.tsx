@@ -24,6 +24,7 @@ import { ContactAssociations } from '@/components/contact-associations'
 import { ContactTasks } from '@/components/contact-tasks'
 import { TaskFocusBanner } from '@/components/task-focus-banner'
 import { EmailVerifiedBadge } from '@/components/verified-badge'
+import { GhlPhoneLink } from '@/components/ghl-phone-link'
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null
@@ -174,7 +175,16 @@ export function ContactDetailPage() {
             </dd>
           </div>
         )}
-        <Field label="Phone" value={contact.phone} />
+        {contact.phone ? (
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">Phone</dt>
+            <dd className="mt-0.5 text-sm">
+              <GhlPhoneLink phone={contact.phone} ghlContactId={contact.ghl_contact_id} />
+            </dd>
+          </div>
+        ) : (
+          <Field label="Phone" value={contact.phone} />
+        )}
         {contact.company && (
           <div>
             <dt className="text-xs font-medium text-muted-foreground">Company</dt>
