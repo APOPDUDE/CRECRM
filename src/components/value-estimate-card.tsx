@@ -98,7 +98,9 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
       ? `$${val.sale.psf.toFixed(0)} / SF`
       : null
   const tax = estimatedAnnualTax(val.tax)
-  const compCount = val.comps.filter((c) => c.included).length
+  // Only the rows the estimate is computed from — the array also carries
+  // display-depth comps and county transfer records that never feed the math.
+  const compCount = val.comps.filter((c) => c.in_estimate && c.included).length
   const land = val.sale?.land_total ?? 0
   const landRent = val.lease?.land_monthly ?? 0
   const buildingRent = val.lease?.building_monthly ?? 0
@@ -266,7 +268,7 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
 
       <Button variant="outline" size="sm" className="self-start" onClick={() => setMathOpen(true)}>
         <Calculator className="size-4" />
-        See the math · {compCount} comps
+        Comps &amp; math · {compCount} in the estimate
       </Button>
 
       <ValuationDetailSheet propertyId={propertyId} open={mathOpen} onOpenChange={setMathOpen} />

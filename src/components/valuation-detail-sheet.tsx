@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, RotateCcw } from 'lucide-react'
+import { ArrowUpRight, ExternalLink, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConfidenceBadge } from '@/components/value-estimate-card'
 import { useCountyMarketStats } from '@/hooks/use-market'
 import { useProperty } from '@/hooks/use-properties'
@@ -23,17 +24,46 @@ import {
 } from '@/hooks/use-valuation'
 import { compactUsd, formatCurrency, formatSf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
+import { listingUrlFromSourceKey } from '@/lib/listing-url'
 
-const bucketTitles: Record<ValuationBucket, string> = {
-  sale: 'Sale comps',
-  lease: 'Lease comps',
-  land: 'Land comps',
+/**
+ * The four tabs: what similar properties are ASKING (lease / sale, with a jump
+ * to the live listing) and what similar deals actually DID (leased / sold, with
+ * the county's land-vs-building split of each sale). One record type feeds all
+ * four — a comp's bucket says which side of the money it's on, its kind says
+ * whether it's an ask, a done deal, or a county-recorded transfer.
+ */
+type CompTab = 'ask_lease' | 'ask_sale' | 'leased' | 'sold'
+
+function tabOf(c: ValuationComp): CompTab {
+  const saleSide = c.bucket === 'sale' || c.bucket === 'land'
+  if (c.kind === 'asking') return saleSide ? 'ask_sale' : 'ask_lease'
+  return saleSide ? 'sold' : 'leased'
+}
+
+const tabTitles: Record<CompTab, string> = {
+  ask_lease: 'For lease',
+  ask_sale: 'For sale',
+  leased: 'Leased',
+  sold: 'Sold',
 }
 
 /** $14.05 for a rate, $605K for a land price — one formatter, keyed by bucket. */
 function rateLabel(bucket: ValuationBucket, v: number | null | undefined): string {
   if (v == null) return '—'
   return bucket === 'land' ? `${compactUsd(v)}/AC` : `$${v.toFixed(2)}`
+}
+
+/** "Investment" / "Owner User" straight off the listing; CoStar will fill the rest. */
+function saleTypeLabel(saleType: string | null): string | null {
+  if (!saleType) return null
+  const s = saleType.toLowerCase()
+  const inv = s.includes('invest')
+  const user = s.includes('user') || s.includes('owner')
+  if (inv && user) return 'Inv. or user'
+  if (inv) return 'Investment'
+  if (user) return 'User sale'
+  return saleType
 }
 
 /**
@@ -67,7 +97,11 @@ function CompRow({
   onToggle: (include: boolean) => void
   disabled: boolean
 }) {
-  const notes = adjustmentNotes(comp, subjectClass)
+  const isTransfer = comp.kind === 'transfer'
+  const notes = isTransfer ? [] : adjustmentNotes(comp, subjectClass)
+  // Transfers carry no adjusted rate — their raw $/SF or $/acre is the story.
+  const shownRate = comp.adj_metric ?? comp.metric
+  const listingUrl = listingUrlFromSourceKey(comp.source_key, comp.address, comp.city)
   const facts = [
     comp.bucket === 'land' ? (comp.acres ? `${comp.acres} ac` : null) : formatSf(comp.sf),
     comp.miles != null ? `${comp.miles} mi` : null,
@@ -76,18 +110,28 @@ function CompRow({
     comp.lease_structure,
     comp.term_months ? `${comp.term_months} mo` : null,
     comp.cap_rate_pct != null ? `${comp.cap_rate_pct}% cap` : null,
-    comp.bucket === 'sale' && comp.sale_price != null ? formatCurrency(comp.sale_price) : null,
+    comp.kind === 'asking' && comp.days_on_market != null ? `${comp.days_on_market} DOM` : null,
+    (comp.bucket === 'sale' || comp.bucket === 'land') && comp.sale_price != null
+      ? formatCurrency(comp.sale_price)
+      : null,
   ].filter(Boolean)
 
   return (
     <li className={`flex items-start gap-3 p-3 ${comp.included ? '' : 'bg-muted/40'}`}>
-      <Checkbox
-        className="mt-0.5"
-        checked={comp.included}
-        disabled={disabled}
-        onCheckedChange={(v) => onToggle(v === true)}
-        aria-label={comp.included ? 'Exclude this comp' : 'Include this comp'}
-      />
+      {/* Only rows the estimate actually uses get a strike checkbox — a county
+          record or display-depth row isn't in the math, so there is nothing to
+          strike it FROM. */}
+      {comp.in_estimate ? (
+        <Checkbox
+          className="mt-0.5"
+          checked={comp.included}
+          disabled={disabled}
+          onCheckedChange={(v) => onToggle(v === true)}
+          aria-label={comp.included ? 'Exclude this comp' : 'Include this comp'}
+        />
+      ) : (
+        <span className="mt-0.5 size-4 shrink-0" aria-hidden />
+      )}
       {/* Stacked on a phone: side by side, the rate column squeezes the address
           down to an ellipsis and wraps the facts to six lines. */}
       <div
@@ -105,16 +149,25 @@ function CompRow({
             >
               {comp.address ?? 'Unknown address'}
             </Link>
-            <Badge
-              variant="outline"
-              className={
-                comp.kind === 'executed'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                  : 'border-blue-200 bg-blue-50 text-blue-700'
-              }
-            >
-              {comp.kind === 'executed' ? 'Executed' : 'Asking'}
-            </Badge>
+            {isTransfer ? (
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">
+                County record
+              </Badge>
+            ) : comp.kind === 'executed' ? (
+              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                Executed
+              </Badge>
+            ) : null}
+            {comp.kind === 'asking' && comp.listing_active === false && (
+              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                Off market
+              </Badge>
+            )}
+            {saleTypeLabel(comp.sale_type) && (
+              <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700">
+                {saleTypeLabel(comp.sale_type)}
+              </Badge>
+            )}
             {comp.property_type && comp.property_type !== 'industrial' && (
               <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-600">
                 {comp.property_type}
@@ -125,8 +178,36 @@ function CompRow({
                 Class {comp.building_class}
               </Badge>
             )}
+            {/* Straight to the listing. Built from the comp's OWN source_key —
+                never the scraped listing_url, which can carry a neighbor's id. */}
+            {listingUrl && (
+              <a
+                href={listingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                View listing
+                <ExternalLink className="size-3" />
+              </a>
+            )}
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">{facts.join(' · ') || '—'}</div>
+          {/* The split: what the dirt took vs what the building took, at the
+              county's own allocation. Rough by design — it's the county's ratio
+              applied to a real price, not an appraisal. */}
+          {comp.land_alloc != null && comp.building_alloc != null && (
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground/80">Split</span> building{' '}
+              {compactUsd(comp.building_alloc)}
+              {comp.building_psf_alloc != null && ` ($${comp.building_psf_alloc.toFixed(2)}/SF)`}
+              {' + land '}
+              {compactUsd(comp.land_alloc)}
+              {comp.land_per_acre_alloc != null && ` (${compactUsd(comp.land_per_acre_alloc)}/ac)`}
+              {comp.county_land_share != null &&
+                ` · county puts ${Math.round(comp.county_land_share * 100)}% in the land`}
+            </div>
+          )}
         </div>
         <div className="shrink-0 sm:text-right">
           <div className="text-sm font-semibold tabular-nums">
@@ -138,11 +219,17 @@ function CompRow({
                 {rateLabel(comp.bucket, comp.adj_metric)}
               </>
             ) : (
-              rateLabel(comp.bucket, comp.adj_metric)
+              rateLabel(comp.bucket, shownRate)
             )}
           </div>
           <div className="text-xs text-muted-foreground tabular-nums">
-            {comp.included ? `${comp.weight_pct ?? 0}% of estimate` : 'excluded'}
+            {comp.in_estimate
+              ? comp.included
+                ? `${comp.weight_pct ?? 0}% of estimate`
+                : 'excluded'
+              : isTransfer
+                ? 'evidence only'
+                : 'not in estimate'}
           </div>
           {notes.length > 0 && (
             <div className="text-xs text-muted-foreground/80">{notes.join(' · ')}</div>
@@ -153,45 +240,87 @@ function CompRow({
   )
 }
 
-function BucketSection({
-  bucket,
+/**
+ * The one line that says how a bucket's headline was built, in the broker's units.
+ * The comp-derived rate prices the BUILDING; when the site has excess land, its
+ * component is spelled out rather than folded in — this line exists so the broker
+ * can check the arithmetic, so the arithmetic has to actually hold.
+ */
+function bucketMathLine(bucket: ValuationBucket, val: PropertyValuation): string | null {
+  const sf = val.subject.sf
+  const acres = val.subject.land_acres
+  if (bucket === 'lease' && val.lease && sf) {
+    const base = `$${val.lease.psf.toFixed(2)} PSF × ${sf.toLocaleString('en-US')} SF ÷ 12 = ${formatCurrency(val.lease.building_monthly)}`
+    return val.lease.land_monthly > 0
+      ? `${base} + ${formatCurrency(val.lease.land_monthly)} yard = ${formatCurrency(val.lease.monthly)}/mo`
+      : `${base}/mo`
+  }
+  if (bucket === 'sale' && val.sale && sf) {
+    const base = `$${val.sale.psf.toFixed(2)} /SF × ${sf.toLocaleString('en-US')} SF = ${formatCurrency(val.sale.building_total)}`
+    return val.sale.land_total > 0
+      ? `${base} + ${formatCurrency(val.sale.land_total)} land = ${formatCurrency(val.sale.total)}`
+      : base
+  }
+  if (bucket === 'land' && val.land && acres) {
+    return `${compactUsd(val.land.per_acre)}/AC × ${acres} acres = ${formatCurrency(val.land.total)}`
+  }
+  return null
+}
+
+/**
+ * One tab pane: the estimate line for the bucket this tab feeds, then the comp
+ * rows. Executed rows lead, county records trail — a verified comp outranks a
+ * deed stamp.
+ */
+function CompTabPane({
+  tab,
+  comps,
   val,
   propertyId,
 }: {
-  bucket: ValuationBucket
+  tab: CompTab
+  comps: ValuationComp[]
   val: PropertyValuation
   propertyId: string
 }) {
   const toggle = useToggleValuationComp()
-  const comps = val.comps.filter((c) => c.bucket === bucket)
-  if (comps.length === 0) return null
+  const saleSide = tab === 'ask_sale' || tab === 'sold'
 
+  // A land subject values through the land bucket; improved ones through sale/lease.
+  // Inferred from ESTIMATE rows only — a county transfer of an improved neighbor is
+  // bucket 'sale' regardless of the subject, and counting it flipped land subjects
+  // onto the (null) sale stats, silently dropping their math line.
+  const bucket: ValuationBucket = saleSide
+    ? comps.some((c) => c.in_estimate && c.bucket === 'sale')
+      ? 'sale'
+      : comps.some((c) => c.in_estimate && c.bucket === 'land')
+        ? 'land'
+        : val.sale != null
+          ? 'sale'
+          : 'land'
+    : 'lease'
   const stats = bucket === 'sale' ? val.sale : bucket === 'lease' ? val.lease : val.land
-  const included = comps.filter((c) => c.included).length
-  const sf = val.subject.sf
-  const acres = val.subject.land_acres
+  const mathLine = bucketMathLine(bucket, val)
 
-  // The one line that says how the headline was built, in the broker's units.
-  let mathLine: string | null = null
-  if (bucket === 'lease' && val.lease && sf) {
-    mathLine = `$${val.lease.psf.toFixed(2)} PSF × ${sf.toLocaleString('en-US')} SF ÷ 12 = ${formatCurrency(val.lease.monthly)}/mo`
-  } else if (bucket === 'sale' && val.sale && sf) {
-    mathLine = `$${val.sale.psf.toFixed(2)} /SF × ${sf.toLocaleString('en-US')} SF = ${formatCurrency(val.sale.total)}`
-  } else if (bucket === 'land' && val.land && acres) {
-    mathLine = `${compactUsd(val.land.per_acre)}/AC × ${acres} acres = ${formatCurrency(val.land.total)}`
-  }
+  const ordered = useMemo(() => {
+    const rank = (c: ValuationComp) => (c.kind === 'transfer' ? 1 : 0)
+    return [...comps].sort((a, b) => rank(a) - rank(b) || (b.weight ?? 0) - (a.weight ?? 0))
+  }, [comps])
+
+  const inEstimate = comps.filter((c) => c.in_estimate)
+  const included = inEstimate.filter((c) => c.included).length
+  const transfers = comps.filter((c) => c.kind === 'transfer').length
 
   return (
-    <section className="space-y-2">
+    <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">
-          {bucketTitles[bucket]}{' '}
-          <span className="font-normal text-muted-foreground">
-            ({included} of {comps.length} in use
-            {stats?.n_executed ? `, ${stats.n_executed} executed` : ''})
-          </span>
-        </h3>
-        <ConfidenceBadge confidence={stats?.confidence} />
+        <p className="text-xs text-muted-foreground">
+          {inEstimate.length > 0
+            ? `${included} of ${inEstimate.length} feeding the estimate`
+            : 'Evidence only — none of these feed the estimate'}
+          {transfers > 0 && ` · ${transfers} county ${transfers === 1 ? 'record' : 'records'}`}
+        </p>
+        {inEstimate.length > 0 && <ConfidenceBadge confidence={stats?.confidence} />}
       </div>
       {mathLine && (
         <p className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
@@ -212,23 +341,29 @@ function BucketSection({
           )}
         </p>
       )}
-      <ul className="divide-y overflow-hidden rounded-lg border">
-        {comps.map((c) => (
-          <CompRow
-            key={c.comp_id}
-            comp={c}
-            subjectClass={val.subject.building_class}
-            disabled={toggle.isPending}
-            onToggle={(include) =>
-              toggle.mutate(
-                { propertyId, compId: c.comp_id, include },
-                { onError: () => toast.error('Could not update the comp set') },
-              )
-            }
-          />
-        ))}
-      </ul>
-    </section>
+      {ordered.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+          Nothing similar nearby in this bucket.
+        </p>
+      ) : (
+        <ul className="divide-y overflow-hidden rounded-lg border">
+          {ordered.map((c) => (
+            <CompRow
+              key={c.comp_id}
+              comp={c}
+              subjectClass={val.subject.building_class}
+              disabled={toggle.isPending}
+              onToggle={(include) =>
+                toggle.mutate(
+                  { propertyId, compId: c.comp_id, include },
+                  { onError: () => toast.error('Could not update the comp set') },
+                )
+              }
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -481,9 +616,10 @@ function CountyContext({ county }: { county: string | null }) {
 }
 
 /**
- * The math behind the estimate. Every comp that fed a number, what it weighs,
- * and a checkbox to throw it out — the estimate recomputes in Postgres and the
- * exclusion sticks to the property.
+ * The comps behind the estimate, organized the way a broker asks for them:
+ * what's for lease, what's for sale (each a click from its live listing), what
+ * leased, and what sold — with each sale split land vs building. Estimate rows
+ * carry a checkbox; strike one and the numbers redo themselves in Postgres.
  */
 export function ValuationDetailSheet({
   propertyId,
@@ -497,7 +633,15 @@ export function ValuationDetailSheet({
   const { data: val, isLoading, isFetching } = usePropertyValuation(open ? propertyId : null)
   const reset = useResetValuationComps()
 
-  const excludedCount = val?.comps.filter((c) => !c.included).length ?? 0
+  const excludedCount = val?.comps.filter((c) => c.in_estimate && !c.included).length ?? 0
+
+  const byTab = useMemo(() => {
+    const out: Record<CompTab, ValuationComp[]> = { ask_lease: [], ask_sale: [], leased: [], sold: [] }
+    for (const c of val?.comps ?? []) out[tabOf(c)].push(c)
+    return out
+  }, [val])
+  const tabs = (Object.keys(tabTitles) as CompTab[]).filter((t) => byTab[t].length > 0)
+  const defaultTab = tabs[0] ?? 'ask_lease'
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -505,7 +649,7 @@ export function ValuationDetailSheet({
           merge leaves both and the narrower data-[side=right]:sm:max-w-sm wins. */}
       <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto p-0 data-[side=right]:sm:max-w-3xl">
         <SheetHeader className="sticky top-0 z-10 border-b bg-popover px-4 py-3">
-          <SheetTitle>How this estimate was built</SheetTitle>
+          <SheetTitle>Comps &amp; the estimate</SheetTitle>
           <SheetDescription>
             {val?.subject.address ?? 'Property'}
             {val?.subject.sf ? ` · ${formatSf(val.subject.sf)}` : ''}
@@ -520,25 +664,35 @@ export function ValuationDetailSheet({
           </div>
         ) : (
           <div className={`space-y-6 p-4 ${isFetching ? 'opacity-60 transition-opacity' : ''}`}>
-            <div className="space-y-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-              <p>
-                Every comp below is weighted by how close it is, how near in size, and how recent.
-                Asking comps count for a little <em>more</em> than executed ones, because asking is
-                current — asking comps here are about a month old, executed ones a year and a half.
-              </p>
-              <p>
-                Each rate is then restated for this building: for size, for building class where both
-                are known, and — on an asking price — cut by about{' '}
-                {val.method?.asking_discount_pct ?? 5}% for the negotiation still to come. That cut
-                scales with how far above its peers the comp is asking, so an overpriced listing gives
-                up more than a keenly-priced one. The estimate is the weighted median, so no single
-                outlier carries it. Untick anything that doesn't fit and the numbers redo themselves.
-              </p>
-            </div>
+            <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+              Comps are weighted by distance, size, and recency, then restated for this building —
+              size, class, and a ~{val.method?.asking_discount_pct ?? 5}% haircut on asking prices
+              that grows with how far above its peers a listing sits. The estimate is the weighted
+              median of the checked rows; untick anything that doesn't fit and the numbers redo
+              themselves. County records are shown as evidence but never counted.
+            </p>
 
-            <BucketSection bucket="sale" val={val} propertyId={propertyId} />
-            <BucketSection bucket="lease" val={val} propertyId={propertyId} />
-            <BucketSection bucket="land" val={val} propertyId={propertyId} />
+            {tabs.length > 0 ? (
+              <Tabs defaultValue={defaultTab}>
+                <TabsList className="w-full">
+                  {tabs.map((t) => (
+                    <TabsTrigger key={t} value={t} className="flex-1">
+                      {tabTitles[t]}
+                      <span className="ml-1 text-xs text-muted-foreground">{byTab[t].length}</span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {tabs.map((t) => (
+                  <TabsContent key={t} value={t} className="mt-3">
+                    <CompTabPane tab={t} comps={byTab[t]} val={val} propertyId={propertyId} />
+                  </TabsContent>
+                ))}
+              </Tabs>
+            ) : (
+              <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                No comparable properties found within 25 miles.
+              </p>
+            )}
 
             <LandSection val={val} propertyId={propertyId} />
             <TaxSection val={val} />
@@ -562,7 +716,7 @@ export function ValuationDetailSheet({
             )}
 
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              Estimated {formatDate(val.as_of)} from {val.comps.length} candidate comps within 25 miles.
+              Estimated {formatDate(val.as_of)} from comps within 25 miles.
               <Link to="/properties" className="inline-flex items-center hover:text-primary hover:underline">
                 Browse properties
                 <ArrowUpRight className="size-3" />
