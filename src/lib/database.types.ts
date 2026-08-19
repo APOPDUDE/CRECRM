@@ -3583,6 +3583,30 @@ export type Database = {
           },
         ]
       }
+      outreach_exports: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          property_ids: string[]
+          row_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          property_ids?: string[]
+          row_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          property_ids?: string[]
+          row_count?: number
+        }
+        Relationships: []
+      }
       outreach_mail: {
         Row: {
           created_at: string

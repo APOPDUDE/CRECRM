@@ -105,6 +105,7 @@ function ExportDialogBody({
 
   const [dedupe, setDedupe] = useState(false)
   const [stamp, setStamp] = useState(true)
+  const [exportName, setExportName] = useState('')
 
   // Lease columns only mean anything once the comps are loaded — ask the parent the
   // moment one is checked, not when the map first opens.
@@ -196,10 +197,24 @@ function ExportDialogBody({
       }
       return cols.map((c) => c.cell(ctx))
     })
-    downloadCsv(
-      `export-${todayStamp()}-${exportRows.length}.csv`,
-      toCsv(cols.map((c) => c.label), csvRows),
-    )
+    const name = exportName.trim() || `export-${todayStamp()}-${exportRows.length}`
+    downloadCsv(`${name}.csv`, toCsv(cols.map((c) => c.label), csvRows))
+    if (stamp) {
+      // The round-trip record: the import page matches the skiptraced CSV back to this row to
+      // report which properties the skiptrace missed. Fire-and-forget, same as the stamp.
+      void supabase
+        .from('outreach_exports')
+        .insert({ name, property_ids: exportRows.map((p) => p.id), row_count: exportRows.length })
+        .then(({ error }) => {
+          if (error) {
+            toast.error(
+              error.code === '23505'
+                ? `An export named “${name}” already exists — the file downloaded, but pick a new name next time.`
+                : 'Export downloaded, but recording it for the import round trip failed.',
+            )
+          }
+        })
+    }
     if (stamp) {
       // Stamp the pipeline: these owners are now "out for skip trace". The function
       // marks at COMPANY level, so a deduped export still covers an owner's twin
@@ -308,6 +323,21 @@ function ExportDialogBody({
             </span>
           </span>
         </label>
+
+        {stamp && (
+          <div className="space-y-1">
+            <Input
+              value={exportName}
+              onChange={(e) => setExportName(e.target.value)}
+              placeholder={`Name this export… (${`export-${todayStamp()}-${exportRows.length}`})`}
+              className="h-8 w-80"
+            />
+            <p className="text-xs text-muted-foreground">
+              The import page will offer this name when the skiptraced CSV comes back, and report
+              which of these properties the skiptrace missed.
+            </p>
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
