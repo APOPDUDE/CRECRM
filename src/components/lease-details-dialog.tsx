@@ -27,6 +27,7 @@ interface LeaseDetailsDialogProps {
 }
 
 const RENEWAL_LEAD_DAYS = 90
+const RENEWAL_FROM_EXPIRATION_DAYS = 270
 
 export function LeaseDetailsDialog({ open, onOpenChange, match }: LeaseDetailsDialogProps) {
   const { session } = useAuth()
@@ -68,15 +69,19 @@ export function LeaseDetailsDialog({ open, onOpenChange, match }: LeaseDetailsDi
         })
         .eq('pursuit_id', match.id)
 
-      // auto-create a renewal reminder ~90 days before the notice deadline
-      if (renewal && session?.user.id) {
-        const today = new Date()
-        const due = max([subDays(parseISO(renewal), RENEWAL_LEAD_DAYS), today])
+      // auto-create a renewal reminder: ~90 days before the notice deadline, or —
+      // when no notice date is recorded — ~9 months before expiration, the point
+      // where a renewal conversation should start anyway.
+      const anchor = renewal
+        ? subDays(parseISO(renewal), RENEWAL_LEAD_DAYS)
+        : expiration
+          ? subDays(parseISO(expiration), RENEWAL_FROM_EXPIRATION_DAYS)
+          : null
+      if (anchor && session?.user.id) {
+        const due = max([anchor, new Date()])
         await upsertRenewal.mutateAsync({
           owner: session.user.id,
           pursuitId: match.id,
-          parentType: 'client',
-          parentId: match.client_id,
           contactId: match.tenant_contact?.id ?? null,
           title: `Reach out to ${tenantName} about renewal — ${match.property?.address ?? 'property'}`,
           dueDate: format(due, 'yyyy-MM-dd'),
@@ -99,7 +104,8 @@ export function LeaseDetailsDialog({ open, onOpenChange, match }: LeaseDetailsDi
         <DialogHeader>
           <DialogTitle>Lease details</DialogTitle>
           <DialogDescription>
-            A renewal reminder is created {RENEWAL_LEAD_DAYS} days before the renewal-notice date.
+            A renewal reminder is created {RENEWAL_LEAD_DAYS} days before the renewal-notice
+            date — or 9 months before expiration when no notice date is set.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

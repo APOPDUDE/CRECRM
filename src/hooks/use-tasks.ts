@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addDays, format, isAfter, parseISO } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
-import type { ParentType } from '@/hooks/use-notes'
 import { formatDate } from '@/lib/dates'
 
 export type TaskWithContact = Tables<'tasks'> & {
@@ -232,9 +231,6 @@ export function useToggleTask() {
   })
 }
 
-const parentColumn = (t: ParentType) =>
-  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
-
 /** Create/replace the auto-generated lease-renewal reminder for a pursuit. */
 export function useUpsertRenewalTask() {
   const queryClient = useQueryClient()
@@ -242,8 +238,6 @@ export function useUpsertRenewalTask() {
     mutationFn: async (args: {
       owner: string
       pursuitId: string
-      parentType: ParentType
-      parentId: string
       contactId: string | null
       title: string
       dueDate: string
@@ -255,13 +249,16 @@ export function useUpsertRenewalTask() {
         .eq('pursuit_id', args.pursuitId)
         .eq('source', 'lease_renewal')
         .eq('status', 'open')
+      // The pursuit is the ONLY parent: tasks_one_parent allows a single non-null
+      // parent column, and setting client_id alongside pursuit_id violates it (this
+      // is why no renewal reminder ever saved). Routing still reaches the deal page
+      // through pursuit.client_id.
       const { error } = await supabase.from('tasks').insert({
         owner_id: args.owner,
         title: args.title,
         kind: 'renewal',
         due_date: args.dueDate,
         pursuit_id: args.pursuitId,
-        [parentColumn(args.parentType)]: args.parentId,
         contact_id: args.contactId,
         auto_generated: true,
         source: 'lease_renewal',

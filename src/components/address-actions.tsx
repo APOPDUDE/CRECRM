@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 /**
- * The three ways you actually want to leave a property record: open it in Apple Maps
+ * The three ways you actually want to leave a property record: open it in Google Maps
  * (directions on the phone), drop into Google Earth (look at the roof, the yard, the
  * truck court), or copy the address to paste into an email or a listing.
  *
@@ -25,12 +25,13 @@ export function AddressActions({
   const [copied, setCopied] = useState(false)
   const q = encodeURIComponent(address)
 
-  // Apple Maps takes a free-text query; coordinates win when we hold them because a
-  // scraped address string can geocode to the wrong side of a long rural road.
+  // Coordinates win when we hold them because a scraped address string can geocode to
+  // the wrong side of a long rural road. Google's ?api=1 search URL opens the Google
+  // Maps app on phones that have it.
   const hasCoords = typeof lat === 'number' && typeof lng === 'number'
-  const appleUrl = hasCoords
-    ? `https://maps.apple.com/?q=${q}&ll=${lat},${lng}`
-    : `https://maps.apple.com/?q=${q}`
+  const mapsUrl = hasCoords
+    ? `https://www.google.com/maps/search/?api=1&query=${lat}%2C${lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${q}`
   // Google Earth's web build has no documented ll= query param; its /search/ route is the
   // supported deep link and resolves the same address string.
   const earthUrl = `https://earth.google.com/web/search/${q}`
@@ -54,15 +55,15 @@ export function AddressActions({
   return (
     <span className={cn('inline-flex items-center gap-1 align-middle', className)}>
       <a
-        href={appleUrl}
+        href={mapsUrl}
         target="_blank"
         rel="noopener noreferrer"
-        title="Open in Apple Maps"
+        title="Open in Google Maps"
         className={btn}
         onClick={(e) => e.stopPropagation()}
       >
         <MapPin className="size-4" />
-        <span className="sr-only">Open in Apple Maps</span>
+        <span className="sr-only">Open in Google Maps</span>
       </a>
       <a
         href={earthUrl}
