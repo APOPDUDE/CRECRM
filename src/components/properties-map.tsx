@@ -265,7 +265,7 @@ type ParcelSvc = {
 
 const str0 = (v: unknown) => (v == null ? '' : String(v).trim())
 
-const PARCEL_SERVICES: ParcelSvc[] = [
+export const PARCEL_SERVICES: ParcelSvc[] = [
   {
     name: 'Hillsborough',
     url: 'https://maps.hillsboroughcounty.org/arcgis/rest/services/InfoLayers/HC_Parcels/FeatureServer/0',
@@ -333,7 +333,7 @@ const parcelStyleFor = (color: string) => ({
 })
 
 /** Format-blind parcel key: letters+digits only (folio digits vs dashed PIN both normalize). */
-const parcelKey = (p: string | null | undefined) =>
+export const parcelKey = (p: string | null | undefined) =>
   (p ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null
 
 /**
@@ -348,7 +348,7 @@ const parcelKey = (p: string | null | undefined) =>
  * Splitting is what makes an assemblage clickable, and assemblages are exactly the
  * parcels worth clicking.
  */
-const parcelKeys = (field: string | null | undefined): string[] =>
+export const parcelKeys = (field: string | null | undefined): string[] =>
   (field ?? '')
     .split(/[,;\n]/)
     .map((part) => parcelKey(part))
@@ -522,7 +522,7 @@ function ParcelLines({
 
 /** The outer ring(s) of a GeoJSON Polygon/MultiPolygon as {lat,lng} lists (holes ignored
  * — a point in a courtyard still belongs to the parcel for our purposes). */
-function outerRings(geometry: Geometry | null | undefined): LatLng[][] {
+export function outerRings(geometry: Geometry | null | undefined): LatLng[][] {
   if (!geometry) return []
   const toRing = (ring: number[][]) => ring.map(([lng, lat]) => ({ lat, lng }))
   if (geometry.type === 'Polygon') {
@@ -537,7 +537,7 @@ function outerRings(geometry: Geometry | null | undefined): LatLng[][] {
   return []
 }
 
-function ringsBbox(rings: LatLng[][]): [number, number, number, number] {
+export function ringsBbox(rings: LatLng[][]): [number, number, number, number] {
   let minLat = Infinity, minLng = Infinity, maxLat = -Infinity, maxLng = -Infinity
   for (const ring of rings) {
     for (const v of ring) {

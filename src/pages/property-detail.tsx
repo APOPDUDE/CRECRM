@@ -323,6 +323,7 @@ export function PropertyDetailPage() {
             city={property.city}
             state={property.state}
             zip={property.zip}
+            parcelNumber={property.parcel_number}
             className="min-h-[16rem] flex-1"
           />
         </div>

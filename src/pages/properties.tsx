@@ -320,7 +320,11 @@ export function PropertiesPage() {
   // without coordinates progressively gain map pins. No-op once everything is geocoded.
   useGeocodeMissing()
 
-  const [search, setSearch] = useState('')
+  // Sticky like the filters: clicking into a property and coming back mid-canvass must
+  // land on the same search, not a reset one (Alex, 2026-08-19). Guarded because a
+  // tampered/legacy stored value that isn't a string would crash searchTokens.
+  const [searchRaw, setSearch] = usePersistentState('properties:search', '')
+  const search = typeof searchRaw === 'string' ? searchRaw : ''
   // Filters + column choice persist across navigation (sticky) so returning from a
   // property detail keeps the list exactly as it was.
   const [status, setStatus] = usePersistentState('properties:status', 'all')
@@ -1369,8 +1373,20 @@ export function PropertiesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search properties…"
-              className="pl-9"
+              className="pl-9 pr-8"
             />
+            {/* The search is sticky now, so it needs a one-tap way out — without this,
+                yesterday's query silently narrows today's map. */}
+            {search !== '' && (
+              <button
+                type="button"
+                title="Clear search"
+                onClick={() => setSearch('')}
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            )}
           </div>
           <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
             <Button
