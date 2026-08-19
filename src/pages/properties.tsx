@@ -897,13 +897,6 @@ export function PropertiesPage() {
       // "3206 Sydney Rd Plant City, FL 33566" matches even though the street, city, state and
       // zip live in different columns.
       if (tokens.length && !matchesTokens(haystacks.get(p.id) ?? '', tokens)) continue
-      // Condo exclusion is a hard filter, not a use axis: the overlay union must never
-      // forgive it. Counted so the count line and empty states can say what was hidden
-      // instead of letting a searched-for unit silently vanish.
-      if (!includeCondos && p.is_condo_unit) {
-        condosDropped++
-        continue
-      }
       // 'executed' is a lens on OUR deals, not a listing_status value — hence its own branch.
       if (status === 'executed') {
         if (!executedIds?.has(p.id)) continue
@@ -999,6 +992,14 @@ export function PropertiesPage() {
       // The picker's layers — categories via the dor_codes filing, customs verbatim.
       if (passesUse && dorActive && !matchesDorSelection(p.county, p.dor_use_code, dorSel, dorCategoryByCode)) passesUse = false
 
+      // Condo gate LAST, after every other filter has had its say: the hidden count is
+      // then exactly the rows THIS view lost to the lens — not the book-wide constant
+      // 2,077 that an early drop reports the moment any filter engages the whole book.
+      // Never a candidate either: the overlay union must not resurrect condo units.
+      if (!includeCondos && p.is_condo_unit) {
+        if (passesUse) condosDropped++
+        continue
+      }
       if (passesUse) base.push(p)
       else candidates.push(p)
     }
