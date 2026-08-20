@@ -246,11 +246,6 @@ export function MapFilterRail(props: {
         <MinMax min={p.acMin} max={p.acMax} onMin={p.onAcMin} onMax={p.onAcMax} />
       </div>
 
-      {/* County use codes — what the parcel IS today, per the appraiser */}
-      <div className="border-t pt-3">
-        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
-      </div>
-
       {/* Condo units — the Motor Enclave problem: one address, 236 separately-owned
           bays. Out of every search by default; this is the way back in. */}
       <div className="space-y-1 border-t pt-3">
@@ -266,6 +261,20 @@ export function MapFilterRail(props: {
             {p.condoHidden.toLocaleString()} hidden in this view
           </p>
         )}
+      </div>
+
+      {/* County use codes — what the parcel IS today, per the appraiser */}
+      <div className="border-t pt-3">
+        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
+      </div>
+
+      {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
+          — on the map the zoning question is the layers below, with Include (union) and
+          Only (restrict) per layer. The table's Filters popover keeps the select. */}
+
+      {/* Zoning district overlays (Phase 1) */}
+      <div className="border-t pt-3">
+        <OverlayControls state={p.overlays} onChange={p.onOverlays} onIncludeOn={p.onOverlayIncludeOn} />
       </div>
 
       {/* Owner operators — buildings whose occupant IS the owner (the 'owner occupier'
@@ -325,15 +334,6 @@ export function MapFilterRail(props: {
             Include properties with no sold date
           </label>
         )}
-      </div>
-
-      {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
-          — on the map the zoning question is the layers below, with Include (union) and
-          Only (restrict) per layer. The table's Filters popover keeps the select. */}
-
-      {/* Zoning district overlays (Phase 1) */}
-      <div className="border-t pt-3">
-        <OverlayControls state={p.overlays} onChange={p.onOverlays} onIncludeOn={p.onOverlayIncludeOn} />
       </div>
 
       {/* On market — off = everyone, plus the explicit inverse Alex asked for */}
