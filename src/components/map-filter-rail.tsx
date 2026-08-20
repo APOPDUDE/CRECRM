@@ -166,6 +166,11 @@ export function MapFilterRail(props: {
   // Owner operators (the 'owner occupier' tag) — tri-state: in the set / out of it / only them
   ownerOccMode: 'all' | 'hide' | 'only'
   onOwnerOccMode: (m: 'all' | 'hide' | 'only') => void
+  // Recently sold — hide owners who closed within the last N years ('' = off)
+  soldYears: string
+  onSoldYears: (v: string) => void
+  includeNoSale: boolean
+  onIncludeNoSale: (on: boolean) => void
   // overlays (Phase 1)
   overlays: OverlayState
   onOverlays: (s: OverlayState) => void
@@ -291,6 +296,35 @@ export function MapFilterRail(props: {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Recently sold — an owner who just closed is the worst cold call on the map. Coverage
+          is county-partial (Hillsborough ~27%, Polk ~48% carry a recorded sale), so unknown
+          sale dates stay visible unless the toggle says otherwise. */}
+      <div className="space-y-1.5 border-t pt-3">
+        <Label>Last sold</Label>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Hide sold in the last
+          <Input
+            type="number"
+            min={0}
+            step={0.5}
+            value={p.soldYears}
+            onChange={(e) => p.onSoldYears(e.target.value)}
+            placeholder="off"
+            className="h-7 w-16"
+          />
+          years
+        </div>
+        {parseFloat(p.soldYears) > 0 && (
+          <label className="flex cursor-pointer items-center gap-2 text-xs">
+            <Checkbox
+              checked={p.includeNoSale}
+              onCheckedChange={(v) => p.onIncludeNoSale(v === true)}
+            />
+            Include properties with no sold date
+          </label>
+        )}
       </div>
 
       {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")

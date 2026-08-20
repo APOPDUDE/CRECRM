@@ -5451,6 +5451,10 @@ export type Database = {
       normalize_phone: { Args: { p: string }; Returns: string }
       normalize_street: { Args: { p_addr: string }; Returns: string }
       normalize_street_loose: { Args: { p_addr: string }; Returns: string }
+      property_last_sales: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       outreach_audience: { Args: { p: Json }; Returns: Json }
       outreach_call_audience: { Args: { p: Json }; Returns: Json }
       outreach_ghl_mark: { Args: { p: Json }; Returns: Json }
