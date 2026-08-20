@@ -68,7 +68,7 @@ export function OutreachPostcardsPage() {
     if (!preview?.mailable?.length) return
     const cols = [
       'first_name', 'last_name', 'company_name',
-      'mail_address', 'mail_city', 'mail_state', 'mail_zip',
+      'mail_address', 'mail_city', 'mail_state', 'mail_zip', 'mail_source',
       'property_address', 'property_city', 'property_state', 'property_zip',
       'crm_contact_id', 'crm_property_id',
     ] as const
@@ -83,7 +83,8 @@ export function OutreachPostcardsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Postcards</h1>
         <p className="text-xs text-muted-foreground">
-          One card per mailbox, sent to the owner’s mailing address — never the property.
+          One card per mailbox, sent to the owner’s county mailing address — never the property,
+          and never a skiptraced home address when the county has the real one.
         </p>
       </div>
 

@@ -213,7 +213,8 @@ begin
       end if;
 
       if pr.owner_company_id is not null then
-        select c2.name, c2.normalized_name, c2.mailing_address into oc
+        select c2.name, c2.normalized_name, c2.mailing_address, c2.mailing_city,
+               c2.mailing_state, c2.mailing_zip into oc
         from companies c2 where c2.id = pr.owner_company_id;
 
         if v_company is not null and oc.normalized_name is not null
@@ -241,7 +242,9 @@ begin
               insert into _ot_conflict_seen values (v_prop, 'owner_mailing');
               v_conflicts := v_conflicts || jsonb_build_object(
                 'property_id', v_prop, 'property_address', pr.address, 'parcel_id', pr.parcel_number,
-                'field', 'owner_mailing', 'csv_value', v_mail, 'crm_value', oc.mailing_address);
+                'field', 'owner_mailing', 'csv_value', v_mail,
+                'crm_value', oc.mailing_address || coalesce(', ' || oc.mailing_city, '')
+                             || coalesce(', ' || oc.mailing_state, '') || coalesce(' ' || oc.mailing_zip, ''));
               c_conflicts := c_conflicts + 1;
             end if;
           end if;
