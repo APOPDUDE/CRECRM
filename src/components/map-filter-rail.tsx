@@ -18,6 +18,7 @@ import { PROPERTY_TAG_OPTIONS, type PropertyTagKey } from '@/hooks/use-property-
 import { type DorSelection } from '@/lib/zoning'
 import type { OverlayState } from '@/lib/overlays'
 import type { LatLng } from '@/lib/geo'
+import { cn } from '@/lib/utils'
 
 /** Which owner channels count as "verified" while the toggle is on. */
 export type OwnerChannels = { phone: boolean; email: boolean }
@@ -162,6 +163,9 @@ export function MapFilterRail(props: {
   onIncludeCondos: (on: boolean) => void
   /** How many rows the exclusion is currently hiding — 0 while it hides nothing. */
   condoHidden: number
+  // Owner operators (the 'owner occupier' tag) — tri-state: in the set / out of it / only them
+  ownerOccMode: 'all' | 'hide' | 'only'
+  onOwnerOccMode: (m: 'all' | 'hide' | 'only') => void
   // overlays (Phase 1)
   overlays: OverlayState
   onOverlays: (s: OverlayState) => void
@@ -257,6 +261,36 @@ export function MapFilterRail(props: {
             {p.condoHidden.toLocaleString()} hidden in this view
           </p>
         )}
+      </div>
+
+      {/* Owner operators — buildings whose occupant IS the owner (the 'owner occupier'
+          tag, populated from county owner-mails-at-property evidence). A canvass may want
+          them in the mix, out of it, or as the whole search. */}
+      <div className="space-y-1.5 border-t pt-3">
+        <Label>Owner operators</Label>
+        <div className="flex gap-1">
+          {(
+            [
+              ['all', 'Include'],
+              ['hide', 'Hide'],
+              ['only', 'Only'],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => p.onOwnerOccMode(v)}
+              className={cn(
+                'rounded-md border px-2 py-1 text-xs',
+                p.ownerOccMode === v
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
