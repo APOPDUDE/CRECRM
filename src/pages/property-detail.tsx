@@ -35,6 +35,7 @@ import type { TablesUpdate } from '@/lib/database.types'
 import { useCurrentListingEvent } from '@/hooks/use-comps'
 import { friendlyDbError } from '@/lib/db-errors'
 import { usePropertyMarketPosition, isGoodDeal } from '@/hooks/use-market'
+import { RecommendedForChips } from '@/components/recommended-for-chips'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 import { useBackTo } from '@/hooks/use-back-to'
 import { formatCurrency, formatListingPrice } from '@/lib/format'
@@ -258,6 +259,7 @@ export function PropertyDetailPage() {
                   Off market
                 </Badge>
               )}
+              <RecommendedForChips propertyId={property.id} />
             </div>
           </div>
         </div>
