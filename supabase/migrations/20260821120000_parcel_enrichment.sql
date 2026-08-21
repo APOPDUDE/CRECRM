@@ -1,8 +1,5 @@
--- ============================================================================
--- PROPOSAL — NOT YET APPLIED to the hosted project. Review gate per
--- context/land-book-parcel-enrichment.md: Alex approves the schema, then this
--- is applied via the Supabase MCP and database.types.ts is regenerated.
--- ============================================================================
+-- Applied 2026-08-21 via MCP (schema approved by Alex same day: "Those
+-- migrations sound good"). Plan: context/land-book-parcel-enrichment.md.
 --
 -- Site intelligence for the land book (Alex, 2026-08-21): every parcel gets
 -- utility proximity, site constraints, shape/access metrics, and a 0-100
@@ -19,8 +16,9 @@
 --   narrow column slice (big blobs on properties already made the map take
 --   tens of seconds once); the land book joins only what it filters on.
 -- * Geometry itself never lands here. Layers and parcel polygons live in the
---   pipeline's LOCAL PostGIS cache (pipeline/); Supabase gets derived scalars
---   only — same shape as the DuckDB wetlands math that feeds wet_acres_nwi.
+--   gis schema cache (20260821122000, not PostgREST-exposed); public gets
+--   derived scalars only — same shape as the DuckDB wetlands math that
+--   feeds wet_acres_nwi.
 -- * Zoning is NOT duplicated here (it lives on properties + zoning_code_map).
 --   FLU is new — no FLU model exists anywhere — so it starts here.
 -- * source_status follows the appraiser_data convention: per-domain
@@ -46,6 +44,8 @@ create table parcel_enrichment (
   substation_dist_ft       numeric(10,1) check (substation_dist_ft >= 0),
   transmission_line_dist_ft numeric(10,1) check (transmission_line_dist_ft >= 0),
   transmission_kv          integer       check (transmission_kv > 0),
+  electric_provider        text,
+  nearest_powered_parcel_ft numeric(10,1) check (nearest_powered_parcel_ft >= 0),
   gas_transmission_dist_ft numeric(10,1) check (gas_transmission_dist_ft >= 0),
   gas_operator             text,
   broadband_fiber          boolean,
@@ -91,7 +91,7 @@ create table parcel_enrichment (
 comment on table parcel_enrichment is
   'Site intelligence per property (utilities, constraints, shape/access, suitability '
   'score), computed by the pipeline/ PostGIS job and pushed via import_parcel_enrichment(). '
-  'Geometry stays in the pipeline''s local cache — only derived scalars live here.';
+  'Geometry stays in the gis schema cache — only derived scalars live here.';
 
 comment on column parcel_enrichment.water_main_dist_ft is
   'Boundary (not centroid) distance to the nearest potable water main, planar EPSG:5070 feet.';
@@ -100,6 +100,14 @@ comment on column parcel_enrichment.in_water_service_area is
   'utility publishes no boundary layer.';
 comment on column parcel_enrichment.in_sewer_service_area is
   'Inside a sewer service-area boundary; FDEP FLWMI likelihood fallback, same as water.';
+comment on column parcel_enrichment.electric_provider is
+  'Serving electric utility from HIFLD retail service territories (TECO, Duke, FPL, '
+  'co-ops) — who to call for a will-serve letter.';
+comment on column parcel_enrichment.nearest_powered_parcel_ft is
+  'Distance to the nearest county-synced parcel with a real building (>= 1,000 SF) — '
+  'computed from our own parcel cache. A served neighbor means distribution is at the '
+  'road; the honest proxy for "can power be run here" (Alex 2026-08-21), since utility '
+  'distribution-line GIS is proprietary. Capacity/three-phase still needs the utility.';
 comment on column parcel_enrichment.gas_transmission_dist_ft is
   'Distance to nearest gas TRANSMISSION line (PHMSA NPMS). NPMS bulk access is restricted — '
   'null until the state extract is granted; never fake it from distribution lines.';
@@ -181,6 +189,7 @@ insert into enrichment_score_weights (factor, weight, params, notes) values
   ('sewer_force',     5, '{"kind":"decay","input":"sewer_force_dist_ft","full_at":300,"zero_at":5280}',  'Half-credit utility: needs a lift station.'),
   ('service_area',   10, '{"kind":"bool_pair","inputs":["in_water_service_area","in_sewer_service_area"]}', 'Inside both boundaries = 1, one = 0.5, neither = 0.'),
   ('power',           8, '{"kind":"decay","input":"substation_dist_ft","full_at":2640,"zero_at":26400}', 'Substation within a half mile is full credit.'),
+  ('power_nearby',    6, '{"kind":"decay","input":"nearest_powered_parcel_ft","full_at":300,"zero_at":5280}', 'A served neighbor within 300 ft = distribution already at the road.'),
   ('gas',             3, '{"kind":"decay","input":"gas_transmission_dist_ft","full_at":2640,"zero_at":26400}', 'Null until NPMS access lands — normalized-out, not zero.'),
   ('broadband',       2, '{"kind":"bool","input":"broadband_fiber"}',                                    'Block-level FCC BDC fiber flag.'),
   ('flood',          12, '{"kind":"inverse_pct","input":"pct_sfha","dealbreaker_at":90}',                'pct_sfha 0 = full credit; >=90% SFHA zeroes the whole score.'),
@@ -235,6 +244,7 @@ begin
     sewer_gravity_dist_ft numeric, sewer_force_dist_ft numeric, sewer_provider text,
     in_water_service_area boolean, in_sewer_service_area boolean,
     substation_dist_ft numeric, transmission_line_dist_ft numeric, transmission_kv int,
+    electric_provider text, nearest_powered_parcel_ft numeric,
     gas_transmission_dist_ft numeric, gas_operator text,
     broadband_fiber boolean, broadband_max_down_mbps int, broadband_provider_count int,
     fema_flood_zone text, pct_sfha numeric, pct_floodway numeric,
@@ -271,6 +281,7 @@ begin
     sewer_gravity_dist_ft, sewer_force_dist_ft, sewer_provider,
     in_water_service_area, in_sewer_service_area,
     substation_dist_ft, transmission_line_dist_ft, transmission_kv,
+    electric_provider, nearest_powered_parcel_ft,
     gas_transmission_dist_ft, gas_operator,
     broadband_fiber, broadband_max_down_mbps, broadband_provider_count,
     fema_flood_zone, pct_sfha, pct_floodway,
@@ -294,6 +305,8 @@ begin
     case when 'utilities' = any(v_domains) then i.substation_dist_ft end,
     case when 'utilities' = any(v_domains) then i.transmission_line_dist_ft end,
     case when 'utilities' = any(v_domains) then i.transmission_kv end,
+    case when 'utilities' = any(v_domains) then i.electric_provider end,
+    case when 'utilities' = any(v_domains) then i.nearest_powered_parcel_ft end,
     case when 'utilities' = any(v_domains) then i.gas_transmission_dist_ft end,
     case when 'utilities' = any(v_domains) then i.gas_operator end,
     case when 'utilities' = any(v_domains) then i.broadband_fiber end,
@@ -337,6 +350,8 @@ begin
     substation_dist_ft       = case when 'utilities' = any(v_domains) then excluded.substation_dist_ft       else pe.substation_dist_ft end,
     transmission_line_dist_ft = case when 'utilities' = any(v_domains) then excluded.transmission_line_dist_ft else pe.transmission_line_dist_ft end,
     transmission_kv          = case when 'utilities' = any(v_domains) then excluded.transmission_kv          else pe.transmission_kv end,
+    electric_provider        = case when 'utilities' = any(v_domains) then excluded.electric_provider        else pe.electric_provider end,
+    nearest_powered_parcel_ft = case when 'utilities' = any(v_domains) then excluded.nearest_powered_parcel_ft else pe.nearest_powered_parcel_ft end,
     gas_transmission_dist_ft = case when 'utilities' = any(v_domains) then excluded.gas_transmission_dist_ft else pe.gas_transmission_dist_ft end,
     gas_operator             = case when 'utilities' = any(v_domains) then excluded.gas_operator             else pe.gas_operator end,
     broadband_fiber          = case when 'utilities' = any(v_domains) then excluded.broadband_fiber          else pe.broadband_fiber end,

@@ -52,16 +52,21 @@ Facts that shaped every decision below:
 - `properties.in_land_book boolean` + `properties.land_only boolean`, stamped by
   `refresh_land_book()` (same pattern as `refresh_condo_units()`), so both pages, all
   RPCs, and n8n agree on membership without re-deriving the rule anywhere else.
-- Rule: a parcel is in the land book when it has ≥ 1 acre and either its DOR class is a
-  land class, or it is **county-known vacant** (< 1,000 SF on county-synced building
-  facts — a NULL or scraped SF is *unknown*, never evidence of vacancy), or it has a
-  real building at **building-to-land ratio ≤ 5%** (`gross_sf / (land_acres × 43,560)`).
-  `land_only` = in the land book as just-land — those rows leave the normal book; ≤5%
-  crossover rows (real building, lots of land) stay on **both** books, exactly as Alex
-  specified. Residential DOR classes (00–09) and condo units are excluded from every
-  arm — a house on acreage is a teardown play (revisit if you want teardowns), and a
-  warehouse-condo unit "on" the complex's 30 acres is the pin-flood
-  `refresh_condo_units()` exists to stop.
+- Rule (Alex's calls, 2026-08-21): a parcel is in the land book when it has **≥ 0.5
+  acres** and either its DOR class is a land class (00 vacant residential included), or
+  it is **county-known vacant** (< 1,000 SF on county-synced building facts — a NULL or
+  scraped SF is *unknown*, never evidence of vacancy), or it has a real building at
+  **building-to-land ratio ≤ 5%** (`gross_sf / (land_acres × 43,560)`). `land_only` = in
+  the land book as just-land — those rows leave the normal book; ≤5% crossover rows
+  (real building, lots of land) stay on **both** books. **Residential is in** — vacant
+  residential (00) via its DOR class, improved residential (01–09) only via the 5% ratio
+  arm (the house-on-acreage teardown play). The follow-on Alex wants: filter land-book
+  residential by FLU-industrial / zoned-industrial once enrichment lands FLU. Condo
+  units are excluded from every arm — a warehouse-condo unit "on" the complex's 30
+  acres is the pin-flood `refresh_condo_units()` exists to stop.
+- **Applied 2026-08-21, live numbers:** 4,861 in the land book, 2,346 land-only, of
+  31,990 total — Polk 1,424 · Hillsborough 1,270 · Sarasota 805 · Manatee 494 ·
+  Pinellas 450 · Pasco 403. Zero condo units, zero sub-floor rows.
 - The normal book's fetch adds one server-side predicate (`not land_only`) — the
   industrial book gets slightly *smaller*, never slower. The land book page does its own
   lazy uuid-bucket fetch filtered `in_land_book`.
@@ -102,24 +107,26 @@ Alex action since n8n holds the config.
 
 ## 4. Enrichment pipeline — the architecture call
 
-Alex asked for "caches layers locally as PostGIS tables" — and that's also what the
-constraints force, so we agree:
+**Revised 2026-08-21 after Alex's runtime call ("cloud, not my machine"):**
 
-**PostGIS lives in a local sidecar database (Docker), not in Supabase.** The harvester
-caches county/federal GIS layers and parcel polygons there; spatial joins run there;
-only the **derived scalars** land in Supabase via `import_parcel_enrichment(jsonb)`.
+**The PostGIS cache lives in the hosted Supabase DB itself** — a dedicated `gis`
+schema (migration `20260821122000`), deliberately NOT in PostgREST's exposed schemas,
+so the API surface and generated types stay clean. That makes the compute **stateless**,
+so it runs as a scheduled **GitHub Actions workflow**
+(`.github/workflows/enrichment.yml`, Mondays + on-demand) — no VPS, no machine of
+Alex's, no new platform account. The runner connects over the Supabase session pooler
+(`GIS_PG_DSN` Actions secret) and sets its own `statement_timeout` (the 8s API-role
+timeout doesn't apply on a direct connection).
 
-Why not PostGIS-in-Supabase:
-- Cached layers are big (NWI + SSURGO + NFHL + parcel polygons for 6 counties is
-  hundreds of MB to GBs) — hosted DB size and egress are real costs; the hosted DB's 8s
-  statement timeout has already bitten twice.
-- Nothing downstream needs server-side geometry: the app's overlay model is row-field
-  membership by design, drawn areas use lat/lng ray-casting, and "the schema is the API"
-  is preserved because n8n/automations read plain scalar columns.
-- It matches the existing DuckDB/offline precedent — but committed this time.
-
-The job connects **out** to Supabase the same way every other external writer does:
-PostgREST + service-role key. No new direct-connection secret convention needed.
+Guard rails that keep this sane in the production DB:
+- All layers are clipped to the 6-county envelope, so the cache is county-sized (low
+  single-digit GB at worst), and `enrichment status` reports per-layer row counts so
+  growth is visible.
+- Spatial joins read `gis.*` and write only scalar rows through
+  `import_parcel_enrichment(jsonb)` — the app, n8n, and "the schema is the API" never
+  see geometry.
+- The local Docker option (`pipeline/docker-compose.yml`) remains for development; the
+  code is identical either way, it's just a different `GIS_PG_DSN`.
 
 **Idempotency & freshness rules carried over from the sweep/appraiser lessons:**
 - Every layer harvest records service `lastEditDate` + feature count as a watermark;
@@ -140,7 +147,7 @@ Domains and columns:
 
 | Domain | Columns |
 | --- | --- |
-| utilities | `water_main_dist_ft`, `water_main_diameter_in`, `water_provider`, `sewer_gravity_dist_ft`, `sewer_force_dist_ft`, `sewer_provider`, `in_water_service_area`, `in_sewer_service_area`, `substation_dist_ft`, `transmission_line_dist_ft`, `transmission_kv`, `gas_transmission_dist_ft`, `gas_operator`, `broadband_fiber`, `broadband_max_down_mbps`, `broadband_provider_count` |
+| utilities | `water_main_dist_ft`, `water_main_diameter_in`, `water_provider`, `sewer_gravity_dist_ft`, `sewer_force_dist_ft`, `sewer_provider`, `in_water_service_area`, `in_sewer_service_area`, `substation_dist_ft`, `transmission_line_dist_ft`, `transmission_kv`, `electric_provider`, `nearest_powered_parcel_ft`, `gas_transmission_dist_ft`, `gas_operator`, `broadband_fiber`, `broadband_max_down_mbps`, `broadband_provider_count` |
 | constraints | `fema_flood_zone`, `pct_sfha`, `pct_floodway`, `wetlands_pct`, `hydric_soils_pct`, `drainage_class`, `slope_mean_pct`, `flu_code`, `flu_description`, `flu_jurisdiction` |
 | geometry | `parcel_depth_ft`, `parcel_width_ft`, `rectangularity`, `road_frontage_ft`, `frontage_road_name`, `frontage_aadt`, `on_truck_route`, `interchange_mi`, `interchange_drive_min`, `csx_mainline_mi` |
 | score | `suitability_score` (0–100), `score_breakdown jsonb`, `score_version`, `scored_at` |
@@ -195,6 +202,7 @@ yet, per the ask.
 | Water/sewer service likelihood | **FDEP Florida Water Management Inventory (FLWMI)** | free REST | Parcel-level statewide "likely on central water/sewer vs well/septic" — the baseline in/out-of-service-area signal even where a county hides its mains. Best FL-specific shortcut in this whole plan. |
 | Service area boundaries | County utility service area layers + FDEP | free REST | Same per-county variability. |
 | Substations, transmission | HIFLD Open | free REST | HIFLD reorganized 2024–25; endpoints verified at harvest time, loudly. |
+| Electric provider + "can power be run" | HIFLD retail service territories + our own parcel cache | free REST / internal | Alex's big question (2026-08-21). What's answerable from data: `electric_provider` (who to call for a will-serve letter), substation/transmission distance, and `nearest_powered_parcel_ft` — distance to the nearest county-synced built parcel, a self-join on our own cache. A served neighbor means distribution is at the road. What ISN'T: capacity and three-phase — utility distribution GIS is proprietary, so the score says "power likely at/near the road" and the will-serve letter stays a human step. |
 | Gas transmission | PHMSA NPMS | **restricted** | Public viewer is county-at-a-time and the REST layer throttles/denies bulk. Plan: request the state extract from NPMS (they grant it for siting use), fall back to FGDL/county energy layers. Don't promise this column until access is confirmed. |
 | Broadband/fiber | FCC BDC | free download | Availability is published per **census block / hex**, and the location fabric is licensed — so `broadband_*` is block-level truth, not parcel-level. Fine for a score input. |
 | Flood | FEMA NFHL (S_FLD_HAZ_AR) | free REST | Straightforward; % overlap per zone. |
@@ -232,27 +240,34 @@ yet, per the ask.
 9. **Score inputs you already own:** $/acre vs county median (`v_county_land_metrics`),
    `land_value_share`, opportunity zone flag, last-sale recency — the score config
    should reach these existing columns, not re-derive them.
-10. **Runtime is a decision, not a default:** nothing in the stack can run a long Python
-    job today (static SPA, short-lived edge functions, n8n's known flakiness). The
-    pipeline is built for "Docker PostGIS + cron on Alex's machine" first, promotable to
-    a $6 VPS unchanged. n8n can stay scheduler-of-record later by hitting a webhook
-    wrapper, but that's optional.
+10. **Runtime** — decided 2026-08-21: cache in the hosted Supabase `gis` schema,
+    compute as a scheduled GitHub Actions workflow (§4). No machine of Alex's involved.
 
 ## 9. Phasing
 
-- **P1 (this branch):** schema proposals + harvester + parcel-polygon fetcher. Review
-  gate: Alex approves schema → apply migrations via MCP → regen `database.types.ts`.
+- **P1 — DONE 2026-08-21:** schema applied live (migrations 20260821120000/121000/
+  122000, `database.types.ts` regenerated), land book stamped (4,861 rows), harvester +
+  parcel-polygon fetcher committed, Actions workflow armed pending secrets.
 - **P2:** joins + score + `import_parcel_enrichment` push; backfill the industrial book.
-- **P3:** land book import (DOR scope + acreage floor), land book page (fork of
-  `/properties` with its own book fetch), FLU/utility filters, n8n `land` assetClass.
+- **P3:** land book county import (wider DOR slice, ≥0.5 ac), land book page (fork of
+  `/properties` with its own book fetch, `not land_only` predicate on the normal book),
+  FLU/utility filters, residential-in-industrial-FLU list.
 - **P4:** drive-time via OSRM, assemblage detection, entitlement feeds.
 
-## Decisions needed (mirrors "Need from you")
+## Decisions log (2026-08-21)
 
-1. Apply the two proposal migrations as-is? (yes/no — nothing is applied yet)
-2. Land book acreage floor: 1 acre default OK? (number)
-3. Land DOR scope: 10, 40, 50–69, 70, 99 in; residential 00–09 out everywhere, so no
-   teardown/house-on-acreage plays? (yes/edit)
-4. NPMS state extract: OK for me to draft the PHMSA data request? (yes/no)
-5. n8n sweep: add `land` assetClass to the county runs? (yes — 2-min n8n edit)
-6. Pipeline runs on your machine via Docker+cron first? (yes/no)
+1. Migrations — **approved and applied** same day.
+2. Acreage floor — **0.5 acres** (Alex).
+3. Residential — **in**, via just-land or the 5% ratio arm only; DOR 00 rides with the
+   land classes, improved 01–09 needs a real building at ≤5%. Later: cross land-book
+   residential with FLU-industrial / industrial zoning (Alex's list idea).
+4. PHMSA NPMS — request **drafted in Alex's Gmail** (to npms-nr@dot.gov; phone
+   placeholder to fill before sending).
+5. n8n `land` assetClass — **Alex is handling it in another session** (API access being
+   added there); nothing needed from this branch.
+6. Runtime — **Supabase-hosted cache + GitHub Actions runner** (§4). Outstanding: add
+   the three Actions secrets (`GIS_PG_DSN` session-pooler string, `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`) once the branch merges to main.
+7. Electricity (Alex: "the big thing — can power be run or is it already there") —
+   `electric_provider` + `nearest_powered_parcel_ft` added to the schema and score
+   (§7's electric row explains what's answerable vs what stays a will-serve call).

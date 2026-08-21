@@ -1889,6 +1889,24 @@ export type Database = {
         }
         Relationships: []
       }
+      area_code_timezones: {
+        Row: {
+          area_code: string
+          created_at: string
+          tz: string
+        }
+        Insert: {
+          area_code: string
+          created_at?: string
+          tz: string
+        }
+        Update: {
+          area_code?: string
+          created_at?: string
+          tz?: string
+        }
+        Relationships: []
+      }
       buyer_intakes: {
         Row: {
           client_id: string | null
@@ -2792,16 +2810,19 @@ export type Database = {
           category: string
           code: string
           description: string
+          land_class: boolean
         }
         Insert: {
           category: string
           code: string
           description: string
+          land_class?: boolean
         }
         Update: {
           category?: string
           code?: string
           description?: string
+          land_class?: boolean
         }
         Relationships: []
       }
@@ -3033,6 +3054,33 @@ export type Database = {
           requires_postal_address?: boolean
           steps?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      enrichment_score_weights: {
+        Row: {
+          enabled: boolean
+          factor: string
+          notes: string | null
+          params: Json
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          enabled?: boolean
+          factor: string
+          notes?: string | null
+          params?: Json
+          updated_at?: string
+          weight: number
+        }
+        Update: {
+          enabled?: boolean
+          factor?: string
+          notes?: string | null
+          params?: Json
+          updated_at?: string
+          weight?: number
         }
         Relationships: []
       }
@@ -3778,6 +3826,310 @@ export type Database = {
           },
         ]
       }
+      outreach_texts: {
+        Row: {
+          blooio_chat_id: string | null
+          created_at: string
+          id: string
+          last_inbound_at: string | null
+          last_outbound_at: string | null
+          phone: string
+          protocol: Database["public"]["Enums"]["msg_protocol"]
+          queue_state: string
+          target_id: string
+          triage: Database["public"]["Enums"]["triage_label"] | null
+          triage_confidence: number | null
+          updated_at: string
+        }
+        Insert: {
+          blooio_chat_id?: string | null
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          phone: string
+          protocol?: Database["public"]["Enums"]["msg_protocol"]
+          queue_state?: string
+          target_id: string
+          triage?: Database["public"]["Enums"]["triage_label"] | null
+          triage_confidence?: number | null
+          updated_at?: string
+        }
+        Update: {
+          blooio_chat_id?: string | null
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          phone?: string
+          protocol?: Database["public"]["Enums"]["msg_protocol"]
+          queue_state?: string
+          target_id?: string
+          triage?: Database["public"]["Enums"]["triage_label"] | null
+          triage_confidence?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_texts_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parcel_enrichment: {
+        Row: {
+          broadband_fiber: boolean | null
+          broadband_max_down_mbps: number | null
+          broadband_provider_count: number | null
+          created_at: string
+          csx_mainline_mi: number | null
+          drainage_class: string | null
+          electric_provider: string | null
+          fema_flood_zone: string | null
+          flu_code: string | null
+          flu_description: string | null
+          flu_jurisdiction: string | null
+          frontage_aadt: number | null
+          frontage_road_name: string | null
+          gas_operator: string | null
+          gas_transmission_dist_ft: number | null
+          hydric_soils_pct: number | null
+          in_sewer_service_area: boolean | null
+          in_water_service_area: boolean | null
+          interchange_drive_min: number | null
+          interchange_mi: number | null
+          nearest_powered_parcel_ft: number | null
+          on_truck_route: boolean | null
+          parcel_depth_ft: number | null
+          parcel_width_ft: number | null
+          pct_floodway: number | null
+          pct_sfha: number | null
+          property_id: string
+          rectangularity: number | null
+          road_frontage_ft: number | null
+          score_breakdown: Json | null
+          score_version: string | null
+          scored_at: string | null
+          sewer_force_dist_ft: number | null
+          sewer_gravity_dist_ft: number | null
+          sewer_provider: string | null
+          slope_mean_pct: number | null
+          source_status: Json
+          substation_dist_ft: number | null
+          suitability_score: number | null
+          transmission_kv: number | null
+          transmission_line_dist_ft: number | null
+          updated_at: string
+          water_main_diameter_in: number | null
+          water_main_dist_ft: number | null
+          water_provider: string | null
+          wetlands_pct: number | null
+        }
+        Insert: {
+          broadband_fiber?: boolean | null
+          broadband_max_down_mbps?: number | null
+          broadband_provider_count?: number | null
+          created_at?: string
+          csx_mainline_mi?: number | null
+          drainage_class?: string | null
+          electric_provider?: string | null
+          fema_flood_zone?: string | null
+          flu_code?: string | null
+          flu_description?: string | null
+          flu_jurisdiction?: string | null
+          frontage_aadt?: number | null
+          frontage_road_name?: string | null
+          gas_operator?: string | null
+          gas_transmission_dist_ft?: number | null
+          hydric_soils_pct?: number | null
+          in_sewer_service_area?: boolean | null
+          in_water_service_area?: boolean | null
+          interchange_drive_min?: number | null
+          interchange_mi?: number | null
+          nearest_powered_parcel_ft?: number | null
+          on_truck_route?: boolean | null
+          parcel_depth_ft?: number | null
+          parcel_width_ft?: number | null
+          pct_floodway?: number | null
+          pct_sfha?: number | null
+          property_id: string
+          rectangularity?: number | null
+          road_frontage_ft?: number | null
+          score_breakdown?: Json | null
+          score_version?: string | null
+          scored_at?: string | null
+          sewer_force_dist_ft?: number | null
+          sewer_gravity_dist_ft?: number | null
+          sewer_provider?: string | null
+          slope_mean_pct?: number | null
+          source_status?: Json
+          substation_dist_ft?: number | null
+          suitability_score?: number | null
+          transmission_kv?: number | null
+          transmission_line_dist_ft?: number | null
+          updated_at?: string
+          water_main_diameter_in?: number | null
+          water_main_dist_ft?: number | null
+          water_provider?: string | null
+          wetlands_pct?: number | null
+        }
+        Update: {
+          broadband_fiber?: boolean | null
+          broadband_max_down_mbps?: number | null
+          broadband_provider_count?: number | null
+          created_at?: string
+          csx_mainline_mi?: number | null
+          drainage_class?: string | null
+          electric_provider?: string | null
+          fema_flood_zone?: string | null
+          flu_code?: string | null
+          flu_description?: string | null
+          flu_jurisdiction?: string | null
+          frontage_aadt?: number | null
+          frontage_road_name?: string | null
+          gas_operator?: string | null
+          gas_transmission_dist_ft?: number | null
+          hydric_soils_pct?: number | null
+          in_sewer_service_area?: boolean | null
+          in_water_service_area?: boolean | null
+          interchange_drive_min?: number | null
+          interchange_mi?: number | null
+          nearest_powered_parcel_ft?: number | null
+          on_truck_route?: boolean | null
+          parcel_depth_ft?: number | null
+          parcel_width_ft?: number | null
+          pct_floodway?: number | null
+          pct_sfha?: number | null
+          property_id?: string
+          rectangularity?: number | null
+          road_frontage_ft?: number | null
+          score_breakdown?: Json | null
+          score_version?: string | null
+          scored_at?: string | null
+          sewer_force_dist_ft?: number | null
+          sewer_gravity_dist_ft?: number | null
+          sewer_provider?: string | null
+          slope_mean_pct?: number | null
+          source_status?: Json
+          substation_dist_ft?: number | null
+          suitability_score?: number | null
+          transmission_kv?: number | null
+          transmission_line_dist_ft?: number | null
+          updated_at?: string
+          water_main_diameter_in?: number | null
+          water_main_dist_ft?: number | null
+          water_provider?: string | null
+          wetlands_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcel_enrichment_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_enrichment_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_enrichment_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_enrichment_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
+      phone_scrubs: {
+        Row: {
+          created_at: string
+          federal_dnc: boolean | null
+          id: string
+          line_type: string | null
+          litigator: boolean | null
+          phone: string
+          raw: Json | null
+          rnd_ok: boolean | null
+          scrubbed_at: string
+          state_dnc: boolean | null
+          vendor: string
+        }
+        Insert: {
+          created_at?: string
+          federal_dnc?: boolean | null
+          id?: string
+          line_type?: string | null
+          litigator?: boolean | null
+          phone: string
+          raw?: Json | null
+          rnd_ok?: boolean | null
+          scrubbed_at?: string
+          state_dnc?: boolean | null
+          vendor: string
+        }
+        Update: {
+          created_at?: string
+          federal_dnc?: boolean | null
+          id?: string
+          line_type?: string | null
+          litigator?: boolean | null
+          phone?: string
+          raw?: Json | null
+          rnd_ok?: boolean | null
+          scrubbed_at?: string
+          state_dnc?: boolean | null
+          vendor?: string
+        }
+        Relationships: []
+      }
+      phone_suppressions: {
+        Row: {
+          created_at: string
+          evidence: Json | null
+          expires_at: string | null
+          id: string
+          phone: string
+          reason: Database["public"]["Enums"]["suppression_reason"]
+          source: string
+          suppressed_at: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json | null
+          expires_at?: string | null
+          id?: string
+          phone: string
+          reason: Database["public"]["Enums"]["suppression_reason"]
+          source: string
+          suppressed_at?: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json | null
+          expires_at?: string | null
+          id?: string
+          phone?: string
+          reason?: Database["public"]["Enums"]["suppression_reason"]
+          source?: string
+          suppressed_at?: string
+        }
+        Relationships: []
+      }
       properties: {
         Row: {
           address: string
@@ -3806,10 +4158,12 @@ export type Database = {
           gross_sf: number | null
           heated_sf: number | null
           id: string
+          in_land_book: boolean
           is_condo_unit: boolean
           just_value: number | null
           land_acres: number | null
           land_just_value: number | null
+          land_only: boolean
           land_value_share: number | null
           last_sale_date: string | null
           last_sale_price: number | null
@@ -3889,10 +4243,12 @@ export type Database = {
           gross_sf?: number | null
           heated_sf?: number | null
           id?: string
+          in_land_book?: boolean
           is_condo_unit?: boolean
           just_value?: number | null
           land_acres?: number | null
           land_just_value?: number | null
+          land_only?: boolean
           land_value_share?: number | null
           last_sale_date?: string | null
           last_sale_price?: number | null
@@ -3972,10 +4328,12 @@ export type Database = {
           gross_sf?: number | null
           heated_sf?: number | null
           id?: string
+          in_land_book?: boolean
           is_condo_unit?: boolean
           just_value?: number | null
           land_acres?: number | null
           land_just_value?: number | null
+          land_only?: boolean
           land_value_share?: number | null
           last_sale_date?: string | null
           last_sale_price?: number | null
@@ -4348,6 +4706,53 @@ export type Database = {
           },
         ]
       }
+      send_authorizations: {
+        Row: {
+          approved_by: string | null
+          authorized_at: string
+          checks: Json
+          created_at: string
+          id: string
+          phone: string
+          scrub_vendor: string | null
+          scrubbed_at: string
+          send_id: string
+          template_hash: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          authorized_at?: string
+          checks: Json
+          created_at?: string
+          id?: string
+          phone: string
+          scrub_vendor?: string | null
+          scrubbed_at: string
+          send_id: string
+          template_hash?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          authorized_at?: string
+          checks?: Json
+          created_at?: string
+          id?: string
+          phone?: string
+          scrub_vendor?: string | null
+          scrubbed_at?: string
+          send_id?: string
+          template_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "send_authorizations_send_id_fkey"
+            columns: ["send_id"]
+            isOneToOne: false
+            referencedRelation: "text_sends"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suggestions: {
         Row: {
           client_id: string
@@ -4537,6 +4942,207 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      text_campaigns: {
+        Row: {
+          created_at: string
+          daily_cap: number
+          id: string
+          name: string
+          status: string
+          template: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          daily_cap?: number
+          id?: string
+          name: string
+          status?: string
+          template: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          daily_cap?: number
+          id?: string
+          name?: string
+          status?: string
+          template?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      text_messages: {
+        Row: {
+          blooio_message_id: string | null
+          body: string | null
+          campaign_id: string | null
+          created_at: string
+          delivered_at: string | null
+          direction: Database["public"]["Enums"]["msg_direction"]
+          error: string | null
+          id: string
+          phone: string
+          protocol: Database["public"]["Enums"]["msg_protocol"]
+          raw: Json | null
+          read_at: string | null
+          send_id: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          blooio_message_id?: string | null
+          body?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction: Database["public"]["Enums"]["msg_direction"]
+          error?: string | null
+          id?: string
+          phone: string
+          protocol?: Database["public"]["Enums"]["msg_protocol"]
+          raw?: Json | null
+          read_at?: string | null
+          send_id?: string | null
+          sent_at?: string | null
+          status: string
+        }
+        Update: {
+          blooio_message_id?: string | null
+          body?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction?: Database["public"]["Enums"]["msg_direction"]
+          error?: string | null
+          id?: string
+          phone?: string
+          protocol?: Database["public"]["Enums"]["msg_protocol"]
+          raw?: Json | null
+          read_at?: string | null
+          send_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "text_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "text_messages_send_id_fkey"
+            columns: ["send_id"]
+            isOneToOne: false
+            referencedRelation: "text_sends"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      text_sends: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          blocked_reason: string | null
+          blooio_message_id: string | null
+          body: string
+          campaign_id: string | null
+          claimed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          phone: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["text_send_status"]
+          target_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          blocked_reason?: string | null
+          blooio_message_id?: string | null
+          body: string
+          campaign_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          phone: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["text_send_status"]
+          target_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          blocked_reason?: string | null
+          blooio_message_id?: string | null
+          body?: string
+          campaign_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          phone?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["text_send_status"]
+          target_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "text_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "text_sends_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      texting_settings: {
+        Row: {
+          created_at: string
+          id: number
+          paused: boolean
+          per_line_daily_cap: number
+          quiet_cutoff: string
+          quiet_start: string
+          ramp_started_on: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: number
+          paused?: boolean
+          per_line_daily_cap?: number
+          quiet_cutoff?: string
+          quiet_start?: string
+          ramp_started_on?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          paused?: boolean
+          per_line_daily_cap?: number
+          quiet_cutoff?: string
+          quiet_start?: string
+          ramp_started_on?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       units: {
         Row: {
@@ -5134,6 +5740,31 @@ export type Database = {
         }
         Relationships: []
       }
+      v_sweep_coverage: {
+        Row: {
+          county: string | null
+          fresh_today: boolean | null
+          hours_since_sweep: number | null
+          last_sweep_at: string | null
+          never_seen: number | null
+          on_market: number | null
+          seen_le_2d: number | null
+          seen_le_7d: number | null
+          seen_today: number | null
+          stale_gt_7d: number | null
+        }
+        Relationships: []
+      }
+      v_sweep_ingests: {
+        Row: {
+          counties: string | null
+          industrial: number | null
+          ingested_at: string | null
+          items: number | null
+          land: number | null
+        }
+        Relationships: []
+      }
       v_unit_specs: {
         Row: {
           amps: number | null
@@ -5284,6 +5915,11 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_text_sends: { Args: { p_limit?: number }; Returns: Json[] }
+      client_area_match: {
+        Args: { p_areas: Json; p_lat: number; p_lng: number }
+        Returns: boolean
+      }
       convert_prospect: {
         Args: {
           p_deal_type?: Database["public"]["Enums"]["deal_type"]
@@ -5301,6 +5937,7 @@ export type Database = {
         Args: { p_intake_id: string; p_reason?: string }
         Returns: Json
       }
+      dor_class: { Args: { p_code: string }; Returns: number }
       email_audience_build: { Args: { p: Json }; Returns: Json }
       email_audience_property_merge: {
         Args: {
@@ -5400,6 +6037,7 @@ export type Database = {
       import_lease_comps: { Args: { p: Json }; Returns: Json }
       import_outreach_targets: { Args: { p: Json }; Returns: Json }
       import_owner_addresses: { Args: { p: Json }; Returns: Json }
+      import_parcel_enrichment: { Args: { p: Json }; Returns: Json }
       import_scraped_listings: {
         Args: { p_client_id?: string; p_flagged_new?: boolean; p_props: Json }
         Returns: Json
@@ -5410,6 +6048,8 @@ export type Database = {
         Returns: Json
       }
       import_zoning: { Args: { p: Json }; Returns: Json }
+      ingest_blooio_event: { Args: { p: Json }; Returns: Json }
+      ingest_scrub_result: { Args: { p: Json }; Returns: Json }
       intake_buyer_tag: { Args: { p: Json }; Returns: Json }
       intake_client: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_landlord_listing: {
@@ -5417,6 +6057,7 @@ export type Database = {
         Returns: Json
       }
       intake_prospect: { Args: { p: Json; p_owner: string }; Returns: Json }
+      is_va: { Args: never; Returns: boolean }
       map_properties: {
         Args: {
           p_limit?: number
@@ -5451,15 +6092,14 @@ export type Database = {
       normalize_phone: { Args: { p: string }; Returns: string }
       normalize_street: { Args: { p_addr: string }; Returns: string }
       normalize_street_loose: { Args: { p_addr: string }; Returns: string }
-      property_last_sales: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
       outreach_audience: { Args: { p: Json }; Returns: Json }
       outreach_call_audience: { Args: { p: Json }; Returns: Json }
       outreach_ghl_mark: { Args: { p: Json }; Returns: Json }
       outreach_ghl_push_rows: { Args: { p_list: string }; Returns: Json }
       outreach_mail_audience: { Args: { p: Json }; Returns: Json }
+      outreach_mark_wrong_number: { Args: { p: Json }; Returns: Json }
+      phone_e164: { Args: { p: string }; Returns: string }
+      phone_is_suppressed: { Args: { p_phone: string }; Returns: boolean }
       point_in_ring: {
         Args: { p_lat: number; p_lng: number; ring: Json }
         Returns: boolean
@@ -5517,9 +6157,14 @@ export type Database = {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["property_kind"]
       }
+      property_last_sales: { Args: never; Returns: Json }
+      recent_touches: { Args: { p_phone: string }; Returns: number }
+      record_text_send_result: { Args: { p: Json }; Returns: Json }
       refresh_condo_units: { Args: never; Returns: number }
       refresh_derived_property_tags: { Args: never; Returns: Json }
+      refresh_land_book: { Args: never; Returns: Json }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
+      scrub_candidates: { Args: { p_limit?: number }; Returns: Json[] }
       search_contacts: {
         Args: {
           p_include_archived?: boolean
@@ -5581,7 +6226,30 @@ export type Database = {
         Args: { p_seen_property_ids: string[] }
         Returns: Json
       }
+      texting_quiet_ok: { Args: { p_phone: string }; Returns: boolean }
+      texting_send_allowed: {
+        Args: { p_is_reply: boolean; p_phone: string }
+        Returns: Json
+      }
       unverify_contact: { Args: { p: Json }; Returns: Json }
+      va_approve_send: { Args: { p_send_id: string }; Returns: Json }
+      va_confirm_owner: {
+        Args: {
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+          p_target_id: string
+        }
+        Returns: string
+      }
+      va_guard_pre_request: { Args: never; Returns: undefined }
+      va_not_interested: { Args: { p_phone: string }; Returns: Json }
+      va_send_reply: {
+        Args: { p_body: string; p_phone: string }
+        Returns: string
+      }
+      va_thread_context: { Args: { p_phone: string }; Returns: Json }
+      va_wrong_person: { Args: { p_phone: string }; Returns: Json }
       weighted_percentile: {
         Args: { p_p: number; p_vals: number[]; p_wts: number[] }
         Returns: number
@@ -5684,6 +6352,8 @@ export type Database = {
       lease_structure: "NNN" | "NN" | "MG" | "FS" | "IG"
       listing_market_status: "on_market" | "off_market"
       listing_stage: "proposal" | "listed" | "closed"
+      msg_direction: "inbound" | "outbound"
+      msg_protocol: "imessage" | "sms" | "rcs" | "unknown"
       note_kind: "note" | "call" | "text" | "email" | "meeting" | "tour"
       owner_kind: "individual" | "entity" | "government" | "unknown"
       property_kind: "industrial" | "office" | "retail" | "land" | "other"
@@ -5698,8 +6368,36 @@ export type Database = {
         | "executed"
         | "passed"
       suggestion_status: "pending" | "dismissed"
+      suppression_reason:
+        | "federal_dnc"
+        | "state_dnc"
+        | "litigator"
+        | "wrong_person"
+        | "opt_out"
+        | "hostile"
+        | "carrier_block"
+        | "said_no"
+        | "manual"
       task_kind: "renewal" | "follow_up" | "general" | "tour"
       task_status: "open" | "done"
+      text_send_status:
+        | "draft"
+        | "approved"
+        | "queued"
+        | "sending"
+        | "sent"
+        | "delivered"
+        | "failed"
+        | "blocked"
+      triage_label:
+        | "owner_yes"
+        | "wrong_person"
+        | "not_interested"
+        | "opt_out"
+        | "hostile_legal"
+        | "question"
+        | "autoreply"
+        | "unknown"
       zoning_kind:
         | "industrial"
         | "office"
@@ -5944,6 +6642,8 @@ export const Constants = {
       lease_structure: ["NNN", "NN", "MG", "FS", "IG"],
       listing_market_status: ["on_market", "off_market"],
       listing_stage: ["proposal", "listed", "closed"],
+      msg_direction: ["inbound", "outbound"],
+      msg_protocol: ["imessage", "sms", "rcs", "unknown"],
       note_kind: ["note", "call", "text", "email", "meeting", "tour"],
       owner_kind: ["individual", "entity", "government", "unknown"],
       property_kind: ["industrial", "office", "retail", "land", "other"],
@@ -5959,8 +6659,39 @@ export const Constants = {
         "passed",
       ],
       suggestion_status: ["pending", "dismissed"],
+      suppression_reason: [
+        "federal_dnc",
+        "state_dnc",
+        "litigator",
+        "wrong_person",
+        "opt_out",
+        "hostile",
+        "carrier_block",
+        "said_no",
+        "manual",
+      ],
       task_kind: ["renewal", "follow_up", "general", "tour"],
       task_status: ["open", "done"],
+      text_send_status: [
+        "draft",
+        "approved",
+        "queued",
+        "sending",
+        "sent",
+        "delivered",
+        "failed",
+        "blocked",
+      ],
+      triage_label: [
+        "owner_yes",
+        "wrong_person",
+        "not_interested",
+        "opt_out",
+        "hostile_legal",
+        "question",
+        "autoreply",
+        "unknown",
+      ],
       zoning_kind: [
         "industrial",
         "office",

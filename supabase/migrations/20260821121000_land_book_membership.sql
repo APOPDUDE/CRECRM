@@ -1,8 +1,5 @@
--- ============================================================================
--- PROPOSAL — NOT YET APPLIED to the hosted project. Review gate per
--- context/land-book-parcel-enrichment.md: two thresholds below (1-acre floor,
--- DOR scope) are explicitly Alex's call before this ships.
--- ============================================================================
+-- Applied 2026-08-21 via MCP, with Alex's same-day threshold calls: half-acre
+-- floor, residential IN via just-land / 5%-ratio arms only.
 --
 -- The land book (Alex, 2026-08-21): a second War Room for sourcing developer
 -- land, separate from the industrial book "so it doesn't slow the normal book."
@@ -24,19 +21,21 @@
 --      — neither may evict a possibly-real warehouse from the normal book.
 --      Building size is greatest(gross_sf, heated_sf): a stray 0 in one
 --      column must not shadow a real figure in the other.
--- * DOR land classes ride in regardless of the building test: 10 vacant
---   commercial, 40 vacant industrial, 50-69 agricultural, 70 vacant
---   institutional, 99 acreage.
--- * Residential DOR classes (00-09) stay out of EVERY arm — a house on
---   acreage is a teardown play, not developer land (revisit if Alex wants
---   teardowns; live data 2026-08-21: 308 such rows, mostly single-family on
---   5-15 ac). Decision #3 in the context doc.
+-- * DOR land classes ride in regardless of the building test: 00 vacant
+--   residential, 10 vacant commercial, 40 vacant industrial, 50-69
+--   agricultural, 70 vacant institutional, 99 acreage.
+-- * Residential is IN (Alex 2026-08-21: "that's where we can find some
+--   opportunities... but only land or the 5% ratio") — vacant residential
+--   (00) via its DOR class, improved residential (01-09) only via the <=5%
+--   ratio arm (a real recorded building on acreage: the teardown play).
+--   The later move is filtering land-book residential by FLU-industrial /
+--   zoned-industrial once enrichment lands FLU.
 -- * Condo units stay out: a warehouse-condo unit carries the parent complex's
 --   land_acres (8180 Uzita Dr: 2,655 SF unit "on" 30 ac -> 0.2% BLR), so
 --   without the guard 636 units flood in — the exact pin-flood
 --   refresh_condo_units() exists to stop.
--- * 1-acre floor on everything: sub-acre vacant slivers aren't developer land.
---   (Decision #2 in the context doc; one constant below if the answer differs.)
+-- * Half-acre floor on everything (Alex 2026-08-21): below that it isn't
+--   developer land. One constant below if the answer ever changes.
 --
 -- Stamped by refresh_land_book(), same contract as refresh_condo_units():
 -- self-healing in both directions, call it after county-parcel imports land
@@ -50,9 +49,9 @@ alter table properties
   add column if not exists land_only boolean not null default false;
 
 comment on column properties.in_land_book is
-  'Member of the land book (developer-land War Room). DOR land class, county-known-vacant, '
-  'or building-to-land ratio <= 5% — 1-acre floor, residential DOR and condo units always '
-  'excluded. Set by refresh_land_book().';
+  'Member of the land book (developer-land War Room). DOR land class (00/10/40/50-69/70/99), '
+  'county-known-vacant, or building-to-land ratio <= 5% — half-acre floor, condo units '
+  'always excluded. Set by refresh_land_book().';
 comment on column properties.land_only is
   'In the land book as just-land (county-known-vacant, or DOR land class with no recorded '
   'building): shown ONLY there — the normal book''s fetch excludes these rows. <= 5% '
@@ -130,15 +129,16 @@ begin
   ),
   target as (
     select id, known_vacant,
-      dc in (10, 40, 70, 99) or dc between 50 and 69 as dor_land,
+      -- 00 vacant residential rides with the land classes (improved
+      -- residential 01-09 has no land class — it can only enter via the
+      -- ratio arm, i.e. with a real recorded building)
+      dc in (0, 10, 40, 70, 99) or dc between 50 and 69 as dor_land,
       bldg_sf,
       coalesce(
-        land_acres >= 1.0
+        land_acres >= 0.5
         and not is_condo_unit
-        -- residential classes are out of EVERY arm, not just the vacant one
-        and (dc is null or dc not between 0 and 9)
         and (
-          dc in (10, 40, 70, 99)
+          dc in (0, 10, 40, 70, 99)
           or dc between 50 and 69
           or known_vacant
           -- the ratio arm needs a REAL building: with none, blr is 0 and
@@ -177,9 +177,10 @@ end $$;
 
 comment on function refresh_land_book() is
   'Recompute in_land_book/land_only for the whole book, both directions (self-healing). '
-  'Call after county-parcel imports, like refresh_condo_units(). Thresholds: 1-acre floor, '
-  '1,000 SF building line (county-synced facts only), 5% building-to-land ratio, DOR land '
-  'classes 10/40/50-69/70/99; residential 00-09 and condo units always excluded.';
+  'Call after county-parcel imports, like refresh_condo_units(). Thresholds: half-acre '
+  'floor, 1,000 SF building line (county-synced facts only), 5% building-to-land ratio, '
+  'DOR land classes 00/10/40/50-69/70/99; condo units always excluded; improved '
+  'residential (01-09) enters only via the ratio arm.';
 
 grant execute on function refresh_land_book() to authenticated, service_role;
 revoke execute on function refresh_land_book() from anon, public;
@@ -198,7 +199,7 @@ comment on column dor_codes.land_class is
   'for the normal book AND land_class for the land book.';
 
 update dor_codes set land_class = true
-where code in ('010','040','070','099')
+where code in ('000','010','040','070','099')
    or code between '050' and '069';
 
 -- Stamp the whole book now — without this, every row keeps the column

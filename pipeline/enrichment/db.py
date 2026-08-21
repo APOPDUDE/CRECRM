@@ -13,7 +13,15 @@ SCHEMA_SQL = Path(__file__).resolve().parent / "sql" / "gis_schema.sql"
 
 
 def connect(dsn: str) -> psycopg.Connection:
-    return psycopg.connect(dsn, autocommit=False)
+    conn = psycopg.connect(dsn, autocommit=False)
+    # Works against both targets: hosted Supabase (postgis lives in the
+    # `extensions` schema; role-default statement_timeout is short) and the
+    # local Docker cache (nonexistent schemas in search_path are ignored).
+    # Staged swaps and spatial joins legitimately run minutes.
+    conn.execute("set search_path = gis, public, extensions")
+    conn.execute("set statement_timeout = '600s'")
+    conn.commit()
+    return conn
 
 
 def init_schema(conn: psycopg.Connection) -> None:

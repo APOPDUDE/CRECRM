@@ -1,15 +1,23 @@
 # CRECRM enrichment pipeline
 
-Harvests county + federal GIS layers into a **local PostGIS cache**, fetches
-parcel polygons for the tracked book, and (phase 2) spatial-joins them into
-`parcel_enrichment` scalars pushed to Supabase. Architecture and the WHY:
-`context/land-book-parcel-enrichment.md`. Nothing here talks to the hosted DB
-except over PostgREST with the service-role key — same contract as n8n.
+Harvests county + federal GIS layers into a **PostGIS cache**, fetches parcel
+polygons for the tracked book, and (phase 2) spatial-joins them into
+`parcel_enrichment` scalars. Architecture and the WHY:
+`context/land-book-parcel-enrichment.md`.
+
+**Where it runs (Alex 2026-08-21: cloud, not my machine):** the cache lives in
+the hosted Supabase DB itself — dedicated `gis` schema, never exposed through
+PostgREST (migration `20260821122000_gis_cache_schema.sql`) — so the compute
+is stateless and runs as the scheduled GitHub Actions workflow
+`.github/workflows/enrichment.yml` (Mondays, or on demand from the Actions
+tab). Arm it by adding three repo Actions secrets: `GIS_PG_DSN` (Supabase
+**session pooler** connection string), `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`.
 
 Unlike the earlier DuckDB/overlay scripts, this pipeline is **committed** —
 if it isn't in the repo, the next machine can't run it.
 
-## Setup
+## Local development (optional)
 
 ```bash
 cd pipeline
@@ -17,7 +25,7 @@ docker compose up -d          # local PostGIS on :5433
 cp .env.example .env          # fill in SUPABASE_* (service key: same one n8n holds)
 python -m venv .venv && . .venv/bin/activate
 pip install -e .
-enrichment init-db
+enrichment init-db            # bootstraps the LOCAL cache only
 ```
 
 ## Commands

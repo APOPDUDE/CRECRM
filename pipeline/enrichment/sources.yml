@@ -62,6 +62,18 @@ sources:
     discover_hint: https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services
     notes: Post-reorg service name unconfirmed — discover with -k substation.
 
+  - id: hifld_electric_territories
+    name: HIFLD electric retail service territories
+    kind: arcgis
+    url: null
+    verified: false
+    discover_hint: https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services
+    notes: >-
+      TECO / Duke / FPL / co-op polygons -> parcel_enrichment.electric_provider
+      (who to call for a will-serve letter). Discover with -k "service territor".
+      nearest_powered_parcel_ft needs NO external source — it's a self-join on
+      gis.parcels against county-synced built parcels at join time.
+
   - id: npms_gas_transmission
     name: PHMSA NPMS gas transmission pipelines
     kind: arcgis

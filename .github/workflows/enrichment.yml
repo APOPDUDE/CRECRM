@@ -1,0 +1,61 @@
+# Scheduled runner for the enrichment pipeline (pipeline/). The PostGIS cache
+# lives in the hosted Supabase DB (gis schema, migration 20260821122000), so
+# this runner is stateless — Alex 2026-08-21: cloud, not my machine.
+#
+# Needs three repo Actions secrets (Settings -> Secrets and variables -> Actions):
+#   GIS_PG_DSN                  Supabase SESSION POOLER connection string
+#   SUPABASE_URL                https://<project>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY   the service-role key (same one n8n holds)
+#
+# Schedule note: GitHub cron runs on the default branch only, so this arms
+# once the branch merges to main. Mondays 06:00 ET; run on demand from the
+# Actions tab any time.
+name: enrichment
+on:
+  schedule:
+    - cron: "0 10 * * 1"   # Mondays 10:00 UTC = 06:00 ET
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Ignore layer watermarks (full re-harvest)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: enrichment
+  cancel-in-progress: false   # never kill a mid-swap harvest; queue instead
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check secrets are configured
+        env:
+          GIS_PG_DSN: ${{ secrets.GIS_PG_DSN }}
+        run: |
+          if [ -z "$GIS_PG_DSN" ]; then
+            echo "::error::GIS_PG_DSN secret is not set — add the three secrets named in this workflow's header"
+            exit 1
+          fi
+      - name: Install pipeline
+        run: pip install --quiet ./pipeline
+      - name: Harvest layers
+        env:
+          GIS_PG_DSN: ${{ secrets.GIS_PG_DSN }}
+        run: enrichment harvest ${{ inputs.force && '--force' || '' }}
+      - name: Fetch parcel polygons
+        env:
+          GIS_PG_DSN: ${{ secrets.GIS_PG_DSN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: enrichment parcels
+      - name: Status report
+        if: always()
+        env:
+          GIS_PG_DSN: ${{ secrets.GIS_PG_DSN }}
+        run: enrichment status
