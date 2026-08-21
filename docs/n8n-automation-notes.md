@@ -208,3 +208,33 @@ in n8n — Code nodes must `JSON.parse` it (the workflows already do).
 - App-side wiring still TODO (separate chunk): regen `database.types.ts`, add the
   `inquiring` column to the tenant board, the paste-link "Add property" mode, and
   the red `flagged_new` card tag.
+
+---
+
+## Sweep reliability (2026-08-21)
+
+The daily sweep is six per-county LoopNet Apify tasks plus a Hillsborough *restaurants*
+task. **All six county tasks are correctly configured and byte-identical apart from the
+county slug** — verified against the Apify API. The failures are not ours:
+
+The actor tries three lanes per search URL — LoopNet's mobile API (403 App Check), a
+token-free `impit` scrape (Akamai `403 [hard-block]`), then paid unblockers. `scrapedo`
+has 502'd for weeks; on **2026-08-18 `scrapingbee`'s API key expired** (`HTTP 401 …
+Refresh the scrapingbee key`). With two of three lanes dead every run is a coin flip on
+the last one: 6/6 runs succeeded daily through 08-16, then 1–3 of 6 since.
+
+Those provider keys belong to the actor author — the input schema exposes no field for
+them, so this can only be fixed by `kazkn`, who last built the actor 08-09 and doesn't
+know. Evidence, the task inventory and the day-by-day timeline:
+[`context/apify-sweep-failures-2026-08-21.md`](../context/apify-sweep-failures-2026-08-21.md).
+
+Day-to-day health reads from two views added in `20260821140000_sweep_coverage_views.sql`:
+
+```sql
+select * from v_sweep_coverage order by on_market desc;   -- is each county's camera working?
+select * from v_sweep_ingests order by ingested_at desc;  -- which runs delivered anything?
+```
+
+There is no Hernando task; Hernando rows are spillover from the Pasco run. Still missing:
+a **run log** — `last_seen_in_sweep` is overwritten on every stamp, so a failed county
+looks identical to an unscheduled one and the actor's error text never reaches the DB.
