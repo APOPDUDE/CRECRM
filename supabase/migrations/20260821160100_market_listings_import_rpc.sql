@@ -177,7 +177,7 @@ v_ml_id := coalesce(nullif(r->>'market_listing_id',''), v_loop, v_key);
 v_ml_source := coalesce(nullif(r->>'market_source',''),
                         case when v_loop is not null then 'loopnet' else 'scrape' end);
 v_ml_type := coalesce((nullif(r->>'listing_deal_type',''))::deal_type,
-                      case when v_rate is not null then 'lease' else 'sale' end);
+                      (case when v_rate is not null then 'lease' else 'sale' end)::deal_type);
 if v_ml_type = 'both' then v_ml_type := 'lease'; end if;
 
 if v_ml_id is not null then
