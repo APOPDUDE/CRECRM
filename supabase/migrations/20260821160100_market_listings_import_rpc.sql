@@ -225,7 +225,11 @@ listing_url, broker_name, broker_company, broker_phone, broker_email,
 days_on_market, listed_at, listing_title, listing_description,
 sale_conditions, sale_status, sale_type, is_auction, occupancy, source_last_updated)
 values (v_prop_id, 'scrape', v_key,
-(case when v_rate is not null then 'lease' else 'sale' end)::deal_type, 'asking',
+-- Which side the LISTING is on, not which price happened to come back. Inferring from
+-- "did we get a rate?" filed every rate-less lease listing as a sale comp with no price;
+-- the new actor omits price on ~30% of lease rows, so that would have poured junk sale
+-- comps into the book the valuations read.
+v_ml_type, 'asking',
 v_rate, v_price_for_comp, v_cap, v_sf, current_date,
 v_listing_url, v_broker_name, v_broker_company, v_broker_phone, v_broker_email,
 v_dom, v_listed_at, v_title, v_descr,
