@@ -1264,7 +1264,12 @@ export function PropertiesPage() {
         : searchOnly
           ? searching
             ? 'Searching…'
-            : mapSearch.searchCapped
+            : // A failed search has no results, and "0 matching" reads as "we don't
+              // have it" — the exact lie the map's own empty hint already refuses to
+              // tell. Broad searches DO occasionally 500 on the owner-context join.
+              mapSearch.isError
+              ? 'Search failed — try again'
+              : mapSearch.searchCapped
               ? filtered.length < MAP_SEARCH_LIMIT
                 ? `${filtered.length.toLocaleString()} of the first ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
                 : `First ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
@@ -1923,7 +1928,9 @@ export function PropertiesPage() {
           {condoSuffix}
         </p>
       )}
-      {!isError && searchOnly && view === 'table' && !searching && (
+      {/* mapSearch.isError too: the list below renders its own error state, and a
+          "0 matching" line above it would contradict that. */}
+      {!isError && !mapSearch.isError && searchOnly && view === 'table' && !searching && (
         <p className="text-xs text-muted-foreground">
           {filtered.length.toLocaleString()} matching “{search.trim()}”{condoSuffix}
           {mapSearch.searchCapped && ` — first ${MAP_SEARCH_LIMIT.toLocaleString()}, narrow the search`}
