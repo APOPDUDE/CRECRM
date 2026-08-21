@@ -1288,8 +1288,8 @@ export function PropertiesPage() {
       psfMin={psfMin} psfMax={psfMax} onPsfMin={setPsfMin} onPsfMax={setPsfMax}
       priceMin={priceMin} priceMax={priceMax} onPriceMin={setPriceMin} onPriceMax={setPriceMax}
       includeUnpriced={includeUnpriced} onIncludeUnpriced={setIncludeUnpriced}
-      verified={ownerFilter === 'verified'}
-      onVerified={(on) => setOwnerFilter(on ? 'verified' : 'all')}
+      ownerFilter={ownerFilter}
+      onOwnerFilter={setOwnerFilter}
       channels={channels} onChannels={setChannels}
       activity={activity} onActivity={setActivity}
       pushCount={pushable.length}
@@ -1625,7 +1625,9 @@ export function PropertiesPage() {
                     <SelectContent>
                       <SelectItem value="all">Any</SelectItem>
                       <SelectItem value="verified">Verified</SelectItem>
-                      <SelectItem value="unverified">Not yet</SelectItem>
+                      {/* same word as the rail's segmented control — one control, two
+                          surfaces, and they must read the same */}
+                      <SelectItem value="unverified">Not verified</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

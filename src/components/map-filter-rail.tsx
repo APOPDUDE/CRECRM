@@ -121,9 +121,10 @@ export function MapFilterRail(props: {
   onPriceMax: (v: string) => void
   includeUnpriced: boolean
   onIncludeUnpriced: (v: boolean) => void
-  // Verified contact toggle + refinements
-  verified: boolean
-  onVerified: (on: boolean) => void
+  // Verified contact: 'all' | 'verified' | 'unverified' — the same tri-state the
+  // table's Filters popover writes, so the two surfaces can't disagree.
+  ownerFilter: string
+  onOwnerFilter: (v: string) => void
   channels: OwnerChannels
   onChannels: (c: OwnerChannels) => void
   activity: string
@@ -363,14 +364,23 @@ export function MapFilterRail(props: {
         )}
       </div>
 
-      {/* Verified contact */}
+      {/* Verified contact — three-way (Alex 2026-08-19): the checkbox could only ADD
+          the verified owners; "get rid of all the verified owners" is the other half of
+          the same question and was table-only until now. Same `ownerFilter` state the
+          table's popover writes. */}
       <div className="space-y-1.5 border-t pt-3">
-        <label className="flex cursor-pointer items-center gap-2">
-          <Checkbox checked={p.verified} onCheckedChange={(v) => p.onVerified(v === true)} />
-          <span className="font-medium">Verified contact</span>
-        </label>
-        {p.verified && (
-          <div className="space-y-2 pl-6">
+        <Label>Verified contact</Label>
+        <Segmented
+          value={p.ownerFilter}
+          options={[
+            { v: 'all', label: 'Any' },
+            { v: 'verified', label: 'Verified' },
+            { v: 'unverified', label: 'Not verified' },
+          ]}
+          onChange={p.onOwnerFilter}
+        />
+        {p.ownerFilter === 'verified' && (
+          <div className="space-y-2 pl-2">
             <div className="flex items-center gap-4">
               <label className="flex cursor-pointer items-center gap-1.5 text-xs">
                 <Checkbox
