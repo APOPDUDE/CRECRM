@@ -232,7 +232,8 @@ Day-to-day health reads from two views added in `20260821140000_sweep_coverage_v
 
 ```sql
 select * from v_sweep_coverage order by on_market desc;   -- is each county's camera working?
-select * from v_sweep_ingests order by ingested_at desc;  -- which runs delivered anything?
+select * from v_sweep_ingests order by ingested_at desc;
+select * from v_sweep_actor_health order by day desc, source;  -- is kazkn back?  -- which runs delivered anything?
 ```
 
 There is no Hernando task; Hernando rows are spillover from the Pasco run. Still missing:
@@ -257,7 +258,7 @@ and pipeline. Hernando is now a real county instead of Pasco spillover.
 ```
 
 **WF3 `BPqXq4dcETFGTlcg`** — schedule 6:00 ET *or* called as a sub-workflow by the retry:
-build jobs → start run (staggered 1/45 s) → wait 180 s → run status (`waitForFinish=60`)
+build jobs → start run (staggered 1 per 5 min) → wait 180 s → run status (`waitForFinish=60`)
 → fetch dataset → map → `import_scraped_listings` → stamp/xref/flag, and in parallel
 `sweep_log_run`. **WF retry `gIygaOGjXtJZJDOK`** — 8:30 ET, reads `sweep_runs` for today,
 re-runs only the URLs with no good result by calling WF3, so retry logic can't drift.
@@ -268,7 +269,7 @@ re-runs only the URLs with no good result by calling WF3, so retry logic can't d
    sets `statusMessage` to *"This search URL returned a 'page not found' response"*, and
    **still exits SUCCEEDED**. Measured 2026-08-21: four runs landed 700/72/80/25 items, then
    three consecutive runs on the *same URL* returned 0. So the sweep is rate-sensitive —
-   hence the 45 s stagger — and anything reading run status must check `item_count > 0`.
+   hence the 5-minute stagger — and anything reading run status must check `item_count > 0`.
    WF3 records that case as `status='BLOCKED'`; the retry treats it as a failure.
 2. **`streetAddress` is null on 97.9% of rows** (0/152 for-sale, 15/700 for-lease). The
    address survives only in the URL slug — `/Listing/904-Anclote-Rd-Tarpon-Springs-FL/41701436/`
@@ -286,17 +287,36 @@ re-runs only the URLs with no good result by calling WF3, so retry logic can't d
 
 ```sql
 select * from v_sweep_runs_today;                        -- did every county report in today?
-select * from v_sweep_coverage order by on_market desc;  -- per-county freshness, per listing
+select * from v_sweep_coverage order by on_market desc;  -- freshness per (county, property_type)
 select * from v_sweep_ingests order by ingested_at desc;
+select * from v_sweep_actor_health order by day desc, source;  -- is kazkn back?
 ```
 
 A county **missing** from `v_sweep_runs_today` never ran — the distinction the old
 `last_seen_in_sweep` column could not make.
 
-### Cost
+### Scope and cost (measured 2026-08-21)
 
-Flat ~$0.0009/result. A full 28-URL day is roughly 4,000–6,000 results ⇒ **$3.60–5.40/day**.
-The Apify account cap is **$50/month** and the cycle (13 Aug – 12 Sep) was at **$34.00** when
-this was built — about $16 left. At full rate the cap is hit in ~3–4 days and the sweep goes
-silent, which historically reads as "the scraper broke again". Raise the cap or cut scope
-before relying on it.
+Running **Hillsborough + Polk, industrial only — 4 runs/day**, not 28. The rest is commented
+out in WF3's *Build sweep jobs*; the retry workflow duplicates the list, so change both.
+
+Narrowing to industrial required migration `20260821170000` first: the off-market freshness
+gate was per COUNTY, so sweeping Hillsborough industrial would have aged out its 71 unscraped
+land listings (and Polk's 70) after 7 days. It is now per **(county, property_type)**.
+
+| start URL | items | cost |
+|---|---|---|
+| industrial / hillsborough / for-lease | 700 — hit the `maxItems` cap | $0.6300 |
+| industrial / hillsborough / for-sale | 0 — blocked | $0.0000 |
+| industrial / polk / for-lease | 362 | $0.2700 |
+| industrial / polk / for-sale | 47 | $0.0423 |
+| **day total** | 1,109 | **$0.94** |
+
+With a retry of the blocked URL and the kazkn canary, ~**$1.10/day**. Against $14.99 left of
+the $50 cap that is **~13.6 days** — dry around 4 Sep. Raise the cap, drop `maxItems` to 400
+(~$0.76/day; Hillsborough for-lease alone is 67% of the bill), or run every other day.
+Full 28-URL scope would be $3.60–5.40/day.
+
+**kazkn stays scheduled as a canary** (~$0.011/failing run). Nothing ingests from it; WF3's
+7:45 ET chain logs each run under `source='kazkn'` and Slacks if any deliver rows.
+`v_sweep_runs_today` filters to `source='loopnet'`; compare actors in `v_sweep_actor_health`.

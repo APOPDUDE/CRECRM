@@ -124,19 +124,34 @@ retry pass exists to cover the residual.
 - **`price` is per-SF for lease and absolute for sale**, decided by which URL you asked — the
   row itself doesn't say. `county` is always null (we get county from parcel data anyway).
 
-## The cost ceiling — read before turning the schedule loose
+## The cost, measured (not estimated)
 
-Flat **~$0.0009/result**. A full 28-URL day ≈ 4,000–6,000 results ⇒ **$3.60–5.40/day**.
+The four in-scope URLs were run for real on 2026-08-21 at production settings:
 
-The Apify account cap is **$50/month**; the cycle (13 Aug – 12 Sep) stood at **$34.00** when
-this was built. **~$16 left, ~22 days to go.** At full rate the cap is hit in 3–4 days and the
-sweep goes silent — which historically gets misread as "the scraper broke again"
-(see `reference-apify-spend-cap-outage`). Either raise the cap or cut scope; `maxItems` (700)
-and the county/search lists are both in WF3's *Build sweep jobs* node.
+| start URL | items | cost |
+|---|---|---|
+| industrial / hillsborough / for-lease | 700 — **hit the `maxItems` cap** | $0.6300 |
+| industrial / hillsborough / for-sale | **0 — blocked** | $0.0000 |
+| industrial / polk / for-lease | 362 | $0.2700 |
+| industrial / polk / for-sale | 47 | $0.0423 |
+| **day total** | 1,109 | **$0.94** |
 
-Cheapest scope cut available: the for-lease SRP spends ~73% of its results on rows the mapper
-throws away (Office/Retail/Multifamily). There is no LoopNet URL that filters those out
-server-side, so the lever is `maxItems`, not a better URL.
+Flat **$0.0009/result**, confirmed again. Add the blocked URL landing on retry (~100 items,
+~$0.09) and the kazkn canary (~$0.07) and a normal day is **~$1.10**.
+
+**Runway: $14.99 left of the $50 cap, 22 days to 12 Sep ⇒ ~13.6 days.** It goes dry around
+4 Sep, roughly a week short — and a silent stop reads exactly like the scraper breaking again
+(`reference-apify-spend-cap-outage`). Three levers:
+
+- **Raise the cap** to ~$65 and the current scope runs the cycle out.
+- **Lower `maxItems`** in WF3's *Build sweep jobs*. Hillsborough for-lease is the whole story:
+  it alone is 67% of the bill and it *capped out*, so its real book is larger than 700.
+  `maxItems: 400` ⇒ ~$0.76/day ⇒ ~20 days, at the price of truncating the biggest county.
+- **Run every other day.** Halves it outright; the 7-day off-market window absorbs it.
+
+For the full 28-URL scope the same arithmetic gives **$3.60–5.40/day**. Note the for-lease SRP
+spends ~73% of its results on rows the mapper discards (Office/Retail/Multifamily) and no
+LoopNet URL filters those server-side — so `maxItems` is the only real lever, not a better URL.
 
 ## Verified end to end, on real rows
 
