@@ -1,0 +1,289 @@
+# Layer registry for the enrichment harvester.
+#
+# verified: true  = endpoint proven in prod (used by enrich-appraiser /
+#                   zoning-sources.ts) or by a successful harvest.
+# verified: false = best-known URL, confirmed on first harvest — the harvester
+#                   reports a dead endpoint loudly instead of failing the walk.
+# url: null       = layer we KNOW we need but haven't located; recorded as
+#                   'unconfigured' in gis.layers so the gap stays visible.
+#                   Locate with:  enrichment discover <discover_hint> -k <keywords>
+#
+# USGS 3DEP slope is deliberately absent: it's a raster, computed at join time
+# from DEM samples over each parcel — not a feature layer to cache.
+
+defaults:
+  delay_s: 0.2
+  timeout_s: 30
+
+sources:
+  # --- constraints: flood / wetlands / soils --------------------------------
+  - id: fema_nfhl_flood
+    name: FEMA NFHL flood hazard areas (S_FLD_HAZ_AR)
+    kind: arcgis
+    url: https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28
+    clip_aoi: true
+    verified: false
+    notes: >-
+      Zones (A/AE/AH/AO/VE/X...) + floodway flag (ZONE_SUBTY). Feeds
+      fema_flood_zone, pct_sfha, pct_floodway.
+
+  - id: nwi_wetlands
+    name: USFWS National Wetlands Inventory
+    kind: arcgis
+    url: https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/0
+    clip_aoi: true
+    verified: false
+    notes: >-
+      Feeds wetlands_pct. Same source the DuckDB job used for wet_acres_nwi —
+      results should reconcile with it (EPSG:5070 math both ways).
+
+  - id: ssurgo_soils
+    name: NRCS SSURGO map units + hydric/drainage attributes
+    kind: sda            # Soil Data Access T-SQL POST API, not ArcGIS — phase 2
+    url: null
+    verified: false
+    discover_hint: https://sdmdataaccess.sc.egov.usda.gov
+    notes: Feeds hydric_soils_pct + drainage_class. County-AOI mupolygon pulls.
+
+  # --- utilities: electric / gas / broadband --------------------------------
+  - id: hifld_transmission_lines
+    name: HIFLD electric power transmission lines
+    kind: arcgis
+    url: https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Electric_Power_Transmission_Lines/FeatureServer/0
+    clip_aoi: true
+    verified: false
+    notes: VOLTAGE attr feeds transmission_kv. HIFLD reorganized 2024-25 — expect a rename.
+
+  - id: hifld_substations
+    name: HIFLD electric substations
+    kind: arcgis
+    url: null
+    verified: false
+    discover_hint: https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services
+    notes: Post-reorg service name unconfirmed — discover with -k substation.
+
+  - id: npms_gas_transmission
+    name: PHMSA NPMS gas transmission pipelines
+    kind: arcgis
+    url: null
+    verified: false
+    discover_hint: https://pvnpms.phmsa.dot.gov/arcgis/rest/services
+    notes: >-
+      Public REST is throttled/restricted for bulk pulls. The real path is a
+      PHMSA state-extract data request (granted for siting use) — decision #4
+      in context/land-book-parcel-enrichment.md. gas_transmission_dist_ft stays
+      null (normalized out of the score) until access lands.
+
+  - id: fcc_bdc_broadband
+    name: FCC BDC broadband availability
+    kind: fcc_bdc        # CSV downloads per state, joined by census block — phase 2
+    url: null
+    verified: false
+    discover_hint: https://broadbandmap.fcc.gov/data-download
+    notes: Block-level truth (location fabric is licensed). Needs tiger_blocks.
+
+  - id: tiger_blocks
+    name: Census TIGERweb blocks (for the FCC BDC block join)
+    kind: arcgis
+    url: null
+    verified: false
+    discover_hint: https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb
+    notes: Discover with -k block. Only needed once fcc_bdc_broadband is live.
+
+  # --- utilities: water / sewer, per county ---------------------------------
+  # The least standardized layer class. FDEP FLWMI is the statewide baseline
+  # (parcel-level water/sewer likelihood); per-utility mains layers refine it.
+  - id: fdep_flwmi
+    name: FDEP Florida Water Management Inventory (water/sewer likelihood)
+    kind: arcgis
+    url: null
+    verified: false
+    discover_hint: https://ca.dep.state.fl.us/arcgis/rest/services
+    notes: Feeds in_water_service_area / in_sewer_service_area baseline.
+
+  - id: hillsborough_water_mains
+    name: Hillsborough County water mains
+    kind: arcgis
+    url: null
+    county: Hillsborough
+    verified: false
+    discover_hint: https://maps.hillsboroughcounty.org/arcgis/rest/services
+    notes: Discover with -k "water main". City of Tampa water is a separate server.
+
+  - id: hillsborough_sewer_mains
+    name: Hillsborough County gravity sewer + force mains
+    kind: arcgis
+    url: null
+    county: Hillsborough
+    verified: false
+    discover_hint: https://maps.hillsboroughcounty.org/arcgis/rest/services
+    notes: Discover with -k "sewer,force main,gravity".
+
+  - id: pinellas_water_mains
+    name: Pinellas County water mains
+    kind: arcgis
+    url: null
+    county: Pinellas
+    verified: false
+    discover_hint: https://egis.pinellas.gov/pcpagis/rest/services
+    notes: Many Pinellas utilities are municipal (St. Pete, Clearwater, Largo...).
+
+  - id: pinellas_sewer_mains
+    name: Pinellas County sewer mains
+    kind: arcgis
+    url: null
+    county: Pinellas
+    verified: false
+    discover_hint: https://egis.pinellas.gov/pcpagis/rest/services
+
+  - id: pasco_water_mains
+    name: Pasco County water mains
+    kind: arcgis
+    url: null
+    county: Pasco
+    verified: false
+    discover_hint: https://pascogis.pascocountyfl.net/gisweb/rest/services
+
+  - id: pasco_sewer_mains
+    name: Pasco County sewer mains
+    kind: arcgis
+    url: null
+    county: Pasco
+    verified: false
+    discover_hint: https://pascogis.pascocountyfl.net/gisweb/rest/services
+
+  - id: polk_water_mains
+    name: Polk County water mains
+    kind: arcgis
+    url: null
+    county: Polk
+    verified: false
+    discover_hint: https://gis.polk-county.net/server/rest/services
+    notes: Lakeland + Winter Haven utilities are separate city servers.
+
+  - id: polk_sewer_mains
+    name: Polk County sewer mains
+    kind: arcgis
+    url: null
+    county: Polk
+    verified: false
+    discover_hint: https://gis.polk-county.net/server/rest/services
+
+  - id: manatee_water_mains
+    name: Manatee County water mains
+    kind: arcgis
+    url: null
+    county: Manatee
+    verified: false
+    discover_hint: https://www.mymanatee.org/gisits/rest/services
+
+  - id: manatee_sewer_mains
+    name: Manatee County sewer mains
+    kind: arcgis
+    url: null
+    county: Manatee
+    verified: false
+    discover_hint: https://www.mymanatee.org/gisits/rest/services
+
+  - id: sarasota_water_mains
+    name: Sarasota County water mains
+    kind: arcgis
+    url: null
+    county: Sarasota
+    verified: false
+    discover_hint: https://services3.arcgis.com/icrWMv7eBkctFu1f/arcgis/rest/services
+
+  - id: sarasota_sewer_mains
+    name: Sarasota County sewer mains
+    kind: arcgis
+    url: null
+    county: Sarasota
+    verified: false
+    discover_hint: https://services3.arcgis.com/icrWMv7eBkctFu1f/arcgis/rest/services
+
+  # --- access: roads / rail --------------------------------------------------
+  - id: fdot_aadt
+    name: FDOT annual average daily traffic
+    kind: arcgis
+    url: https://services1.arcgis.com/O1JpcwDW8sjYuddV/arcgis/rest/services/Annual_Average_Daily_Traffic_TDA/FeatureServer/0
+    clip_aoi: true
+    verified: false
+    discover_hint: https://services1.arcgis.com/O1JpcwDW8sjYuddV/arcgis/rest/services
+    notes: FDOT Open Data hub org. Feeds frontage_aadt + frontage_road_name.
+
+  - id: fdot_truck_network
+    name: FDOT truck route / SIS network
+    kind: arcgis
+    url: null
+    verified: false
+    discover_hint: https://services1.arcgis.com/O1JpcwDW8sjYuddV/arcgis/rest/services
+    notes: Discover with -k "truck,SIS,freight". Feeds on_truck_route.
+
+  - id: fdot_interchanges
+    name: Interstate interchanges
+    kind: arcgis
+    url: null
+    verified: false
+    discover_hint: https://services1.arcgis.com/O1JpcwDW8sjYuddV/arcgis/rest/services
+    notes: >-
+      Discover with -k interchange. Fallback: derive from OSM motorway_junction
+      nodes. Feeds interchange_mi (+ the v1 speed-factor drive-minutes estimate).
+
+  - id: fra_rail_lines
+    name: FRA North American Rail Network lines (CSX filter)
+    kind: arcgis
+    url: https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/North_American_Rail_Network_Lines/FeatureServer/0
+    where: "RROWNER1 = 'CSXT'"
+    clip_aoi: true
+    verified: false
+    notes: BTS NTAD org. Feeds csx_mainline_mi.
+
+  # --- future land use -------------------------------------------------------
+  # Jurisdiction vocabulary here follows zoning_jurisdiction ('Polk County'),
+  # not the bare properties.county names.
+  - id: polk_flu
+    name: Polk County future land use
+    kind: arcgis
+    url: https://gis.polk-county.net/hosting/rest/services/All-In-One_Viewer/Land_Use_and_Zoning/MapServer/10
+    verified: true       # field-checked in src/lib/zoning-sources.ts (doubles as Polk zoning)
+    notes: Unincorporated Polk regulates via comp-plan FLU districts.
+
+  - id: hillsborough_flu
+    name: Hillsborough County future land use
+    kind: arcgis
+    url: null
+    county: Hillsborough
+    verified: false
+    discover_hint: https://gisdextweb1.hillsboroughcounty.org/arcgis/rest/services
+
+  - id: pinellas_flu
+    name: Pinellas County future land use
+    kind: arcgis
+    url: null
+    county: Pinellas
+    verified: false
+    discover_hint: https://services.arcgis.com/f5HgUpxURgEzTccH/arcgis/rest/services
+
+  - id: pasco_flu
+    name: Pasco County future land use
+    kind: arcgis
+    url: https://mapping.pascopa.com/arcgis/rest/services/Land_Use/MapServer/1
+    county: Pasco
+    verified: true       # field-checked in src/lib/zoning-sources.ts
+    notes: The zoning-sources entry — confirm layer 1 is FLU vs zoning at first harvest.
+
+  - id: manatee_flu
+    name: Manatee County future land use
+    kind: arcgis
+    url: null
+    county: Manatee
+    verified: false
+    discover_hint: https://www.mymanatee.org/gisits/rest/services
+
+  - id: sarasota_flu
+    name: Sarasota County future land use
+    kind: arcgis
+    url: null
+    county: Sarasota
+    verified: false
+    discover_hint: https://services3.arcgis.com/icrWMv7eBkctFu1f/arcgis/rest/services
