@@ -213,23 +213,21 @@ in n8n — Code nodes must `JSON.parse` it (the workflows already do).
 
 ## Sweep reliability (2026-08-21)
 
-The per-county LoopNet sweep is seven independent Apify tasks (`y1AIrIDEUY635m9RH` plus
-the six the retry bot names in `#deals`). A median of **2 of 7** county runs deliver data
-on a given day, and the runs that do land return a fraction of the county book
-(Pinellas has returned 141 / 34 / 6 / 2 / 1 on different mornings). The `sweep_meta`
-floor and the fresh-county gate in `sweep_finalize_off_market` are holding, so the
-off-market picture is stale rather than wrong.
+The daily sweep is six per-county LoopNet Apify tasks plus a Hillsborough *restaurants*
+task. **All six county tasks are correctly configured and byte-identical apart from the
+county slug** — verified against the Apify API. The failures are not ours:
 
-**Cause found (2026-08-21):** a failing and a succeeding run are identical in every field
-except `startUrls`. The working shape is four URLs per county —
-`{industrial-properties|land}` x `{for-lease|for-sale}` x `{county}-county-fl`. The failing
-Hillsborough task pointed at `restaurants` + `for-sale` only, a category the off-market diff
-filters out entirely. `includeListingDetails`, the residential proxy and `maxItems` were
-already correct in both, so none of those was ever the problem. Corrected input JSON for all
-seven counties: [`context/apify-county-task-inputs.md`](../context/apify-county-task-inputs.md).
+The actor tries three lanes per search URL — LoopNet's mobile API (403 App Check), a
+token-free `impit` scrape (Akamai `403 [hard-block]`), then paid unblockers. `scrapedo`
+has 502'd for weeks; on **2026-08-18 `scrapingbee`'s API key expired** (`HTTP 401 …
+Refresh the scrapingbee key`). With two of three lanes dead every run is a coin flip on
+the last one: 6/6 runs succeeded daily through 08-16, then 1–3 of 6 since.
 
-Measurements and the six task ids are in
+Those provider keys belong to the actor author — the input schema exposes no field for
+them, so this can only be fixed by `kazkn`, who last built the actor 08-09 and doesn't
+know. Evidence, the task inventory and the day-by-day timeline:
 [`context/apify-sweep-failures-2026-08-21.md`](../context/apify-sweep-failures-2026-08-21.md).
+
 Day-to-day health reads from two views added in `20260821140000_sweep_coverage_views.sql`:
 
 ```sql
@@ -237,7 +235,6 @@ select * from v_sweep_coverage order by on_market desc;   -- is each county's ca
 select * from v_sweep_ingests order by ingested_at desc;  -- which runs delivered anything?
 ```
 
-Still missing: a **run log**. `last_seen_in_sweep` is overwritten on every stamp, so a
-failed county looks identical to an unscheduled one and the actor's error text never
-reaches the DB. One row per run (county, Apify run id, status, item count, error) written
-by WF3 would turn this from forensics into a query.
+There is no Hernando task; Hernando rows are spillover from the Pasco run. Still missing:
+a **run log** — `last_seen_in_sweep` is overwritten on every stamp, so a failed county
+looks identical to an unscheduled one and the actor's error text never reaches the DB.
