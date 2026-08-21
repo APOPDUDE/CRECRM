@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, FileUp, Loader2, Send, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +15,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
 import { supabase } from '@/lib/supabase'
 import { automationEnabled, callN8nWebhook, N8N_PATHS } from '@/lib/n8n'
 
@@ -54,6 +63,8 @@ const SYN: Record<string, string[]> = {
   phone_grade: ['*verified grade', 'verified grade', 'phone grade', 'grade'],
   line_type: ['*verified type', 'verified type', 'line type', 'phone type detail'],
   disposition: ['tk_disposition', 'disposition', 'call disposition'],
+  building_sf: ['building sf', 'bldg sf', 'square footage', 'sqft'],
+  acres: ['acres', 'land acres', 'lot acres'],
 }
 
 /** Minimal RFC-4180 CSV parser — quoted fields, embedded commas/newlines. */
@@ -127,7 +138,33 @@ type ImportReport = {
   matched_by_name_anchor: number
   held: number
   held_detail: { name: string; reason: string }[]
+  properties_matched: number
+  conflicts: number
+  conflict_detail: {
+    property_id: string
+    property_address: string
+    parcel_id: string | null
+    field: string
+    csv_value: string | null
+    crm_value: string | null
+  }[]
+  prior_adopted: number
+  prior_adopted_phones: number
+  export_name: string | null
+  export_total: number
+  export_missed: number
+  export_missed_detail: {
+    property_id: string
+    address: string
+    city: string | null
+    state: string | null
+    zip: string | null
+    parcel_number: string | null
+    owner_name: string | null
+  }[]
 }
+
+type OutreachExport = { id: string; name: string; row_count: number; created_at: string }
 
 export function OutreachImportPage() {
   const [listName, setListName] = useState('')
@@ -139,7 +176,23 @@ export function OutreachImportPage() {
   const [pushing, setPushing] = useState(false)
   const [report, setReport] = useState<ImportReport | null>(null)
   const [pushed, setPushed] = useState(false)
+  const [exportId, setExportId] = useState<string>('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // The other half of the round trip: which property export was this skiptrace run against?
+  const { data: exports } = useQuery({
+    queryKey: ['outreach-exports'],
+    staleTime: 60_000,
+    queryFn: async (): Promise<OutreachExport[]> => {
+      const { data, error } = await supabase
+        .from('outreach_exports')
+        .select('id, name, row_count, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return (data ?? []) as OutreachExport[]
+    },
+  })
 
   const listSlug = useMemo(() => {
     const raw = listName.trim().toLowerCase().replace(/\s+/g, '-')
@@ -200,9 +253,21 @@ export function OutreachImportPage() {
     try {
       const totals: Partial<ImportReport> = {}
       const held: { name: string; reason: string }[] = []
+      const conflicts: ImportReport['conflict_detail'] = []
+      let last: ImportReport | null = null
       for (let i = 0; i < rows.length; i += 500) {
+        const isLast = i + 500 >= rows.length
         const { data, error } = await supabase.rpc('import_outreach_targets', {
-          p: { list: listSlug, source: 'terrakotta', rows: rows.slice(i, i + 500) },
+          p: {
+            list: listSlug,
+            source: 'terrakotta',
+            rows: rows.slice(i, i + 500),
+            // Coverage + prior-record adoption need the whole import's matched properties, so
+            // they run on the LAST batch only — every earlier batch's targets are on the list
+            // by then, and the missed-property diff sees the full picture.
+            ...(isLast && exportId ? { export_id: exportId } : {}),
+            adopt_prior: isLast,
+          },
         })
         if (error) throw error
         const d = data as unknown as ImportReport
@@ -214,8 +279,22 @@ export function OutreachImportPage() {
           }
         }
         held.push(...(d.held_detail ?? []))
+        conflicts.push(...(d.conflict_detail ?? []))
+        last = d
       }
-      setReport({ ...(totals as ImportReport), ok: true, list: listSlug, held_detail: held })
+      setReport({
+        ...(totals as ImportReport),
+        ok: true,
+        list: listSlug,
+        held_detail: held,
+        conflict_detail: conflicts,
+        export_name: last?.export_name ?? null,
+        export_missed_detail: last?.export_missed_detail ?? [],
+        export_total: last?.export_total ?? 0,
+        export_missed: last?.export_missed ?? 0,
+        prior_adopted: last?.prior_adopted ?? 0,
+        prior_adopted_phones: last?.prior_adopted_phones ?? 0,
+      })
       toast.success(`Imported ${listSlug}: ${totals.new ?? 0} new, ${totals.existing ?? 0} existing.`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'The import failed.')
@@ -273,6 +352,26 @@ export function OutreachImportPage() {
                   Stored as <code>{listSlug}</code>; GHL contacts get tagged the same.
                 </p>
               ) : null}
+            </div>
+            <div className="space-y-1">
+              <Label>From which export?</Label>
+              <Select value={exportId || 'none'} onValueChange={(v) => setExportId(v === 'none' ? '' : v)}>
+                <SelectTrigger className="w-72">
+                  <SelectValue placeholder="Pick the export this was skiptraced from…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not from a recorded export</SelectItem>
+                  {(exports ?? []).map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name} · {e.row_count} properties ·{' '}
+                      {new Date(e.created_at).toLocaleDateString()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Picking one reports which exported properties the skiptrace missed.
+              </p>
             </div>
             <input
               ref={fileRef}
@@ -404,6 +503,114 @@ export function OutreachImportPage() {
                   Held people are imported — they just need a human eye (ambiguous property, a
                   shared landline with a different email, or an address on another person).
                 </p>
+              </div>
+            ) : null}
+
+            {report.prior_adopted ? (
+              <p className="rounded-md border border-sky-200 bg-sky-50 p-2.5 text-sm">
+                <span className="font-medium">{report.prior_adopted} previously skiptraced</span>{' '}
+                {report.prior_adopted === 1 ? 'person' : 'people'} on these properties joined the
+                list — the GHL push includes their numbers unless they were marked wrong person,
+                do-not-call, or a bad number. {report.prior_adopted_phones} numbers ride in total.
+              </p>
+            ) : null}
+
+            {report.export_name ? (
+              <div className="space-y-2">
+                <div className="text-sm">
+                  <span className="font-medium">Skiptrace coverage of “{report.export_name}”:</span>{' '}
+                  {report.export_total - report.export_missed} of {report.export_total} exported
+                  properties came back.
+                </div>
+                {report.export_missed ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const cols = ['address', 'city', 'state', 'zip', 'parcel_number', 'owner_name']
+                      downloadCsv(
+                        `skiptrace-missed-${report.export_name}-${todayStamp()}.csv`,
+                        toCsv(
+                          cols,
+                          report.export_missed_detail.map((m) =>
+                            cols.map((c) => String(m[c as keyof typeof m] ?? '')),
+                          ),
+                        ),
+                      )
+                    }}
+                  >
+                    Download the {report.export_missed} missed{' '}
+                    {report.export_missed === 1 ? 'property' : 'properties'} as CSV
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nothing missed — full coverage.</p>
+                )}
+              </div>
+            ) : null}
+
+            {report.conflicts ? (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-amber-700">
+                  Terrakotta disagrees with our records on {report.conflicts}{' '}
+                  {report.conflicts === 1 ? 'property' : 'properties'}
+                </div>
+                <div className="max-h-64 overflow-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Property</TableHead>
+                        <TableHead>Field</TableHead>
+                        <TableHead>Terrakotta says</TableHead>
+                        <TableHead>We say</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {report.conflict_detail.map((c, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-sm">
+                            <a
+                              href={`/properties/${c.property_id}`}
+                              className="text-primary hover:underline"
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {c.property_address}
+                            </a>
+                          </TableCell>
+                          <TableCell className="text-xs">{c.field.replace(/_/g, ' ')}</TableCell>
+                          <TableCell className="text-sm">{c.csv_value ?? '—'}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {c.crm_value ?? 'missing'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const cols = ['property_address', 'parcel_id', 'field', 'csv_value', 'crm_value']
+                      downloadCsv(
+                        `terrakotta-conflicts-${report.list}-${todayStamp()}.csv`,
+                        toCsv(
+                          cols,
+                          report.conflict_detail.map((c) =>
+                            cols.map((k) => String(c[k as keyof typeof c] ?? '')),
+                          ),
+                        ),
+                      )
+                    }}
+                  >
+                    Download conflicts CSV
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Nothing was changed — building SF and acres are county-sourced and locked, so
+                    fix a record from its property page if Terrakotta turns out to be right.
+                  </p>
+                </div>
               </div>
             ) : null}
           </CardContent>

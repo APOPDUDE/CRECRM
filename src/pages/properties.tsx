@@ -46,6 +46,7 @@ import {
   useTaggedPropertyIds,
   type PropertyTagKey,
 } from '@/hooks/use-property-tag-filter'
+import { useLastSales } from '@/hooks/use-last-sales'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
 import {
@@ -344,6 +345,19 @@ export function PropertiesPage() {
   // activeFilterCount: its default-on exclusion must not flip the bare map into the
   // whole-book fetch, so it lenses whatever set is already on screen instead.
   const [includeCondos, setIncludeCondos] = usePersistentState('properties:includeCondos', false)
+  // Owner operators, tri-state (Alex 2026-08-20): in the set (default), out of it, or the
+  // whole search. 'owner occupier' is the stored tag; "owner operator" is what Alex calls it.
+  const [ownerOccModeRaw, setOwnerOccMode] = usePersistentState<'all' | 'hide' | 'only'>(
+    'properties:ownerOccMode',
+    'all',
+  )
+  const ownerOccMode = ownerOccModeRaw === 'hide' || ownerOccModeRaw === 'only' ? ownerOccModeRaw : 'all'
+  // "Don't call people who just sold" (Alex 2026-08-20). Empty = off. Coverage is partial, so
+  // no-sale-date properties stay visible unless the companion toggle is unchecked.
+  const [soldYears, setSoldYears] = usePersistentState<string>('properties:soldYears', '')
+  const [includeNoSale, setIncludeNoSale] = usePersistentState<boolean>('properties:includeNoSale', true)
+  const soldYearsNum = parseFloat(soldYears)
+  const soldFilterOn = Number.isFinite(soldYearsNum) && soldYearsNum > 0
   // The DOR picker's layers: four tri-state major categories + extra checked codes
   // (standard 'other' codes and county customs). ANDs with the bucketed use select.
   const [dorSelRaw, setDorSel] = usePersistentState<DorSelection>('properties:dorSel', DOR_SELECTION_DEFAULT)
@@ -363,6 +377,10 @@ export function PropertiesPage() {
   const [tagFilterRaw, setTagFilter] = usePersistentState<PropertyTagKey[]>('properties:tags', [])
   const tagFilter = useMemo(() => safeTagFilter(tagFilterRaw), [tagFilterRaw])
   const { tagIds, isLoading: tagsLoading } = useTaggedPropertyIds(tagFilter)
+  const { tagIds: ownerOccIds } = useTaggedPropertyIds(
+    ownerOccMode === 'all' ? [] : ['owner occupier'],
+  )
+  const { data: lastSales } = useLastSales(soldFilterOn)
   const [county, setCounty] = usePersistentState('properties:county', 'all')
   const { data: unitSizes } = useAvailableUnitSizes()
   const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
@@ -485,6 +503,8 @@ export function PropertiesPage() {
     (useFilter !== 'all' ? 1 : 0) +
     (dorActive ? 1 : 0) +
     (tagFilter.length > 0 ? 1 : 0) +
+    (ownerOccMode !== 'all' ? 1 : 0) +
+    (soldFilterOn ? 1 : 0) +
     (ownerFilter !== 'all' ? 1 : 0) +
     (activitySubApplies && activity !== 'all' ? 1 : 0) +
     (countyApplies && county !== 'all' ? 1 : 0) +
@@ -953,6 +973,21 @@ export function PropertiesPage() {
       // must not read as "no tags here", which is the mistake that makes a truncated set
       // look like the whole truth. The rail says "Finding tagged properties…" meanwhile.
       if (tagFilter.length > 0 && !tagIds?.has(p.id)) continue
+      // Owner-operator tri-state. Same null-set discipline as tags: while the lookup is
+      // unanswered, 'only' matches nothing (never "nobody is tagged") and 'hide' hides
+      // nothing (never "hide everyone").
+      if (ownerOccMode === 'only' && !ownerOccIds?.has(p.id)) continue
+      if (ownerOccMode === 'hide' && ownerOccIds?.has(p.id)) continue
+      // Recently sold — the cutoff compares against the latest transfer comp. Until the map
+      // loads the filter simply hasn't engaged yet (an exclusion can't hold rows it hasn't
+      // seen); no-sale-date rows ride on the companion toggle.
+      if (soldFilterOn && lastSales) {
+        const last = lastSales.get(p.id)
+        if (last) {
+          const cutoff = Date.now() - soldYearsNum * 365.25 * 24 * 3600 * 1000
+          if (new Date(last).getTime() >= cutoff) continue
+        } else if (!includeNoSale) continue
+      }
       if (countyApplies && county !== 'all' && p.county !== county) continue
       // A size search must also see the units. A landlord who will carve 30,000 SF
       // out of a 93,666 SF building answers a 30k requirement — but the building
@@ -1008,7 +1043,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1070,7 +1105,7 @@ export function PropertiesPage() {
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, polygon, leaseMatchIds])
+  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, leaseMatchIds])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -1264,6 +1299,8 @@ export function PropertiesPage() {
     setPtype('all'); setZoningFilter('all'); setUseFilter('all'); setCounty('all')
     // back to the canvassing default: condo units out
     setIncludeCondos(false)
+    setOwnerOccMode('all')
+    setSoldYears(''); setIncludeNoSale(true)
   }
 
   // One rail, two surfaces: the desktop aside and the phone bottom-sheet render the
@@ -1303,6 +1340,9 @@ export function PropertiesPage() {
       dmFilter={dmFilter} onDmFilter={setDmFilter}
       dorSel={dorSel} onDorSel={setDorSel}
       includeCondos={includeCondos} onIncludeCondos={setIncludeCondos}
+      ownerOccMode={ownerOccMode} onOwnerOccMode={setOwnerOccMode}
+      soldYears={soldYears} onSoldYears={setSoldYears}
+      includeNoSale={includeNoSale} onIncludeNoSale={setIncludeNoSale}
       condoHidden={condoHidden}
       overlays={overlays} onOverlays={setOverlays}
       onOverlayIncludeOn={() => setWantsBook(true)}
@@ -1613,6 +1653,53 @@ export function PropertiesPage() {
                   </span>
                 )}
               </label>
+              <div className="space-y-1.5">
+                <Label>Last sold</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Hide sold in the last</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={soldYears}
+                    onChange={(e) => setSoldYears(e.target.value)}
+                    placeholder="off"
+                    className="h-8 w-20"
+                  />
+                  <span className="text-sm text-muted-foreground">years</span>
+                </div>
+                {soldFilterOn && (
+                  <label className="flex cursor-pointer items-center gap-2 text-xs">
+                    <Checkbox
+                      checked={includeNoSale}
+                      onCheckedChange={(v) => setIncludeNoSale(v === true)}
+                    />
+                    Include properties with no sold date
+                  </label>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Owner operators</Label>
+                <div className="flex gap-1">
+                  {(
+                    [
+                      ['all', 'Include'],
+                      ['hide', 'Hide'],
+                      ['only', 'Only'],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <Button
+                      key={v}
+                      size="sm"
+                      variant={ownerOccMode === v ? 'default' : 'outline'}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setOwnerOccMode(v)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
               {/* The picker lives in the rail on the map; the popover carries it for the table. */}
               {view === 'table' && <DorCodePicker selection={dorSel} onChange={setDorSel} />}
               {view === 'table' && (

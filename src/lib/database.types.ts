@@ -1889,6 +1889,24 @@ export type Database = {
         }
         Relationships: []
       }
+      area_code_timezones: {
+        Row: {
+          area_code: string
+          created_at: string
+          tz: string
+        }
+        Insert: {
+          area_code: string
+          created_at?: string
+          tz: string
+        }
+        Update: {
+          area_code?: string
+          created_at?: string
+          tz?: string
+        }
+        Relationships: []
+      }
       buyer_intakes: {
         Row: {
           client_id: string | null
@@ -3583,6 +3601,30 @@ export type Database = {
           },
         ]
       }
+      outreach_exports: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          property_ids: string[]
+          row_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          property_ids?: string[]
+          row_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          property_ids?: string[]
+          row_count?: number
+        }
+        Relationships: []
+      }
       outreach_mail: {
         Row: {
           created_at: string
@@ -3753,6 +3795,134 @@ export type Database = {
             referencedColumns: ["property_id"]
           },
         ]
+      }
+      outreach_texts: {
+        Row: {
+          blooio_chat_id: string | null
+          created_at: string
+          id: string
+          last_inbound_at: string | null
+          last_outbound_at: string | null
+          phone: string
+          protocol: Database["public"]["Enums"]["msg_protocol"]
+          queue_state: string
+          target_id: string
+          triage: Database["public"]["Enums"]["triage_label"] | null
+          triage_confidence: number | null
+          updated_at: string
+        }
+        Insert: {
+          blooio_chat_id?: string | null
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          phone: string
+          protocol?: Database["public"]["Enums"]["msg_protocol"]
+          queue_state?: string
+          target_id: string
+          triage?: Database["public"]["Enums"]["triage_label"] | null
+          triage_confidence?: number | null
+          updated_at?: string
+        }
+        Update: {
+          blooio_chat_id?: string | null
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          phone?: string
+          protocol?: Database["public"]["Enums"]["msg_protocol"]
+          queue_state?: string
+          target_id?: string
+          triage?: Database["public"]["Enums"]["triage_label"] | null
+          triage_confidence?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_texts_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phone_scrubs: {
+        Row: {
+          created_at: string
+          federal_dnc: boolean | null
+          id: string
+          line_type: string | null
+          litigator: boolean | null
+          phone: string
+          raw: Json | null
+          rnd_ok: boolean | null
+          scrubbed_at: string
+          state_dnc: boolean | null
+          vendor: string
+        }
+        Insert: {
+          created_at?: string
+          federal_dnc?: boolean | null
+          id?: string
+          line_type?: string | null
+          litigator?: boolean | null
+          phone: string
+          raw?: Json | null
+          rnd_ok?: boolean | null
+          scrubbed_at?: string
+          state_dnc?: boolean | null
+          vendor: string
+        }
+        Update: {
+          created_at?: string
+          federal_dnc?: boolean | null
+          id?: string
+          line_type?: string | null
+          litigator?: boolean | null
+          phone?: string
+          raw?: Json | null
+          rnd_ok?: boolean | null
+          scrubbed_at?: string
+          state_dnc?: boolean | null
+          vendor?: string
+        }
+        Relationships: []
+      }
+      phone_suppressions: {
+        Row: {
+          created_at: string
+          evidence: Json | null
+          expires_at: string | null
+          id: string
+          phone: string
+          reason: Database["public"]["Enums"]["suppression_reason"]
+          source: string
+          suppressed_at: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json | null
+          expires_at?: string | null
+          id?: string
+          phone: string
+          reason: Database["public"]["Enums"]["suppression_reason"]
+          source: string
+          suppressed_at?: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json | null
+          expires_at?: string | null
+          id?: string
+          phone?: string
+          reason?: Database["public"]["Enums"]["suppression_reason"]
+          source?: string
+          suppressed_at?: string
+        }
+        Relationships: []
       }
       properties: {
         Row: {
@@ -4324,6 +4494,53 @@ export type Database = {
           },
         ]
       }
+      send_authorizations: {
+        Row: {
+          approved_by: string | null
+          authorized_at: string
+          checks: Json
+          created_at: string
+          id: string
+          phone: string
+          scrub_vendor: string | null
+          scrubbed_at: string
+          send_id: string
+          template_hash: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          authorized_at?: string
+          checks: Json
+          created_at?: string
+          id?: string
+          phone: string
+          scrub_vendor?: string | null
+          scrubbed_at: string
+          send_id: string
+          template_hash?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          authorized_at?: string
+          checks?: Json
+          created_at?: string
+          id?: string
+          phone?: string
+          scrub_vendor?: string | null
+          scrubbed_at?: string
+          send_id?: string
+          template_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "send_authorizations_send_id_fkey"
+            columns: ["send_id"]
+            isOneToOne: false
+            referencedRelation: "text_sends"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suggestions: {
         Row: {
           client_id: string
@@ -4513,6 +4730,207 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      text_campaigns: {
+        Row: {
+          created_at: string
+          daily_cap: number
+          id: string
+          name: string
+          status: string
+          template: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          daily_cap?: number
+          id?: string
+          name: string
+          status?: string
+          template: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          daily_cap?: number
+          id?: string
+          name?: string
+          status?: string
+          template?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      text_messages: {
+        Row: {
+          blooio_message_id: string | null
+          body: string | null
+          campaign_id: string | null
+          created_at: string
+          delivered_at: string | null
+          direction: Database["public"]["Enums"]["msg_direction"]
+          error: string | null
+          id: string
+          phone: string
+          protocol: Database["public"]["Enums"]["msg_protocol"]
+          raw: Json | null
+          read_at: string | null
+          send_id: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          blooio_message_id?: string | null
+          body?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction: Database["public"]["Enums"]["msg_direction"]
+          error?: string | null
+          id?: string
+          phone: string
+          protocol?: Database["public"]["Enums"]["msg_protocol"]
+          raw?: Json | null
+          read_at?: string | null
+          send_id?: string | null
+          sent_at?: string | null
+          status: string
+        }
+        Update: {
+          blooio_message_id?: string | null
+          body?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction?: Database["public"]["Enums"]["msg_direction"]
+          error?: string | null
+          id?: string
+          phone?: string
+          protocol?: Database["public"]["Enums"]["msg_protocol"]
+          raw?: Json | null
+          read_at?: string | null
+          send_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "text_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "text_messages_send_id_fkey"
+            columns: ["send_id"]
+            isOneToOne: false
+            referencedRelation: "text_sends"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      text_sends: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          blocked_reason: string | null
+          blooio_message_id: string | null
+          body: string
+          campaign_id: string | null
+          claimed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          phone: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["text_send_status"]
+          target_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          blocked_reason?: string | null
+          blooio_message_id?: string | null
+          body: string
+          campaign_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          phone: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["text_send_status"]
+          target_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          blocked_reason?: string | null
+          blooio_message_id?: string | null
+          body?: string
+          campaign_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          phone?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["text_send_status"]
+          target_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "text_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "text_sends_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      texting_settings: {
+        Row: {
+          created_at: string
+          id: number
+          paused: boolean
+          per_line_daily_cap: number
+          quiet_cutoff: string
+          quiet_start: string
+          ramp_started_on: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: number
+          paused?: boolean
+          per_line_daily_cap?: number
+          quiet_cutoff?: string
+          quiet_start?: string
+          ramp_started_on?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          paused?: boolean
+          per_line_daily_cap?: number
+          quiet_cutoff?: string
+          quiet_start?: string
+          ramp_started_on?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       units: {
         Row: {
@@ -5110,6 +5528,31 @@ export type Database = {
         }
         Relationships: []
       }
+      v_sweep_coverage: {
+        Row: {
+          county: string | null
+          fresh_today: boolean | null
+          hours_since_sweep: number | null
+          last_sweep_at: string | null
+          never_seen: number | null
+          on_market: number | null
+          seen_le_2d: number | null
+          seen_le_7d: number | null
+          seen_today: number | null
+          stale_gt_7d: number | null
+        }
+        Relationships: []
+      }
+      v_sweep_ingests: {
+        Row: {
+          counties: string | null
+          industrial: number | null
+          ingested_at: string | null
+          items: number | null
+          land: number | null
+        }
+        Relationships: []
+      }
       v_unit_specs: {
         Row: {
           amps: number | null
@@ -5260,6 +5703,11 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_text_sends: { Args: { p_limit?: number }; Returns: Json[] }
+      client_area_match: {
+        Args: { p_areas: Json; p_lat: number; p_lng: number }
+        Returns: boolean
+      }
       convert_prospect: {
         Args: {
           p_deal_type?: Database["public"]["Enums"]["deal_type"]
@@ -5386,6 +5834,8 @@ export type Database = {
         Returns: Json
       }
       import_zoning: { Args: { p: Json }; Returns: Json }
+      ingest_blooio_event: { Args: { p: Json }; Returns: Json }
+      ingest_scrub_result: { Args: { p: Json }; Returns: Json }
       intake_buyer_tag: { Args: { p: Json }; Returns: Json }
       intake_client: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_landlord_listing: {
@@ -5393,6 +5843,7 @@ export type Database = {
         Returns: Json
       }
       intake_prospect: { Args: { p: Json; p_owner: string }; Returns: Json }
+      is_va: { Args: never; Returns: boolean }
       map_properties: {
         Args: {
           p_limit?: number
@@ -5432,6 +5883,9 @@ export type Database = {
       outreach_ghl_mark: { Args: { p: Json }; Returns: Json }
       outreach_ghl_push_rows: { Args: { p_list: string }; Returns: Json }
       outreach_mail_audience: { Args: { p: Json }; Returns: Json }
+      outreach_mark_wrong_number: { Args: { p: Json }; Returns: Json }
+      phone_e164: { Args: { p: string }; Returns: string }
+      phone_is_suppressed: { Args: { p_phone: string }; Returns: boolean }
       point_in_ring: {
         Args: { p_lat: number; p_lng: number; ring: Json }
         Returns: boolean
@@ -5489,9 +5943,13 @@ export type Database = {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["property_kind"]
       }
+      property_last_sales: { Args: never; Returns: Json }
+      recent_touches: { Args: { p_phone: string }; Returns: number }
+      record_text_send_result: { Args: { p: Json }; Returns: Json }
       refresh_condo_units: { Args: never; Returns: number }
       refresh_derived_property_tags: { Args: never; Returns: Json }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
+      scrub_candidates: { Args: { p_limit?: number }; Returns: Json[] }
       search_contacts: {
         Args: {
           p_include_archived?: boolean
@@ -5553,7 +6011,30 @@ export type Database = {
         Args: { p_seen_property_ids: string[] }
         Returns: Json
       }
+      texting_quiet_ok: { Args: { p_phone: string }; Returns: boolean }
+      texting_send_allowed: {
+        Args: { p_is_reply: boolean; p_phone: string }
+        Returns: Json
+      }
       unverify_contact: { Args: { p: Json }; Returns: Json }
+      va_approve_send: { Args: { p_send_id: string }; Returns: Json }
+      va_confirm_owner: {
+        Args: {
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+          p_target_id: string
+        }
+        Returns: string
+      }
+      va_guard_pre_request: { Args: never; Returns: undefined }
+      va_not_interested: { Args: { p_phone: string }; Returns: Json }
+      va_send_reply: {
+        Args: { p_body: string; p_phone: string }
+        Returns: string
+      }
+      va_thread_context: { Args: { p_phone: string }; Returns: Json }
+      va_wrong_person: { Args: { p_phone: string }; Returns: Json }
       weighted_percentile: {
         Args: { p_p: number; p_vals: number[]; p_wts: number[] }
         Returns: number
@@ -5656,6 +6137,8 @@ export type Database = {
       lease_structure: "NNN" | "NN" | "MG" | "FS" | "IG"
       listing_market_status: "on_market" | "off_market"
       listing_stage: "proposal" | "listed" | "closed"
+      msg_direction: "inbound" | "outbound"
+      msg_protocol: "imessage" | "sms" | "rcs" | "unknown"
       note_kind: "note" | "call" | "text" | "email" | "meeting" | "tour"
       owner_kind: "individual" | "entity" | "government" | "unknown"
       property_kind: "industrial" | "office" | "retail" | "land" | "other"
@@ -5670,8 +6153,36 @@ export type Database = {
         | "executed"
         | "passed"
       suggestion_status: "pending" | "dismissed"
+      suppression_reason:
+        | "federal_dnc"
+        | "state_dnc"
+        | "litigator"
+        | "wrong_person"
+        | "opt_out"
+        | "hostile"
+        | "carrier_block"
+        | "said_no"
+        | "manual"
       task_kind: "renewal" | "follow_up" | "general" | "tour"
       task_status: "open" | "done"
+      text_send_status:
+        | "draft"
+        | "approved"
+        | "queued"
+        | "sending"
+        | "sent"
+        | "delivered"
+        | "failed"
+        | "blocked"
+      triage_label:
+        | "owner_yes"
+        | "wrong_person"
+        | "not_interested"
+        | "opt_out"
+        | "hostile_legal"
+        | "question"
+        | "autoreply"
+        | "unknown"
       zoning_kind:
         | "industrial"
         | "office"
@@ -5916,6 +6427,8 @@ export const Constants = {
       lease_structure: ["NNN", "NN", "MG", "FS", "IG"],
       listing_market_status: ["on_market", "off_market"],
       listing_stage: ["proposal", "listed", "closed"],
+      msg_direction: ["inbound", "outbound"],
+      msg_protocol: ["imessage", "sms", "rcs", "unknown"],
       note_kind: ["note", "call", "text", "email", "meeting", "tour"],
       owner_kind: ["individual", "entity", "government", "unknown"],
       property_kind: ["industrial", "office", "retail", "land", "other"],
@@ -5931,8 +6444,39 @@ export const Constants = {
         "passed",
       ],
       suggestion_status: ["pending", "dismissed"],
+      suppression_reason: [
+        "federal_dnc",
+        "state_dnc",
+        "litigator",
+        "wrong_person",
+        "opt_out",
+        "hostile",
+        "carrier_block",
+        "said_no",
+        "manual",
+      ],
       task_kind: ["renewal", "follow_up", "general", "tour"],
       task_status: ["open", "done"],
+      text_send_status: [
+        "draft",
+        "approved",
+        "queued",
+        "sending",
+        "sent",
+        "delivered",
+        "failed",
+        "blocked",
+      ],
+      triage_label: [
+        "owner_yes",
+        "wrong_person",
+        "not_interested",
+        "opt_out",
+        "hostile_legal",
+        "question",
+        "autoreply",
+        "unknown",
+      ],
       zoning_kind: [
         "industrial",
         "office",

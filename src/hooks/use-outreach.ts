@@ -86,6 +86,7 @@ export type MailableRow = {
   mail_city?: string
   mail_state?: string
   mail_zip?: string
+  mail_source?: 'owner_county' | 'skiptrace'
   sent_at?: string
   mail_status?: string
   property_address?: string

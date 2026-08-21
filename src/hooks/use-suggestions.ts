@@ -53,6 +53,29 @@ const SUGGESTION_SELECT = `
  */
 export const PENDING_SUGGESTIONS_CAP = 500
 
+/**
+ * Pending suggestions for ONE property — the listing-side "Recommended for" chips
+ * (Alex 2026-08-20: recommendations should live on the new listing, naming the tenant).
+ */
+export function usePropertySuggestions(propertyId: string | undefined) {
+  return useQuery({
+    queryKey: ['suggestions', 'property', propertyId],
+    enabled: !!propertyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('suggestions')
+        .select(SUGGESTION_SELECT)
+        .eq('status', 'pending')
+        .eq('property_id', propertyId!)
+        .eq('client.status', 'searching')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return data as unknown as Suggestion[]
+    },
+  })
+}
+
 /** Pending suggestions for clients still in the searching pool, newest first. */
 export function usePendingSuggestions() {
   return useQuery({

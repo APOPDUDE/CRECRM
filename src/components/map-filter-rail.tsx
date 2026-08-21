@@ -18,6 +18,7 @@ import { PROPERTY_TAG_OPTIONS, type PropertyTagKey } from '@/hooks/use-property-
 import { type DorSelection } from '@/lib/zoning'
 import type { OverlayState } from '@/lib/overlays'
 import type { LatLng } from '@/lib/geo'
+import { cn } from '@/lib/utils'
 
 /** Which owner channels count as "verified" while the toggle is on. */
 export type OwnerChannels = { phone: boolean; email: boolean }
@@ -163,6 +164,14 @@ export function MapFilterRail(props: {
   onIncludeCondos: (on: boolean) => void
   /** How many rows the exclusion is currently hiding — 0 while it hides nothing. */
   condoHidden: number
+  // Owner operators (the 'owner occupier' tag) — tri-state: in the set / out of it / only them
+  ownerOccMode: 'all' | 'hide' | 'only'
+  onOwnerOccMode: (m: 'all' | 'hide' | 'only') => void
+  // Recently sold — hide owners who closed within the last N years ('' = off)
+  soldYears: string
+  onSoldYears: (v: string) => void
+  includeNoSale: boolean
+  onIncludeNoSale: (on: boolean) => void
   // overlays (Phase 1)
   overlays: OverlayState
   onOverlays: (s: OverlayState) => void
@@ -238,11 +247,6 @@ export function MapFilterRail(props: {
         <MinMax min={p.acMin} max={p.acMax} onMin={p.onAcMin} onMax={p.onAcMax} />
       </div>
 
-      {/* County use codes — what the parcel IS today, per the appraiser */}
-      <div className="border-t pt-3">
-        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
-      </div>
-
       {/* Condo units — the Motor Enclave problem: one address, 236 separately-owned
           bays. Out of every search by default; this is the way back in. */}
       <div className="space-y-1 border-t pt-3">
@@ -260,6 +264,11 @@ export function MapFilterRail(props: {
         )}
       </div>
 
+      {/* County use codes — what the parcel IS today, per the appraiser */}
+      <div className="border-t pt-3">
+        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
+      </div>
+
       {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
           — on the map the zoning question is the layers below, with Include (union) and
           Only (restrict) per layer. The table's Filters popover keeps the select. */}
@@ -267,6 +276,65 @@ export function MapFilterRail(props: {
       {/* Zoning district overlays (Phase 1) */}
       <div className="border-t pt-3">
         <OverlayControls state={p.overlays} onChange={p.onOverlays} onIncludeOn={p.onOverlayIncludeOn} />
+      </div>
+
+      {/* Owner operators — buildings whose occupant IS the owner (the 'owner occupier'
+          tag, populated from county owner-mails-at-property evidence). A canvass may want
+          them in the mix, out of it, or as the whole search. */}
+      <div className="space-y-1.5 border-t pt-3">
+        <Label>Owner operators</Label>
+        <div className="flex gap-1">
+          {(
+            [
+              ['all', 'Include'],
+              ['hide', 'Hide'],
+              ['only', 'Only'],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => p.onOwnerOccMode(v)}
+              className={cn(
+                'rounded-md border px-2 py-1 text-xs',
+                p.ownerOccMode === v
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Recently sold — an owner who just closed is the worst cold call on the map. Coverage
+          is county-partial (Hillsborough ~27%, Polk ~48% carry a recorded sale), so unknown
+          sale dates stay visible unless the toggle says otherwise. */}
+      <div className="space-y-1.5 border-t pt-3">
+        <Label>Last sold</Label>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Hide sold in the last
+          <Input
+            type="number"
+            min={0}
+            step={0.5}
+            value={p.soldYears}
+            onChange={(e) => p.onSoldYears(e.target.value)}
+            placeholder="off"
+            className="h-7 w-16"
+          />
+          years
+        </div>
+        {parseFloat(p.soldYears) > 0 && (
+          <label className="flex cursor-pointer items-center gap-2 text-xs">
+            <Checkbox
+              checked={p.includeNoSale}
+              onCheckedChange={(v) => p.onIncludeNoSale(v === true)}
+            />
+            Include properties with no sold date
+          </label>
+        )}
       </div>
 
       {/* On market — off = everyone, plus the explicit inverse Alex asked for */}

@@ -1,11 +1,14 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AppShell } from '@/components/app-shell'
 import { ProtectedRoute } from '@/components/protected-route'
+import { VaShell } from '@/components/va-shell'
 import { AuthProvider } from '@/hooks/use-auth'
 import { BreadcrumbProvider } from '@/hooks/use-breadcrumb'
+import { useIsVa } from '@/hooks/use-is-va'
 import { LoginPage } from '@/pages/login'
 import { DashboardPage } from '@/pages/dashboard'
 import { ReppingPage, ReppingRedirect } from '@/pages/repping'
@@ -26,6 +29,33 @@ import { EmailPage } from '@/pages/email'
 import { OutreachImportPage } from '@/pages/outreach-import'
 import { OutreachCallsPage } from '@/pages/outreach-calls'
 import { OutreachPostcardsPage } from '@/pages/outreach-postcards'
+import { TextingQueuePage } from '@/pages/texting-queue'
+import { TextingThreadPage } from '@/pages/texting-thread'
+import { TextingSendPage } from '@/pages/texting-send'
+import { TextingCampaignsPage } from '@/pages/texting-campaigns'
+import { TextingSettingsPage } from '@/pages/texting-settings'
+
+/** A VA login lives in the texting console only — every other route bounces there. */
+function VaGate() {
+  if (useIsVa()) return <Navigate to="/texting" replace />
+  return <Outlet />
+}
+
+/** The texting console: minimal shell for the VA, the normal app shell for Alex. */
+function TextingShell() {
+  if (useIsVa()) return <VaShell />
+  return (
+    <BreadcrumbProvider>
+      <AppShell />
+    </BreadcrumbProvider>
+  )
+}
+
+/** Campaigns + settings write tables directly — the VA never mounts them. */
+function AlexOnly({ children }: { children: ReactNode }) {
+  if (useIsVa()) return <Navigate to="/texting" replace />
+  return children
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +78,29 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route element={<ProtectedRoute />}>
+              {/* The texting console renders in whichever shell fits the login. */}
+              <Route element={<TextingShell />}>
+                <Route path="/texting" element={<TextingQueuePage />} />
+                <Route path="/texting/thread/:phone" element={<TextingThreadPage />} />
+                <Route path="/texting/send" element={<TextingSendPage />} />
+                <Route
+                  path="/texting/campaigns"
+                  element={
+                    <AlexOnly>
+                      <TextingCampaignsPage />
+                    </AlexOnly>
+                  }
+                />
+                <Route
+                  path="/texting/settings"
+                  element={
+                    <AlexOnly>
+                      <TextingSettingsPage />
+                    </AlexOnly>
+                  }
+                />
+              </Route>
+              <Route element={<VaGate />}>
               <Route
                 element={
                   <BreadcrumbProvider>
@@ -80,6 +133,7 @@ export default function App() {
                 <Route path="/outreach/import" element={<OutreachImportPage />} />
                 <Route path="/outreach/calls" element={<OutreachCallsPage />} />
                 <Route path="/outreach/postcards" element={<OutreachPostcardsPage />} />
+              </Route>
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
