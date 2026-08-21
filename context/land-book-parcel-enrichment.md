@@ -267,8 +267,29 @@ What made this safe to run into a live book:
 
 Scope counts at harvest (≥ 0.5 ac): Polk 66,469 (36k of it class 99 acreage) ·
 Hillsborough 14,539 · Pasco 11,939 · Manatee 5,369 · Sarasota 4,407 · Pinellas 2,613 —
-**105,336 parcels**. Post-import: `refresh_land_book()` + `refresh_condo_units()` +
-analyze; final tallies in the session summary.
+**105,336 parcels**.
+
+**Result (run + backfill completed 2026-08-21):** properties 31,990 → **126,970**
+(~95k created; ~10k were already in the book and got enriched instead — the drift
+dedupe held, zero duplicates, verified by re-running whole counties as pure updates).
+Land book: **99,975 members, 92,364 land-only, 7,596 on both books** — Polk 67,103 ·
+Pasco 12,026 · Hillsborough 9,860 · Manatee 5,144 · Sarasota 3,400 · Pinellas 2,427.
+Companies grew to 86,200 (the owner trigger minted each land owner into the spine, so
+verified-contact/skip-trace works on land immediately). DB size 430 MB.
+
+Post-import lessons now encoded: the drift-dedupe needed a real index (20260821180000 —
+the LIKE-prefix tier seq-scanned and stalled Polk), and whole-book refreshes outlive
+every client timeout — they run as self-unscheduling **pg_cron** jobs with
+`statement_timeout = 0` (20260821190000; the backfill took 12.5 min).
+
+Known follow-ups from this run:
+- **74,324 placeholder addresses** ('Parcel <id>') — Polk's layer has no situs street
+  and Pasco's vacant is ~56% situs-less. Situs backfill from the FDOR NAL roll
+  (fl_parcels.duckdb has PHY_ADDR) is the fix; owner MAILING addresses are populated,
+  so calls/postcards work today.
+- The land book at ~100k rows makes Land-mode full-book fetches heavy (~100 paged
+  requests). Map viewport mode (the default) is unaffected; revisit if the Land-mode
+  table feels slow in practice.
 
 ## 9. Phasing
 
