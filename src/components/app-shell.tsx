@@ -14,6 +14,7 @@ import {
   Mailbox,
   Map,
   Menu,
+  MessageSquare,
   Phone,
   MoreHorizontal,
   Target,
@@ -57,10 +58,11 @@ const prospectingItems = [
   { to: '/prospecting', label: 'Leads', icon: Target },
   { to: '/outreach/import', label: 'Import list', icon: Upload },
   { to: '/outreach/calls', label: 'Calls & texts', icon: Phone },
+  { to: '/texting', label: 'Texting', icon: MessageSquare },
   { to: '/email', label: 'Email', icon: Mail },
   { to: '/outreach/postcards', label: 'Postcards', icon: Mailbox },
 ]
-const prospectingPrefixes = ['/prospecting', '/outreach', '/email']
+const prospectingPrefixes = ['/prospecting', '/outreach', '/email', '/texting']
 
 const moreItems = [
   { to: '/tasks', label: 'Tasks', icon: ListTodo },
@@ -82,6 +84,7 @@ const sectionLabels: Record<string, string> = {
   companies: 'Companies',
   // The route stays /properties; only the name changed.
   properties: 'War Room',
+  texting: 'Texting',
   zoning: 'Zoning',
 }
 
