@@ -220,7 +220,15 @@ on a given day, and the runs that do land return a fraction of the county book
 floor and the fresh-county gate in `sweep_finalize_off_market` are holding, so the
 off-market picture is stale rather than wrong.
 
-Measurements, the six task ids, and the prioritised list of task options to check are in
+**Cause found (2026-08-21):** a failing and a succeeding run are identical in every field
+except `startUrls`. The working shape is four URLs per county —
+`{industrial-properties|land}` x `{for-lease|for-sale}` x `{county}-county-fl`. The failing
+Hillsborough task pointed at `restaurants` + `for-sale` only, a category the off-market diff
+filters out entirely. `includeListingDetails`, the residential proxy and `maxItems` were
+already correct in both, so none of those was ever the problem. Corrected input JSON for all
+seven counties: [`context/apify-county-task-inputs.md`](../context/apify-county-task-inputs.md).
+
+Measurements and the six task ids are in
 [`context/apify-sweep-failures-2026-08-21.md`](../context/apify-sweep-failures-2026-08-21.md).
 Day-to-day health reads from two views added in `20260821140000_sweep_coverage_views.sql`:
 

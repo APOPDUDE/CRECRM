@@ -87,31 +87,46 @@ sit "on_market" permanently regardless of reality.
 `seen_below_floor` (<300 stamped today; today is 41). So yesterday's fix is doing its job:
 no mass off-market flips. The off-market picture is stale, not corrupted.
 
-## What to check in the task options (highest leverage first)
+## The cause, from the run inputs Alex pasted
 
-Unverifiable from here — needs the Apify console or an unblocked token.
+Alex supplied one failing and one succeeding run. They are **identical in every field
+except `startUrls`**:
 
-1. **`includeListingDetails`.** If it's `true` in the sweep tasks, each run makes an extra
-   request per listing — an order of magnitude more traffic at LoopNet for data the sweep
-   doesn't use. The sweep only needs to know a listing is still live. Turning it off should
-   be the first change: fewer requests, shorter runs, far less block surface, and it drops
-   the $0.003/listing enrichment charge.
-2. **Proxy configuration.** Datacenter or default proxies get blocked by LoopNet
-   inconsistently — which is exactly the "some land, some don't" signature. Residential
-   proxy groups are the standard fix. Check what each of the seven tasks has.
-3. **The 66-minute burst.** Seven LoopNet crawls fire between 06:15 and 07:21 from one
-   account. The retry then fires six more at 08:30. Spreading them across the day (or
-   serialising with real gaps) is a config change, not a code change.
-4. **`maxResultsPerSource`.** The notes record this capped at 5 for the old per-tenant
-   sweep. If any county task inherited a low cap it truncates before blocking is even a
-   factor. Confirm it's above each county's real inventory (~300).
-5. **`sourcesEnabled`.** Add `crexi` so a LoopNet block degrades instead of zeroing.
-   Note the off-market diff deliberately excludes `crexi:` keys, so this widens intake
-   without touching the diff.
-6. **Run status vs. webhook.** The retry bot decides "failed" from the Apify run status,
-   and ingest is fed by success webhooks. A run that ends `TIMED-OUT` after collecting
-   200 listings delivers **nothing**. Check `timeoutSecs` per task and whether partial
-   datasets are being discarded.
+- failing: `.../search/restaurants/hillsborough-county-fl/for-sale/` — one URL
+- succeeding: `industrial-properties` and `land`, each x `for-lease` and `for-sale`,
+  `manatee-county-fl` — four URLs
+
+`includeListingDetails: false`, `proxy: {RESIDENTIAL}`, `maxItems: 10000`,
+`maxRequestRetries: 8` are already set correctly in **both**. That falsifies the first
+three suspects I listed before seeing the inputs — details are already off, the proxy is
+already residential, and there is no low result cap. The county tasks also drive LoopNet
+through `startUrls` rather than the actor's `city`/`assetClasses`/`sourcesEnabled` search
+mode, so "add Crexi" is not reachable from this shape either.
+
+What is actually wrong:
+
+1. **Wrong category.** `restaurants` is outside the sweep's scope entirely — the
+   off-market diff and both new views filter to `industrial` + `land`. That run can
+   never help, and it burns a retry slot when it fails.
+2. **`for-sale` only.** The working pattern crawls lease *and* sale.
+
+The DB agrees: over 21 days Hillsborough's morning county slot produced four small
+ingests (18/26/34/7 items, each alongside Pasco — bleed from the neighbouring run),
+while the separate 10:00 ET Hillsborough task produced nine ingests totalling 199. There
+is no working morning Hillsborough county run.
+
+Corrected `startUrls` for all seven counties, plus the full input JSON per task, are in
+[`apify-county-task-inputs.md`](./apify-county-task-inputs.md).
+
+Still open, in order:
+
+- **Is the `restaurants` task deliberate** for some other purpose? If so it does not
+  belong in the county-sweep group the retry bot scans.
+- **`maxConcurrency: 20`** against LoopNet on residential proxies — identical in both
+  runs, so it explains neither outcome, but worth lowering if blocks persist once the
+  URLs are right.
+- **Seven hand-maintained task inputs will drift again.** Building `startUrls` from the
+  county name inside WF3 removes the class of bug.
 
 ## What was added here
 
