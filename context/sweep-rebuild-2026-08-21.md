@@ -59,6 +59,11 @@ So `azzouzana` is validated at ~4 runs, not at 28/day. Consequences, all built i
 - WF3 records `SUCCEEDED` + 0 items as **`BLOCKED`** with the actor's message in `error`
 - the retry keys off `item_count > 0`, never status alone
 
+**The block is transient.** A probe re-ran the same URL after a 10-minute pause: SUCCEEDED in
+7.6 s with 10 items and a normal status message. So this is throttling that clears, not a
+lockout — which is what makes the stagger plausible. It is *not proven* at 28 runs/day; the
+retry pass exists to cover the residual.
+
 **If the sweep comes back thin, read `v_sweep_runs_today` before touching anything else.**
 
 ## Field-shape traps in the new actor
@@ -95,6 +100,33 @@ and the county/search lists are both in WF3's *Build sweep jobs* node.
 Cheapest scope cut available: the for-lease SRP spends ~73% of its results on rows the mapper
 throws away (Office/Retail/Multifamily). There is no LoopNet URL that filters those out
 server-side, so the lever is `maxItems`, not a better URL.
+
+## Verified end to end, on real rows
+
+Five real Pinellas listings pushed through `import_scraped_listings`:
+
+- `properties_upserted: 5`, **`new_property_ids: []`** — no duplicates. The book still stands
+  at **3,541 properties / 3,541 listings**.
+- `loopnet_property_id` learned for all five; one listing corrected `sale` → `lease`;
+  `sweep_stamp_seen` reported `listings_stamped: 5`.
+- Property detail renders clean in the app (address, Scraped badge, listing link, 55,395 SF).
+
+Two bugs the test caught that reading the code did not:
+
+1. **`COALESCE(<deal_type>, <untyped CASE>)` raises 42804 in plpgsql.** It would have thrown on
+   every row of every sweep run. Bit twice — once in the backfill, once in the RPC.
+2. **A rate-less lease listing was filed as a `sale` comp with no price.** The comp took its
+   `deal_type` from "did we get a rate?"; the new actor omits price on ~30% of lease rows, so
+   this would have poured junk sale comps into the book the valuations read. The comp now uses
+   the listing's own side.
+
+## Not ours: the Deal Map's slow load
+
+While checking for fallout, `/properties` hangs on *"Loading the book to filter it…"* with
+repeated 500s. Cause is `v_property_market_position` timing out on a whole-book fetch. It is
+**pre-existing** — it depends only on `comps`, `properties` and `v_property_current_asking`,
+references neither `market_listings` nor `listing_status`, and was last touched 2026-08-16.
+Same family as [[reference-owner-context-view-is-the-slow-one]]. Untouched here.
 
 ## Still open
 
