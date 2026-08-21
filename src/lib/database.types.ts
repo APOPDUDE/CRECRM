@@ -4046,13 +4046,13 @@ export type Database = {
       v_sweep_coverage: {
         Row: {
           county: string | null
-          fresh_today: boolean | null
+          fresh_now: boolean | null
           hours_since_sweep: number | null
           last_sweep_at: string | null
           never_seen: number | null
           on_market: number | null
           property_type: string | null
-          seen_le_2d: number | null
+          seen_le_3d: number | null
           seen_le_7d: number | null
           seen_today: number | null
           stale_gt_7d: number | null
@@ -4538,7 +4538,7 @@ export type Database = {
         Returns: Json
       }
       sweep_finalize_off_market: {
-        Args: { p_counties?: string[] }
+        Args: { p_counties?: string[]; p_fresh_within_days?: number }
         Returns: Json
       }
       sweep_log_run: {

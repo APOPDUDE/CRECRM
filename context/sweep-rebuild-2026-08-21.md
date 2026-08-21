@@ -14,14 +14,47 @@ old actor died) and [`apify-working-alternative-2026-08-21.md`](./apify-working-
 | `import_scraped_listings` | writes the listing row; resolves a property by building id first. |
 | `sweep_stamp_seen` / `sweep_finalize_off_market` | now diff **per listing**; roll the building up only when every listing on it is off. |
 | `v_sweep_coverage` / `v_sweep_ingests` | repointed to `market_listings`. |
-| WF3 `BPqXq4dcETFGTlcg` | per-URL runs against `axTRSfSIGjEY0rcwp`, staggered 1/45 s. |
+| WF3 `BPqXq4dcETFGTlcg` | per-URL runs against `axTRSfSIGjEY0rcwp`, staggered 1 per 5 min, every 3 days. |
 | WF retry `gIygaOGjXtJZJDOK` | reads `sweep_runs`, re-runs only what didn't deliver, by calling WF3. |
 | 6 Apify county schedules | **re-enabled as a canary** — see *Scope* below. Restaurants schedule untouched. |
 
 ## Scope, as it actually runs (Alex, 2026-08-21)
 
-**Hillsborough + Polk, industrial only — 4 runs/day, not 28.** The other five counties and both
-land searches sit commented out in WF3's *Build sweep jobs*, ready to switch back on.
+**Hillsborough + Polk, industrial only, every 3 days — 4 runs per sweep, not 28 per day.**
+The other five counties and both land searches sit commented out in WF3's *Build sweep jobs*,
+ready to switch back on.
+
+### `maxItems` is not optional — omitting it means 100, not "everything"
+
+The instinct is to drop the cap to get the whole book. The actor's schema says otherwise:
+
+```
+maxItems: integer, default 100, minimum 10, maximum 5000
+```
+
+Measured: the same Hillsborough for-lease URL returned **700 items with `maxItems: 700`** and
+**100 items with the field omitted**. Leaving it out would have *cut* coverage sevenfold. So
+"everything" is `maxItems: 5000` — the schema ceiling, set high enough that it never binds.
+
+### Two things the 3-day cadence would have broken
+
+Both fail *silently safe*, which is why they are easy to miss — nothing errors, the sweep just
+quietly stops doing its job.
+
+1. **The retry would have restored a daily sweep.** It runs every morning at 8:30 and re-runs
+   any in-scope URL with no good result. On the two days between sweeps there are no
+   `sweep_runs` rows at all — which it read as "everything failed" rather than "not a sweep
+   day", so it would have re-run all four URLs daily and spent exactly what the cadence cut.
+   It now exits quietly when the day has no rows.
+2. **Off-market detection would have stopped entirely.** Both guards asked "seen since
+   midnight?", so on non-sweep days the floor sees 0 and no `(county, property_type)` pair is
+   ever fresh. The finalize is scheduled Sun+Wed, which drifts against a 3-day cadence, so the
+   two would rarely coincide. The lookback is now a parameter,
+   `p_fresh_within_days` (default **3**, must be ≥ the sweep interval and < the 7-day
+   staleness rule) — migration `20260821180000`. The cron is `0 6 */3 * *`, month-anchored, so
+   the gap never exceeds 3 days and the window always covers the last sweep.
+
+**Change the cadence ⇒ change `p_fresh_within_days` with it.**
 
 The list is duplicated in the retry workflow's *Pick URLs that did not deliver*. **Change one,
 change both** — if they drift, the retry chases URLs the daily pass never ran and reports them
@@ -37,9 +70,9 @@ behaviour is identical — it can only ever refuse to age something out. `v_swee
 by type to mirror it.
 
 The 300 floor still clears: the two counties hold 212 + 209 = **421 on-market industrial
-listings**, so a good day lands well above it. If the sweep ever drops to one county, the floor
-will start returning `seen_below_floor` and off-market detection quietly stops — that is the
-next thing to notice.
+listings**, and a sweep returns ~1,277 rows before filtering. If the scope ever drops to one
+county, the floor will start returning `seen_below_floor` and off-market detection quietly
+stops — that is the next thing to notice.
 
 ### kazkn stays alive as a canary
 
@@ -55,8 +88,9 @@ county look like it reported in. The actor comparison lives in its own view:
 select * from v_sweep_actor_health order by day desc, source;  -- is kazkn back?
 ```
 
-Migrations `20260821160000..160300`. Guards untouched; `sweep_finalize_off_market` still
-returns `seen_below_floor` (41 seen vs the 300 floor) and nothing was flipped.
+Migrations `20260821160000..160300` (the rebuild), `170000`/`170100` (per-type gate, actor
+health) and `180000` (freshness window). Guards untouched throughout;
+`sweep_finalize_off_market` still returns `seen_below_floor` and nothing was flipped.
 
 ## Four corrections to the earlier passes
 
@@ -91,8 +125,10 @@ including one on the *exact URL that had just returned 700* — came back with *
 **`SUCCEEDED`**. `fetchFullDetails: true` was tested and made no difference; it is a LoopNet
 block, not an input problem.
 
-So `azzouzana` is validated at ~4 runs, not at 28/day. Consequences, all built in:
-- run starts are staggered **1 per 45 s** (~21 min for 28)
+So `azzouzana` is validated at ~4 runs per sitting, not at 28/day — which is exactly the
+scope it now runs at. Consequences, all built in:
+- run starts are staggered **1 per 5 min** (~15 min for the 4 in scope). Measured at 45 s
+  spacing: run 1 got 700 items, the very next one came back blocked.
 - WF3 records `SUCCEEDED` + 0 items as **`BLOCKED`** with the actor's message in `error`
 - the retry keys off `item_count > 0`, never status alone
 
@@ -126,32 +162,38 @@ retry pass exists to cover the residual.
 
 ## The cost, measured (not estimated)
 
-The four in-scope URLs were run for real on 2026-08-21 at production settings:
+Every URL below was run for real on 2026-08-21. Three of the four counts are **complete** —
+the cap was set above the book, so it never bound.
 
-| start URL | items | cost |
-|---|---|---|
-| industrial / hillsborough / for-lease | 700 — **hit the `maxItems` cap** | $0.6300 |
-| industrial / hillsborough / for-sale | **0 — blocked** | $0.0000 |
-| industrial / polk / for-lease | 362 | $0.2700 |
-| industrial / polk / for-sale | 47 | $0.0423 |
-| **day total** | 1,109 | **$0.94** |
+| start URL | items | cost | |
+|---|---|---|---|
+| industrial / hillsborough / for-lease | **748** | $0.5616 | complete (ran at `maxItems: 2000`) |
+| industrial / hillsborough / for-sale | ~120 | ~$0.11 | *estimate* — this URL blocked; Pinellas' equivalent was 72 |
+| industrial / polk / for-lease | **362** | $0.2700 | complete |
+| industrial / polk / for-sale | **47** | $0.0423 | complete |
+| **per sweep** | **~1,277** | **~$1.15** | |
 
-Flat **$0.0009/result**, confirmed again. Add the blocked URL landing on retry (~100 items,
-~$0.09) and the kazkn canary (~$0.07) and a normal day is **~$1.10**.
+Flat **$0.0009/result**, confirmed on every run.
 
-**Runway: $14.99 left of the $50 cap, 22 days to 12 Sep ⇒ ~13.6 days.** It goes dry around
-4 Sep, roughly a week short — and a silent stop reads exactly like the scraper breaking again
-(`reference-apify-spend-cap-outage`). Three levers:
+At **every 3 days**: 7.3 sweeps × $1.15 = **$8.43**, plus the kazkn canary at 6 runs/day ×
+$0.011 = **$1.45**. **Total ~$9.88 against the $14.23 left — about $4.35 of headroom** to the
+12 Sep cycle end. It fits.
 
-- **Raise the cap** to ~$65 and the current scope runs the cycle out.
-- **Lower `maxItems`** in WF3's *Build sweep jobs*. Hillsborough for-lease is the whole story:
-  it alone is 67% of the bill and it *capped out*, so its real book is larger than 700.
-  `maxItems: 400` ⇒ ~$0.76/day ⇒ ~20 days, at the price of truncating the biggest county.
-- **Run every other day.** Halves it outright; the 7-day off-market window absorbs it.
+Two things that make this number trustworthy, and one that doesn't:
 
-For the full 28-URL scope the same arithmetic gives **$3.60–5.40/day**. Note the for-lease SRP
-spends ~73% of its results on rows the mapper discards (Office/Retail/Multifamily) and no
-LoopNet URL filters those server-side — so `maxItems` is the only real lever, not a better URL.
+- The 700 seen earlier was the **cap**, not the book — the true Hillsborough for-lease count is
+  748. Running at `maxItems: 5000` costs $0.04 more than the truncated version did and stops
+  losing 48 listings.
+- Hillsborough for-lease is **59% of the bill** on its own. If spend needs cutting further,
+  that is the only lever worth pulling.
+- **Hillsborough for-sale has never completed** — it blocked on both attempts. ~120 is inferred
+  from Pinellas (72) scaled for a bigger market. The first real sweep will put the true number
+  in `sweep_runs`; check it before trusting the projection to the penny.
+
+For reference, the full 7-county × 4-search scope at this cadence would be roughly
+$3.60–5.40 per sweep. Note the for-lease SRP spends ~73% of its results on rows the mapper
+discards (Office/Retail/Multifamily) and no LoopNet URL filters those server-side — so
+`maxItems` and the county list are the only real levers.
 
 ## Verified end to end, on real rows
 

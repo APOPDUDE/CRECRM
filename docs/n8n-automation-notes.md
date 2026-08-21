@@ -297,25 +297,39 @@ A county **missing** from `v_sweep_runs_today` never ran — the distinction the
 
 ### Scope and cost (measured 2026-08-21)
 
-Running **Hillsborough + Polk, industrial only — 4 runs/day**, not 28. The rest is commented
-out in WF3's *Build sweep jobs*; the retry workflow duplicates the list, so change both.
+**Hillsborough + Polk, industrial only, every 3 days** — 4 runs per sweep. Cron `0 6 */3 * *`
+(month-anchored, so the gap never exceeds 3 days). The rest is commented out in WF3's
+*Build sweep jobs*; the retry workflow duplicates the list, so change both.
 
-Narrowing to industrial required migration `20260821170000` first: the off-market freshness
-gate was per COUNTY, so sweeping Hillsborough industrial would have aged out its 71 unscraped
-land listings (and Polk's 70) after 7 days. It is now per **(county, property_type)**.
+**`maxItems` is not optional.** The actor's schema is `default 100, min 10, max 5000` — omitting
+it caps at 100, it does not mean "unlimited". Measured on the same URL: 700 items with
+`maxItems: 700`, **100 with the field absent**. Both workflows now send `maxItems: 5000` so it
+never binds.
 
-| start URL | items | cost |
-|---|---|---|
-| industrial / hillsborough / for-lease | 700 — hit the `maxItems` cap | $0.6300 |
-| industrial / hillsborough / for-sale | 0 — blocked | $0.0000 |
-| industrial / polk / for-lease | 362 | $0.2700 |
-| industrial / polk / for-sale | 47 | $0.0423 |
-| **day total** | 1,109 | **$0.94** |
+Two things the 3-day cadence would have broken, both failing *silently safe*:
+- the **retry** runs daily and saw "no `sweep_runs` rows" as "everything failed", so it would
+  have re-run all four URLs every morning and restored the daily spend. It now exits on a day
+  with no rows;
+- **off-market detection** would have stopped: both guards asked "seen since midnight?", so on
+  the two days between sweeps nothing is fresh. The lookback is now `p_fresh_within_days`
+  (default 3) — migration `20260821180000`. **Change the cadence ⇒ change this.**
 
-With a retry of the blocked URL and the kazkn canary, ~**$1.10/day**. Against $14.99 left of
-the $50 cap that is **~13.6 days** — dry around 4 Sep. Raise the cap, drop `maxItems` to 400
-(~$0.76/day; Hillsborough for-lease alone is 67% of the bill), or run every other day.
-Full 28-URL scope would be $3.60–5.40/day.
+Narrowing to industrial needed migration `20260821170000` first: the freshness gate was per
+COUNTY, so sweeping Hillsborough industrial would have aged out its 71 unscraped land listings
+(and Polk's 70). It is now per **(county, property_type)**.
+
+| start URL | items | cost | |
+|---|---|---|---|
+| industrial / hillsborough / for-lease | **748** | $0.5616 | complete |
+| industrial / hillsborough / for-sale | ~120 | ~$0.11 | estimate — this URL has only ever blocked |
+| industrial / polk / for-lease | **362** | $0.2700 | complete |
+| industrial / polk / for-sale | **47** | $0.0423 | complete |
+| **per sweep** | **~1,277** | **~$1.15** | |
+
+At every 3 days: 7.3 sweeps × $1.15 = $8.43, plus the kazkn canary ($1.45) = **~$9.88 against
+the $14.23 left** — roughly $4.35 of headroom to 12 Sep. Hillsborough for-lease is 59% of the
+bill; it is the only lever worth pulling if this needs cutting again. Full 7-county scope would
+be $3.60–5.40 per sweep.
 
 **kazkn stays scheduled as a canary** (~$0.011/failing run). Nothing ingests from it; WF3's
 7:45 ET chain logs each run under `source='kazkn'` and Slacks if any deliver rows.
