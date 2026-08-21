@@ -243,6 +243,33 @@ yet, per the ask.
 10. **Runtime** — decided 2026-08-21: cache in the hosted Supabase `gis` schema,
     compute as a scheduled GitHub Actions workflow (§4). No machine of Alex's involved.
 
+## 8b. The land download (run 2026-08-21)
+
+"Go through all the counties again and download the land" — done via a new committed
+edge function, `supabase/functions/import-county-land`: one invocation fetches one page
+of land-class parcels (DOR 00/10/40/50–69/70/99, ≥ 0.5 ac) straight from the county's
+parcel layer and feeds it through `import_county_parcels`. Loop it per county until
+`next_offset` is null. Fully idempotent — **this is also the repeatable land sweep**
+(schedule it monthly from n8n or Actions with the anon key; it re-matches and fills
+blanks, never duplicates).
+
+What made this safe to run into a live book:
+- `import_county_parcels` grew a **format-drift dedupe tier** (parcel_key first-segment
+  match) — stored parcel formats are mixed within counties and exact-match would have
+  minted duplicates — plus the **'Parcel <id>' placeholder rule** for land with no situs
+  address but real coordinates (Polk's layer has no situs street at all; Pasco is ~56%
+  situs-less vacant).
+- City names ride along only when `county_lookup` maps them — the `properties_set_county`
+  trigger derives county from city, and an unmapped city would have NULLed it.
+- Every inserted owner runs through the owner-company trigger (companies minted/linked
+  by normalized name) — the same spine the verified-contact filter reads, so land owners
+  are immediately skip-traceable.
+
+Scope counts at harvest (≥ 0.5 ac): Polk 66,469 (36k of it class 99 acreage) ·
+Hillsborough 14,539 · Pasco 11,939 · Manatee 5,369 · Sarasota 4,407 · Pinellas 2,613 —
+**105,336 parcels**. Post-import: `refresh_land_book()` + `refresh_condo_units()` +
+analyze; final tallies in the session summary.
+
 ## 9. Phasing
 
 - **P1 — DONE 2026-08-21:** schema applied live (migrations 20260821120000/121000/
