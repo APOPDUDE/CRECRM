@@ -238,3 +238,65 @@ select * from v_sweep_ingests order by ingested_at desc;  -- which runs delivere
 There is no Hernando task; Hernando rows are spillover from the Pasco run. Still missing:
 a **run log** — `last_seen_in_sweep` is overwritten on every stamp, so a failed county
 looks identical to an unscheduled one and the actor's error text never reaches the DB.
+
+---
+
+## Sweep rebuilt on `azzouzana/loopnet-scraper` (2026-08-21)
+
+Everything above stands as the diagnosis. This is what replaced it.
+
+**Actor** `axTRSfSIGjEY0rcwp` (`azzouzana/loopnet-scraper`). `startUrl` is **singular**, so
+n8n passes one URL per run — 7 counties × 4 searches = **28 runs/day**, and the seven
+hand-maintained Apify tasks are gone. Their six schedules are **disabled** (not deleted);
+`cre-loopnet-daily-hillsborough-restaurants` is untouched because WF3b has its own webhook
+and pipeline. Hernando is now a real county instead of Pasco spillover.
+
+```json
+{ "startUrl": "https://www.loopnet.com/search/industrial-properties/pinellas-county-fl/for-lease/",
+  "maxItems": 700, "fetchFullDetails": false }
+```
+
+**WF3 `BPqXq4dcETFGTlcg`** — schedule 6:00 ET *or* called as a sub-workflow by the retry:
+build jobs → start run (staggered 1/45 s) → wait 180 s → run status (`waitForFinish=60`)
+→ fetch dataset → map → `import_scraped_listings` → stamp/xref/flag, and in parallel
+`sweep_log_run`. **WF retry `gIygaOGjXtJZJDOK`** — 8:30 ET, reads `sweep_runs` for today,
+re-runs only the URLs with no good result by calling WF3, so retry logic can't drift.
+
+### Three things that bite
+
+1. **`SUCCEEDED` does not mean it worked.** When LoopNet blocks, the actor returns 0 items,
+   sets `statusMessage` to *"This search URL returned a 'page not found' response"*, and
+   **still exits SUCCEEDED**. Measured 2026-08-21: four runs landed 700/72/80/25 items, then
+   three consecutive runs on the *same URL* returned 0. So the sweep is rate-sensitive —
+   hence the 45 s stagger — and anything reading run status must check `item_count > 0`.
+   WF3 records that case as `status='BLOCKED'`; the retry treats it as a failure.
+2. **`streetAddress` is null on 97.9% of rows** (0/152 for-sale, 15/700 for-lease). The
+   address survives only in the URL slug — `/Listing/904-Anclote-Rd-Tarpon-Springs-FL/41701436/`
+   — so the mapper strips the trailing `-{City}-{ST}` and un-hyphenates the rest. That
+   restores address coverage to 100%. Don't "simplify" it away.
+3. **Land placards are bare.** At `fetchFullDetails: false` a land row's whole text is
+   *"Land Offered at $279,000 in Clearwater, FL 33755"* — no acreage, no description. The old
+   mapper kept land only when its text read industrial; applied here that keeps **0 of 80**
+   real Pinellas land listings, so the land URLs are trusted by URL scope instead.
+   `land_acres` is not recoverable at this detail level (636 of our 638 land rows have it
+   from the old actor). `fetchFullDetails: true` was tested and did **not** help — it hit the
+   same block.
+
+### Reading the sweep
+
+```sql
+select * from v_sweep_runs_today;                        -- did every county report in today?
+select * from v_sweep_coverage order by on_market desc;  -- per-county freshness, per listing
+select * from v_sweep_ingests order by ingested_at desc;
+```
+
+A county **missing** from `v_sweep_runs_today` never ran — the distinction the old
+`last_seen_in_sweep` column could not make.
+
+### Cost
+
+Flat ~$0.0009/result. A full 28-URL day is roughly 4,000–6,000 results ⇒ **$3.60–5.40/day**.
+The Apify account cap is **$50/month** and the cycle (13 Aug – 12 Sep) was at **$34.00** when
+this was built — about $16 left. At full rate the cap is hit in ~3–4 days and the sweep goes
+silent, which historically reads as "the scraper broke again". Raise the cap or cut scope
+before relying on it.
