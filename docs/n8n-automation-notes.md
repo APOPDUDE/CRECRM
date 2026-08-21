@@ -208,3 +208,28 @@ in n8n — Code nodes must `JSON.parse` it (the workflows already do).
 - App-side wiring still TODO (separate chunk): regen `database.types.ts`, add the
   `inquiring` column to the tenant board, the paste-link "Add property" mode, and
   the red `flagged_new` card tag.
+
+---
+
+## Sweep reliability (2026-08-21)
+
+The per-county LoopNet sweep is seven independent Apify tasks (`y1AIrIDEUY635m9RH` plus
+the six the retry bot names in `#deals`). A median of **2 of 7** county runs deliver data
+on a given day, and the runs that do land return a fraction of the county book
+(Pinellas has returned 141 / 34 / 6 / 2 / 1 on different mornings). The `sweep_meta`
+floor and the fresh-county gate in `sweep_finalize_off_market` are holding, so the
+off-market picture is stale rather than wrong.
+
+Measurements, the six task ids, and the prioritised list of task options to check are in
+[`context/apify-sweep-failures-2026-08-21.md`](../context/apify-sweep-failures-2026-08-21.md).
+Day-to-day health reads from two views added in `20260821140000_sweep_coverage_views.sql`:
+
+```sql
+select * from v_sweep_coverage order by on_market desc;   -- is each county's camera working?
+select * from v_sweep_ingests order by ingested_at desc;  -- which runs delivered anything?
+```
+
+Still missing: a **run log**. `last_seen_in_sweep` is overwritten on every stamp, so a
+failed county looks identical to an unscheduled one and the actor's error text never
+reaches the DB. One row per run (county, Apify run id, status, item count, error) written
+by WF3 would turn this from forensics into a query.
