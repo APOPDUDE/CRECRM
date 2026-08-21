@@ -5246,6 +5246,18 @@ export type Database = {
           entity_id: string | null
           entity_type: string | null
           prefix: string | null
+          target: string | null
+        }
+        Relationships: []
+      }
+      v_fs_entity_all: {
+        Row: {
+          crm_id: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          keep: boolean | null
+          prefix: string | null
+          target: string | null
         }
         Relationships: []
       }
