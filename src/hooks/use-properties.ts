@@ -63,7 +63,7 @@ export type Property = Pick<
   | 'lat' | 'lng' | 'owner_company_id' | 'owner_name' | 'owner_mailing_address'
   | 'last_sale_date' | 'last_sale_price' | 'created_at' | 'updated_at'
   | 'zoning_type' | 'zoning_code' | 'zoning_jurisdiction' | 'dor_use_code'
-  | 'is_condo_unit'
+  | 'is_condo_unit' | 'in_land_book' | 'land_only'
 > & {
   /**
    * `address` exactly as the source gave it to us, before the county situs address wins.
@@ -86,16 +86,27 @@ export function dealCount(p: Pick<PropertyWithCounts, 'listings' | 'matches'>): 
 }
 
 /**
+ * Which book a read wants. 'industrial' is the normal War Room (land_only rows
+ * excluded — "just land" lives only on the land book, Alex 2026-08-21);
+ * 'land' is the land book (in_land_book, which includes the <=5%-ratio
+ * crossovers that appear on BOTH); 'all' is everything (autofill, dedupe —
+ * askers that care about existence, not canvassing).
+ */
+export type PropertyBook = 'industrial' | 'land' | 'all'
+
+/**
  * The whole book, paged in parallel.
  *
- * `enabled` exists because this is expensive — ~17k rows, and every consumer that mounts
- * it pays for all of them. The map no longer does: it loads by viewport (see
- * {@link import('./use-map-properties').useMapProperties}) and only reaches for the book
- * when a search or filter asks a question about properties that aren't on screen.
+ * `enabled` exists because this is expensive — tens of thousands of rows, and every
+ * consumer that mounts it pays for all of them. The map no longer does: it loads by
+ * viewport (see {@link import('./use-map-properties').useMapProperties}) and only
+ * reaches for the book when a search or filter asks a question about properties that
+ * aren't on screen. `book` filters SERVER-side so the industrial book never pays for
+ * the land rows (the reason the land book exists as a separate thing at all).
  */
-export function useProperties(enabled = true) {
+export function useProperties(enabled = true, book: PropertyBook = 'all') {
   return useQuery({
-    queryKey: ['properties'],
+    queryKey: ['properties', book],
     enabled,
     // The book is ~13k rows: refetching it on every mount made returning to the map feel
     // frozen. Cache for 5 minutes (mutations invalidate explicitly), don't refetch on
@@ -113,7 +124,8 @@ export function useProperties(enabled = true) {
         'land_acres, specs, listing_status, year_built, zoning_description, ' +
         'zoning_district, lat, lng, owner_company_id, owner_name, owner_mailing_address, ' +
         'last_sale_date, last_sale_price, created_at, updated_at, ' +
-        'zoning_type, zoning_code, zoning_jurisdiction, dor_use_code, is_condo_unit'
+        'zoning_type, zoning_code, zoning_jurisdiction, dor_use_code, is_condo_unit, ' +
+        'in_land_book, land_only'
       // The linked-deal counts used to ride as embedded `(count)` aggregates — two
       // correlated subqueries evaluated per book row to tally what is (2026-08-16)
       // 10 listings + 176 pursuits in total. Fetching the deal tables' property_ids
@@ -150,6 +162,10 @@ export function useProperties(enabled = true) {
           .not('address', 'ilike', 'Portfolio of %')
           .order('id')
           .gte('id', bound(i))
+        // book filter is server-side: the industrial book must not fetch (or pay for)
+        // the land rows, and vice versa
+        if (book === 'industrial') q = q.eq('land_only', false)
+        if (book === 'land') q = q.eq('in_land_book', true)
         if (i < BUCKETS - 1) q = q.lt('id', bound(i + 1))
         return q
       }
