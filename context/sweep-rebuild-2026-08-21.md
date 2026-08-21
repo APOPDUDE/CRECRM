@@ -14,9 +14,46 @@ old actor died) and [`apify-working-alternative-2026-08-21.md`](./apify-working-
 | `import_scraped_listings` | writes the listing row; resolves a property by building id first. |
 | `sweep_stamp_seen` / `sweep_finalize_off_market` | now diff **per listing**; roll the building up only when every listing on it is off. |
 | `v_sweep_coverage` / `v_sweep_ingests` | repointed to `market_listings`. |
-| WF3 `BPqXq4dcETFGTlcg` | 28 per-URL runs against `axTRSfSIGjEY0rcwp`, staggered 1/45 s. |
+| WF3 `BPqXq4dcETFGTlcg` | per-URL runs against `axTRSfSIGjEY0rcwp`, staggered 1/45 s. |
 | WF retry `gIygaOGjXtJZJDOK` | reads `sweep_runs`, re-runs only what didn't deliver, by calling WF3. |
-| 6 Apify county schedules | **disabled** (reversible). Restaurants schedule untouched — WF3b is a separate pipeline. |
+| 6 Apify county schedules | **re-enabled as a canary** — see *Scope* below. Restaurants schedule untouched. |
+
+## Scope, as it actually runs (Alex, 2026-08-21)
+
+**Hillsborough + Polk, industrial only — 4 runs/day, not 28.** The other five counties and both
+land searches sit commented out in WF3's *Build sweep jobs*, ready to switch back on.
+
+The list is duplicated in the retry workflow's *Pick URLs that did not deliver*. **Change one,
+change both** — if they drift, the retry chases URLs the daily pass never ran and reports them
+failed forever.
+
+Narrowing to industrial forced a fix first (migration `20260821170000`). The freshness gate
+asked *"did this COUNTY deliver ≥20 listings today?"* and then aged out industrial **or** land.
+Sweep Hillsborough industrial and the county goes fresh — then Hillsborough's **71 on-market
+land listings, which nothing scrapes any more, get flipped off-market after 7 days**. Polk adds
+another 70. So the gate is now keyed to the **(county, property_type)** pair actually observed:
+a camera pointed at industrial can only vouch for industrial. When both types are swept the
+behaviour is identical — it can only ever refuse to age something out. `v_sweep_coverage` splits
+by type to mirror it.
+
+The 300 floor still clears: the two counties hold 212 + 209 = **421 on-market industrial
+listings**, so a good day lands well above it. If the sweep ever drops to one county, the floor
+will start returning `seen_below_floor` and off-market detection quietly stops — that is the
+next thing to notice.
+
+### kazkn stays alive as a canary
+
+All six old county schedules are back on, at **~$0.011 per failing run ≈ $0.07/day** — noise
+next to the live sweep. Nothing ingests from it (its rows are memo23 placards, a different shape
+from azzouzana's); WF3's 7:45 ET canary chain just records each run into `sweep_runs` under
+`source='kazkn'` and posts to Slack if any come back with rows.
+
+`v_sweep_runs_today` is scoped to `source='loopnet'` so canary attempts can't make an unswept
+county look like it reported in. The actor comparison lives in its own view:
+
+```sql
+select * from v_sweep_actor_health order by day desc, source;  -- is kazkn back?
+```
 
 Migrations `20260821160000..160300`. Guards untouched; `sweep_finalize_off_market` still
 returns `seen_below_floor` (41 seen vs the 300 floor) and nothing was flipped.

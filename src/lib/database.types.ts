@@ -3735,6 +3735,18 @@ export type Database = {
           entity_id: string | null
           entity_type: string | null
           prefix: string | null
+          target: string | null
+        }
+        Relationships: []
+      }
+      v_fs_entity_all: {
+        Row: {
+          crm_id: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          keep: boolean | null
+          prefix: string | null
+          target: string | null
         }
         Relationships: []
       }
@@ -4019,6 +4031,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_sweep_actor_health: {
+        Row: {
+          day: string | null
+          delivered: number | null
+          items: number | null
+          last_error: string | null
+          pct_delivered: number | null
+          runs: number | null
+          source: string | null
+        }
+        Relationships: []
+      }
       v_sweep_coverage: {
         Row: {
           county: string | null
@@ -4027,6 +4051,7 @@ export type Database = {
           last_sweep_at: string | null
           never_seen: number | null
           on_market: number | null
+          property_type: string | null
           seen_le_2d: number | null
           seen_le_7d: number | null
           seen_today: number | null
@@ -4117,6 +4142,10 @@ export type Database = {
       }
     }
     Functions: {
+      _refresh_land_book_slice: {
+        Args: { p_hi: string; p_lo: string }
+        Returns: number
+      }
       add_parcel_to_listing: {
         Args: {
           p_is_primary?: boolean
@@ -4311,6 +4340,7 @@ export type Database = {
         }[]
       }
       ghl_touch_verified_contact: { Args: { p: Json }; Returns: string }
+      ghl_verified_drift: { Args: { p: Json }; Returns: Json }
       ghl_verify_owner: { Args: { p: Json }; Returns: Json }
       import_county_building_data: { Args: { p: Json }; Returns: Json }
       import_county_lowlands: { Args: { p: Json }; Returns: Json }
