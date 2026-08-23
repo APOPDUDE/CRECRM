@@ -371,6 +371,12 @@ export function PropertiesPage() {
     for (const e of dorEntries ?? []) if (!e.county) m.set(e.code, e.category)
     return m
   }, [dorEntries])
+  /** What the land-book's `land` DOR layer paints — dor_codes.land_class. */
+  const dorLandCodes = useMemo(() => {
+    const s = new Set<string>()
+    for (const e of dorEntries ?? []) if (!e.county && e.landClass) s.add(e.code)
+    return s
+  }, [dorEntries])
   // Tags (Alex 2026-08-17): interested / not interested / owner operator / buyer, several
   // at once. Resolved to a set of property ids server-side rather than read off the rows,
   // because the four tags live in three different tables — see use-property-tag-filter.
@@ -1035,7 +1041,7 @@ export function PropertiesPage() {
       // The USE axis: the county's DOR code, bucketed.
       if (passesUse && useFilter !== 'all' && dorBucket(p.dor_use_code) !== useFilter) passesUse = false
       // The picker's layers — categories via the dor_codes filing, customs verbatim.
-      if (passesUse && dorActive && !matchesDorSelection(p.county, p.dor_use_code, dorSel, dorCategoryByCode)) passesUse = false
+      if (passesUse && dorActive && !matchesDorSelection(p.county, p.dor_use_code, dorSel, dorCategoryByCode, dorLandCodes)) passesUse = false
 
       // Condo gate LAST, after every other filter has had its say: the hidden count is
       // then exactly the rows THIS view lost to the lens — not the book-wide constant
@@ -1049,7 +1055,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1111,7 +1117,7 @@ export function PropertiesPage() {
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, leaseMatchIds])
+  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, leaseMatchIds])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -1318,6 +1324,7 @@ export function PropertiesPage() {
   // same element, so they can never disagree about what a filter means.
   const railContent = (
     <MapFilterRail
+      book={bookMode}
       polygon={polygon}
       draft={draft}
       onStartDraw={() => { setPolygon(null); setDraft([]) }}

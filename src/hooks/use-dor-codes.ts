@@ -11,6 +11,11 @@ export type DorCodeEntry = {
   description: string
   /** One of the five general categories Alex wants on hover. */
   category: 'industrial' | 'office' | 'retail' | 'multifamily' | 'other'
+  /**
+   * dor_codes.land_class — appears in the LAND book's picker. Orthogonal to
+   * `category`: 040 is industrial for the normal book AND land here.
+   */
+  landClass: boolean
   /** Set only on county-specific custom codes — rendered in faint italics. */
   county: string | null
   /** How many book rows carry it (summed across counties for standard codes). */
@@ -31,7 +36,7 @@ export function useDorCodes(enabled: boolean) {
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<DorCodeEntry[]> => {
       const [std, county] = await Promise.all([
-        supabase.from('dor_codes').select('code, description, category').order('code'),
+        supabase.from('dor_codes').select('code, description, category, land_class').order('code'),
         supabase.from('v_county_dor_codes').select('county, code, property_count'),
       ])
       if (std.error) throw std.error
@@ -44,6 +49,7 @@ export function useDorCodes(enabled: boolean) {
           code: r.code,
           description: r.description,
           category: r.category as DorCodeEntry['category'],
+          landClass: r.land_class === true,
           county: null,
           count: 0,
         })
@@ -62,6 +68,8 @@ export function useDorCodes(enabled: boolean) {
             code: r.code,
             description: 'County-specific code',
             category: 'other',
+            // a county variant that normalizes into a land class is land too
+            landClass: norm != null && (entries.get(norm)?.landClass ?? false),
             county: r.county,
             count: n,
           })

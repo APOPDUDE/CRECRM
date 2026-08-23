@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useDorCodes, type DorCodeEntry } from '@/hooks/use-dor-codes'
 import {
   DOR_MAJORS,
+  DOR_SELECTION_DEFAULT,
   dorSelectionActive,
   type DorLayerSelection,
   type DorMajor,
@@ -18,6 +19,20 @@ const MAJOR_LABELS: Record<DorMajor, string> = {
   retail: 'Retail',
   office: 'Office',
   multifamily: 'Multifamily',
+  land: 'Land',
+}
+
+/** The land major has no zoning-overlay twin, so it carries its own swatch. */
+const LAND_DOT = '#ca8a04'
+
+/**
+ * Which majors a book offers. The land book asks a different question — what the
+ * county calls this dirt — so it shows Land alone rather than the four building
+ * categories (Alex 2026-08-21). The industrial book is unchanged.
+ */
+const MAJORS_FOR_BOOK: Record<'industrial' | 'land', readonly DorMajor[]> = {
+  industrial: DOR_MAJORS.filter((m) => m !== 'land'),
+  land: ['land'],
 }
 
 const CATEGORY_LABELS: Record<DorCodeEntry['category'], string> = {
@@ -48,42 +63,62 @@ function Dot({ color }: { color: string }) {
 export function DorCodePicker({
   selection,
   onChange,
+  book = 'industrial',
 }: {
   selection: DorSelection
   onChange: (next: DorSelection) => void
+  /** Which book is open — decides which majors and codes the picker offers. */
+  book?: 'industrial' | 'land'
 }) {
   const [expanded, setExpanded] = useState(dorSelectionActive(selection))
   const [search, setSearch] = useState('')
   const { data: entries = [], isFetching } = useDorCodes(expanded || dorSelectionActive(selection))
 
+  const majors = MAJORS_FOR_BOOK[book]
+
+  /**
+   * Which major a code belongs to IN THIS BOOK, or null when it can only be picked
+   * individually (an `extra`). In the land book that is the land_class flag; in the
+   * industrial book it is the seeded category, with 'other' and county customs as
+   * extras exactly as before.
+   */
+  const majorOf = (e: DorCodeEntry): DorMajor | null => {
+    if (book === 'land') return e.landClass ? 'land' : null
+    if (e.county || e.category === 'other') return null
+    return e.category as DorMajor
+  }
+
   const keysByMajor = useMemo(() => {
     const m = new Map<DorMajor, string[]>()
     for (const e of entries) {
-      if (e.county || e.category === 'other') continue
-      const arr = m.get(e.category as DorMajor) ?? []
+      const major = book === 'land' ? (e.landClass ? 'land' : null) : (e.county || e.category === 'other' ? null : (e.category as DorMajor))
+      if (!major) continue
+      const arr = m.get(major) ?? []
       arr.push(e.key)
-      m.set(e.category as DorMajor, arr)
+      m.set(major, arr)
     }
     return m
-  }, [entries])
+  }, [entries, book])
 
   const setMajor = (m: DorMajor, sel: DorLayerSelection) => onChange({ ...selection, [m]: sel })
 
   const entryChecked = (e: DorCodeEntry): boolean => {
-    if (e.county || e.category === 'other') return selection.extra.includes(e.key)
-    const sel = selection[e.category as DorMajor]
+    const major = majorOf(e)
+    if (!major) return selection.extra.includes(e.key)
+    const sel = selection[major]
     return sel === 'all' || (sel !== 'off' && sel.includes(e.key))
   }
 
   const toggleEntry = (e: DorCodeEntry) => {
-    if (e.county || e.category === 'other') {
+    const majorForEntry = majorOf(e)
+    if (!majorForEntry) {
       const extra = selection.extra.includes(e.key)
         ? selection.extra.filter((k) => k !== e.key)
         : [...selection.extra, e.key]
       onChange({ ...selection, extra })
       return
     }
-    const major = e.category as DorMajor
+    const major = majorForEntry
     const sel = selection[major]
     const all = keysByMajor.get(major) ?? []
     let next: DorLayerSelection
@@ -119,12 +154,14 @@ export function DorCodePicker({
       )
       return [...codeHits, ...textHits]
     }
-    return entries.filter((e) =>
-      e.county || e.category === 'other'
-        ? selection.extra.includes(e.key)
-        : selection[e.category as DorMajor] !== 'off',
-    )
-  }, [entries, search, selection])
+    return entries.filter((e) => {
+      const major = majorOf(e)
+      // in the land book a non-land code is not on the menu at all
+      if (book === 'land' && !major && !e.landClass) return selection.extra.includes(e.key)
+      return major ? selection[major] !== 'off' : selection.extra.includes(e.key)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, search, selection, book])
 
   const extraCount = selection.extra.length
 
@@ -140,7 +177,7 @@ export function DorCodePicker({
       </button>
       {expanded && (
         <div className="space-y-1.5 pl-1.5">
-          {DOR_MAJORS.map((m) => {
+          {majors.map((m) => {
             const sel = selection[m]
             return (
               <label key={m} className="flex cursor-pointer items-center gap-2">
@@ -148,7 +185,7 @@ export function DorCodePicker({
                   checked={sel === 'all' ? true : sel === 'off' ? false : 'indeterminate'}
                   onCheckedChange={() => setMajor(m, sel === 'off' ? 'all' : 'off')}
                 />
-                <Dot color={OVERLAY_COLORS[m]} />
+                <Dot color={m === 'land' ? LAND_DOT : OVERLAY_COLORS[m]} />
                 <span>{MAJOR_LABELS[m]}</span>
                 {Array.isArray(sel) && (
                   <span className="text-xs text-muted-foreground">
@@ -206,7 +243,7 @@ export function DorCodePicker({
               variant="ghost"
               className="h-6 px-2 text-xs"
               onClick={() =>
-                onChange({ industrial: 'off', retail: 'off', office: 'off', multifamily: 'off', extra: [] })
+                onChange(DOR_SELECTION_DEFAULT)
               }
             >
               Clear codes
