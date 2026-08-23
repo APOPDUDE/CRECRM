@@ -417,6 +417,12 @@ export function PropertiesPage() {
   // Frozen per mount so the filter can't reshuffle rows under you as the clock ticks.
   const activityCutoff = useMemo(() => Date.now() - ACTIVITY_DAYS * 86400000, [])
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
+  // Which book the War Room shows (Alex 2026-08-21): Industrial is the normal book
+  // (just-land rows excluded so it never slows or clutters), Land is the developer-land
+  // book. <=5% building-to-land crossovers appear in both. Server-side on every data
+  // path — the book fetch, the viewport RPC and typed search all carry it.
+  const [bookModeRaw, setBookMode] = usePersistentState<'industrial' | 'land'>('properties:book', 'industrial')
+  const bookMode = bookModeRaw === 'land' ? 'land' : 'industrial'
   // "Search leases" (Alex, 2026-08-16): the lease windows live in the rail behind one
   // toggle — new listing lands, draw the area, flip this on, and every tenant close to
   // expiry nearby is on screen with their DM. On the map the windows only APPLY while
@@ -572,7 +578,7 @@ export function PropertiesPage() {
   // zoning fields, and half its point is rows the camera has never seen.
   const needsBook = (!viewportOnly && !searchOnly) || wantsBook || overlayIncludes.length > 0
 
-  const { data: properties, isLoading, isError, refetch } = useProperties(needsBook)
+  const { data: properties, isLoading, isError, refetch } = useProperties(needsBook, bookMode)
   const { data: goodDealIds } = useGoodDealIds()
   const { data: executedIds } = useExecutedPropertyIds()
   const { data: askingMap } = useCurrentAsking()
@@ -593,10 +599,10 @@ export function PropertiesPage() {
    * on screen even while a search narrows the pins.
    */
   const parcelsVisible = (viewport?.zoom ?? 0) >= PARCEL_ZOOM
-  const mapView = useMapProperties(viewport, view === 'map' && (viewportOnly || parcelsVisible))
+  const mapView = useMapProperties(viewport, view === 'map' && (viewportOnly || parcelsVisible), bookMode)
   // Trails the box so a query fires on pauses, not on every letter.
   const debouncedSearch = useDebouncedValue(search.trim(), 250)
-  const mapSearch = useMapSearch(debouncedSearch, searchOnly)
+  const mapSearch = useMapSearch(debouncedSearch, searchOnly, bookMode)
   /**
    * Between the keystroke and the query there is a quarter-second where nothing has been
    * asked yet and nothing has come back — and `isFetching` is false throughout it, because
@@ -1407,7 +1413,31 @@ export function PropertiesPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">War Room</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold">War Room</h1>
+          {/* The book toggle: same anatomy as the view toggle so it reads as a mode,
+              not a filter. Land = developer-land book; crossovers show in both. */}
+          <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
+            <Button
+              variant={bookMode === 'industrial' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setBookMode('industrial')}
+              title="Industrial book"
+            >
+              Industrial
+            </Button>
+            <Button
+              variant={bookMode === 'land' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-none border-l"
+              onClick={() => setBookMode('land')}
+              title="Land book — developer land (vacant, ag, and ≤5% building-to-land)"
+            >
+              Land
+            </Button>
+          </div>
+        </div>
         {/* The search stretches the whole top (Alex) — everything else keeps its size. */}
         <div className="flex w-full items-center gap-2 sm:flex-1">
           <div className="relative min-w-40 flex-1">

@@ -15,6 +15,11 @@ dist-ssr
 # Environment
 .env
 
+# Python (pipeline/)
+__pycache__/
+*.pyc
+.venv
+
 # Local handoff notes + secrets (keep out of the public repo)
 context.md
 passover*.md

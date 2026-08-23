@@ -14,1881 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _bounce_purge_set_20260815: {
-        Row: {
-          id: string | null
-        }
-        Insert: {
-          id?: string | null
-        }
-        Update: {
-          id?: string | null
-        }
-        Relationships: []
-      }
-      _floating_purge_20260816: {
-        Row: {
-          id: string | null
-          person: string | null
-          why: string | null
-        }
-        Insert: {
-          id?: string | null
-          person?: string | null
-          why?: string | null
-        }
-        Update: {
-          id?: string | null
-          person?: string | null
-          why?: string | null
-        }
-        Relationships: []
-      }
-      _fp_valuation_post_20260819: {
-        Row: {
-          id: string
-          val: Json | null
-        }
-        Insert: {
-          id: string
-          val?: Json | null
-        }
-        Update: {
-          id?: string
-          val?: Json | null
-        }
-        Relationships: []
-      }
-      _fp_valuation_pre_20260819: {
-        Row: {
-          id: string | null
-          val: Json | null
-        }
-        Insert: {
-          id?: string | null
-          val?: Json | null
-        }
-        Update: {
-          id?: string | null
-          val?: Json | null
-        }
-        Relationships: []
-      }
-      _gov_purge_set_20260816: {
-        Row: {
-          id: string | null
-        }
-        Insert: {
-          id?: string | null
-        }
-        Update: {
-          id?: string | null
-        }
-        Relationships: []
-      }
-      _homes_purge_set_20260815: {
-        Row: {
-          id: string | null
-        }
-        Insert: {
-          id?: string | null
-        }
-        Update: {
-          id?: string | null
-        }
-        Relationships: []
-      }
-      _homes_purge2_set_20260816: {
-        Row: {
-          id: string | null
-          why: string | null
-        }
-        Insert: {
-          id?: string | null
-          why?: string | null
-        }
-        Update: {
-          id?: string | null
-          why?: string | null
-        }
-        Relationships: []
-      }
-      _linktrail_purge_set_20260815: {
-        Row: {
-          id: string | null
-          protected_history: boolean | null
-        }
-        Insert: {
-          id?: string | null
-          protected_history?: boolean | null
-        }
-        Update: {
-          id?: string | null
-          protected_history?: boolean | null
-        }
-        Relationships: []
-      }
-      _merge_plan_20260814: {
-        Row: {
-          loser_archived: boolean | null
-          loser_evidence: number | null
-          loser_id: string | null
-          name_key: string | null
-          survivor_evidence: number | null
-          survivor_id: string | null
-          tier: string | null
-        }
-        Insert: {
-          loser_archived?: boolean | null
-          loser_evidence?: number | null
-          loser_id?: string | null
-          name_key?: string | null
-          survivor_evidence?: number | null
-          survivor_id?: string | null
-          tier?: string | null
-        }
-        Update: {
-          loser_archived?: boolean | null
-          loser_evidence?: number | null
-          loser_id?: string | null
-          name_key?: string | null
-          survivor_evidence?: number | null
-          survivor_id?: string | null
-          tier?: string | null
-        }
-        Relationships: []
-      }
-      _pin_adult_20260815: {
-        Row: {
-          action: string | null
-          id: string | null
-          old_company_id: string | null
-          person: string | null
-        }
-        Insert: {
-          action?: string | null
-          id?: string | null
-          old_company_id?: string | null
-          person?: string | null
-        }
-        Update: {
-          action?: string | null
-          id?: string | null
-          old_company_id?: string | null
-          person?: string | null
-        }
-        Relationships: []
-      }
-      _purge_set_20260815: {
-        Row: {
-          id: string | null
-        }
-        Insert: {
-          id?: string | null
-        }
-        Update: {
-          id?: string | null
-        }
-        Relationships: []
-      }
-      _purge2_set_20260815: {
-        Row: {
-          id: string | null
-        }
-        Insert: {
-          id?: string | null
-        }
-        Update: {
-          id?: string | null
-        }
-        Relationships: []
-      }
-      _response_audit_20260815: {
-        Row: {
-          contact_id: string | null
-          has_real: boolean | null
-          verdict_mix: Json | null
-        }
-        Insert: {
-          contact_id?: string | null
-          has_real?: boolean | null
-          verdict_mix?: Json | null
-        }
-        Update: {
-          contact_id?: string | null
-          has_real?: boolean | null
-          verdict_mix?: Json | null
-        }
-        Relationships: []
-      }
-      _restore_set_20260815: {
-        Row: {
-          id: string | null
-        }
-        Insert: {
-          id?: string | null
-        }
-        Update: {
-          id?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_1845_university_20260818: {
-        Row: {
-          address: string | null
-          amps: number | null
-          appraiser_data: Json | null
-          appraiser_updated_at: string | null
-          assessed_value: number | null
-          building_class: string | null
-          building_far: string | null
-          city: string | null
-          clear_height_ft: number | null
-          column_spacing: string | null
-          construction_material: string | null
-          construction_status: string | null
-          county: string | null
-          county_synced_at: string | null
-          created_at: string | null
-          cross_docks: boolean | null
-          description: string | null
-          dock_high_doors: number | null
-          dock_levelers: number | null
-          dor_use_code: string | null
-          folio: string | null
-          grade_level_doors: number | null
-          gross_leasable_area: string | null
-          gross_sf: number | null
-          heated_sf: number | null
-          id: string | null
-          is_condo_unit: boolean | null
-          just_value: number | null
-          land_acres: number | null
-          last_sale_date: string | null
-          last_sale_price: number | null
-          last_seen_in_sweep: string | null
-          lat: number | null
-          listing_status:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          lng: number | null
-          lowlands_acres_county: number | null
-          net_usable_acres: number | null
-          num_units: number | null
-          on_ground_lease: boolean | null
-          opportunity_zone: boolean | null
-          owner_company_id: string | null
-          owner_mailing_address: string | null
-          owner_name: string | null
-          parcel_key: string | null
-          parcel_number: string | null
-          parking_ratio: string | null
-          parking_spaces: number | null
-          photo_urls: string[] | null
-          property_sub_types: string[] | null
-          property_type: Database["public"]["Enums"]["property_kind"] | null
-          scrape_facts: Json | null
-          scraped_at: string | null
-          search_text: string | null
-          site_address: string | null
-          source: string | null
-          source_key: string | null
-          specs: string | null
-          sprinkler_system: string | null
-          state: string | null
-          stories: number | null
-          tags: string[] | null
-          three_phase_power: boolean | null
-          title: string | null
-          truck_court_ft: number | null
-          updated_at: string | null
-          usable_acres: number | null
-          usable_acres_source: string | null
-          usable_acres_updated_at: string | null
-          volts: string | null
-          wet_acres_nwi: number | null
-          year_built: number | null
-          year_renovated: number | null
-          zip: string | null
-          zoning_code: string | null
-          zoning_description: string | null
-          zoning_district: string | null
-          zoning_jurisdiction: string | null
-          zoning_type: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at: string | null
-        }
-        Insert: {
-          address?: string | null
-          amps?: number | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
-          assessed_value?: number | null
-          building_class?: string | null
-          building_far?: string | null
-          city?: string | null
-          clear_height_ft?: number | null
-          column_spacing?: string | null
-          construction_material?: string | null
-          construction_status?: string | null
-          county?: string | null
-          county_synced_at?: string | null
-          created_at?: string | null
-          cross_docks?: boolean | null
-          description?: string | null
-          dock_high_doors?: number | null
-          dock_levelers?: number | null
-          dor_use_code?: string | null
-          folio?: string | null
-          grade_level_doors?: number | null
-          gross_leasable_area?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
-          id?: string | null
-          is_condo_unit?: boolean | null
-          just_value?: number | null
-          land_acres?: number | null
-          last_sale_date?: string | null
-          last_sale_price?: number | null
-          last_seen_in_sweep?: string | null
-          lat?: number | null
-          listing_status?:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          lng?: number | null
-          lowlands_acres_county?: number | null
-          net_usable_acres?: number | null
-          num_units?: number | null
-          on_ground_lease?: boolean | null
-          opportunity_zone?: boolean | null
-          owner_company_id?: string | null
-          owner_mailing_address?: string | null
-          owner_name?: string | null
-          parcel_key?: string | null
-          parcel_number?: string | null
-          parking_ratio?: string | null
-          parking_spaces?: number | null
-          photo_urls?: string[] | null
-          property_sub_types?: string[] | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          scrape_facts?: Json | null
-          scraped_at?: string | null
-          search_text?: string | null
-          site_address?: string | null
-          source?: string | null
-          source_key?: string | null
-          specs?: string | null
-          sprinkler_system?: string | null
-          state?: string | null
-          stories?: number | null
-          tags?: string[] | null
-          three_phase_power?: boolean | null
-          title?: string | null
-          truck_court_ft?: number | null
-          updated_at?: string | null
-          usable_acres?: number | null
-          usable_acres_source?: string | null
-          usable_acres_updated_at?: string | null
-          volts?: string | null
-          wet_acres_nwi?: number | null
-          year_built?: number | null
-          year_renovated?: number | null
-          zip?: string | null
-          zoning_code?: string | null
-          zoning_description?: string | null
-          zoning_district?: string | null
-          zoning_jurisdiction?: string | null
-          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at?: string | null
-        }
-        Update: {
-          address?: string | null
-          amps?: number | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
-          assessed_value?: number | null
-          building_class?: string | null
-          building_far?: string | null
-          city?: string | null
-          clear_height_ft?: number | null
-          column_spacing?: string | null
-          construction_material?: string | null
-          construction_status?: string | null
-          county?: string | null
-          county_synced_at?: string | null
-          created_at?: string | null
-          cross_docks?: boolean | null
-          description?: string | null
-          dock_high_doors?: number | null
-          dock_levelers?: number | null
-          dor_use_code?: string | null
-          folio?: string | null
-          grade_level_doors?: number | null
-          gross_leasable_area?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
-          id?: string | null
-          is_condo_unit?: boolean | null
-          just_value?: number | null
-          land_acres?: number | null
-          last_sale_date?: string | null
-          last_sale_price?: number | null
-          last_seen_in_sweep?: string | null
-          lat?: number | null
-          listing_status?:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          lng?: number | null
-          lowlands_acres_county?: number | null
-          net_usable_acres?: number | null
-          num_units?: number | null
-          on_ground_lease?: boolean | null
-          opportunity_zone?: boolean | null
-          owner_company_id?: string | null
-          owner_mailing_address?: string | null
-          owner_name?: string | null
-          parcel_key?: string | null
-          parcel_number?: string | null
-          parking_ratio?: string | null
-          parking_spaces?: number | null
-          photo_urls?: string[] | null
-          property_sub_types?: string[] | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          scrape_facts?: Json | null
-          scraped_at?: string | null
-          search_text?: string | null
-          site_address?: string | null
-          source?: string | null
-          source_key?: string | null
-          specs?: string | null
-          sprinkler_system?: string | null
-          state?: string | null
-          stories?: number | null
-          tags?: string[] | null
-          three_phase_power?: boolean | null
-          title?: string | null
-          truck_court_ft?: number | null
-          updated_at?: string | null
-          usable_acres?: number | null
-          usable_acres_source?: string | null
-          usable_acres_updated_at?: string | null
-          volts?: string | null
-          wet_acres_nwi?: number | null
-          year_built?: number | null
-          year_renovated?: number | null
-          zip?: string | null
-          zoning_code?: string | null
-          zoning_description?: string | null
-          zoning_district?: string | null
-          zoning_jurisdiction?: string | null
-          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_comms_purge_20260815: {
-        Row: {
-          body: string | null
-          channel: Database["public"]["Enums"]["comm_channel"] | null
-          contact_id: string | null
-          created_at: string | null
-          direction: Database["public"]["Enums"]["comm_direction"] | null
-          disposition: string | null
-          external_id: string | null
-          id: string | null
-          occurred_at: string | null
-          owner_company_id: string | null
-          owner_id: string | null
-          phone: string | null
-          property_id: string | null
-          raw: Json | null
-          recording_bytes: number | null
-          recording_error: string | null
-          recording_path: string | null
-          recording_synced_at: string | null
-          source: Database["public"]["Enums"]["comm_source"] | null
-          subject: string | null
-          tags: string[] | null
-          transcript: string | null
-        }
-        Insert: {
-          body?: string | null
-          channel?: Database["public"]["Enums"]["comm_channel"] | null
-          contact_id?: string | null
-          created_at?: string | null
-          direction?: Database["public"]["Enums"]["comm_direction"] | null
-          disposition?: string | null
-          external_id?: string | null
-          id?: string | null
-          occurred_at?: string | null
-          owner_company_id?: string | null
-          owner_id?: string | null
-          phone?: string | null
-          property_id?: string | null
-          raw?: Json | null
-          recording_bytes?: number | null
-          recording_error?: string | null
-          recording_path?: string | null
-          recording_synced_at?: string | null
-          source?: Database["public"]["Enums"]["comm_source"] | null
-          subject?: string | null
-          tags?: string[] | null
-          transcript?: string | null
-        }
-        Update: {
-          body?: string | null
-          channel?: Database["public"]["Enums"]["comm_channel"] | null
-          contact_id?: string | null
-          created_at?: string | null
-          direction?: Database["public"]["Enums"]["comm_direction"] | null
-          disposition?: string | null
-          external_id?: string | null
-          id?: string | null
-          occurred_at?: string | null
-          owner_company_id?: string | null
-          owner_id?: string | null
-          phone?: string | null
-          property_id?: string | null
-          raw?: Json | null
-          recording_bytes?: number | null
-          recording_error?: string | null
-          recording_path?: string | null
-          recording_synced_at?: string | null
-          source?: Database["public"]["Enums"]["comm_source"] | null
-          subject?: string | null
-          tags?: string[] | null
-          transcript?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_companies_premerge_20260815: {
-        Row: {
-          annual_revenue: number | null
-          created_at: string | null
-          employee_count: number | null
-          id: string | null
-          industry: string | null
-          naics: string | null
-          name: string | null
-          normalized_name: string | null
-          notes: string | null
-          phone: string | null
-          sic: string | null
-          source: string | null
-          type: Database["public"]["Enums"]["company_type"] | null
-          updated_at: string | null
-          website: string | null
-        }
-        Insert: {
-          annual_revenue?: number | null
-          created_at?: string | null
-          employee_count?: number | null
-          id?: string | null
-          industry?: string | null
-          naics?: string | null
-          name?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          phone?: string | null
-          sic?: string | null
-          source?: string | null
-          type?: Database["public"]["Enums"]["company_type"] | null
-          updated_at?: string | null
-          website?: string | null
-        }
-        Update: {
-          annual_revenue?: number | null
-          created_at?: string | null
-          employee_count?: number | null
-          id?: string | null
-          industry?: string | null
-          naics?: string | null
-          name?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          phone?: string | null
-          sic?: string | null
-          source?: string | null
-          type?: Database["public"]["Enums"]["company_type"] | null
-          updated_at?: string | null
-          website?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_contact_merge_20260814: {
-        Row: {
-          archived: boolean | null
-          archived_at: string | null
-          archived_reason: string | null
-          campaign_lists: string[] | null
-          category: Database["public"]["Enums"]["contact_category"] | null
-          company_id: string | null
-          created_at: string | null
-          decision_maker: string | null
-          do_not_call: boolean | null
-          email: string | null
-          email_verified_at: string | null
-          first_name: string | null
-          ghl_contact_id: string | null
-          hubspot_id: string | null
-          id: string | null
-          import_addresses: string[] | null
-          last_contacted_at: string | null
-          last_name: string | null
-          merged_into: string | null
-          normalized_name: string | null
-          notes: string | null
-          phone: string | null
-          phone_grade: string | null
-          phone_type: string | null
-          source_system: string | null
-          terrakotta_id: string | null
-          title: string | null
-          updated_at: string | null
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          archived?: boolean | null
-          archived_at?: string | null
-          archived_reason?: string | null
-          campaign_lists?: string[] | null
-          category?: Database["public"]["Enums"]["contact_category"] | null
-          company_id?: string | null
-          created_at?: string | null
-          decision_maker?: string | null
-          do_not_call?: boolean | null
-          email?: string | null
-          email_verified_at?: string | null
-          first_name?: string | null
-          ghl_contact_id?: string | null
-          hubspot_id?: string | null
-          id?: string | null
-          import_addresses?: string[] | null
-          last_contacted_at?: string | null
-          last_name?: string | null
-          merged_into?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          phone?: string | null
-          phone_grade?: string | null
-          phone_type?: string | null
-          source_system?: string | null
-          terrakotta_id?: string | null
-          title?: string | null
-          updated_at?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          archived?: boolean | null
-          archived_at?: string | null
-          archived_reason?: string | null
-          campaign_lists?: string[] | null
-          category?: Database["public"]["Enums"]["contact_category"] | null
-          company_id?: string | null
-          created_at?: string | null
-          decision_maker?: string | null
-          do_not_call?: boolean | null
-          email?: string | null
-          email_verified_at?: string | null
-          first_name?: string | null
-          ghl_contact_id?: string | null
-          hubspot_id?: string | null
-          id?: string | null
-          import_addresses?: string[] | null
-          last_contacted_at?: string | null
-          last_name?: string | null
-          merged_into?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          phone?: string | null
-          phone_grade?: string | null
-          phone_type?: string | null
-          source_system?: string | null
-          terrakotta_id?: string | null
-          title?: string | null
-          updated_at?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_contact_purge_20260815: {
-        Row: {
-          archived: boolean | null
-          archived_at: string | null
-          archived_reason: string | null
-          campaign_lists: string[] | null
-          category: Database["public"]["Enums"]["contact_category"] | null
-          company_id: string | null
-          created_at: string | null
-          decision_maker: string | null
-          do_not_call: boolean | null
-          email: string | null
-          email_verified_at: string | null
-          first_name: string | null
-          ghl_contact_id: string | null
-          hubspot_id: string | null
-          id: string | null
-          import_addresses: string[] | null
-          last_contacted_at: string | null
-          last_name: string | null
-          normalized_name: string | null
-          notes: string | null
-          phone: string | null
-          phone_grade: string | null
-          phone_type: string | null
-          source_system: string | null
-          terrakotta_id: string | null
-          title: string | null
-          updated_at: string | null
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          archived?: boolean | null
-          archived_at?: string | null
-          archived_reason?: string | null
-          campaign_lists?: string[] | null
-          category?: Database["public"]["Enums"]["contact_category"] | null
-          company_id?: string | null
-          created_at?: string | null
-          decision_maker?: string | null
-          do_not_call?: boolean | null
-          email?: string | null
-          email_verified_at?: string | null
-          first_name?: string | null
-          ghl_contact_id?: string | null
-          hubspot_id?: string | null
-          id?: string | null
-          import_addresses?: string[] | null
-          last_contacted_at?: string | null
-          last_name?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          phone?: string | null
-          phone_grade?: string | null
-          phone_type?: string | null
-          source_system?: string | null
-          terrakotta_id?: string | null
-          title?: string | null
-          updated_at?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          archived?: boolean | null
-          archived_at?: string | null
-          archived_reason?: string | null
-          campaign_lists?: string[] | null
-          category?: Database["public"]["Enums"]["contact_category"] | null
-          company_id?: string | null
-          created_at?: string | null
-          decision_maker?: string | null
-          do_not_call?: boolean | null
-          email?: string | null
-          email_verified_at?: string | null
-          first_name?: string | null
-          ghl_contact_id?: string | null
-          hubspot_id?: string | null
-          id?: string | null
-          import_addresses?: string[] | null
-          last_contacted_at?: string | null
-          last_name?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          phone?: string | null
-          phone_grade?: string | null
-          phone_type?: string | null
-          source_system?: string | null
-          terrakotta_id?: string | null
-          title?: string | null
-          updated_at?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_contacts_unverify_20260818: {
-        Row: {
-          id: string | null
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          id?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          id?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_contacts_verified_20260812: {
-        Row: {
-          archived: boolean | null
-          archived_reason: string | null
-          decision_maker: string | null
-          id: string | null
-        }
-        Insert: {
-          archived?: boolean | null
-          archived_reason?: string | null
-          decision_maker?: string | null
-          id?: string | null
-        }
-        Update: {
-          archived?: boolean | null
-          archived_reason?: string | null
-          decision_maker?: string | null
-          id?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_homes_purge_20260815: {
-        Row: {
-          address: string | null
-          amps: number | null
-          appraiser_data: Json | null
-          appraiser_updated_at: string | null
-          assessed_value: number | null
-          broker_company: string | null
-          broker_email: string | null
-          broker_name: string | null
-          broker_phone: string | null
-          building_class: string | null
-          building_far: string | null
-          city: string | null
-          clear_height_ft: number | null
-          column_spacing: string | null
-          construction_material: string | null
-          construction_status: string | null
-          county: string | null
-          county_synced_at: string | null
-          created_at: string | null
-          cross_docks: boolean | null
-          days_on_market: number | null
-          description: string | null
-          dock_high_doors: number | null
-          dock_levelers: number | null
-          dor_use_code: string | null
-          folio: string | null
-          grade_level_doors: number | null
-          gross_leasable_area: string | null
-          gross_sf: number | null
-          heated_sf: number | null
-          id: string | null
-          is_auction: boolean | null
-          just_value: number | null
-          land_acres: number | null
-          last_sale_date: string | null
-          last_sale_price: number | null
-          last_seen_in_sweep: string | null
-          lat: number | null
-          listed_at: string | null
-          listing_status:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          listing_url: string | null
-          lng: number | null
-          lowlands_acres_county: number | null
-          net_usable_acres: number | null
-          num_units: number | null
-          occupancy: string | null
-          on_ground_lease: boolean | null
-          opportunity_zone: boolean | null
-          owner_company_id: string | null
-          owner_mailing_address: string | null
-          owner_name: string | null
-          parcel_key: string | null
-          parcel_number: string | null
-          parking_ratio: string | null
-          parking_spaces: number | null
-          photo_urls: string[] | null
-          property_sub_types: string[] | null
-          property_type: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions: string | null
-          sale_status: number | null
-          sale_type: string | null
-          scrape_facts: Json | null
-          scraped_at: string | null
-          search_text: string | null
-          site_address: string | null
-          source: string | null
-          source_key: string | null
-          source_last_updated: string | null
-          specs: string | null
-          sprinkler_system: string | null
-          state: string | null
-          stories: number | null
-          tags: string[] | null
-          three_phase_power: boolean | null
-          title: string | null
-          truck_court_ft: number | null
-          updated_at: string | null
-          usable_acres: number | null
-          usable_acres_source: string | null
-          usable_acres_updated_at: string | null
-          volts: string | null
-          wet_acres_nwi: number | null
-          year_built: number | null
-          year_renovated: number | null
-          zip: string | null
-          zoning_code: string | null
-          zoning_description: string | null
-          zoning_district: string | null
-          zoning_jurisdiction: string | null
-          zoning_type: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at: string | null
-        }
-        Insert: {
-          address?: string | null
-          amps?: number | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
-          assessed_value?: number | null
-          broker_company?: string | null
-          broker_email?: string | null
-          broker_name?: string | null
-          broker_phone?: string | null
-          building_class?: string | null
-          building_far?: string | null
-          city?: string | null
-          clear_height_ft?: number | null
-          column_spacing?: string | null
-          construction_material?: string | null
-          construction_status?: string | null
-          county?: string | null
-          county_synced_at?: string | null
-          created_at?: string | null
-          cross_docks?: boolean | null
-          days_on_market?: number | null
-          description?: string | null
-          dock_high_doors?: number | null
-          dock_levelers?: number | null
-          dor_use_code?: string | null
-          folio?: string | null
-          grade_level_doors?: number | null
-          gross_leasable_area?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
-          id?: string | null
-          is_auction?: boolean | null
-          just_value?: number | null
-          land_acres?: number | null
-          last_sale_date?: string | null
-          last_sale_price?: number | null
-          last_seen_in_sweep?: string | null
-          lat?: number | null
-          listed_at?: string | null
-          listing_status?:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          listing_url?: string | null
-          lng?: number | null
-          lowlands_acres_county?: number | null
-          net_usable_acres?: number | null
-          num_units?: number | null
-          occupancy?: string | null
-          on_ground_lease?: boolean | null
-          opportunity_zone?: boolean | null
-          owner_company_id?: string | null
-          owner_mailing_address?: string | null
-          owner_name?: string | null
-          parcel_key?: string | null
-          parcel_number?: string | null
-          parking_ratio?: string | null
-          parking_spaces?: number | null
-          photo_urls?: string[] | null
-          property_sub_types?: string[] | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions?: string | null
-          sale_status?: number | null
-          sale_type?: string | null
-          scrape_facts?: Json | null
-          scraped_at?: string | null
-          search_text?: string | null
-          site_address?: string | null
-          source?: string | null
-          source_key?: string | null
-          source_last_updated?: string | null
-          specs?: string | null
-          sprinkler_system?: string | null
-          state?: string | null
-          stories?: number | null
-          tags?: string[] | null
-          three_phase_power?: boolean | null
-          title?: string | null
-          truck_court_ft?: number | null
-          updated_at?: string | null
-          usable_acres?: number | null
-          usable_acres_source?: string | null
-          usable_acres_updated_at?: string | null
-          volts?: string | null
-          wet_acres_nwi?: number | null
-          year_built?: number | null
-          year_renovated?: number | null
-          zip?: string | null
-          zoning_code?: string | null
-          zoning_description?: string | null
-          zoning_district?: string | null
-          zoning_jurisdiction?: string | null
-          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at?: string | null
-        }
-        Update: {
-          address?: string | null
-          amps?: number | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
-          assessed_value?: number | null
-          broker_company?: string | null
-          broker_email?: string | null
-          broker_name?: string | null
-          broker_phone?: string | null
-          building_class?: string | null
-          building_far?: string | null
-          city?: string | null
-          clear_height_ft?: number | null
-          column_spacing?: string | null
-          construction_material?: string | null
-          construction_status?: string | null
-          county?: string | null
-          county_synced_at?: string | null
-          created_at?: string | null
-          cross_docks?: boolean | null
-          days_on_market?: number | null
-          description?: string | null
-          dock_high_doors?: number | null
-          dock_levelers?: number | null
-          dor_use_code?: string | null
-          folio?: string | null
-          grade_level_doors?: number | null
-          gross_leasable_area?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
-          id?: string | null
-          is_auction?: boolean | null
-          just_value?: number | null
-          land_acres?: number | null
-          last_sale_date?: string | null
-          last_sale_price?: number | null
-          last_seen_in_sweep?: string | null
-          lat?: number | null
-          listed_at?: string | null
-          listing_status?:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          listing_url?: string | null
-          lng?: number | null
-          lowlands_acres_county?: number | null
-          net_usable_acres?: number | null
-          num_units?: number | null
-          occupancy?: string | null
-          on_ground_lease?: boolean | null
-          opportunity_zone?: boolean | null
-          owner_company_id?: string | null
-          owner_mailing_address?: string | null
-          owner_name?: string | null
-          parcel_key?: string | null
-          parcel_number?: string | null
-          parking_ratio?: string | null
-          parking_spaces?: number | null
-          photo_urls?: string[] | null
-          property_sub_types?: string[] | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions?: string | null
-          sale_status?: number | null
-          sale_type?: string | null
-          scrape_facts?: Json | null
-          scraped_at?: string | null
-          search_text?: string | null
-          site_address?: string | null
-          source?: string | null
-          source_key?: string | null
-          source_last_updated?: string | null
-          specs?: string | null
-          sprinkler_system?: string | null
-          state?: string | null
-          stories?: number | null
-          tags?: string[] | null
-          three_phase_power?: boolean | null
-          title?: string | null
-          truck_court_ft?: number | null
-          updated_at?: string | null
-          usable_acres?: number | null
-          usable_acres_source?: string | null
-          usable_acres_updated_at?: string | null
-          volts?: string | null
-          wet_acres_nwi?: number | null
-          year_built?: number | null
-          year_renovated?: number | null
-          zip?: string | null
-          zoning_code?: string | null
-          zoning_description?: string | null
-          zoning_district?: string | null
-          zoning_jurisdiction?: string | null
-          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_owner_contacts_final_20260815: {
-        Row: {
-          confidence: string | null
-          contact_id: string | null
-          created_at: string | null
-          id: string | null
-          match_basis: string | null
-          notes: string | null
-          owner_id: string | null
-          role: string | null
-          updated_at: string | null
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          confidence?: string | null
-          contact_id?: string | null
-          created_at?: string | null
-          id?: string | null
-          match_basis?: string | null
-          notes?: string | null
-          owner_id?: string | null
-          role?: string | null
-          updated_at?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          confidence?: string | null
-          contact_id?: string | null
-          created_at?: string | null
-          id?: string | null
-          match_basis?: string | null
-          notes?: string | null
-          owner_id?: string | null
-          role?: string | null
-          updated_at?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_owners_final_20260815: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          display_name: string | null
-          id: string | null
-          kind: Database["public"]["Enums"]["owner_kind"] | null
-          mailing_address: string | null
-          mailing_city: string | null
-          mailing_state: string | null
-          mailing_zip: string | null
-          normalized_name: string | null
-          notes: string | null
-          tags: string[] | null
-          updated_at: string | null
-          verification_note: string | null
-          verification_status: string | null
-          verification_updated_at: string | null
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          kind?: Database["public"]["Enums"]["owner_kind"] | null
-          mailing_address?: string | null
-          mailing_city?: string | null
-          mailing_state?: string | null
-          mailing_zip?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          tags?: string[] | null
-          updated_at?: string | null
-          verification_note?: string | null
-          verification_status?: string | null
-          verification_updated_at?: string | null
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          kind?: Database["public"]["Enums"]["owner_kind"] | null
-          mailing_address?: string | null
-          mailing_city?: string | null
-          mailing_state?: string | null
-          mailing_zip?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          tags?: string[] | null
-          updated_at?: string | null
-          verification_note?: string | null
-          verification_status?: string | null
-          verification_updated_at?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_owners_premerge_20260815: {
-        Row: {
-          created_at: string | null
-          display_name: string | null
-          id: string | null
-          kind: Database["public"]["Enums"]["owner_kind"] | null
-          mailing_address: string | null
-          mailing_city: string | null
-          mailing_state: string | null
-          mailing_zip: string | null
-          normalized_name: string | null
-          notes: string | null
-          tags: string[] | null
-          updated_at: string | null
-          verification_note: string | null
-          verification_status: string | null
-          verification_updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          kind?: Database["public"]["Enums"]["owner_kind"] | null
-          mailing_address?: string | null
-          mailing_city?: string | null
-          mailing_state?: string | null
-          mailing_zip?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          tags?: string[] | null
-          updated_at?: string | null
-          verification_note?: string | null
-          verification_status?: string | null
-          verification_updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          kind?: Database["public"]["Enums"]["owner_kind"] | null
-          mailing_address?: string | null
-          mailing_city?: string | null
-          mailing_state?: string | null
-          mailing_zip?: string | null
-          normalized_name?: string | null
-          notes?: string | null
-          tags?: string[] | null
-          updated_at?: string | null
-          verification_note?: string | null
-          verification_status?: string | null
-          verification_updated_at?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_parcel_fix_20260818: {
-        Row: {
-          address: string | null
-          amps: number | null
-          appraiser_data: Json | null
-          appraiser_updated_at: string | null
-          assessed_value: number | null
-          building_class: string | null
-          building_far: string | null
-          city: string | null
-          clear_height_ft: number | null
-          column_spacing: string | null
-          construction_material: string | null
-          construction_status: string | null
-          county: string | null
-          county_synced_at: string | null
-          created_at: string | null
-          cross_docks: boolean | null
-          description: string | null
-          dock_high_doors: number | null
-          dock_levelers: number | null
-          dor_use_code: string | null
-          folio: string | null
-          grade_level_doors: number | null
-          gross_leasable_area: string | null
-          gross_sf: number | null
-          heated_sf: number | null
-          id: string | null
-          is_condo_unit: boolean | null
-          just_value: number | null
-          land_acres: number | null
-          last_sale_date: string | null
-          last_sale_price: number | null
-          last_seen_in_sweep: string | null
-          lat: number | null
-          listing_status:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          lng: number | null
-          lowlands_acres_county: number | null
-          net_usable_acres: number | null
-          num_units: number | null
-          on_ground_lease: boolean | null
-          opportunity_zone: boolean | null
-          owner_company_id: string | null
-          owner_mailing_address: string | null
-          owner_name: string | null
-          parcel_key: string | null
-          parcel_number: string | null
-          parking_ratio: string | null
-          parking_spaces: number | null
-          photo_urls: string[] | null
-          property_sub_types: string[] | null
-          property_type: Database["public"]["Enums"]["property_kind"] | null
-          scrape_facts: Json | null
-          scraped_at: string | null
-          search_text: string | null
-          site_address: string | null
-          source: string | null
-          source_key: string | null
-          specs: string | null
-          sprinkler_system: string | null
-          state: string | null
-          stories: number | null
-          tags: string[] | null
-          three_phase_power: boolean | null
-          title: string | null
-          truck_court_ft: number | null
-          updated_at: string | null
-          usable_acres: number | null
-          usable_acres_source: string | null
-          usable_acres_updated_at: string | null
-          volts: string | null
-          wet_acres_nwi: number | null
-          year_built: number | null
-          year_renovated: number | null
-          zip: string | null
-          zoning_code: string | null
-          zoning_description: string | null
-          zoning_district: string | null
-          zoning_jurisdiction: string | null
-          zoning_type: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at: string | null
-        }
-        Insert: {
-          address?: string | null
-          amps?: number | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
-          assessed_value?: number | null
-          building_class?: string | null
-          building_far?: string | null
-          city?: string | null
-          clear_height_ft?: number | null
-          column_spacing?: string | null
-          construction_material?: string | null
-          construction_status?: string | null
-          county?: string | null
-          county_synced_at?: string | null
-          created_at?: string | null
-          cross_docks?: boolean | null
-          description?: string | null
-          dock_high_doors?: number | null
-          dock_levelers?: number | null
-          dor_use_code?: string | null
-          folio?: string | null
-          grade_level_doors?: number | null
-          gross_leasable_area?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
-          id?: string | null
-          is_condo_unit?: boolean | null
-          just_value?: number | null
-          land_acres?: number | null
-          last_sale_date?: string | null
-          last_sale_price?: number | null
-          last_seen_in_sweep?: string | null
-          lat?: number | null
-          listing_status?:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          lng?: number | null
-          lowlands_acres_county?: number | null
-          net_usable_acres?: number | null
-          num_units?: number | null
-          on_ground_lease?: boolean | null
-          opportunity_zone?: boolean | null
-          owner_company_id?: string | null
-          owner_mailing_address?: string | null
-          owner_name?: string | null
-          parcel_key?: string | null
-          parcel_number?: string | null
-          parking_ratio?: string | null
-          parking_spaces?: number | null
-          photo_urls?: string[] | null
-          property_sub_types?: string[] | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          scrape_facts?: Json | null
-          scraped_at?: string | null
-          search_text?: string | null
-          site_address?: string | null
-          source?: string | null
-          source_key?: string | null
-          specs?: string | null
-          sprinkler_system?: string | null
-          state?: string | null
-          stories?: number | null
-          tags?: string[] | null
-          three_phase_power?: boolean | null
-          title?: string | null
-          truck_court_ft?: number | null
-          updated_at?: string | null
-          usable_acres?: number | null
-          usable_acres_source?: string | null
-          usable_acres_updated_at?: string | null
-          volts?: string | null
-          wet_acres_nwi?: number | null
-          year_built?: number | null
-          year_renovated?: number | null
-          zip?: string | null
-          zoning_code?: string | null
-          zoning_description?: string | null
-          zoning_district?: string | null
-          zoning_jurisdiction?: string | null
-          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at?: string | null
-        }
-        Update: {
-          address?: string | null
-          amps?: number | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
-          assessed_value?: number | null
-          building_class?: string | null
-          building_far?: string | null
-          city?: string | null
-          clear_height_ft?: number | null
-          column_spacing?: string | null
-          construction_material?: string | null
-          construction_status?: string | null
-          county?: string | null
-          county_synced_at?: string | null
-          created_at?: string | null
-          cross_docks?: boolean | null
-          description?: string | null
-          dock_high_doors?: number | null
-          dock_levelers?: number | null
-          dor_use_code?: string | null
-          folio?: string | null
-          grade_level_doors?: number | null
-          gross_leasable_area?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
-          id?: string | null
-          is_condo_unit?: boolean | null
-          just_value?: number | null
-          land_acres?: number | null
-          last_sale_date?: string | null
-          last_sale_price?: number | null
-          last_seen_in_sweep?: string | null
-          lat?: number | null
-          listing_status?:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          lng?: number | null
-          lowlands_acres_county?: number | null
-          net_usable_acres?: number | null
-          num_units?: number | null
-          on_ground_lease?: boolean | null
-          opportunity_zone?: boolean | null
-          owner_company_id?: string | null
-          owner_mailing_address?: string | null
-          owner_name?: string | null
-          parcel_key?: string | null
-          parcel_number?: string | null
-          parking_ratio?: string | null
-          parking_spaces?: number | null
-          photo_urls?: string[] | null
-          property_sub_types?: string[] | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          scrape_facts?: Json | null
-          scraped_at?: string | null
-          search_text?: string | null
-          site_address?: string | null
-          source?: string | null
-          source_key?: string | null
-          specs?: string | null
-          sprinkler_system?: string | null
-          state?: string | null
-          stories?: number | null
-          tags?: string[] | null
-          three_phase_power?: boolean | null
-          title?: string | null
-          truck_court_ft?: number | null
-          updated_at?: string | null
-          usable_acres?: number | null
-          usable_acres_source?: string | null
-          usable_acres_updated_at?: string | null
-          volts?: string | null
-          wet_acres_nwi?: number | null
-          year_built?: number | null
-          year_renovated?: number | null
-          zip?: string | null
-          zoning_code?: string | null
-          zoning_description?: string | null
-          zoning_district?: string | null
-          zoning_jurisdiction?: string | null
-          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_property_ghost_20260817: {
-        Row: {
-          address: string | null
-          amps: number | null
-          appraiser_data: Json | null
-          appraiser_updated_at: string | null
-          assessed_value: number | null
-          broker_company: string | null
-          broker_email: string | null
-          broker_name: string | null
-          broker_phone: string | null
-          building_class: string | null
-          building_far: string | null
-          city: string | null
-          clear_height_ft: number | null
-          column_spacing: string | null
-          construction_material: string | null
-          construction_status: string | null
-          county: string | null
-          county_synced_at: string | null
-          created_at: string | null
-          cross_docks: boolean | null
-          days_on_market: number | null
-          description: string | null
-          dock_high_doors: number | null
-          dock_levelers: number | null
-          dor_use_code: string | null
-          folio: string | null
-          grade_level_doors: number | null
-          gross_leasable_area: string | null
-          gross_sf: number | null
-          heated_sf: number | null
-          id: string | null
-          is_auction: boolean | null
-          just_value: number | null
-          land_acres: number | null
-          last_sale_date: string | null
-          last_sale_price: number | null
-          last_seen_in_sweep: string | null
-          lat: number | null
-          listed_at: string | null
-          listing_status:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          listing_url: string | null
-          lng: number | null
-          lowlands_acres_county: number | null
-          net_usable_acres: number | null
-          num_units: number | null
-          occupancy: string | null
-          on_ground_lease: boolean | null
-          opportunity_zone: boolean | null
-          owner_company_id: string | null
-          owner_mailing_address: string | null
-          owner_name: string | null
-          parcel_key: string | null
-          parcel_number: string | null
-          parking_ratio: string | null
-          parking_spaces: number | null
-          photo_urls: string[] | null
-          property_sub_types: string[] | null
-          property_type: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions: string | null
-          sale_status: number | null
-          sale_type: string | null
-          scrape_facts: Json | null
-          scraped_at: string | null
-          search_text: string | null
-          site_address: string | null
-          source: string | null
-          source_key: string | null
-          source_last_updated: string | null
-          specs: string | null
-          sprinkler_system: string | null
-          state: string | null
-          stories: number | null
-          tags: string[] | null
-          three_phase_power: boolean | null
-          title: string | null
-          truck_court_ft: number | null
-          updated_at: string | null
-          usable_acres: number | null
-          usable_acres_source: string | null
-          usable_acres_updated_at: string | null
-          volts: string | null
-          wet_acres_nwi: number | null
-          year_built: number | null
-          year_renovated: number | null
-          zip: string | null
-          zoning_code: string | null
-          zoning_description: string | null
-          zoning_district: string | null
-          zoning_jurisdiction: string | null
-          zoning_type: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at: string | null
-        }
-        Insert: {
-          address?: string | null
-          amps?: number | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
-          assessed_value?: number | null
-          broker_company?: string | null
-          broker_email?: string | null
-          broker_name?: string | null
-          broker_phone?: string | null
-          building_class?: string | null
-          building_far?: string | null
-          city?: string | null
-          clear_height_ft?: number | null
-          column_spacing?: string | null
-          construction_material?: string | null
-          construction_status?: string | null
-          county?: string | null
-          county_synced_at?: string | null
-          created_at?: string | null
-          cross_docks?: boolean | null
-          days_on_market?: number | null
-          description?: string | null
-          dock_high_doors?: number | null
-          dock_levelers?: number | null
-          dor_use_code?: string | null
-          folio?: string | null
-          grade_level_doors?: number | null
-          gross_leasable_area?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
-          id?: string | null
-          is_auction?: boolean | null
-          just_value?: number | null
-          land_acres?: number | null
-          last_sale_date?: string | null
-          last_sale_price?: number | null
-          last_seen_in_sweep?: string | null
-          lat?: number | null
-          listed_at?: string | null
-          listing_status?:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          listing_url?: string | null
-          lng?: number | null
-          lowlands_acres_county?: number | null
-          net_usable_acres?: number | null
-          num_units?: number | null
-          occupancy?: string | null
-          on_ground_lease?: boolean | null
-          opportunity_zone?: boolean | null
-          owner_company_id?: string | null
-          owner_mailing_address?: string | null
-          owner_name?: string | null
-          parcel_key?: string | null
-          parcel_number?: string | null
-          parking_ratio?: string | null
-          parking_spaces?: number | null
-          photo_urls?: string[] | null
-          property_sub_types?: string[] | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions?: string | null
-          sale_status?: number | null
-          sale_type?: string | null
-          scrape_facts?: Json | null
-          scraped_at?: string | null
-          search_text?: string | null
-          site_address?: string | null
-          source?: string | null
-          source_key?: string | null
-          source_last_updated?: string | null
-          specs?: string | null
-          sprinkler_system?: string | null
-          state?: string | null
-          stories?: number | null
-          tags?: string[] | null
-          three_phase_power?: boolean | null
-          title?: string | null
-          truck_court_ft?: number | null
-          updated_at?: string | null
-          usable_acres?: number | null
-          usable_acres_source?: string | null
-          usable_acres_updated_at?: string | null
-          volts?: string | null
-          wet_acres_nwi?: number | null
-          year_built?: number | null
-          year_renovated?: number | null
-          zip?: string | null
-          zoning_code?: string | null
-          zoning_description?: string | null
-          zoning_district?: string | null
-          zoning_jurisdiction?: string | null
-          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at?: string | null
-        }
-        Update: {
-          address?: string | null
-          amps?: number | null
-          appraiser_data?: Json | null
-          appraiser_updated_at?: string | null
-          assessed_value?: number | null
-          broker_company?: string | null
-          broker_email?: string | null
-          broker_name?: string | null
-          broker_phone?: string | null
-          building_class?: string | null
-          building_far?: string | null
-          city?: string | null
-          clear_height_ft?: number | null
-          column_spacing?: string | null
-          construction_material?: string | null
-          construction_status?: string | null
-          county?: string | null
-          county_synced_at?: string | null
-          created_at?: string | null
-          cross_docks?: boolean | null
-          days_on_market?: number | null
-          description?: string | null
-          dock_high_doors?: number | null
-          dock_levelers?: number | null
-          dor_use_code?: string | null
-          folio?: string | null
-          grade_level_doors?: number | null
-          gross_leasable_area?: string | null
-          gross_sf?: number | null
-          heated_sf?: number | null
-          id?: string | null
-          is_auction?: boolean | null
-          just_value?: number | null
-          land_acres?: number | null
-          last_sale_date?: string | null
-          last_sale_price?: number | null
-          last_seen_in_sweep?: string | null
-          lat?: number | null
-          listed_at?: string | null
-          listing_status?:
-            | Database["public"]["Enums"]["listing_market_status"]
-            | null
-          listing_url?: string | null
-          lng?: number | null
-          lowlands_acres_county?: number | null
-          net_usable_acres?: number | null
-          num_units?: number | null
-          occupancy?: string | null
-          on_ground_lease?: boolean | null
-          opportunity_zone?: boolean | null
-          owner_company_id?: string | null
-          owner_mailing_address?: string | null
-          owner_name?: string | null
-          parcel_key?: string | null
-          parcel_number?: string | null
-          parking_ratio?: string | null
-          parking_spaces?: number | null
-          photo_urls?: string[] | null
-          property_sub_types?: string[] | null
-          property_type?: Database["public"]["Enums"]["property_kind"] | null
-          sale_conditions?: string | null
-          sale_status?: number | null
-          sale_type?: string | null
-          scrape_facts?: Json | null
-          scraped_at?: string | null
-          search_text?: string | null
-          site_address?: string | null
-          source?: string | null
-          source_key?: string | null
-          source_last_updated?: string | null
-          specs?: string | null
-          sprinkler_system?: string | null
-          state?: string | null
-          stories?: number | null
-          tags?: string[] | null
-          three_phase_power?: boolean | null
-          title?: string | null
-          truck_court_ft?: number | null
-          updated_at?: string | null
-          usable_acres?: number | null
-          usable_acres_source?: string | null
-          usable_acres_updated_at?: string | null
-          volts?: string | null
-          wet_acres_nwi?: number | null
-          year_built?: number | null
-          year_renovated?: number | null
-          zip?: string | null
-          zoning_code?: string | null
-          zoning_description?: string | null
-          zoning_district?: string | null
-          zoning_jurisdiction?: string | null
-          zoning_type?: Database["public"]["Enums"]["zoning_kind"] | null
-          zoning_updated_at?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_property_tags_20260817: {
-        Row: {
-          captured_at: string | null
-          id: string | null
-          tags: string[] | null
-          updated_at: string | null
-        }
-        Insert: {
-          captured_at?: string | null
-          id?: string | null
-          tags?: string[] | null
-          updated_at?: string | null
-        }
-        Update: {
-          captured_at?: string | null
-          id?: string | null
-          tags?: string[] | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_property_tags_20260817b: {
-        Row: {
-          captured_at: string | null
-          id: string | null
-          tags: string[] | null
-          updated_at: string | null
-        }
-        Insert: {
-          captured_at?: string | null
-          id?: string | null
-          tags?: string[] | null
-          updated_at?: string | null
-        }
-        Update: {
-          captured_at?: string | null
-          id?: string | null
-          tags?: string[] | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      _rollback_response_unverify_20260815: {
-        Row: {
-          id: string | null
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          id?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          id?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: []
-      }
       area_code_timezones: {
         Row: {
           area_code: string
@@ -2810,16 +935,19 @@ export type Database = {
           category: string
           code: string
           description: string
+          land_class: boolean
         }
         Insert: {
           category: string
           code: string
           description: string
+          land_class?: boolean
         }
         Update: {
           category?: string
           code?: string
           description?: string
+          land_class?: boolean
         }
         Relationships: []
       }
@@ -3051,6 +1179,33 @@ export type Database = {
           requires_postal_address?: boolean
           steps?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      enrichment_score_weights: {
+        Row: {
+          enabled: boolean
+          factor: string
+          notes: string | null
+          params: Json
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          enabled?: boolean
+          factor: string
+          notes?: string | null
+          params?: Json
+          updated_at?: string
+          weight: number
+        }
+        Update: {
+          enabled?: boolean
+          factor?: string
+          notes?: string | null
+          params?: Json
+          updated_at?: string
+          weight?: number
         }
         Relationships: []
       }
@@ -3347,6 +1502,101 @@ export type Database = {
           },
           {
             foreignKeyName: "listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
+      market_listings: {
+        Row: {
+          asking_price: number | null
+          asking_rate_psf: number | null
+          broker_company: string | null
+          broker_name: string | null
+          cap_rate_pct: number | null
+          created_at: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          listing_type: Database["public"]["Enums"]["deal_type"]
+          off_market_at: string | null
+          property_id: string
+          raw: Json | null
+          source: string
+          source_listing_id: string
+          sqft: number | null
+          status: Database["public"]["Enums"]["listing_market_status"]
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          asking_price?: number | null
+          asking_rate_psf?: number | null
+          broker_company?: string | null
+          broker_name?: string | null
+          cap_rate_pct?: number | null
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          listing_type: Database["public"]["Enums"]["deal_type"]
+          off_market_at?: string | null
+          property_id: string
+          raw?: Json | null
+          source?: string
+          source_listing_id: string
+          sqft?: number | null
+          status?: Database["public"]["Enums"]["listing_market_status"]
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          asking_price?: number | null
+          asking_rate_psf?: number | null
+          broker_company?: string | null
+          broker_name?: string | null
+          cap_rate_pct?: number | null
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          listing_type?: Database["public"]["Enums"]["deal_type"]
+          off_market_at?: string | null
+          property_id?: string
+          raw?: Json | null
+          source?: string
+          source_listing_id?: string
+          sqft?: number | null
+          status?: Database["public"]["Enums"]["listing_market_status"]
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_listings_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "v_property_owner_context"
@@ -3849,6 +2099,182 @@ export type Database = {
           },
         ]
       }
+      parcel_enrichment: {
+        Row: {
+          broadband_fiber: boolean | null
+          broadband_max_down_mbps: number | null
+          broadband_provider_count: number | null
+          created_at: string
+          csx_mainline_mi: number | null
+          drainage_class: string | null
+          electric_provider: string | null
+          fema_flood_zone: string | null
+          flu_code: string | null
+          flu_description: string | null
+          flu_jurisdiction: string | null
+          frontage_aadt: number | null
+          frontage_road_name: string | null
+          gas_operator: string | null
+          gas_transmission_dist_ft: number | null
+          hydric_soils_pct: number | null
+          in_sewer_service_area: boolean | null
+          in_water_service_area: boolean | null
+          interchange_drive_min: number | null
+          interchange_mi: number | null
+          nearest_powered_parcel_ft: number | null
+          on_truck_route: boolean | null
+          parcel_depth_ft: number | null
+          parcel_width_ft: number | null
+          pct_floodway: number | null
+          pct_sfha: number | null
+          property_id: string
+          rectangularity: number | null
+          road_frontage_ft: number | null
+          score_breakdown: Json | null
+          score_version: string | null
+          scored_at: string | null
+          sewer_force_dist_ft: number | null
+          sewer_gravity_dist_ft: number | null
+          sewer_provider: string | null
+          slope_mean_pct: number | null
+          source_status: Json
+          substation_dist_ft: number | null
+          suitability_score: number | null
+          transmission_kv: number | null
+          transmission_line_dist_ft: number | null
+          updated_at: string
+          water_main_diameter_in: number | null
+          water_main_dist_ft: number | null
+          water_provider: string | null
+          wetlands_pct: number | null
+        }
+        Insert: {
+          broadband_fiber?: boolean | null
+          broadband_max_down_mbps?: number | null
+          broadband_provider_count?: number | null
+          created_at?: string
+          csx_mainline_mi?: number | null
+          drainage_class?: string | null
+          electric_provider?: string | null
+          fema_flood_zone?: string | null
+          flu_code?: string | null
+          flu_description?: string | null
+          flu_jurisdiction?: string | null
+          frontage_aadt?: number | null
+          frontage_road_name?: string | null
+          gas_operator?: string | null
+          gas_transmission_dist_ft?: number | null
+          hydric_soils_pct?: number | null
+          in_sewer_service_area?: boolean | null
+          in_water_service_area?: boolean | null
+          interchange_drive_min?: number | null
+          interchange_mi?: number | null
+          nearest_powered_parcel_ft?: number | null
+          on_truck_route?: boolean | null
+          parcel_depth_ft?: number | null
+          parcel_width_ft?: number | null
+          pct_floodway?: number | null
+          pct_sfha?: number | null
+          property_id: string
+          rectangularity?: number | null
+          road_frontage_ft?: number | null
+          score_breakdown?: Json | null
+          score_version?: string | null
+          scored_at?: string | null
+          sewer_force_dist_ft?: number | null
+          sewer_gravity_dist_ft?: number | null
+          sewer_provider?: string | null
+          slope_mean_pct?: number | null
+          source_status?: Json
+          substation_dist_ft?: number | null
+          suitability_score?: number | null
+          transmission_kv?: number | null
+          transmission_line_dist_ft?: number | null
+          updated_at?: string
+          water_main_diameter_in?: number | null
+          water_main_dist_ft?: number | null
+          water_provider?: string | null
+          wetlands_pct?: number | null
+        }
+        Update: {
+          broadband_fiber?: boolean | null
+          broadband_max_down_mbps?: number | null
+          broadband_provider_count?: number | null
+          created_at?: string
+          csx_mainline_mi?: number | null
+          drainage_class?: string | null
+          electric_provider?: string | null
+          fema_flood_zone?: string | null
+          flu_code?: string | null
+          flu_description?: string | null
+          flu_jurisdiction?: string | null
+          frontage_aadt?: number | null
+          frontage_road_name?: string | null
+          gas_operator?: string | null
+          gas_transmission_dist_ft?: number | null
+          hydric_soils_pct?: number | null
+          in_sewer_service_area?: boolean | null
+          in_water_service_area?: boolean | null
+          interchange_drive_min?: number | null
+          interchange_mi?: number | null
+          nearest_powered_parcel_ft?: number | null
+          on_truck_route?: boolean | null
+          parcel_depth_ft?: number | null
+          parcel_width_ft?: number | null
+          pct_floodway?: number | null
+          pct_sfha?: number | null
+          property_id?: string
+          rectangularity?: number | null
+          road_frontage_ft?: number | null
+          score_breakdown?: Json | null
+          score_version?: string | null
+          scored_at?: string | null
+          sewer_force_dist_ft?: number | null
+          sewer_gravity_dist_ft?: number | null
+          sewer_provider?: string | null
+          slope_mean_pct?: number | null
+          source_status?: Json
+          substation_dist_ft?: number | null
+          suitability_score?: number | null
+          transmission_kv?: number | null
+          transmission_line_dist_ft?: number | null
+          updated_at?: string
+          water_main_diameter_in?: number | null
+          water_main_dist_ft?: number | null
+          water_provider?: string | null
+          wetlands_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcel_enrichment_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_enrichment_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_enrichment_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_enrichment_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
       phone_scrubs: {
         Row: {
           created_at: string
@@ -3952,10 +2378,12 @@ export type Database = {
           gross_sf: number | null
           heated_sf: number | null
           id: string
+          in_land_book: boolean
           is_condo_unit: boolean
           just_value: number | null
           land_acres: number | null
           land_just_value: number | null
+          land_only: boolean
           land_value_share: number | null
           last_sale_date: string | null
           last_sale_price: number | null
@@ -3963,6 +2391,7 @@ export type Database = {
           lat: number | null
           listing_status: Database["public"]["Enums"]["listing_market_status"]
           lng: number | null
+          loopnet_property_id: number | null
           lowlands_acres_county: number | null
           net_usable_acres: number | null
           num_units: number | null
@@ -4035,10 +2464,12 @@ export type Database = {
           gross_sf?: number | null
           heated_sf?: number | null
           id?: string
+          in_land_book?: boolean
           is_condo_unit?: boolean
           just_value?: number | null
           land_acres?: number | null
           land_just_value?: number | null
+          land_only?: boolean
           land_value_share?: number | null
           last_sale_date?: string | null
           last_sale_price?: number | null
@@ -4046,6 +2477,7 @@ export type Database = {
           lat?: number | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
           lng?: number | null
+          loopnet_property_id?: number | null
           lowlands_acres_county?: number | null
           net_usable_acres?: number | null
           num_units?: number | null
@@ -4118,10 +2550,12 @@ export type Database = {
           gross_sf?: number | null
           heated_sf?: number | null
           id?: string
+          in_land_book?: boolean
           is_condo_unit?: boolean
           just_value?: number | null
           land_acres?: number | null
           land_just_value?: number | null
+          land_only?: boolean
           land_value_share?: number | null
           last_sale_date?: string | null
           last_sale_price?: number | null
@@ -4129,6 +2563,7 @@ export type Database = {
           lat?: number | null
           listing_status?: Database["public"]["Enums"]["listing_market_status"]
           lng?: number | null
+          loopnet_property_id?: number | null
           lowlands_acres_county?: number | null
           net_usable_acres?: number | null
           num_units?: number | null
@@ -4181,6 +2616,101 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_market_position: {
+        Row: {
+          asking_rate_psf: number | null
+          county: string | null
+          good_land_deal: boolean | null
+          good_lease_deal: boolean | null
+          good_sale_deal: boolean | null
+          id: string
+          land_baseline_median: number | null
+          land_baseline_n: number | null
+          land_per_acre: number | null
+          land_vs_market_pct: number | null
+          lease_baseline_median: number | null
+          lease_baseline_n: number | null
+          lease_vs_market_pct: number | null
+          property_type: string | null
+          refreshed_at: string
+          sale_baseline_median: number | null
+          sale_baseline_n: number | null
+          sale_psf: number | null
+          sale_vs_market_pct: number | null
+        }
+        Insert: {
+          asking_rate_psf?: number | null
+          county?: string | null
+          good_land_deal?: boolean | null
+          good_lease_deal?: boolean | null
+          good_sale_deal?: boolean | null
+          id: string
+          land_baseline_median?: number | null
+          land_baseline_n?: number | null
+          land_per_acre?: number | null
+          land_vs_market_pct?: number | null
+          lease_baseline_median?: number | null
+          lease_baseline_n?: number | null
+          lease_vs_market_pct?: number | null
+          property_type?: string | null
+          refreshed_at?: string
+          sale_baseline_median?: number | null
+          sale_baseline_n?: number | null
+          sale_psf?: number | null
+          sale_vs_market_pct?: number | null
+        }
+        Update: {
+          asking_rate_psf?: number | null
+          county?: string | null
+          good_land_deal?: boolean | null
+          good_lease_deal?: boolean | null
+          good_sale_deal?: boolean | null
+          id?: string
+          land_baseline_median?: number | null
+          land_baseline_n?: number | null
+          land_per_acre?: number | null
+          land_vs_market_pct?: number | null
+          lease_baseline_median?: number | null
+          lease_baseline_n?: number | null
+          lease_vs_market_pct?: number | null
+          property_type?: string | null
+          refreshed_at?: string
+          sale_baseline_median?: number | null
+          sale_baseline_n?: number | null
+          sale_psf?: number | null
+          sale_vs_market_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_market_position_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_market_position_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_market_position_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_market_position_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -4616,6 +3146,60 @@ export type Database = {
           id?: boolean
           last_run_at?: string | null
           last_seen_count?: number | null
+        }
+        Relationships: []
+      }
+      sweep_runs: {
+        Row: {
+          actor_id: string | null
+          county: string | null
+          created_at: string
+          deal_type: string | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          imported: number | null
+          item_count: number | null
+          property_type: string | null
+          run_id: string | null
+          source: string
+          start_url: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          actor_id?: string | null
+          county?: string | null
+          created_at?: string
+          deal_type?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          imported?: number | null
+          item_count?: number | null
+          property_type?: string | null
+          run_id?: string | null
+          source?: string
+          start_url?: string | null
+          started_at?: string | null
+          status: string
+        }
+        Update: {
+          actor_id?: string | null
+          county?: string | null
+          created_at?: string
+          deal_type?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          imported?: number | null
+          item_count?: number | null
+          property_type?: string | null
+          run_id?: string | null
+          source?: string
+          start_url?: string | null
+          started_at?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -5344,8 +3928,10 @@ export type Database = {
           folio: string | null
           gross_sf: number | null
           id: string | null
+          in_land_book: boolean | null
           is_condo_unit: boolean | null
           land_acres: number | null
+          land_only: boolean | null
           last_sale_date: string | null
           last_sale_price: number | null
           lat: number | null
@@ -5540,15 +4126,28 @@ export type Database = {
         }
         Relationships: []
       }
+      v_sweep_actor_health: {
+        Row: {
+          day: string | null
+          delivered: number | null
+          items: number | null
+          last_error: string | null
+          pct_delivered: number | null
+          runs: number | null
+          source: string | null
+        }
+        Relationships: []
+      }
       v_sweep_coverage: {
         Row: {
           county: string | null
-          fresh_today: boolean | null
+          fresh_now: boolean | null
           hours_since_sweep: number | null
           last_sweep_at: string | null
           never_seen: number | null
           on_market: number | null
-          seen_le_2d: number | null
+          property_type: string | null
+          seen_le_3d: number | null
           seen_le_7d: number | null
           seen_today: number | null
           stale_gt_7d: number | null
@@ -5562,6 +4161,19 @@ export type Database = {
           ingested_at: string | null
           items: number | null
           land: number | null
+        }
+        Relationships: []
+      }
+      v_sweep_runs_today: {
+        Row: {
+          county: string | null
+          failed: number | null
+          imported: number | null
+          items: number | null
+          last_error: string | null
+          last_finished_at: string | null
+          runs: number | null
+          succeeded: number | null
         }
         Relationships: []
       }
@@ -5737,6 +4349,7 @@ export type Database = {
         Args: { p_intake_id: string; p_reason?: string }
         Returns: Json
       }
+      dor_class: { Args: { p_code: string }; Returns: number }
       email_audience_build: { Args: { p: Json }; Returns: Json }
       email_audience_property_merge: {
         Args: {
@@ -5818,6 +4431,7 @@ export type Database = {
         }[]
       }
       ghl_touch_verified_contact: { Args: { p: Json }; Returns: string }
+      ghl_verified_drift: { Args: { p: Json }; Returns: Json }
       ghl_verify_owner: { Args: { p: Json }; Returns: Json }
       import_county_building_data: { Args: { p: Json }; Returns: Json }
       import_county_lowlands: { Args: { p: Json }; Returns: Json }
@@ -5836,6 +4450,7 @@ export type Database = {
       import_lease_comps: { Args: { p: Json }; Returns: Json }
       import_outreach_targets: { Args: { p: Json }; Returns: Json }
       import_owner_addresses: { Args: { p: Json }; Returns: Json }
+      import_parcel_enrichment: { Args: { p: Json }; Returns: Json }
       import_scraped_listings: {
         Args: { p_client_id?: string; p_flagged_new?: boolean; p_props: Json }
         Returns: Json
@@ -5858,6 +4473,7 @@ export type Database = {
       is_va: { Args: never; Returns: boolean }
       map_properties: {
         Args: {
+          p_book?: string
           p_limit?: number
           p_max_lat: number
           p_max_lng: number
@@ -5960,6 +4576,8 @@ export type Database = {
       record_text_send_result: { Args: { p: Json }; Returns: Json }
       refresh_condo_units: { Args: never; Returns: number }
       refresh_derived_property_tags: { Args: never; Returns: Json }
+      refresh_land_book: { Args: never; Returns: Json }
+      refresh_property_market_position: { Args: never; Returns: number }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
       scrub_candidates: { Args: { p_limit?: number }; Returns: Json[] }
       search_contacts: {
@@ -5983,7 +4601,7 @@ export type Database = {
         }[]
       }
       search_map_properties: {
-        Args: { p_limit?: number; p_query: string }
+        Args: { p_book?: string; p_limit?: number; p_query: string }
         Returns: {
           owner_ctx: Json
           property: Json
@@ -6012,8 +4630,26 @@ export type Database = {
         Returns: Json
       }
       sweep_finalize_off_market: {
-        Args: { p_counties?: string[] }
+        Args: { p_counties?: string[]; p_fresh_within_days?: number }
         Returns: Json
+      }
+      sweep_log_run: {
+        Args: {
+          p_actor_id?: string
+          p_county?: string
+          p_deal_type?: string
+          p_error?: string
+          p_finished_at?: string
+          p_imported?: number
+          p_item_count?: number
+          p_property_type?: string
+          p_run_id: string
+          p_source?: string
+          p_start_url?: string
+          p_started_at?: string
+          p_status: string
+        }
+        Returns: string
       }
       sweep_mark_off_market: {
         Args: { p_seen_property_ids: string[] }

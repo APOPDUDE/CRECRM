@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { PropertyWithCounts } from '@/hooks/use-properties'
+import type { PropertyBook, PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 
 /**
@@ -103,7 +103,11 @@ function unpack(rows: MapRow[]): MapPropertiesResult {
  * and all — in one round trip. Pins are therefore no longer opt-in: zoom anywhere and the
  * properties there are on screen and clickable, with no search to type first.
  */
-export function useMapProperties(viewport: MapViewport | null, enabled = true) {
+export function useMapProperties(
+  viewport: MapViewport | null,
+  enabled = true,
+  book: PropertyBook = 'all',
+) {
   const box = useMemo(
     () => (viewport ? snapBox(viewport) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,7 +115,7 @@ export function useMapProperties(viewport: MapViewport | null, enabled = true) {
   )
 
   const query = useQuery({
-    queryKey: ['map-properties', box],
+    queryKey: ['map-properties', book, box],
     enabled: enabled && box != null,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -125,6 +129,8 @@ export function useMapProperties(viewport: MapViewport | null, enabled = true) {
         p_max_lat: box!.north,
         p_max_lng: box!.east,
         p_limit: MAP_VIEWPORT_LIMIT,
+        // 'all' asks the legacy question (no book filter) — the RPC treats null that way
+        p_book: book === 'all' ? undefined : book,
       })
       if (error) throw error
       return unpack((data ?? []) as MapRow[])
@@ -157,10 +163,10 @@ export const MAP_SEARCH_LIMIT = 1000
  * here would quietly drop every hit that came from a name or a parcel number — none of
  * which are in the browser's haystack.
  */
-export function useMapSearch(query: string, enabled = true) {
+export function useMapSearch(query: string, enabled = true, book: PropertyBook = 'all') {
   const q = query.trim()
   const result = useQuery({
-    queryKey: ['map-search', q],
+    queryKey: ['map-search', book, q],
     enabled: enabled && q.length > 0,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -169,6 +175,7 @@ export function useMapSearch(query: string, enabled = true) {
       const { data, error } = await supabase.rpc('search_map_properties', {
         p_query: q,
         p_limit: MAP_SEARCH_LIMIT,
+        p_book: book === 'all' ? undefined : book,
       })
       if (error) throw error
       return unpack((data ?? []) as MapRow[])
