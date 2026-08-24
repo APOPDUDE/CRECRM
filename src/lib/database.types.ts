@@ -4683,6 +4683,19 @@ export type Database = {
       }
       va_thread_context: { Args: { p_phone: string }; Returns: Json }
       va_wrong_person: { Args: { p_phone: string }; Returns: Json }
+      warroom_counts: {
+        Args: { p_filters: Json }
+        Returns: { total: number; condo_hidden: number }[]
+      }
+      warroom_ids: {
+        Args: { p_cap?: number; p_filters: Json }
+        Returns: { id: string }[]
+      }
+      warroom_page: {
+        Args: { p_filters: Json; p_limit?: number; p_offset?: number }
+        Returns: { owner_ctx: Json; property: Json }[]
+      }
+      warroom_predicate: { Args: { p_filters: Json }; Returns: Json }
       weighted_percentile: {
         Args: { p_p: number; p_vals: number[]; p_wts: number[] }
         Returns: number
