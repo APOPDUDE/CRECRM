@@ -76,13 +76,21 @@ begin
     from dims
     where side_a > 0 and side_b > 0
   ),
+  keep as (
+    -- Amended 2026-08-23: guard AFTER rounding, not before. The whole-book sweep
+    -- died on one parcel whose oriented MBR is 8.3 ft by under two hundredths of
+    -- a metre — side_b > 0 passed, the width rounded to 0.0 at numeric(10,1),
+    -- and parcel_width_ft's check is > 0. Degenerate geometry like that is a
+    -- mapping artifact, not a site, so it is skipped rather than clamped.
+    select * from calc where width_ft > 0 and depth_ft > 0
+  ),
   up as (
     insert into parcel_enrichment as pe (property_id, parcel_depth_ft, parcel_width_ft,
                                          rectangularity, source_status)
     select c.property_id, c.depth_ft, c.width_ft, c.rect,
            jsonb_build_object('geometry', jsonb_build_object(
              'status', 'ok', 'as_of', now(), 'detail', 'oriented MBR from gis.parcels'))
-    from calc c
+    from keep c
     on conflict (property_id) do update
       set parcel_depth_ft = excluded.parcel_depth_ft,
           parcel_width_ft = excluded.parcel_width_ft,

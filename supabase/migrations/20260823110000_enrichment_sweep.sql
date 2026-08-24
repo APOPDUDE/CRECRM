@@ -23,34 +23,74 @@ as $$
 declare
   r int := 0;
   n int;
+  errs jsonb := '{}'::jsonb;
+  -- One degenerate parcel took down a whole sweep once. The root cause is fixed,
+  -- but a sweep that runs unattended over ~97k parcels should not be one bad row
+  -- away from doing nothing: a failing enricher is switched off for the rest of
+  -- the call and the other four keep going. The error text rides back in the
+  -- result, so a silent half-sweep is impossible.
+  ok_geom bool := true; ok_pwr bool := true; ok_ele bool := true;
+  ok_gas bool := true; ok_road bool := true;
 begin
   -- Counting progress inside the loop would mean five full scans of
   -- parcel_enrichment per round; the tallies are taken once, at the end.
   loop
     r := r + 1;
-    n := coalesce((enrich_parcel_geometry(null, p_batch)->>'written')::int, 0)
-       + coalesce((enrich_power_proximity(null, p_batch)->>'written')::int, 0)
-       + coalesce((enrich_electric(null, p_batch)->>'written')::int, 0)
-       + coalesce((enrich_gas(null, p_batch)->>'written')::int, 0)
-       + coalesce((enrich_roads(null, p_batch)->>'written')::int, 0);
+    n := 0;
+
+    if ok_geom then
+      begin n := n + coalesce((enrich_parcel_geometry(null, p_batch)->>'written')::int, 0);
+      exception when others then
+        ok_geom := false; errs := errs || jsonb_build_object('geometry', sqlerrm); end;
+    end if;
+
+    if ok_pwr then
+      begin n := n + coalesce((enrich_power_proximity(null, p_batch)->>'written')::int, 0);
+      exception when others then
+        ok_pwr := false; errs := errs || jsonb_build_object('power_nearby', sqlerrm); end;
+    end if;
+
+    if ok_ele then
+      begin n := n + coalesce((enrich_electric(null, p_batch)->>'written')::int, 0);
+      exception when others then
+        ok_ele := false; errs := errs || jsonb_build_object('electric', sqlerrm); end;
+    end if;
+
+    if ok_gas then
+      begin n := n + coalesce((enrich_gas(null, p_batch)->>'written')::int, 0);
+      exception when others then
+        ok_gas := false; errs := errs || jsonb_build_object('gas', sqlerrm); end;
+    end if;
+
+    if ok_road then
+      begin n := n + coalesce((enrich_roads(null, p_batch)->>'written')::int, 0);
+      exception when others then
+        ok_road := false; errs := errs || jsonb_build_object('roads', sqlerrm); end;
+    end if;
+
     exit when n = 0 or r >= p_max_rounds;
   end loop;
 
   -- score last, once the factors for this pass are in place
-  loop
-    n := coalesce((score_parcels(null, p_batch)->>'scored')::int, 0);
-    exit when n = 0;
-  end loop;
+  begin
+    loop
+      n := coalesce((score_parcels(null, p_batch)->>'scored')::int, 0);
+      exit when n = 0;
+    end loop;
+  exception when others then
+    errs := errs || jsonb_build_object('score', sqlerrm);
+  end;
 
   return jsonb_build_object(
     'rounds', r,
+    'errors', errs,
     'geometry',     (select count(*) from parcel_enrichment where parcel_width_ft is not null),
     'power_nearby', (select count(*) from parcel_enrichment where nearest_powered_parcel_ft is not null),
     'electric',     (select count(*) from parcel_enrichment where substation_dist_ft is not null),
     'gas',          (select count(*) from parcel_enrichment where gas_transmission_dist_ft is not null),
     'roads',        (select count(*) from parcel_enrichment where interchange_mi is not null),
-    'scored', (select count(*) from parcel_enrichment where scored_at is not null),
-    'published', (select count(*) from parcel_enrichment where suitability_score is not null));
+    'scored',       (select count(*) from parcel_enrichment where scored_at is not null),
+    'published',    (select count(*) from parcel_enrichment where suitability_score is not null));
 end $$;
 
 comment on function enrich_sweep(int, int) is
@@ -75,7 +115,7 @@ grant execute on function enrich_sweep(int, int) to service_role, authenticated;
 --       if exists (select 1 from gis.parcels gp
 --                  left join parcel_enrichment pe on pe.property_id = gp.property_id
 --                  where pe.interchange_mi is null limit 1) then
---         perform enrich_sweep(1000, 500);
+--         perform enrich_sweep(1000, 15);   -- bounded so each tick COMMITS
 --       else
 --         perform cron.unschedule('enrich_sweep_once');
 --       end if;
