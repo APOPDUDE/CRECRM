@@ -53,6 +53,23 @@ yet reliable enough to carry a sweep. Some of that may be self-inflicted: eight 
 were fired within a 40-minute window, and this actor family visibly throttles under exactly that
 pattern (it is why the azzouzana sweep staggers 5 minutes between runs).
 
+## Key ordering is not the cause either — ruled out by test
+
+The two inputs carry identical data but genuinely different JSON key order (same 548 bytes,
+different md5). Worth testing properly, because the first check compared *parsed dicts*, which
+discards ordering before the comparison — it could not have detected this. And at that point
+every success had used one ordering and every failure the other.
+
+Byte-exact orderings, interleaved 4 minutes apart so timing cannot confound:
+
+| ordering | delivered |
+|---|---|
+| the one from the successful run | **0 of 3** |
+| the one from the failing runs | **0 of 3** |
+
+All six `403 hard-block`. Ordering is not the variable — as expected mechanically, since Apify
+parses the JSON and the actor reads fields by name. **1 delivered of 18 runs on build 0.0.285.**
+
 ## `moreResults` is not the cause — ruled out by test
 
 Our saved tasks send `moreResults: true`; Alex's manual input sent `false`. That was the only
