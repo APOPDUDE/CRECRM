@@ -54,13 +54,22 @@ const LAYERS: Record<string, Layer> = {
     page: 200,
     offsetDeg: 0.0002,
   },
+  // NWI is a JOINED layer (Wetlands + NWI_Wetland_Codes), which is why every
+  // field is prefixed and why the service reports no objectIdField of its own.
+  // Two consequences, both learned the hard way: an AOI-wide query just answers
+  // "Failed to execute query" (261,775 features is past what it will plan), and
+  // the OID has to be asked for by its joined name. So this layer is harvested
+  // TILE BY TILE — pass a bbox in the request body — and keyed on the real
+  // Wetlands.OBJECTID so features straddling a tile edge upsert instead of
+  // duplicating.
   nwi_wetlands: {
     url: "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/0",
     county: null,
     where: "1=1",
-    outFields: "Wetlands.ATTRIBUTE,Wetlands.WETLAND_TYPE,Wetlands.ACRES",
+    outFields: "Wetlands.OBJECTID,Wetlands.ATTRIBUTE,Wetlands.WETLAND_TYPE,Wetlands.ACRES",
     clip: true,
-    page: 200,
+    page: 500,
+    oid: "Wetlands.OBJECTID",
     offsetDeg: 0.0002,
   },
   // polk_water_service (Map_Utilities_Service_Area/3) was tested and REMOVED:
@@ -255,7 +264,12 @@ Deno.serve(async (req) => {
   // pages; ordering by the OID makes the walk deterministic.
   if (cfg.oid) params.orderByFields = cfg.oid;
   if (cfg.clip) {
-    params.geometry = `${AOI.xmin},${AOI.ymin},${AOI.xmax},${AOI.ymax}`;
+    // A caller may narrow the envelope to one tile: some services cannot plan a
+    // query over the whole AOI at all (see nwi_wetlands).
+    const bbox = typeof body.bbox === "string" && /^[-\d.,]+$/.test(body.bbox)
+      ? body.bbox
+      : `${AOI.xmin},${AOI.ymin},${AOI.xmax},${AOI.ymax}`;
+    params.geometry = bbox;
     params.geometryType = "esriGeometryEnvelope";
     params.inSR = "4326";
     params.spatialRel = "esriSpatialRelIntersects";
