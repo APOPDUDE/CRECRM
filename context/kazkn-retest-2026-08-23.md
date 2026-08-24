@@ -28,9 +28,30 @@ That is the lane that had been returning `403 [hard-block]` on all 8 attempts si
 the author did fix something real.
 
 **But it is a coin flip.** Five minutes after that success, on the same URL and the same build,
-three runs of mine failed with `impit attempt 1..8 → 403 [hard-block]` and then both paid
+run after run of mine failed with `impit attempt 1..8 → 403 [hard-block]` and then both paid
 backups down. Same pattern as the original outage — the difference is that the free lane now
 *sometimes* wins instead of never.
+
+## The tally on the fixed build (0.0.285)
+
+Every run against it so far, ours and Alex's:
+
+| time (UTC) | what | input | result |
+|---|---|---|---|
+| 11:00 | Polk task | `moreResults: true` | FAILED, 0 |
+| 11:12 | restaurants task | `moreResults: true` | FAILED, 0 |
+| 19:02 | Hillsborough task | `moreResults: true` | FAILED, 0 |
+| 19:02 | restaurants task | `moreResults: true` | FAILED, 0 |
+| **01:21** | **Alex, console** | `moreResults: false` | **SUCCEEDED, 26 items, `impit → 200 [ok]`** |
+| 01:26 | mine, direct | `false` | FAILED, 0 |
+| 01:30 | mine, direct | `true` | FAILED, 0 |
+| 01:33 | mine, direct | `false` | FAILED, 0 |
+| 01:37 | mine, direct | `false` | FAILED, 0, `403 hard-block` |
+
+**1 of 9.** The lane is demonstrably alive — one clean 200 on the first attempt — but it is not
+yet reliable enough to carry a sweep. Some of that may be self-inflicted: eight of those nine
+were fired within a 40-minute window, and this actor family visibly throttles under exactly that
+pattern (it is why the azzouzana sweep staggers 5 minutes between runs).
 
 ## `moreResults` is not the cause — ruled out by test
 
