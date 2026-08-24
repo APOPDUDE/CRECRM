@@ -98,6 +98,11 @@ export function MapFilterRail(props: {
   onClearShape: () => void
   /** Reset EVERY rail filter (and the shape) to defaults — one tap back to the whole book. */
   onClearAll: () => void
+  /** Staged edits waiting to run. The rail's controls edit a pending overlay in the
+   *  parent; nothing recomputes until Apply flushes it in one shot (Alex 2026-08-24:
+   *  per-change recompute over the 100k-row land book is what made filtering slow). */
+  dirty: boolean
+  onApply: () => void
   // the only standard filters (Alex): sqft + acres
   sfMin: string
   sfMax: string
@@ -599,6 +604,15 @@ export function MapFilterRail(props: {
         )}
       </div>
 
+      {/* Sticky so it's reachable from anywhere in a long rail. Rendered only when
+          something is staged — an always-on Apply reads as one more required step. */}
+      {p.dirty && (
+        <div className="sticky bottom-0 -mx-1 border-t bg-background/95 px-1 pb-1 pt-2 backdrop-blur">
+          <Button size="sm" className="w-full" onClick={p.onApply}>
+            Apply filters
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

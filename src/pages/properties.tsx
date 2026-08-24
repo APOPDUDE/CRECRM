@@ -336,6 +336,12 @@ export function PropertiesPage() {
   // tampered/legacy stored value that isn't a string would crash searchTokens.
   const [searchRaw, setSearch] = usePersistentState('properties:search', '')
   const search = typeof searchRaw === 'string' ? searchRaw : ''
+  // What's in the box vs what's being searched. Typing no longer queries — Postgres
+  // answered every keystroke pause and the map redrew each time, which is why search
+  // felt slow (Alex 2026-08-24). Enter or the Search button commits; deep links and
+  // the clear button write `search` directly and the effect keeps the box honest.
+  const [searchInput, setSearchInput] = useState(search)
+  useEffect(() => setSearchInput(search), [search])
   // Filters + column choice persist across navigation (sticky) so returning from a
   // property detail keeps the list exactly as it was.
   const [status, setStatus] = usePersistentState('properties:status', 'all')
@@ -1337,6 +1343,38 @@ export function PropertiesPage() {
     setSoldYears(''); setIncludeNoSale(true)
   }
 
+  /**
+   * Rail edits STAGE here and land in one shot on Apply (Alex 2026-08-24: every
+   * change was recomputing the whole 100k-row book, so dragging three filters cost
+   * three recomputes). The rail's controls read through `staged` so they respond
+   * instantly; everything expensive — the book fetch, the client-side filter pass,
+   * the map — keeps reading the applied state until Apply flushes the overlay.
+   */
+  const [pendingFilters, setPendingFilters] = useState<Record<string, unknown>>({})
+  const staged = <T,>(k: string, live: T): T =>
+    k in pendingFilters ? (pendingFilters[k] as T) : live
+  const stage = (k: string) => (v: unknown) =>
+    setPendingFilters((prev) => ({ ...prev, [k]: v }))
+  const filtersDirty = Object.keys(pendingFilters).length > 0
+  const FILTER_SETTERS: Record<string, (v: never) => void> = {
+    tagFilter: setTagFilter, sfMin: setSfMin, sfMax: setSfMax, acMin: setAcMin,
+    acMax: setAcMax, scoreMin: setScoreMin, status: setStatus, dealType: setDealType,
+    psfMin: setPsfMin, psfMax: setPsfMax, priceMin: setPriceMin, priceMax: setPriceMax,
+    includeUnpriced: setIncludeUnpriced, ownerFilter: setOwnerFilter,
+    channels: setChannels, activity: setActivity, searchLeases: setSearchLeases,
+    leaseMin: setLeaseMin, leaseMax: setLeaseMax, leaseMonth: setLeaseMonth,
+    signMin: setSignMin, signMax: setSignMax, leaseSfMin: setLeaseSfMin,
+    leaseSfMax: setLeaseSfMax, dmFilter: setDmFilter, dorSel: setDorSel,
+    includeCondos: setIncludeCondos, ownerOccMode: setOwnerOccMode,
+    soldYears: setSoldYears, includeNoSale: setIncludeNoSale,
+  }
+  const applyFilters = () => {
+    // React batches these into one render, so N staged edits cost one recompute.
+    for (const [k, v] of Object.entries(pendingFilters)) FILTER_SETTERS[k]?.(v as never)
+    setPendingFilters({})
+    setPage(0)
+  }
+
   // One rail, two surfaces: the desktop aside and the phone bottom-sheet render the
   // same element, so they can never disagree about what a filter means.
   const railContent = (
@@ -1349,36 +1387,38 @@ export function PropertiesPage() {
       onUndoVertex={() => setDraft((d) => (d && d.length > 0 ? d.slice(0, -1) : d))}
       onCancelDraw={() => setDraft(null)}
       onClearShape={() => setPolygon(null)}
-      onClearAll={clearAllFilters}
-      tagFilter={tagFilter}
-      onTagFilter={setTagFilter}
+      onClearAll={() => { setPendingFilters({}); clearAllFilters() }}
+      dirty={filtersDirty}
+      onApply={applyFilters}
+      tagFilter={staged('tagFilter', tagFilter)}
+      onTagFilter={stage('tagFilter')}
       tagsLoading={tagsLoading}
-      sfMin={sfMin} sfMax={sfMax} onSfMin={setSfMin} onSfMax={setSfMax}
-      acMin={acMin} acMax={acMax} onAcMin={setAcMin} onAcMax={setAcMax}
-      scoreMin={scoreMin} onScoreMin={setScoreMin}
-      status={status} onStatus={setStatus}
-      dealType={dealType} onDealType={setDealType}
-      psfMin={psfMin} psfMax={psfMax} onPsfMin={setPsfMin} onPsfMax={setPsfMax}
-      priceMin={priceMin} priceMax={priceMax} onPriceMin={setPriceMin} onPriceMax={setPriceMax}
-      includeUnpriced={includeUnpriced} onIncludeUnpriced={setIncludeUnpriced}
-      ownerFilter={ownerFilter}
-      onOwnerFilter={setOwnerFilter}
-      channels={channels} onChannels={setChannels}
-      activity={activity} onActivity={setActivity}
+      sfMin={staged('sfMin', sfMin)} sfMax={staged('sfMax', sfMax)} onSfMin={stage('sfMin')} onSfMax={stage('sfMax')}
+      acMin={staged('acMin', acMin)} acMax={staged('acMax', acMax)} onAcMin={stage('acMin')} onAcMax={stage('acMax')}
+      scoreMin={staged('scoreMin', scoreMin)} onScoreMin={stage('scoreMin')}
+      status={staged('status', status)} onStatus={stage('status')}
+      dealType={staged('dealType', dealType)} onDealType={stage('dealType')}
+      psfMin={staged('psfMin', psfMin)} psfMax={staged('psfMax', psfMax)} onPsfMin={stage('psfMin')} onPsfMax={stage('psfMax')}
+      priceMin={staged('priceMin', priceMin)} priceMax={staged('priceMax', priceMax)} onPriceMin={stage('priceMin')} onPriceMax={stage('priceMax')}
+      includeUnpriced={staged('includeUnpriced', includeUnpriced)} onIncludeUnpriced={stage('includeUnpriced')}
+      ownerFilter={staged('ownerFilter', ownerFilter)}
+      onOwnerFilter={stage('ownerFilter')}
+      channels={staged('channels', channels)} onChannels={stage('channels')}
+      activity={staged('activity', activity)} onActivity={stage('activity')}
       pushCount={pushable.length}
       onPush={() => setPushOpen(true)}
       onMessage={() => setOwnerMsgOpen(true)}
-      searchLeases={searchLeases} onSearchLeases={setSearchLeases}
-      leaseMin={leaseMin} leaseMax={leaseMax} onLeaseMin={setLeaseMin} onLeaseMax={setLeaseMax}
-      leaseMonth={leaseMonth} onLeaseMonth={setLeaseMonth}
-      signMin={signMin} signMax={signMax} onSignMin={setSignMin} onSignMax={setSignMax}
-      leaseSfMin={leaseSfMin} leaseSfMax={leaseSfMax} onLeaseSfMin={setLeaseSfMin} onLeaseSfMax={setLeaseSfMax}
-      dmFilter={dmFilter} onDmFilter={setDmFilter}
-      dorSel={dorSel} onDorSel={setDorSel}
-      includeCondos={includeCondos} onIncludeCondos={setIncludeCondos}
-      ownerOccMode={ownerOccMode} onOwnerOccMode={setOwnerOccMode}
-      soldYears={soldYears} onSoldYears={setSoldYears}
-      includeNoSale={includeNoSale} onIncludeNoSale={setIncludeNoSale}
+      searchLeases={staged('searchLeases', searchLeases)} onSearchLeases={stage('searchLeases')}
+      leaseMin={staged('leaseMin', leaseMin)} leaseMax={staged('leaseMax', leaseMax)} onLeaseMin={stage('leaseMin')} onLeaseMax={stage('leaseMax')}
+      leaseMonth={staged('leaseMonth', leaseMonth)} onLeaseMonth={stage('leaseMonth')}
+      signMin={staged('signMin', signMin)} signMax={staged('signMax', signMax)} onSignMin={stage('signMin')} onSignMax={stage('signMax')}
+      leaseSfMin={staged('leaseSfMin', leaseSfMin)} leaseSfMax={staged('leaseSfMax', leaseSfMax)} onLeaseSfMin={stage('leaseSfMin')} onLeaseSfMax={stage('leaseSfMax')}
+      dmFilter={staged('dmFilter', dmFilter)} onDmFilter={stage('dmFilter')}
+      dorSel={staged('dorSel', dorSel)} onDorSel={stage('dorSel')}
+      includeCondos={staged('includeCondos', includeCondos)} onIncludeCondos={stage('includeCondos')}
+      ownerOccMode={staged('ownerOccMode', ownerOccMode)} onOwnerOccMode={stage('ownerOccMode')}
+      soldYears={staged('soldYears', soldYears)} onSoldYears={stage('soldYears')}
+      includeNoSale={staged('includeNoSale', includeNoSale)} onIncludeNoSale={stage('includeNoSale')}
       condoHidden={condoHidden}
       overlays={overlays} onOverlays={setOverlays}
       onOverlayIncludeOn={() => setWantsBook(true)}
@@ -1448,9 +1488,9 @@ export function PropertiesPage() {
               size="sm"
               className="rounded-none"
               onClick={() => setBookMode('industrial')}
-              title="Industrial book"
+              title="Buildings book — every parcel with a structure"
             >
-              Industrial
+              Buildings
             </Button>
             <Button
               variant={bookMode === 'land' ? 'secondary' : 'ghost'}
@@ -1470,24 +1510,30 @@ export function PropertiesPage() {
             {/* No prefetch on focus any more: typing here is answered by Postgres, so the
                 search box no longer has a book to warm. */}
             <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search properties…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') setSearch(searchInput.trim()) }}
+              placeholder="Search properties… (Enter to search)"
               className="pl-9 pr-8"
             />
             {/* The search is sticky now, so it needs a one-tap way out — without this,
                 yesterday's query silently narrows today's map. */}
-            {search !== '' && (
+            {(search !== '' || searchInput !== '') && (
               <button
                 type="button"
                 title="Clear search"
-                onClick={() => setSearch('')}
+                onClick={() => { setSearch(''); setSearchInput('') }}
                 className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="size-4" />
               </button>
             )}
           </div>
+          {searchInput.trim() !== search.trim() && (
+            <Button size="sm" onClick={() => setSearch(searchInput.trim())}>
+              Search
+            </Button>
+          )}
           <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
             <Button
               variant={view === 'table' ? 'secondary' : 'ghost'}
