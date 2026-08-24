@@ -149,6 +149,34 @@ Two measurement traps hit while establishing this, both mine:
 - **Apify silently capped a `?memory=4096` request at 2048**, so "does more memory help further"
   is untested, not answered.
 
+## memo23 vs azzouzana, measured
+
+If the browser lane proves reliable at county scale, switching back is not just a rollback —
+memo23 returns materially better data, and far cheaper.
+
+| | memo23 (`RuOxoBM1bnc5pQ3TJ`) | azzouzana (`axTRSfSIGjEY0rcwp`) |
+|---|---|---|
+| `address` | **populated** (`712 S Collins St`) | **null on 97.9% of rows** — recovered from the URL slug |
+| land acreage | **in `stats`** (`['.77','AC Lot']`) | **not recoverable** — 636 of our 638 land rows have it |
+| broker | name + **email** + **phone** + company | name + company only |
+| cap rate | **present** (6.22%) | always null |
+| building id | **no** — `propertyId` is the LISTING id (`41300132` = `/Listing/41300132/`) | **yes** — real `propertyId`, distinct from `listingId` |
+| pricing | **compute-based, ~$0.00003–0.0003/item** (~$0.01 per 4-URL county run) | **per result, $0.0009/item** ($0.67 for Hillsborough lease alone) |
+
+**Cost:** a full 7-county x 4-URL sweep is roughly **$0.07 on memo23** against **$3.60–5.40 on
+azzouzana** — 10-30x cheaper, which is what makes running the full scope daily affordable again
+rather than the 2-county, every-3-days compromise the cap forced.
+
+**The one real loss** is `properties.loopnet_property_id`. memo23 has no building id, so the
+re-list dedup added in `20260821160000` has nothing to key on and a re-list mints a new property
+row again. `market_listings` itself still works — it keys on the listing id, which memo23 does
+provide.
+
+**Open coverage question.** Past successful memo23 county runs returned **125–335 items across
+4 URLs**, while azzouzana found **748 for Hillsborough industrial-lease alone**. Either memo23
+paginates less deeply, or LoopNet's 500-per-search cap binds differently. Resolve this before
+switching — a cheaper actor that sees half the market is not a bargain.
+
 ## What the author's email actually explains
 
 Their version fix is real — build `0.0.285` restored the free `impit` lane, which is how Alex's
