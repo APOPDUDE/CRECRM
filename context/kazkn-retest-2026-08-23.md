@@ -129,6 +129,26 @@ To use it: `freeBrowserSearch: true` **and** memory >= 2048 MB (the API takes `?
 tasks carry it in their run options). Trade-off: browser runs take minutes rather than ~30 s and
 cost more per run, so a 748-item county search will be materially slower than azzouzana's.
 
+**Measured, n=3 — a better coin, not a fixed one:**
+
+| config | delivered |
+|---|---|
+| 1024 MB (lane silently off) | **1 of 18** |
+| 2048 MB + `freeBrowserSearch: true` | **2 of 3**, 26/26 listings both times |
+
+Run #1 was carried by camoufox after impit hard-blocked — a zero without the lane. Run #2 was
+carried by impit on its 3rd attempt; the browser was not needed. Run #3 shows the ceiling:
+camoufox warmed **two** fresh sessions and Akamai blocked both, `camoufox could not get past
+Akamai`. So it is a third independent lane that rescues some losses, not a guarantee. n=3 is too
+small for a rate — the canary will produce a real one.
+
+Two measurement traps hit while establishing this, both mine:
+- **Reading `dataset.itemCount` the instant a run goes terminal under-reports.** Run #2 read as
+  `items=2` and was actually 26/26; the counter had not settled. Re-read after the fact. (The
+  WF3 canary is not exposed to this — it reads runs from a completed day.)
+- **Apify silently capped a `?memory=4096` request at 2048**, so "does more memory help further"
+  is untested, not answered.
+
 ## What the author's email actually explains
 
 Their version fix is real — build `0.0.285` restored the free `impit` lane, which is how Alex's
