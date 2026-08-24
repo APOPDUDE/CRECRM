@@ -107,6 +107,9 @@ export function MapFilterRail(props: {
   acMax: string
   onAcMin: (v: string) => void
   onAcMax: (v: string) => void
+  /** Land book only: minimum developer suitability score from the enrichment pass. */
+  scoreMin: string
+  onScoreMin: (v: string) => void
   // On market tri-state + conditional pricing
   status: string
   onStatus: (v: string) => void
@@ -260,6 +263,27 @@ export function MapFilterRail(props: {
         <Label>Acres</Label>
         <MinMax min={p.acMin} max={p.acMax} onMin={p.onAcMin} onMax={p.onAcMax} />
       </div>
+
+      {/* Site score — the enrichment pipeline's 0-100 developer suitability. Land
+          book only: it is scored from parcel polygons, and the industrial book is
+          mostly buildings the pipeline has nothing to say about. A minimum DROPS
+          unscored parcels rather than ranking them last, because "not measured
+          enough to publish a number" is not the same as "scores badly". */}
+      {isLand && (
+        <div className="space-y-1.5">
+          <Label>Site score at least</Label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={100}
+            placeholder="0-100"
+            value={p.scoreMin}
+            onChange={(e) => p.onScoreMin(e.target.value)}
+            className="h-8"
+          />
+        </div>
+      )}
 
       {/* Condo units — the Motor Enclave problem: one address, 236 separately-owned
           bays. Out of every search by default; this is the way back in. Absent from
