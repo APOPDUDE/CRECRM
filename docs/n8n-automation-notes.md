@@ -334,3 +334,52 @@ be $3.60–5.40 per sweep.
 **kazkn stays scheduled as a canary** (~$0.011/failing run). Nothing ingests from it; WF3's
 7:45 ET chain logs each run under `source='kazkn'` and Slacks if any deliver rows.
 `v_sweep_runs_today` filters to `source='loopnet'`; compare actors in `v_sweep_actor_health`.
+
+
+---
+
+## Switched back to memo23 on the browser lane (2026-08-24)
+
+azzouzana was a stopgap while memo23 was blocked. Once the stealth-browser lane was found and
+proved at county scale, memo23 won on every axis that matters.
+
+**Proof it works at scale** — the real county tasks, `freeBrowserSearch: true` + 2048 MB:
+
+| county | items (4 URLs) | lane | cost | time |
+|---|---|---|---|---|
+| Hillsborough | 960 | camoufox | $0.1113 | 16 min |
+| Polk | 246 | camoufox | $0.0496 | 7.6 min |
+
+Mapper verified against that real 960-row dataset: **960 raw → 256 kept** (235 industrial,
+21 land), address 256/256, broker email 247, acreage 67.
+
+**Why memo23 wins**
+
+| | memo23 | azzouzana |
+|---|---|---|
+| address | 960/960 | null on 97.9%, rebuilt from URL slug |
+| land acreage | in `stats` | not recoverable |
+| broker email / phone | 935 / 932 | neither |
+| pricing | compute (~$0.08/county) | per result ($0.67 for one Hillsborough search) |
+| building id | **no** (`propertyId` IS the listing id) | yes |
+
+**Cost:** ~$0.50 per full 6-county sweep, so daily full scope is ~$9.50 to the 12 Sep cycle
+end against $12.75 left. That is what let the scope go back to all 6 counties, daily, instead
+of the 2-county every-3-days compromise the cap had forced.
+
+**The load-bearing setting:** every task carries `freeBrowserSearch: true` **and
+`memoryMbytes: 2048`**. Below 2048 the actor logs *"FREE browser search lane requested but
+DISABLED this run"* and silently falls back to the lane Akamai blocks. That single line is why
+the sweep looked dead for a week.
+
+**Architecture now:** WF3 starts the six saved county tasks directly (staggered 5 min, wait
+25 min — camoufox is slow), maps memo23 placards, imports, stamps, and logs one `sweep_runs`
+row per county. The six **Apify schedules are disabled** — WF3 starts the tasks itself, and
+leaving them on would double-run everything. The restaurants schedule stays on; WF3b owns it
+via its own webhook. The kazkn canary chain is **disabled**: memo23 is the live sweep now, so
+canary-logging the same runs would double-count them in `v_sweep_actor_health`.
+
+**What was given up:** `properties.loopnet_property_id`. memo23's `propertyId` is the listing
+id (`41300132` = `/Listing/41300132/`), so the re-list dedup has nothing to key on and a
+re-list mints a new property row again. `market_listings` is unaffected — it keys on the
+listing id, which memo23 provides.

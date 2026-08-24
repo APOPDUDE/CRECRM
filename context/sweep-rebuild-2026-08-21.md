@@ -1,5 +1,12 @@
 # Sweep rebuilt: market_listings + azzouzana (2026-08-21)
 
+> **SUPERSEDED on the actor, 2026-08-24 — the sweep runs `memo23` again.** The schema half of
+> this file (`market_listings`, `sweep_runs`, the per-(county, property_type) freshness gate)
+> is all still live and correct. Only the scraper changed back, once memo23's stealth-browser
+> lane was proved at county scale. See
+> [`kazkn-retest-2026-08-23.md`](./kazkn-retest-2026-08-23.md) and the switch-over notes in
+> `docs/n8n-automation-notes.md`.
+
 Follows [`apify-sweep-failures-2026-08-21.md`](./apify-sweep-failures-2026-08-21.md) (why the
 old actor died) and [`apify-working-alternative-2026-08-21.md`](./apify-working-alternative-2026-08-21.md)
 (the replacement). This is what shipped, and the four things the earlier passes got wrong.
