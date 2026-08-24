@@ -96,6 +96,53 @@ while scrapingbee returns **HTTP 401 (invalid/expired API key)**. Neither is a q
 Both paid lanes still appear genuinely down — which is why a bad draw on the free lane still
 ends in zero rather than falling back cleanly.
 
+## THE ACTUAL FIX: a third lane, gated behind memory
+
+Neither we nor the saved tasks were ever using the lane that works.
+
+`freeBrowserSearch` (schema: *"Internal fallback for the search step; off by default"*) launches
+a **Camoufox stealth browser**. Set it `true` at 1024 MB and it silently refuses:
+
+```
+[internal-handler] FREE browser search lane requested but DISABLED this run:
+                   memory 1024MB < 2048MB needed for the stealth browser
+```
+
+**All seven saved tasks run at 1024 MB.** So this lane has never once been available to a
+scheduled run — which is why the schedule never recovers even when the actor is capable.
+
+At **2048 MB** with `freeBrowserSearch: true` it engages, and it beats Akamai by rotating
+sessions rather than by paying a provider:
+
+```
+camoufox attempt 1 page 1 → 403 blocked=true  ids=0
+[camoufox-pool] US: warmed a fresh session (seed 2)
+camoufox attempt 2 page 1 → 200 blocked=false ids=25
+camoufox collected 26 listing id(s) across 2 page(s) — enriching (token-free, no unblocker)
+```
+
+`SUCCEEDED, 26 items, $0.0137`. **"no unblocker"** is the important part: it never touches
+scrapedo or scrapingbee, so it is immune to the two paid providers being down — the exact thing
+blocking every other lane.
+
+To use it: `freeBrowserSearch: true` **and** memory >= 2048 MB (the API takes `?memory=2048`;
+tasks carry it in their run options). Trade-off: browser runs take minutes rather than ~30 s and
+cost more per run, so a 748-item county search will be materially slower than azzouzana's.
+
+## What the author's email actually explains
+
+Their version fix is real — build `0.0.285` restored the free `impit` lane, which is how Alex's
+01:21 console run got 26 listings on the first attempt. But `impit` is probabilistic against
+Akamai; what made this actor *reliable* was the two paid fallbacks catching the misses. By the
+author's own email one is quota-limited **until Aug 29**, and our logs show the other is not
+healthy either:
+
+- `scrapingbee returned HTTP 401 (invalid/expired API key)` — a dead key, **not** a quota
+- `scrapedo failed ... (status=502)` while priming with **1,649,501 of 3,500,000 credits left**
+
+So until Aug 29 at the earliest, the paid lanes cannot be relied on — and the browser lane above
+is the only route that doesn't need them.
+
 ## Where this leaves the sweep
 
 No change for now. The live sweep stays on `azzouzana/loopnet-scraper`, which delivered 3 of 4
