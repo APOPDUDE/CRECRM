@@ -5,14 +5,29 @@ polygons for the tracked book, and (phase 2) spatial-joins them into
 `parcel_enrichment` scalars. Architecture and the WHY:
 `context/land-book-parcel-enrichment.md`.
 
-**Where it runs (Alex 2026-08-21: cloud, not my machine):** the cache lives in
-the hosted Supabase DB itself — dedicated `gis` schema, never exposed through
-PostgREST (migration `20260821122000_gis_cache_schema.sql`) — so the compute
-is stateless and runs as the scheduled GitHub Actions workflow
-`.github/workflows/enrichment.yml` (Mondays, or on demand from the Actions
-tab). Arm it by adding three repo Actions secrets: `GIS_PG_DSN` (Supabase
-**session pooler** connection string), `SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`.
+## Read this first: this is NOT the production path any more
+
+**Everything running today runs inside Supabase, with no secrets to manage.**
+The `harvest-gis` edge function fetches each ArcGIS layer server-side and writes
+through the `import_gis_features` / `import_parcel_geoms` RPCs; the spatial
+joins are SQL functions (`enrich_electric`, `enrich_gas`, `enrich_roads`,
+`enrich_flood`, `enrich_wetlands`, `enrich_parcel_geometry`,
+`enrich_power_proximity`) driven to completion by `enrich_sweep` on pg_cron.
+That path needs no `GIS_PG_DSN`, no GitHub Actions secrets, and nothing on
+Alex's machine. See `context/land-book-parcel-enrichment.md` §10.
+
+This Python package is kept for the sources an ArcGIS feature query **cannot**
+serve — NRCS SSURGO soils tables and USGS 3DEP elevation rasters, which need
+real raster/tabular processing rather than a feature endpoint. Until one of
+those is wired up, nothing here has to run, and the GitHub Actions workflow
+below can stay unarmed.
+
+**Where it ran (historical):** the cache lives in the hosted Supabase DB itself
+— dedicated `gis` schema, never exposed through PostgREST (migration
+`20260821122000_gis_cache_schema.sql`). The scheduled workflow
+`.github/workflows/enrichment.yml` (Mondays, or on demand from the Actions tab)
+would need three repo Actions secrets: `GIS_PG_DSN` (Supabase **session
+pooler** connection string), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
 
 Unlike the earlier DuckDB/overlay scripts, this pipeline is **committed** —
 if it isn't in the repo, the next machine can't run it.
