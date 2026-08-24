@@ -116,6 +116,7 @@ type ColumnId =
   | 'year_built' | 'zoning' | 'occupancy'
   | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted' | 'off_market_days'
   | 'tenant' | 'decision_maker' | 'leased_sf' | 'lease_signed' | 'lease_rate' | 'lease_expiry'
+  | 'suitability'
 
 /** Columns that only mean anything while a lease window is filtering the list. */
 const LEASE_COLUMNS: ColumnId[] = ['tenant', 'decision_maker', 'leased_sf', 'lease_signed', 'lease_rate', 'lease_expiry']
@@ -142,6 +143,15 @@ const COLUMN_DEFS: ColumnDef[] = [
   { id: 'size', label: 'Size', className: MUTED, cell: (p) => sizeLabel(p) ?? '' },
   { id: 'gross_sf', label: 'Gross SF', className: MUTED, cell: (p) => formatSf(p.gross_sf) ?? '' },
   { id: 'land_acres', label: 'Acres', className: MUTED, cell: (p) => (p.land_acres != null ? `${p.land_acres} AC` : '') },
+  {
+    // Blank, not a dash and never a 0: a parcel with no published score is one the
+    // enrichment pass has not reached, or one where too few factors were measured
+    // to publish a number honestly. Both are "nothing to rank on", not "bad site".
+    id: 'suitability',
+    label: 'Site score',
+    className: MUTED,
+    cell: (p) => (p.suitability_score == null ? '' : Math.round(p.suitability_score)),
+  },
   { id: 'asking', label: 'Asking', className: MUTED, cell: (_p, asking) => askingLabel(asking) ?? '' },
   {
     id: 'deals',
@@ -371,6 +381,12 @@ export function PropertiesPage() {
     for (const e of dorEntries ?? []) if (!e.county) m.set(e.code, e.category)
     return m
   }, [dorEntries])
+  /** What the land-book's `land` DOR layer paints — dor_codes.land_class. */
+  const dorLandCodes = useMemo(() => {
+    const s = new Set<string>()
+    for (const e of dorEntries ?? []) if (!e.county && e.landClass) s.add(e.code)
+    return s
+  }, [dorEntries])
   // Tags (Alex 2026-08-17): interested / not interested / owner operator / buyer, several
   // at once. Resolved to a set of property ids server-side rather than read off the rows,
   // because the four tags live in three different tables — see use-property-tag-filter.
@@ -386,6 +402,8 @@ export function PropertiesPage() {
   const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
   const [sfMax, setSfMax] = usePersistentState('properties:sfMax', '')
   const [acMin, setAcMin] = usePersistentState('properties:acMin', '')
+  // Land-book only: the enrichment pipeline's 0-100 developer suitability score.
+  const [scoreMin, setScoreMin] = usePersistentState('properties:scoreMin', '')
   const [acMax, setAcMax] = usePersistentState('properties:acMax', '')
   const [priceMin, setPriceMin] = usePersistentState('properties:priceMin', '')
   const [priceMax, setPriceMax] = usePersistentState('properties:priceMax', '')
@@ -516,6 +534,7 @@ export function PropertiesPage() {
     (countyApplies && county !== 'all' ? 1 : 0) +
     (sfMin || sfMax ? 1 : 0) +
     (acMin || acMax ? 1 : 0) +
+    (scoreMin ? 1 : 0) +
     (marketSubsApply && dealType === 'sale' && (priceMin || priceMax) ? 1 : 0) +
     (marketSubsApply && dealType === 'lease' && (psfMin || psfMax) ? 1 : 0) +
     // The three lease windows count separately: they are three questions, and a badge of
@@ -901,6 +920,7 @@ export function PropertiesPage() {
     }
     const sfLo = n(sfMin), sfHi = n(sfMax)
     const acLo = n(acMin), acHi = n(acMax)
+    const scoreLo = n(scoreMin)
     const prLo = n(priceMin), prHi = n(priceMax)
     const psfLo = n(psfMin), psfHi = n(psfMax)
     // A portfolio is a question about ONE owner, so it answers with all of their
@@ -1010,6 +1030,9 @@ export function PropertiesPage() {
       }
       if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) continue
       if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) continue
+      // No published score means "not measured enough to rank", not "scores zero",
+      // so a minimum drops those rows rather than sorting them to the bottom.
+      if (scoreLo != null && (p.suitability_score == null || p.suitability_score < scoreLo)) continue
       // Shape before the use axes: expensive, but it must bind on BOTH buckets — the
       // overlay union is only allowed to forgive what-the-property-is, never where-it-is.
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) continue
@@ -1035,7 +1058,7 @@ export function PropertiesPage() {
       // The USE axis: the county's DOR code, bucketed.
       if (passesUse && useFilter !== 'all' && dorBucket(p.dor_use_code) !== useFilter) passesUse = false
       // The picker's layers — categories via the dor_codes filing, customs verbatim.
-      if (passesUse && dorActive && !matchesDorSelection(p.county, p.dor_use_code, dorSel, dorCategoryByCode)) passesUse = false
+      if (passesUse && dorActive && !matchesDorSelection(p.county, p.dor_use_code, dorSel, dorCategoryByCode, dorLandCodes)) passesUse = false
 
       // Condo gate LAST, after every other filter has had its say: the hidden count is
       // then exactly the rows THIS view lost to the lens — not the book-wide constant
@@ -1049,7 +1072,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1111,7 +1134,7 @@ export function PropertiesPage() {
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, leaseMatchIds])
+  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, leaseMatchIds])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -1295,7 +1318,7 @@ export function PropertiesPage() {
   const clearAllFilters = () => {
     setPolygon(null)
     setDraft(null)
-    setSfMin(''); setSfMax(''); setAcMin(''); setAcMax('')
+    setSfMin(''); setSfMax(''); setAcMin(''); setAcMax(''); setScoreMin('')
     setStatus('all'); setDealType('all')
     setPsfMin(''); setPsfMax(''); setPriceMin(''); setPriceMax('')
     setIncludeUnpriced(true)
@@ -1318,6 +1341,7 @@ export function PropertiesPage() {
   // same element, so they can never disagree about what a filter means.
   const railContent = (
     <MapFilterRail
+      book={bookMode}
       polygon={polygon}
       draft={draft}
       onStartDraw={() => { setPolygon(null); setDraft([]) }}
@@ -1331,6 +1355,7 @@ export function PropertiesPage() {
       tagsLoading={tagsLoading}
       sfMin={sfMin} sfMax={sfMax} onSfMin={setSfMin} onSfMax={setSfMax}
       acMin={acMin} acMax={acMax} onAcMin={setAcMin} onAcMax={setAcMax}
+      scoreMin={scoreMin} onScoreMin={setScoreMin}
       status={status} onStatus={setStatus}
       dealType={dealType} onDealType={setDealType}
       psfMin={psfMin} psfMax={psfMax} onPsfMin={setPsfMin} onPsfMax={setPsfMax}

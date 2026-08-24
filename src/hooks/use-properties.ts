@@ -78,6 +78,14 @@ export type Property = Pick<
 export type PropertyWithCounts = Property & {
   listings: { count: number }[]
   matches: { count: number }[]
+  /**
+   * Developer suitability, 0-100, from parcel_enrichment. Null means one of two
+   * different things and the UI has to keep them apart: the enrichment pass has
+   * not reached this parcel, or it has and score_parcels withheld the number
+   * because too few factors were measured to publish one honestly. Either way
+   * there is nothing to sort on — the detail card explains which.
+   */
+  suitability_score: number | null
 }
 
 /** Total linked deals on a property: landlord listings + tenant pursuits. */
@@ -143,6 +151,26 @@ export function useProperties(enabled = true, book: PropertyBook = 'all') {
         for (const id of ids) if (id) m.set(id, (m.get(id) ?? 0) + 1)
         return m
       }
+      // Suitability rides the same shape as the deal counts: one paged id+number
+      // fetch merged client-side, rather than an embedded lateral evaluated once
+      // per book row. parcel_enrichment is keyed by property_id, so this is a
+      // single index scan per page.
+      const scores = async () => {
+        const m = new Map<string, number>()
+        for (let off = 0; ; off += PAGE) {
+          const r = await supabase
+            .from('parcel_enrichment')
+            .select('property_id, suitability_score')
+            .not('suitability_score', 'is', null)
+            .range(off, off + PAGE - 1)
+          if (r.error) throw r.error
+          for (const x of r.data ?? []) {
+            if (x.suitability_score !== null) m.set(x.property_id, Number(x.suitability_score))
+          }
+          if ((r.data ?? []).length < PAGE) break
+        }
+        return m
+      }
       // Page by UUID RANGE on the PK, never by OFFSET-over-a-sort: ordering by
       // (address, id) has no index, so every deep page re-sorted the whole table —
       // measured 5s a page on 2026-08-16 (post-UPDATE-churn bloat), close enough to
@@ -170,9 +198,10 @@ export function useProperties(enabled = true, book: PropertyBook = 'all') {
         return q
       }
       type BucketRow = Omit<PropertyWithCounts, 'listings' | 'matches' | 'source_address'>
-      const [listingCounts, pursuitCounts, ...pages] = await Promise.all([
+      const [listingCounts, pursuitCounts, scoreById, ...pages] = await Promise.all([
         dealIds('listings'),
         dealIds('pursuits'),
+        scores(),
         fetchPages(BUCKETS, async (i) => {
           const r = await bucketQuery(i).limit(PAGE)
           if (r.error) throw r.error
@@ -200,6 +229,7 @@ export function useProperties(enabled = true, book: PropertyBook = 'all') {
           source_address: p.address,
           listings: [{ count: listingCounts.get(p.id) ?? 0 }],
           matches: [{ count: pursuitCounts.get(p.id) ?? 0 }],
+          suitability_score: scoreById.get(p.id) ?? null,
         }))
         .sort((a, b) => (a.address ?? '').localeCompare(b.address ?? '')) as PropertyWithCounts[]
     },

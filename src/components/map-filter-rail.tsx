@@ -107,6 +107,9 @@ export function MapFilterRail(props: {
   acMax: string
   onAcMin: (v: string) => void
   onAcMax: (v: string) => void
+  /** Land book only: minimum developer suitability score from the enrichment pass. */
+  scoreMin: string
+  onScoreMin: (v: string) => void
   // On market tri-state + conditional pricing
   status: string
   onStatus: (v: string) => void
@@ -156,6 +159,8 @@ export function MapFilterRail(props: {
   tagFilter: PropertyTagKey[]
   onTagFilter: (next: PropertyTagKey[]) => void
   tagsLoading: boolean
+  /** Which book is open — the land book asks different questions of the rail. */
+  book?: 'industrial' | 'land'
   // DOR use categories + the zoning axis
   dorSel: DorSelection
   onDorSel: (next: DorSelection) => void
@@ -190,6 +195,16 @@ export function MapFilterRail(props: {
     }
     p.onChannels(next)
   }
+
+  /**
+   * The land book hides the questions that only make sense about a BUILDING —
+   * building SF, asking rate $/SF/yr, and the whole lease-search block (a lease
+   * expiring, a lease signed, leased SF, the tenant's decision maker). Vacant dirt
+   * has none of those, and a control that can only ever narrow to nothing is worse
+   * than no control (Alex 2026-08-21). Condo units are excluded from the land book
+   * by refresh_land_book() itself, so that toggle goes too.
+   */
+  const isLand = p.book === 'land'
 
   return (
     <div className="space-y-4 text-sm">
@@ -238,18 +253,42 @@ export function MapFilterRail(props: {
         )}
       </div>
 
-      <div className="space-y-1.5">
-        <Label>Sq ft</Label>
-        <MinMax currency min={p.sfMin} max={p.sfMax} onMin={p.onSfMin} onMax={p.onSfMax} />
-      </div>
+      {!isLand && (
+        <div className="space-y-1.5">
+          <Label>Sq ft</Label>
+          <MinMax currency min={p.sfMin} max={p.sfMax} onMin={p.onSfMin} onMax={p.onSfMax} />
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label>Acres</Label>
         <MinMax min={p.acMin} max={p.acMax} onMin={p.onAcMin} onMax={p.onAcMax} />
       </div>
 
+      {/* Site score — the enrichment pipeline's 0-100 developer suitability. Land
+          book only: it is scored from parcel polygons, and the industrial book is
+          mostly buildings the pipeline has nothing to say about. A minimum DROPS
+          unscored parcels rather than ranking them last, because "not measured
+          enough to publish a number" is not the same as "scores badly". */}
+      {isLand && (
+        <div className="space-y-1.5">
+          <Label>Site score at least</Label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={100}
+            placeholder="0-100"
+            value={p.scoreMin}
+            onChange={(e) => p.onScoreMin(e.target.value)}
+            className="h-8"
+          />
+        </div>
+      )}
+
       {/* Condo units — the Motor Enclave problem: one address, 236 separately-owned
-          bays. Out of every search by default; this is the way back in. */}
-      <div className="space-y-1 border-t pt-3">
+          bays. Out of every search by default; this is the way back in. Absent from
+          the land book: refresh_land_book() never admits a condo unit. */}
+      <div className={`space-y-1 border-t pt-3${isLand ? ' hidden' : ''}`}>
         <label className="flex cursor-pointer items-center gap-2 text-xs">
           <Checkbox
             checked={p.includeCondos}
@@ -266,7 +305,7 @@ export function MapFilterRail(props: {
 
       {/* County use codes — what the parcel IS today, per the appraiser */}
       <div className="border-t pt-3">
-        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} />
+        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} book={isLand ? 'land' : 'industrial'} />
       </div>
 
       {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
@@ -496,8 +535,9 @@ export function MapFilterRail(props: {
       </div>
 
       {/* Search leases — new listing lands, draw the area, flip this on: every tenant
-          close to expiry nearby, with their decision maker on hover and in the export. */}
-      <div className="space-y-1.5 border-t pt-3">
+          close to expiry nearby, with their decision maker on hover and in the export.
+          A building question: hidden in the land book. */}
+      <div className={`space-y-1.5 border-t pt-3${isLand ? ' hidden' : ''}`}>
         <label className="flex cursor-pointer items-center gap-2">
           <Checkbox checked={p.searchLeases} onCheckedChange={(v) => p.onSearchLeases(v === true)} />
           <span className="font-medium">Search leases</span>

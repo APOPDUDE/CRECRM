@@ -838,6 +838,75 @@ export type Database = {
         }
         Relationships: []
       }
+      county_market_stats: {
+        Row: {
+          avg_dom: number | null
+          county: string | null
+          land_avg_per_acre: number | null
+          land_median_per_acre: number | null
+          land_n: number | null
+          lease_avg_psf: number | null
+          lease_median_psf: number | null
+          lease_n: number | null
+          lease_p25_psf: number | null
+          lease_p75_psf: number | null
+          listing_n: number | null
+          property_type: string | null
+          refreshed_at: string
+          sale_avg_cap: number | null
+          sale_avg_psf: number | null
+          sale_cap_n: number | null
+          sale_median_psf: number | null
+          sale_n: number | null
+          sale_p25_psf: number | null
+          sale_p75_psf: number | null
+        }
+        Insert: {
+          avg_dom?: number | null
+          county?: string | null
+          land_avg_per_acre?: number | null
+          land_median_per_acre?: number | null
+          land_n?: number | null
+          lease_avg_psf?: number | null
+          lease_median_psf?: number | null
+          lease_n?: number | null
+          lease_p25_psf?: number | null
+          lease_p75_psf?: number | null
+          listing_n?: number | null
+          property_type?: string | null
+          refreshed_at?: string
+          sale_avg_cap?: number | null
+          sale_avg_psf?: number | null
+          sale_cap_n?: number | null
+          sale_median_psf?: number | null
+          sale_n?: number | null
+          sale_p25_psf?: number | null
+          sale_p75_psf?: number | null
+        }
+        Update: {
+          avg_dom?: number | null
+          county?: string | null
+          land_avg_per_acre?: number | null
+          land_median_per_acre?: number | null
+          land_n?: number | null
+          lease_avg_psf?: number | null
+          lease_median_psf?: number | null
+          lease_n?: number | null
+          lease_p25_psf?: number | null
+          lease_p75_psf?: number | null
+          listing_n?: number | null
+          property_type?: string | null
+          refreshed_at?: string
+          sale_avg_cap?: number | null
+          sale_avg_psf?: number | null
+          sale_cap_n?: number | null
+          sale_median_psf?: number | null
+          sale_n?: number | null
+          sale_p25_psf?: number | null
+          sale_p75_psf?: number | null
+        }
+        Relationships: []
+      }
       county_tax_rates: {
         Row: {
           county: string
@@ -2714,6 +2783,98 @@ export type Database = {
           },
         ]
       }
+      property_owner_rollup: {
+        Row: {
+          best_contact_confidence: string | null
+          best_contact_email: string | null
+          best_contact_email_verified_at: string | null
+          best_contact_name: string | null
+          best_contact_phone: string | null
+          best_contact_phone_key: string | null
+          comm_count: number
+          last_contacted_at: string | null
+          owner_company_id: string | null
+          owner_contact_verified: boolean
+          owner_do_not_call: boolean
+          owner_email_verified: boolean
+          owner_name: string | null
+          owner_property_count: number
+          owner_reachable: boolean
+          owner_verification_status: string | null
+          property_id: string
+          refreshed_at: string
+        }
+        Insert: {
+          best_contact_confidence?: string | null
+          best_contact_email?: string | null
+          best_contact_email_verified_at?: string | null
+          best_contact_name?: string | null
+          best_contact_phone?: string | null
+          best_contact_phone_key?: string | null
+          comm_count?: number
+          last_contacted_at?: string | null
+          owner_company_id?: string | null
+          owner_contact_verified?: boolean
+          owner_do_not_call?: boolean
+          owner_email_verified?: boolean
+          owner_name?: string | null
+          owner_property_count?: number
+          owner_reachable?: boolean
+          owner_verification_status?: string | null
+          property_id: string
+          refreshed_at?: string
+        }
+        Update: {
+          best_contact_confidence?: string | null
+          best_contact_email?: string | null
+          best_contact_email_verified_at?: string | null
+          best_contact_name?: string | null
+          best_contact_phone?: string | null
+          best_contact_phone_key?: string | null
+          comm_count?: number
+          last_contacted_at?: string | null
+          owner_company_id?: string | null
+          owner_contact_verified?: boolean
+          owner_do_not_call?: boolean
+          owner_email_verified?: boolean
+          owner_name?: string | null
+          owner_property_count?: number
+          owner_reachable?: boolean
+          owner_verification_status?: string | null
+          property_id?: string
+          refreshed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_owner_rollup_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owner_rollup_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owner_rollup_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owner_rollup_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
       prospect_properties: {
         Row: {
           created_at: string
@@ -4399,6 +4560,26 @@ export type Database = {
         Args: { p_steps: Json }
         Returns: string[]
       }
+      enrich_electric: {
+        Args: { p_county: string; p_limit?: number }
+        Returns: Json
+      }
+      enrich_gas: {
+        Args: { p_county: string; p_limit?: number }
+        Returns: Json
+      }
+      enrich_parcel_geometry: {
+        Args: { p_county: string; p_limit?: number }
+        Returns: Json
+      }
+      enrich_power_proximity: {
+        Args: { p_county: string; p_limit?: number }
+        Returns: Json
+      }
+      enrich_roads: {
+        Args: { p_county: string; p_limit?: number }
+        Returns: Json
+      }
       ensure_payment_checks: { Args: never; Returns: Json }
       estimate_property_value: {
         Args: { p_exclude_comp_ids?: string[]; p_property_id: string }
@@ -4437,6 +4618,7 @@ export type Database = {
       import_county_lowlands: { Args: { p: Json }; Returns: Json }
       import_county_parcels: { Args: { p: Json }; Returns: Json }
       import_ghl_texts: { Args: { p: Json }; Returns: Json }
+      import_gis_features: { Args: { p: Json }; Returns: Json }
       import_hubspot_batch: { Args: { p: Json }; Returns: Json }
       import_hubspot_engagements: {
         Args: { p_rows: Json }
@@ -4451,10 +4633,12 @@ export type Database = {
       import_outreach_targets: { Args: { p: Json }; Returns: Json }
       import_owner_addresses: { Args: { p: Json }; Returns: Json }
       import_parcel_enrichment: { Args: { p: Json }; Returns: Json }
+      import_parcel_geoms: { Args: { p: Json }; Returns: Json }
       import_scraped_listings: {
         Args: { p_client_id?: string; p_flagged_new?: boolean; p_props: Json }
         Returns: Json
       }
+      import_situs_addresses: { Args: { p: Json }; Returns: Json }
       import_terrakotta_batch: { Args: { p: Json }; Returns: Json }
       import_usable_acres: {
         Args: { p: Json; p_area_tolerance?: number }
@@ -4575,10 +4759,17 @@ export type Database = {
       recent_touches: { Args: { p_phone: string }; Returns: number }
       record_text_send_result: { Args: { p: Json }; Returns: Json }
       refresh_condo_units: { Args: never; Returns: number }
+      refresh_county_market_stats: { Args: never; Returns: number }
       refresh_derived_property_tags: { Args: never; Returns: Json }
       refresh_land_book: { Args: never; Returns: Json }
+      refresh_powered_sites: { Args: never; Returns: Json }
       refresh_property_market_position: { Args: never; Returns: number }
+      refresh_property_owner_rollup: { Args: never; Returns: number }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
+      score_parcels: {
+        Args: { p_county?: string; p_limit?: number; p_min_coverage?: number }
+        Returns: Json
+      }
       scrub_candidates: { Args: { p_limit?: number }; Returns: Json[] }
       search_contacts: {
         Args: {
@@ -4683,6 +4874,40 @@ export type Database = {
       }
       va_thread_context: { Args: { p_phone: string }; Returns: Json }
       va_wrong_person: { Args: { p_phone: string }; Returns: Json }
+      warroom_counts: {
+        Args: { p_filters: Json }
+        Returns: {
+          condo_hidden: number
+          total: number
+        }[]
+      }
+      warroom_ids: {
+        Args: { p_cap?: number; p_filters: Json }
+        Returns: {
+          id: string
+        }[]
+      }
+      warroom_page:
+        | {
+            Args: { p_filters: Json; p_limit?: number; p_offset?: number }
+            Returns: {
+              owner_ctx: Json
+              property: Json
+            }[]
+          }
+        | {
+            Args: {
+              p_filters: Json
+              p_limit?: number
+              p_offset?: number
+              p_ordered?: boolean
+            }
+            Returns: {
+              owner_ctx: Json
+              property: Json
+            }[]
+          }
+      warroom_predicate: { Args: { p_filters: Json }; Returns: Json }
       weighted_percentile: {
         Args: { p_p: number; p_vals: number[]; p_wts: number[] }
         Returns: number

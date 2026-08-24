@@ -87,8 +87,16 @@ export function dorNorm(code: string | null | undefined): string | null {
   return v != null && v >= 0 && v <= 99 ? String(v).padStart(3, '0') : null
 }
 
-/** The four major use categories the picker offers as one-click layers (Alex). */
-export const DOR_MAJORS = ['industrial', 'retail', 'office', 'multifamily'] as const
+/**
+ * The major use categories the picker offers as one-click layers (Alex).
+ *
+ * `land` is the land book's axis (Alex 2026-08-21) and is ORTHOGONAL to the other
+ * four rather than a fifth slice of them: dor_codes.land_class flags 000/010/040/
+ * 050-069/070/099, and 040 stays filed under `industrial` for the normal book while
+ * also being land. So `land` never resolves through `categoryOf` — it matches
+ * against the land_class set passed to matchesDorSelection.
+ */
+export const DOR_MAJORS = ['industrial', 'retail', 'office', 'multifamily', 'land'] as const
 export type DorMajor = (typeof DOR_MAJORS)[number]
 
 /** What one major paints: nothing, its whole category, or a hand-picked code subset. */
@@ -104,6 +112,7 @@ export type DorSelection = {
   retail: DorLayerSelection
   office: DorLayerSelection
   multifamily: DorLayerSelection
+  land: DorLayerSelection
   extra: string[]
 }
 
@@ -112,6 +121,7 @@ export const DOR_SELECTION_DEFAULT: DorSelection = {
   retail: 'off',
   office: 'off',
   multifamily: 'off',
+  land: 'off',
   extra: [],
 }
 
@@ -125,6 +135,7 @@ export function safeDorSelection(v: unknown): DorSelection {
     retail: sel(o.retail),
     office: sel(o.office),
     multifamily: sel(o.multifamily),
+    land: sel(o.land),
     extra: Array.isArray(o.extra) ? o.extra.filter((k): k is string => typeof k === 'string') : [],
   }
 }
@@ -144,6 +155,8 @@ export function matchesDorSelection(
   code: string | null | undefined,
   sel: DorSelection,
   categoryOf: ReadonlyMap<string, string>,
+  /** Codes flagged dor_codes.land_class — what the `land` major paints. */
+  landCodes?: ReadonlySet<string>,
 ): boolean {
   const raw = (code ?? '').trim()
   if (!raw) return false
@@ -156,7 +169,10 @@ export function matchesDorSelection(
   for (const major of DOR_MAJORS) {
     const s = sel[major]
     if (s === 'off') continue
-    if (s === 'all' ? category === major : s.includes(norm)) return true
+    // `land` is a flag, not a category: 040 is industrial AND land, so it can
+    // never resolve through categoryOf (see DOR_MAJORS).
+    const whole = major === 'land' ? (landCodes?.has(norm) ?? false) : category === major
+    if (s === 'all' ? whole : s.includes(norm)) return true
   }
   return false
 }

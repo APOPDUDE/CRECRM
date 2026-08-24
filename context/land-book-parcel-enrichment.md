@@ -319,3 +319,152 @@ Known follow-ups from this run:
 7. Electricity (Alex: "the big thing — can power be run or is it already there") —
    `electric_provider` + `nearest_powered_parcel_ft` added to the schema and score
    (§7's electric row explains what's answerable vs what stays a will-serve call).
+
+---
+
+## 10. The enrichment run (2026-08-23/24) — what is actually in the database
+
+Everything below is live, not planned. The harvester is the `harvest-gis` edge
+function (server-side fetch → SECURITY DEFINER RPC write); the joins are SQL
+functions in `public`; the cache lives in the `gis` schema, which is deliberately
+not exposed through PostgREST.
+
+### 10.1 Layers cached
+
+| source_id | features in AOI | what it answers |
+|---|---:|---|
+| `electric_territories` | 14 | which utility serves the parcel |
+| `electric_substations` | 796 | where capacity actually is (IN SERVICE only) |
+| `electric_transmission` | 1,123 | backbone distance + kV |
+| `gas_transmission` | 87 | EIA/HIFLD interstate + intrastate lines |
+| `fdot_traffic` | 5,931 | AADT **and** truck AADT per state-road segment |
+| `fdot_interchanges` | 316 | interstate ramps |
+| `fdot_rail` | 273 (246 CSX) | CSX line proximity |
+| `fema_flood` | harvesting (~85k) | NFHL zones incl. X |
+| `nwi_wetlands` | queued (~262k) | USFWS wetland polygons |
+| `gis.parcels` | 96,876 | our own parcel polygons, six counties |
+| `gis.powered_sites` | 11,621 | point per county-synced built parcel |
+
+Two layers were tested and **dropped**: Polk's water and sewer service-area
+layers (`Map_Utilities_Service_Area/3` and `/2`) answer queries but serve no
+geometry at all — rings: 0 under both `f=json` and `f=geojson`. They cannot be
+spatially joined by anyone, including us. Water/sewer distance therefore stays
+null until a county publishes real utility geometry or the PHMSA/utility
+requests land.
+
+### 10.2 Electricity — Alex's "the big thing"
+
+No public dataset says "power is at this parcel"; distribution networks are
+proprietary everywhere in Florida. The question is decomposed into three things
+that are public, and the answer is the three read together:
+
+* `electric_provider` — the retail service territory polygon. This is the
+  utility you call for a will-serve. Verified on 300 Pinellas parcels: 277 Duke
+  Energy Florida, 23 Tampa Electric, which is the real territory split.
+* `substation_dist_ft` — nearest IN SERVICE substation. Pinellas sample: mean
+  5,424 ft, min 224 ft.
+* `transmission_line_dist_ft` + `transmission_kv` — the tap a large load needs.
+  Pinellas sample: mean 2,883 ft.
+
+`nearest_powered_parcel_ft` is the supporting signal, and it needs reading
+carefully: it is the distance to the nearest **building we know of**, and our
+book is industrial-biased. A far value does not mean no power nearby — in a
+rural stretch the nearest house with a meter may be much closer than the nearest
+thing we have a record of. Score weight 6, against power's 8.
+
+### 10.3 Sentinels, and why every distance is capped
+
+Each measurement bounds its search and writes the **cap** rather than null when
+nothing is found: 52,800 ft (10 mi) for utilities, 25.00 mi for interchange and
+rail, 5,280 ft for the powered-neighbour proxy. That keeps "measured, and the
+answer is far" distinct from "never looked" — which is the difference between a
+site you rule out and a site you have not checked. The UI honours it: the site
+intelligence card prints "none within 10 mi", never a number that looks like a
+measurement.
+
+### 10.4 The score, and why it is often withheld
+
+`score_parcels` reads `enrichment_score_weights` (16 factors, 112 total weight)
+and normalizes over the factors actually measured. Its first run cheerfully
+published **100 / 100** for parcels whose only measurement was a substation
+distance — coverage 0.071. Honest arithmetic, dishonest number. The score is now
+withheld below a coverage floor (default 0.25) and `score_breakdown` records
+`coverage` either way, so a parcel reads as "not enough measured yet" instead of
+"perfect site".
+
+The infrastructure pass alone covers 0.286 (power 8, power_nearby 6, gas 3,
+highway_access 8, rail 2, shape 5). Flood and wetlands add 24 more; water,
+sewer and service area are the largest remaining gap at 40, and they are blocked
+on a source, not on code.
+
+### 10.5 Bugs this run found and fixed
+
+* `enrich_power_proximity` measured against `gis.parcels`, which the land
+  harvest fills with land-class polygons only (72 built of Pinellas's 2,004).
+  Every one of its first 200 parcels came back "nothing within a mile" — in a
+  dense urban county. Fixed with `gis.powered_sites`.
+* One parcel's oriented bounding rectangle is 8.3 ft by under two hundredths of
+  a metre. `side_b > 0` passed, the width rounded to 0.0, and the column's
+  `> 0` check killed the entire whole-book sweep. The guard now runs after
+  rounding, and degenerate slivers are skipped rather than clamped.
+* Three ungeneralized utility-territory polygons were 118 KB of coordinates and
+  timed out the import. `maxAllowableOffset` at 0.0005° (~55 m) makes the same
+  three 18 KB — far finer than a point-in-polygon test needs.
+* Offset paging without `orderByFields` can repeat or skip rows between pages;
+  every layer with an OBJECTID now pages in OID order.
+
+### 10.6 Still open
+
+* Water main, gravity sewer, force main, service-area flags — no usable public
+  geometry found yet in the six counties. 40 of 112 score weight.
+* `hydric_soils_pct` / `drainage_class` (NRCS SSURGO) and `slope_mean_pct`
+  (USGS 3DEP) — both need a raster/tabular pipeline, not an ArcGIS feature
+  query.
+* `road_frontage_ft` — FDOT covers the state highway system only, so frontage on
+  a county road is invisible. Needs a county centreline layer per county.
+* `interchange_drive_min` — straight-line miles are in; drive time needs a
+  routing engine.
+* `broadband_fiber` — FCC BDC is a separate API, not ArcGIS.
+
+### 10.7 The outage (2026-08-24) — I filled a free-tier database
+
+**What happened.** The Supabase project was on the free plan: a 500 MB database
+ceiling. I never checked. Over the enrichment run the database went from 600 MB
+to 942 MB, Postgres stopped accepting connections, PostgREST started answering
+`PGRST002 Could not query the database for the schema cache`, and the app was
+down for several hours.
+
+**Where the space went**
+
+| Table | Size | Verdict |
+| --- | --- | --- |
+| `properties` | 324 MB | legitimate, 127k parcels |
+| `parcel_enrichment` | 233 MB | ~2.4 KB for a row of numbers — dead-tuple bloat |
+| `gis.parcels` | 110 MB | legitimate, 96,876 polygons |
+| `gis.layer_features` | 105 MB | mostly the 101,800 FEMA flood polygons |
+
+`parcel_enrichment` is the interesting one. The sweep updates each parcel five
+times (once per enricher) and then again to score it; every update leaves a dead
+tuple, autovacuum never caught up, and a table whose live data is perhaps 25 MB
+grew to 233 MB. That is a design smell, not just a housekeeping miss: the five
+enrichers should write once per parcel, or the sweep should vacuum between
+passes.
+
+**What I did wrong, in order.** Cached a national flood layer into an
+unknown-sized database. Ran a whole-book UPDATE loop with no vacuum between
+rounds. Measured `pg_database_size` at 600 MB early in the run and read it as a
+number rather than as a fraction of a limit I had not looked up.
+
+**Recovery.** Alex upgraded the org to Pro (8 GB) and the database came back.
+The cron sweep was unscheduled first so nothing kept writing.
+
+**What has to change before the next whole-book pass**
+
+1. Check the plan's disk ceiling before caching anything, and size the cache
+   against it. `select pg_database_size(current_database())` means nothing
+   without the limit beside it.
+2. `vacuum (full, analyze) parcel_enrichment` after every sweep — or better,
+   have `enrich_sweep` vacuum between rounds so bloat never accumulates.
+3. Treat the GIS cache as disposable. `gis.layer_features` and `gis.parcels`
+   are both rebuildable from the source services in under an hour; nothing in
+   them is original data. If space is ever tight, truncate them first.

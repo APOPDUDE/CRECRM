@@ -1,3 +1,13 @@
+# NOT the production path. Everything running today runs inside Supabase: the
+# harvest-gis edge function fetches each layer server-side, SECURITY DEFINER RPCs
+# write it, and enrich_sweep on pg_cron drives the joins. No secrets, nothing on
+# anyone's machine. See pipeline/README.md and
+# context/land-book-parcel-enrichment.md section 10.
+#
+# This workflow is kept unarmed for the sources an ArcGIS feature query cannot
+# serve (NRCS SSURGO soils, USGS 3DEP elevation) — real raster/tabular work that
+# needs a Python runtime. It does nothing until its three repo secrets exist.
+#
 # Scheduled runner for the enrichment pipeline (pipeline/). The PostGIS cache
 # lives in the hosted Supabase DB (gis schema, migration 20260821122000), so
 # this runner is stateless — Alex 2026-08-21: cloud, not my machine.
@@ -12,8 +22,9 @@
 # Actions tab any time.
 name: enrichment
 on:
-  schedule:
-    - cron: "0 10 * * 1"   # Mondays 10:00 UTC = 06:00 ET
+  # Schedule removed 2026-08-23. With no secrets set it failed every Monday and
+  # mailed Alex about it; with the Supabase path live it has nothing to do
+  # anyway. Manual trigger only until a source needs the Python runtime.
   workflow_dispatch:
     inputs:
       force:
