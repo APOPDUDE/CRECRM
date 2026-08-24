@@ -425,3 +425,46 @@ on a source, not on code.
 * `interchange_drive_min` — straight-line miles are in; drive time needs a
   routing engine.
 * `broadband_fiber` — FCC BDC is a separate API, not ArcGIS.
+
+### 10.7 The outage (2026-08-24) — I filled a free-tier database
+
+**What happened.** The Supabase project was on the free plan: a 500 MB database
+ceiling. I never checked. Over the enrichment run the database went from 600 MB
+to 942 MB, Postgres stopped accepting connections, PostgREST started answering
+`PGRST002 Could not query the database for the schema cache`, and the app was
+down for several hours.
+
+**Where the space went**
+
+| Table | Size | Verdict |
+| --- | --- | --- |
+| `properties` | 324 MB | legitimate, 127k parcels |
+| `parcel_enrichment` | 233 MB | ~2.4 KB for a row of numbers — dead-tuple bloat |
+| `gis.parcels` | 110 MB | legitimate, 96,876 polygons |
+| `gis.layer_features` | 105 MB | mostly the 101,800 FEMA flood polygons |
+
+`parcel_enrichment` is the interesting one. The sweep updates each parcel five
+times (once per enricher) and then again to score it; every update leaves a dead
+tuple, autovacuum never caught up, and a table whose live data is perhaps 25 MB
+grew to 233 MB. That is a design smell, not just a housekeeping miss: the five
+enrichers should write once per parcel, or the sweep should vacuum between
+passes.
+
+**What I did wrong, in order.** Cached a national flood layer into an
+unknown-sized database. Ran a whole-book UPDATE loop with no vacuum between
+rounds. Measured `pg_database_size` at 600 MB early in the run and read it as a
+number rather than as a fraction of a limit I had not looked up.
+
+**Recovery.** Alex upgraded the org to Pro (8 GB) and the database came back.
+The cron sweep was unscheduled first so nothing kept writing.
+
+**What has to change before the next whole-book pass**
+
+1. Check the plan's disk ceiling before caching anything, and size the cache
+   against it. `select pg_database_size(current_database())` means nothing
+   without the limit beside it.
+2. `vacuum (full, analyze) parcel_enrichment` after every sweep — or better,
+   have `enrich_sweep` vacuum between rounds so bloat never accumulates.
+3. Treat the GIS cache as disposable. `gis.layer_features` and `gis.parcels`
+   are both rebuildable from the source services in under an hour; nothing in
+   them is original data. If space is ever tight, truncate them first.
