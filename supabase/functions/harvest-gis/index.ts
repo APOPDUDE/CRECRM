@@ -49,9 +49,14 @@ const LAYERS: Record<string, Layer> = {
     county: null,
     // every mapped zone, incl. X — "outside the floodplain" is an answer we want
     where: "1=1",
-    outFields: "FLD_ZONE,ZONE_SUBTY,SFHA_TF,STATIC_BFE",
+    outFields: "OBJECTID,FLD_ZONE,ZONE_SUBTY,SFHA_TF,STATIC_BFE",
     clip: true,
     page: 200,
+    // Learned the hard way: this layer's first harvest ran WITHOUT ordered
+    // paging and skipped features wholesale — 86% of parcels found no zone in
+    // a state where nearly every parcel is in one. geojson id == OBJECTID
+    // here, so the cached keys were real; re-walking ordered fills the holes.
+    oid: "OBJECTID",
     offsetDeg: 0.0002,
   },
   // NWI is a JOINED layer (Wetlands + NWI_Wetland_Codes), which is why every
