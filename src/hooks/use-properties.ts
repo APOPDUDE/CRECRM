@@ -6,15 +6,31 @@ import { geocodeAddress } from '@/lib/geocode'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
 
 /**
+ * How long to wait after mount before going looking for work.
+ *
+ * This is a background chore, and it was competing with first paint for a connection
+ * on a two-core database. Nothing on screen depends on it — the 25 rows it fixes show
+ * up on the next visit either way — so it yields until the page has settled.
+ */
+const GEOCODE_START_DELAY_MS = 8000
+
+/**
  * Background-geocode properties that lack coordinates. Runs in the browser (whose
  * Referer satisfies Nominatim's policy — the scrape actor returns no lat/lng, and
  * the n8n server IP is rate-limited). Processes a small batch per mount.
+ *
+ * The lookup itself is index-backed (`properties_needs_geocode_idx`, a partial index on
+ * `lat is null`). Before that index existed this query was a full scan of the whole
+ * 123 MB table — 7,439 ms measured on 2026-08-22, close enough to the 8s statement
+ * timeout to fail outright — fired on every single War Room mount, in both views, to
+ * find at most 25 rows. If the index is ever dropped, this becomes that again.
  */
 export function useGeocodeMissing(enabled = true) {
   const queryClient = useQueryClient()
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
+    const timer = setTimeout(() => {
     void (async () => {
       const { data } = await supabase
         .from('properties')
@@ -28,21 +44,43 @@ export function useGeocodeMissing(enabled = true) {
         .limit(25)
       if (!data || cancelled) return
       let any = false
+      const fixed = new Map<string, { lat: number; lng: number }>()
       for (const p of data) {
         if (cancelled) return
         const geo = await geocodeAddress(p)
         if (geo) {
           await supabase.from('properties').update({ lat: geo.lat, lng: geo.lng }).eq('id', p.id)
+          fixed.set(p.id, geo)
           any = true
         }
         await new Promise((r) => setTimeout(r, 1100))
       }
       if (any && !cancelled) {
-        queryClient.invalidateQueries({ queryKey: ['properties'] })
+        // Patch the coordinates into whatever is already cached rather than
+        // invalidating. `['properties']` PREFIX-matches `['properties', book]`, so the
+        // old invalidate re-ran the entire 64-bucket book fetch ~30 seconds after first
+        // paint — the page appeared to load twice, and the second time was invisible.
+        // Geocoding moves two numbers on at most 25 rows; nothing else about them
+        // changed, so there is nothing to re-read.
+        queryClient.setQueriesData<PropertyWithCounts[]>(
+          { queryKey: ['properties'], exact: false },
+          (rows) =>
+            Array.isArray(rows)
+              ? rows.map((r) => {
+                  const geo = fixed.get(r.id)
+                  return geo ? { ...r, lat: geo.lat, lng: geo.lng } : r
+                })
+              : rows,
+        )
+        // The map's viewport RPC is keyed by box and genuinely does need to re-ask:
+        // a property that just gained coordinates belongs in a box it was absent from.
+        queryClient.invalidateQueries({ queryKey: ['map-properties'] })
       }
     })()
+    }, GEOCODE_START_DELAY_MS)
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
   }, [enabled, queryClient])
 }

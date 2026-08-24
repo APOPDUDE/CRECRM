@@ -120,6 +120,22 @@ type ColumnId =
 /** Columns that only mean anything while a lease window is filtering the list. */
 const LEASE_COLUMNS: ColumnId[] = ['tenant', 'decision_maker', 'leased_sf', 'lease_signed', 'lease_rate', 'lease_expiry']
 
+/**
+ * Columns whose cell reads the owner-context row, and columns whose cell reads the
+ * current-asking row. Both feed the fetch gates below: the two hooks behind them are
+ * the expensive ones on this page, and a column nobody has switched on is a fetch
+ * nobody asked for. Measured 2026-08-22: owner context is 715 ms per bucket x 64
+ * buckets — ~46 seconds of database CPU — and none of the five DEFAULT columns
+ * renders a single field of it.
+ *
+ * Keep these in step with COLUMN_DEFS. A column added here but not there costs a
+ * fetch; a column added there but not here renders blank.
+ */
+const OWNER_COLUMNS = new Set<ColumnId>([
+  'owner', 'owner_contact', 'portfolio', 'last_contacted', 'off_market_days',
+])
+const ASKING_COLUMNS = new Set<ColumnId>(['asking', 'days_on_market', 'occupancy'])
+
 type ColumnDef = {
   id: ColumnId
   label: string
@@ -402,6 +418,10 @@ export function PropertiesPage() {
   )
   const channels = useMemo(() => safeChannels(channelsRaw), [channelsRaw])
   const [columns, setColumns] = usePersistentState<ColumnId[]>('properties:columns', DEFAULT_COLUMNS)
+  // Guard against a tampered/legacy localStorage value that isn't an array. Declared up
+  // here rather than beside the table render because the fetch gates below read it —
+  // which columns are on decides whether owner context and asking are fetched at all.
+  const safeColumns = Array.isArray(columns) ? columns : DEFAULT_COLUMNS
   const [ownerFilterRaw, setOwnerFilter] = usePersistentState('properties:owner', 'all')
   // the filter used to have 4 tiers; a persisted legacy value ('any'/'known'/'none') would
   // render an empty select and silently filter nothing — normalize it to 'all'
@@ -578,11 +598,43 @@ export function PropertiesPage() {
   // zoning fields, and half its point is rows the camera has never seen.
   const needsBook = (!viewportOnly && !searchOnly) || wantsBook || overlayIncludes.length > 0
 
+  /**
+   * Owner context is the most expensive thing this page can ask for: one row per
+   * property through a view with five lateral joins, fetched in 64 buckets, and — unlike
+   * the book itself — NOT scoped to the chosen book, so the 27k-row industrial view was
+   * paying for all 127k rows. Measured 2026-08-22: 715 ms per bucket, ~46 seconds of
+   * database CPU per full fetch, on a two-core instance the pins are also queued behind.
+   *
+   * So fetch it when something actually reads it, and not otherwise. That is: an owner
+   * column is switched on, an owner-shaped filter is doing the narrowing, the portfolio
+   * banner needs the company's name, one of the owner dialogs is open, or the map is up
+   * (its rail shows a live push count and its pins colour by owner).
+   *
+   * The default table view — five columns, none of them owner — reads none of it, and
+   * from here on pays nothing for it.
+   */
+  const ownerNeeded =
+    view === 'map' ||
+    ownerFilter !== 'all' ||
+    (activitySubApplies && activity !== 'all') ||
+    portfolioOwnerId != null ||
+    safeColumns.some((c) => OWNER_COLUMNS.has(c)) ||
+    exportOpen ||
+    pushOpen ||
+    ownerMsgOpen
+  /** Same question for the asking comp: a price column, the price filter, or a hover card. */
+  const askingNeeded =
+    view === 'map' ||
+    safeColumns.some((c) => ASKING_COLUMNS.has(c)) ||
+    (marketSubsApply && dealType !== 'all') ||
+    exportOpen
+
   const { data: properties, isLoading, isError, refetch } = useProperties(needsBook, bookMode)
-  const { data: goodDealIds } = useGoodDealIds()
+  // The good-deal badge is painted on pins only — the table renders no such chip.
+  const { data: goodDealIds } = useGoodDealIds(view === 'map')
   const { data: executedIds } = useExecutedPropertyIds()
-  const { data: askingMap } = useCurrentAsking()
-  const { data: ownerCtxBook } = useOwnerContext(needsBook)
+  const { data: askingMap } = useCurrentAsking(undefined, askingNeeded)
+  const { data: ownerCtxBook } = useOwnerContext(needsBook && ownerNeeded)
   // The comps answer lease questions only: the run-off lens, the lease filters, and the
   // table's tenant columns. On the bare market map they were ~1,300 rows of nothing, and
   // slow enough to crowd out the fetch that actually draws the pins.
@@ -727,8 +779,6 @@ export function PropertiesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Guard against a tampered/legacy localStorage value that isn't an array.
-  const safeColumns = Array.isArray(columns) ? columns : DEFAULT_COLUMNS
   // Render in registry order, filtered to the chosen set (so 'size'->'acres' is just a swap).
   const toggleColumn = (id: ColumnId) =>
     setColumns((cur) => {

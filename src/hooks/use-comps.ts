@@ -328,13 +328,17 @@ export async function fetchCurrentAsking(
  * part of the key, so accepting/dismissing a suggestion changes it — keepPreviousData
  * holds the old map on screen instead of blanking every metric during the refetch.
  */
-export function useCurrentAsking(propertyIds?: string[]) {
+export function useCurrentAsking(propertyIds?: string[], enabled = true) {
   const ids = propertyIds
     ? Array.from(new Set(propertyIds.filter(Boolean))).sort()
     : undefined
   return useQuery({
     queryKey: ['current-asking', ids ?? 'all'],
-    enabled: ids ? ids.length > 0 : true,
+    // Called with no ids this pages the WHOLE asking view — fine for a dashboard widget
+    // that renders every number it fetches, ruinous on the War Room, where none of the
+    // default columns show a price. `enabled` lets a caller say "only when something
+    // reads it"; every existing caller keeps today's behaviour by omitting it.
+    enabled: enabled && (ids ? ids.length > 0 : true),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     queryFn: () => fetchCurrentAsking(ids),

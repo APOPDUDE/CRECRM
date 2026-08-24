@@ -65,9 +65,26 @@ const queryClient = new QueryClient({
       // app-switch. Mutations still call invalidateQueries, which refetches immediately
       // regardless of staleTime, so edits stay live.
       staleTime: 30_000,
+      // A statement timeout is not a flake. TanStack's default (3 retries) turned one
+      // 8s Postgres timeout into four sequential ones — 32 seconds of a page that was
+      // never going to succeed, while the retries competed with the queries that would
+      // have. Anything else still gets one retry.
+      retry: (failureCount, error) => !isTimeoutError(error) && failureCount < 1,
     },
   },
 })
+
+/**
+ * Postgres 57014 (`canceling statement due to statement timeout`) as it reaches the
+ * client. Supabase surfaces it as a PostgrestError with `code`, but a fetch-level
+ * abort arrives as a plain Error, so the message is checked too.
+ */
+function isTimeoutError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const e = error as { code?: unknown; message?: unknown }
+  if (e.code === '57014') return true
+  return typeof e.message === 'string' && /statement timeout|timeout|aborted/i.test(e.message)
+}
 
 export default function App() {
   return (
