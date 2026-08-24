@@ -116,6 +116,7 @@ type ColumnId =
   | 'year_built' | 'zoning' | 'occupancy'
   | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted' | 'off_market_days'
   | 'tenant' | 'decision_maker' | 'leased_sf' | 'lease_signed' | 'lease_rate' | 'lease_expiry'
+  | 'suitability'
 
 /** Columns that only mean anything while a lease window is filtering the list. */
 const LEASE_COLUMNS: ColumnId[] = ['tenant', 'decision_maker', 'leased_sf', 'lease_signed', 'lease_rate', 'lease_expiry']
@@ -142,6 +143,15 @@ const COLUMN_DEFS: ColumnDef[] = [
   { id: 'size', label: 'Size', className: MUTED, cell: (p) => sizeLabel(p) ?? '' },
   { id: 'gross_sf', label: 'Gross SF', className: MUTED, cell: (p) => formatSf(p.gross_sf) ?? '' },
   { id: 'land_acres', label: 'Acres', className: MUTED, cell: (p) => (p.land_acres != null ? `${p.land_acres} AC` : '') },
+  {
+    // Blank, not a dash and never a 0: a parcel with no published score is one the
+    // enrichment pass has not reached, or one where too few factors were measured
+    // to publish a number honestly. Both are "nothing to rank on", not "bad site".
+    id: 'suitability',
+    label: 'Site score',
+    className: MUTED,
+    cell: (p) => (p.suitability_score == null ? '' : Math.round(p.suitability_score)),
+  },
   { id: 'asking', label: 'Asking', className: MUTED, cell: (_p, asking) => askingLabel(asking) ?? '' },
   {
     id: 'deals',
