@@ -17,6 +17,7 @@ import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
 import { PropertyTasks } from '@/components/property-tasks'
 import { PropertyComps } from '@/components/property-comps'
+import { SiteIntelligence } from '@/components/site-intelligence'
 import { PropertyTourNotes } from '@/components/property-tour-notes'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { EnrichParcelDialog } from '@/components/enrich-parcel-dialog'
@@ -339,6 +340,11 @@ export function PropertyDetailPage() {
           scroll below the notes — which is backwards, since they are the context
           you read the notes with. The editable detail grids stay at the bottom. */}
       <PropertySynopsis property={property} />
+
+      {/* Site intelligence sits with the specs, not the conversation: it is the
+          context you read the comps with. Renders nothing until the enrichment
+          pass has reached this parcel. */}
+      <SiteIntelligence propertyId={property.id} />
 
       <PropertyComps propertyId={property.id} />
 
