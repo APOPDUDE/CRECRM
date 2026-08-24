@@ -107,19 +107,26 @@ grant execute on function enrich_sweep(int, int) to service_role, authenticated;
 -- itself once no parcel is left unenriched. Re-create it after any new parcel
 -- polygon harvest.
 --
+-- `set statement_timeout` is its OWN statement, deliberately. Putting it inside
+-- the DO block as SET LOCAL does nothing: pg_cron runs the block as one
+-- top-level statement, whose timeout is already armed by the time the SET
+-- executes, and the sweep dies mid-flight with "canceling statement due to
+-- statement timeout". As a separate statement it takes effect for the rest of
+-- the transaction, which is what the whole-book pass needs.
+--
 --   select cron.schedule('enrich_sweep_once', '* * * * *', $j$
---     do $$
---     begin
---       if not pg_try_advisory_xact_lock(778811) then return; end if;
---       set local statement_timeout to 0;
---       if exists (select 1 from gis.parcels gp
---                  left join parcel_enrichment pe on pe.property_id = gp.property_id
---                  where pe.interchange_mi is null limit 1) then
---         perform enrich_sweep(1000, 15);   -- bounded so each tick COMMITS
---       else
---         perform cron.unschedule('enrich_sweep_once');
---       end if;
---     end $$;
+--   set statement_timeout to 0;
+--   do $$
+--   begin
+--     if not pg_try_advisory_xact_lock(778811) then return; end if;
+--     if exists (select 1 from gis.parcels gp
+--                left join parcel_enrichment pe on pe.property_id = gp.property_id
+--                where pe.interchange_mi is null limit 1) then
+--       perform enrich_sweep(500, 15);   -- bounded so each tick COMMITS
+--     else
+--       perform cron.unschedule('enrich_sweep_once');
+--     end if;
+--   end $$;
 --   $j$);
 
 commit;
