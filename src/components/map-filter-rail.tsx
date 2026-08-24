@@ -175,7 +175,12 @@ export function MapFilterRail(props: {
   // overlays (Phase 1)
   overlays: OverlayState
   onOverlays: (s: OverlayState) => void
-  onOverlayIncludeOn: () => void
+  /**
+   * Optional since the filter-first rewrite. It existed to start the whole-book fetch the
+   * moment an "Include in search" layer came on, because the union needed the book. The
+   * server does that union now, so there is nothing left to pre-warm.
+   */
+  onOverlayIncludeOn?: () => void
 }) {
   const p = props
   const drawing = p.draft !== null

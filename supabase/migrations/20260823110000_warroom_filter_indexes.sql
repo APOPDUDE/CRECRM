@@ -57,3 +57,24 @@ comment on index public.properties_ind_addr_idx is
   'with id as total-order tiebreak. Also what makes OFFSET paging affordable again.';
 comment on index public.properties_land_addr_idx is
   'As properties_ind_addr_idx, for the land book.';
+
+-- ---------------------------------------------------------------------------
+-- 4/5. …_book_condo_idx -- added 2026-08-23 after wiring the client
+-- ---------------------------------------------------------------------------
+-- warroom_counts needs is_condo_unit for every candidate row (the condo gate runs LAST,
+-- so condo_hidden is per-view). That single column was not in the book indexes, so the
+-- count fell to the heap and the LAND book's count blew the 8s PostgREST timeout
+-- outright -- the client got a 500 and the table lost its total and its pager.
+--
+--   warroom_counts('{"book":"land"}')        15,426 ms -> 1,213 ms cold / 150 ms warm
+--   warroom_counts('{"book":"industrial"}')   2,067 ms ->   116 ms
+--
+-- Carrying it as INCLUDE payload keeps the whole count index-only. These supersede
+-- properties_industrial_book_idx for the count path; the plain ones stay because a bare
+-- count(*) with no other column still prefers the narrower index.
+
+create index concurrently if not exists properties_land_book_condo_idx
+  on public.properties (id) include (is_condo_unit) where in_land_book;
+
+create index concurrently if not exists properties_industrial_book_condo_idx
+  on public.properties (id) include (is_condo_unit) where not land_only;

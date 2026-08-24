@@ -107,9 +107,17 @@ export function useWarroomPage(
   offset: number,
   limit: number,
   enabled = true,
+  /**
+   * The table needs address order; the map does not — it just needs a screenful of pins.
+   * Ordering forces Postgres to find and sort EVERY match before applying the limit, and
+   * with a drawn shape (which no btree can serve) that was 15 s and a 500. Unordered lets
+   * the scan stop at `limit`. The cost is that a capped map shows "the first N found"
+   * rather than a spatially fair sample, which is why it still says "N of M — zoom in".
+   */
+  ordered = true,
 ) {
   const query = useQuery({
-    queryKey: ['warroom-page', filters, offset, limit],
+    queryKey: ['warroom-page', filters, offset, limit, ordered],
     enabled: enabled && filters != null,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
@@ -121,6 +129,7 @@ export function useWarroomPage(
         p_filters: filters as never,
         p_offset: offset,
         p_limit: limit,
+        p_ordered: ordered,
       })
       if (error) throw error
       return unpackPage((data ?? []) as PageRow[])
@@ -154,6 +163,33 @@ export function useWarroomCounts(filters: WarroomFilters | null, enabled = true)
     },
   })
   return { ...query, data: query.data ?? null }
+}
+
+/**
+ * The counties the County dropdown offers.
+ *
+ * Used to be derived from the book — `new Set(book.map(p => p.county))` — which was free
+ * only because the whole book happened to be in memory. It is not any more, and deriving
+ * it from one page would offer whichever counties page 1 happens to contain. `county_lookup`
+ * is the city→county map and is tiny, so the distinct set is the honest answer for pennies.
+ */
+export function useCountyOptions() {
+  return useQuery({
+    queryKey: ['county-options'],
+    staleTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('county_lookup')
+        .select('county')
+        .not('county', 'is', null)
+        .limit(5000)
+      if (error) throw error
+      const set = new Set<string>()
+      for (const r of data ?? []) if (r.county) set.add(r.county)
+      return [...set].sort()
+    },
+  })
 }
 
 /**

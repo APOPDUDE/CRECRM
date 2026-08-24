@@ -74,9 +74,15 @@ export function useUnitSpecs(propertyIds: string[]) {
  */
 const AVAILABLE_SPACE_CAP = 5000
 
-export function useAvailableUnitSizes() {
+/**
+ * `enabled` because only the SF filter reads this, and only on the bare map — everywhere
+ * else Postgres applies the size rule itself (warroom_predicate unions gross_sf with the
+ * available-space rows). Ungated it was ~10s of database time on every War Room load.
+ */
+export function useAvailableUnitSizes(enabled = true) {
   return useQuery({
     queryKey: ['available-space'],
+    enabled,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<Map<string, number[]>> => {
       const { data, error } = await supabase

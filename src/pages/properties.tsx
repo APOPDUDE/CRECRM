@@ -48,17 +48,22 @@ import {
 } from '@/hooks/use-property-tag-filter'
 import { useLastSales } from '@/hooks/use-last-sales'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
+import { dealCount, useDeleteProperty, useGeocodeMissing } from '@/hooks/use-properties'
 import {
   MAP_SEARCH_LIMIT,
+  MAP_VIEWPORT_LIMIT,
   useMapProperties,
   useMapSearch,
   type MapViewport,
 } from '@/hooks/use-map-properties'
 import { useIndustrialCrossovers, isZonedIndustrial } from '@/hooks/use-zoning-map'
 import {
-  OVERLAY_DEFAULT, activeIncludes, activeOnlys, rowInOverlay, safeOverlayState, type OverlayState,
+  OVERLAY_DEFAULT, OVERLAY_TYPES, activeIncludes, activeOnlys, rowInOverlay, safeOverlayState,
+  type OverlayState,
 } from '@/lib/overlays'
+import {
+  toPolygonLiteral, useCountyOptions, useWarroomCounts, useWarroomPage, type WarroomFilters,
+} from '@/hooks/use-warroom'
 import {
   DOR_FILTER_ORDER, DOR_SELECTION_DEFAULT, ZONING_FILTER_ORDER,
   dorBucket, dorBucketLabels, dorSelectionActive, isIndustrialUse, matchesDorSelection,
@@ -70,7 +75,6 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
-import { useOwnerContext } from '@/hooks/use-owners'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
 import { useLeaseComps, withinMonths, signedWithinMonths, type LeaseComp } from '@/hooks/use-lease-comps'
 import { useAvailableUnitSizes } from '@/hooks/use-units'
@@ -121,8 +125,7 @@ type ColumnId =
 const LEASE_COLUMNS: ColumnId[] = ['tenant', 'decision_maker', 'leased_sf', 'lease_signed', 'lease_rate', 'lease_expiry']
 
 /**
- * Columns whose cell reads the owner-context row, and columns whose cell reads the
- * current-asking row. Both feed the fetch gates below: the two hooks behind them are
+ * Columns whose cell reads the current-asking row, feeding the fetch gate below: the two hooks behind them are
  * the expensive ones on this page, and a column nobody has switched on is a fetch
  * nobody asked for. Measured 2026-08-22: owner context is 715 ms per bucket x 64
  * buckets — ~46 seconds of database CPU — and none of the five DEFAULT columns
@@ -131,9 +134,6 @@ const LEASE_COLUMNS: ColumnId[] = ['tenant', 'decision_maker', 'leased_sf', 'lea
  * Keep these in step with COLUMN_DEFS. A column added here but not there costs a
  * fetch; a column added there but not here renders blank.
  */
-const OWNER_COLUMNS = new Set<ColumnId>([
-  'owner', 'owner_contact', 'portfolio', 'last_contacted', 'off_market_days',
-])
 const ASKING_COLUMNS = new Set<ColumnId>(['asking', 'days_on_market', 'occupancy'])
 
 type ColumnDef = {
@@ -315,6 +315,41 @@ const COLUMN_DEFS: ColumnDef[] = [
   },
 ]
 
+/**
+ * A total that has not arrived yet is an ellipsis, never a number.
+ *
+ * The page and the count are separate round trips, so there is a moment where 100 rows
+ * are on screen and the true total is still in flight. Printing the page's length there
+ * would read as "100 matching" while page 7 exists — the same class of lie as a silently
+ * truncated result set.
+ */
+function fmtTotal(n: number | null): string {
+  return n == null ? '…' : n.toLocaleString()
+}
+
+/**
+ * The overlay layers, as warroom_predicate wants them.
+ *
+ * Only layers that are actually doing something travel: a layer that is merely PAINTED on
+ * the map narrows nothing, and sending it would quietly turn a visual aid into a filter.
+ * `both` exists because a layer can be include and only at once — the union runs first,
+ * then the restriction, same order the client loop used.
+ */
+function buildOverlayParam(
+  state: OverlayState,
+): Record<string, { sel: unknown; mode: 'include' | 'only' | 'both' }> {
+  const out: Record<string, { sel: unknown; mode: 'include' | 'only' | 'both' }> = {}
+  for (const t of OVERLAY_TYPES) {
+    const sel = state[t]
+    if (sel === 'off') continue
+    const inc = !!state.include?.[t]
+    const only = !!state.only?.[t]
+    if (!inc && !only) continue
+    out[t] = { sel, mode: inc && only ? 'both' : inc ? 'include' : 'only' }
+  }
+  return out
+}
+
 /** A tampered/legacy persisted channels value must not strip both channels silently. */
 function safeChannels(v: unknown): OwnerChannels {
   const o = (v ?? {}) as Partial<OwnerChannels>
@@ -392,13 +427,7 @@ export function PropertiesPage() {
   // because the four tags live in three different tables — see use-property-tag-filter.
   const [tagFilterRaw, setTagFilter] = usePersistentState<PropertyTagKey[]>('properties:tags', [])
   const tagFilter = useMemo(() => safeTagFilter(tagFilterRaw), [tagFilterRaw])
-  const { tagIds, isLoading: tagsLoading } = useTaggedPropertyIds(tagFilter)
-  const { tagIds: ownerOccIds } = useTaggedPropertyIds(
-    ownerOccMode === 'all' ? [] : ['owner occupier'],
-  )
-  const { data: lastSales } = useLastSales(soldFilterOn)
   const [county, setCounty] = usePersistentState('properties:county', 'all')
-  const { data: unitSizes } = useAvailableUnitSizes()
   const [sfMin, setSfMin] = usePersistentState('properties:sfMin', '')
   const [sfMax, setSfMax] = usePersistentState('properties:sfMax', '')
   const [acMin, setAcMin] = usePersistentState('properties:acMin', '')
@@ -475,7 +504,7 @@ export function PropertiesPage() {
   const [ownerMsgOpen, setOwnerMsgOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   // Flipped by the export dialog when lease columns are checked — the comps load then,
-  // not when the map opens. Sticky for the visit, same rationale as wantsBook.
+  // not when the map opens. Sticky for the visit.
   const [exportWantsLeases, setExportWantsLeases] = useState(false)
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
@@ -493,9 +522,6 @@ export function PropertiesPage() {
   const overlays = useMemo(() => safeOverlayState(overlaysRaw), [overlaysRaw])
   const overlayIncludes = useMemo(() => activeIncludes(overlays), [overlays])
   const overlayOnlys = useMemo(() => activeOnlys(overlays), [overlays])
-  // Set the moment the user reaches for the search box or the filter panel — see the
-  // fetch gate below. Sticky for the visit: once the book is on its way, keep it.
-  const [wantsBook, setWantsBook] = useState(false)
 
   /**
    * The lenses are gone (Phase 2): every filter applies everywhere, with two
@@ -591,12 +617,110 @@ export function PropertiesPage() {
     return { monthPicked, expiryOn, signOn, sfOn, dmOn, any: expiryOn || signOn || sfOn || dmOn }
   }, [leaseMonth, leaseMin, leaseMax, signMin, signMax, leaseSfMin, leaseSfMax, dmFilter])
   // The book is what answers a filter, a shape or a portfolio — the questions Postgres
-  // isn't being asked. `wantsBook` starts it the moment the filter panel opens rather than
-  // when the filter is chosen, so the multi-second fetch happens while Alex is still
-  // deciding instead of after.
-  // An active "Include in search" needs the book too: the union scans every row's
-  // zoning fields, and half its point is rows the camera has never seen.
-  const needsBook = (!viewportOnly && !searchOnly) || wantsBook || overlayIncludes.length > 0
+
+  /**
+   * Everything the server needs to answer the same question the browser used to.
+   *
+   * One object, built once and passed verbatim to the page, the counts and the export, so
+   * those three can never be answering slightly different questions — the failure mode
+   * where the Export button promises a number the file does not contain.
+   *
+   * `today` is the CLIENT's local date, and `activity_cutoff` is the value frozen at
+   * mount: Postgres must not substitute its own clock, or rows reshuffle underneath you
+   * as the day turns (and the server's day turns in UTC, hours before Alex's).
+   */
+  const warroomFilters = useMemo<WarroomFilters>(() => {
+    const num = (v: string) => {
+      const n = parseFloat(v)
+      return Number.isFinite(n) ? n : null
+    }
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return {
+      book: bookMode,
+      portfolio_owner_id: portfolioOwnerId,
+      q: hasText ? search.trim() : null,
+      // Visibility mirrors application: a control the rail is not showing must not be
+      // narrowing the map behind Alex's back. These gates are the same ones the client
+      // loop used, so the server answers the same question the UI is describing.
+      county: countyApplies ? county : 'all',
+      ptype,
+      status,
+      deal_type: marketSubsApply ? dealType : 'all',
+      psf_min: num(psfMin), psf_max: num(psfMax),
+      price_min: num(priceMin), price_max: num(priceMax),
+      include_unpriced: includeUnpriced,
+      owner_filter: ownerFilter,
+      channels,
+      activity: activitySubApplies ? activity : 'all',
+      activity_cutoff: new Date(activityCutoff).toISOString(),
+      today,
+      sf_min: num(sfMin), sf_max: num(sfMax),
+      ac_min: num(acMin), ac_max: num(acMax),
+      sold_years: soldFilterOn ? soldYearsNum : null,
+      include_no_sale: includeNoSale,
+      include_condos: includeCondos,
+      tags: tagFilter,
+      owner_occ_mode: ownerOccMode,
+      zoning: zonedApplies ? zoningFilter : 'all',
+      use_bucket: useFilter,
+      dor: dorActive ? { ...dorSel, active: true } : null,
+      polygon: toPolygonLiteral(polygon),
+      lease_applies: leaseApplies,
+      lease: leaseFilter.any
+        ? {
+            any: true,
+            month: leaseFilter.monthPicked ? leaseMonth : null,
+            exp_min: num(leaseMin), exp_max: num(leaseMax),
+            sign_min: num(signMin), sign_max: num(signMax),
+            sf_min: num(leaseSfMin), sf_max: num(leaseSfMax),
+            dm: dmFilter,
+          }
+        : null,
+      overlays: buildOverlayParam(overlays),
+    }
+  }, [bookMode, portfolioOwnerId, hasText, search, countyApplies, county, ptype, status,
+      marketSubsApply, dealType, psfMin, psfMax, priceMin, priceMax, includeUnpriced,
+      ownerFilter, channels, activitySubApplies, activity, activityCutoff, sfMin, sfMax,
+      acMin, acMax, soldFilterOn, soldYearsNum, includeNoSale, includeCondos, tagFilter,
+      ownerOccMode, zonedApplies, zoningFilter, useFilter, dorActive, dorSel, polygon,
+      leaseApplies, leaseFilter, leaseMonth, leaseMin, leaseMax, signMin, signMax,
+      leaseSfMin, leaseSfMax, dmFilter, overlays])
+
+  /**
+   * Postgres answers the question now, not the browser.
+   *
+   * The old path fetched the whole book — 127,007 rows, ~26 seconds — and filtered it in
+   * a loop. Drawing a shape was the worst of it: the fetch started the instant the shape
+   * closed, so the map sat frozen exactly when it should have been narrowing.
+   *
+   * The bare map keeps its viewport RPC: there the camera IS the query, and it is already
+   * one fast round trip. Everything else — the table, any filter, a shape, a portfolio —
+   * goes through warroom_page.
+   */
+  const serverMode = !viewportOnly
+  // The map paints up to a screenful of pins; the table shows one page of 100.
+  const serverLimit = view === 'map' ? MAP_VIEWPORT_LIMIT : PAGE_SIZE
+  const serverOffset = view === 'map' ? 0 : page * PAGE_SIZE
+  const serverPage = useWarroomPage(warroomFilters, serverOffset, serverLimit, serverMode, view === 'table')
+  // Fired ALONGSIDE the page, never before it: the page is an indexed limit (27 ms) while
+  // an exact total has to walk the matching set, so pairing them would put the slow half
+  // in front of first paint. The count fills in a beat later.
+  const serverCounts = useWarroomCounts(warroomFilters, serverMode)
+
+  /**
+   * The bare map is the last surface still filtering in the browser, so it is the only one
+   * that needs these lookups. Everywhere else Postgres applies the same rules itself, and
+   * fetching them anyway was not merely wasted — the whole-book owner-context read alone
+   * was ~10 s of database time per load, competing with warroom_page for two cores.
+   */
+  const clientLoop = !serverMode
+  const { tagIds, isLoading: tagsLoading } = useTaggedPropertyIds(clientLoop ? tagFilter : [])
+  const { tagIds: ownerOccIds } = useTaggedPropertyIds(
+    clientLoop && ownerOccMode !== 'all' ? ['owner occupier'] : [],
+  )
+  const { data: lastSales } = useLastSales(clientLoop && soldFilterOn)
+  const { data: unitSizes } = useAvailableUnitSizes(clientLoop && !!(sfMin || sfMax))
 
   /**
    * Owner context is the most expensive thing this page can ask for: one row per
@@ -613,15 +737,6 @@ export function PropertiesPage() {
    * The default table view — five columns, none of them owner — reads none of it, and
    * from here on pays nothing for it.
    */
-  const ownerNeeded =
-    view === 'map' ||
-    ownerFilter !== 'all' ||
-    (activitySubApplies && activity !== 'all') ||
-    portfolioOwnerId != null ||
-    safeColumns.some((c) => OWNER_COLUMNS.has(c)) ||
-    exportOpen ||
-    pushOpen ||
-    ownerMsgOpen
   /** Same question for the asking comp: a price column, the price filter, or a hover card. */
   const askingNeeded =
     view === 'map' ||
@@ -629,12 +744,16 @@ export function PropertiesPage() {
     (marketSubsApply && dealType !== 'all') ||
     exportOpen
 
-  const { data: properties, isLoading, isError, refetch } = useProperties(needsBook, bookMode)
+  // The whole-book fetch is retired. Postgres filters now, so nothing on this page ever
+  // pulls 127,007 rows to answer a question about a hundred of them. `needsBook` survives
+  // only as the gate on owner context below, which is still a book-wide read.
+  const properties = undefined
+  const isLoading = serverPage.isPending
+  const isError = serverPage.isError
+  const refetch = serverPage.refetch
   // The good-deal badge is painted on pins only — the table renders no such chip.
   const { data: goodDealIds } = useGoodDealIds(view === 'map')
   const { data: executedIds } = useExecutedPropertyIds()
-  const { data: askingMap } = useCurrentAsking(undefined, askingNeeded)
-  const { data: ownerCtxBook } = useOwnerContext(needsBook && ownerNeeded)
   // The comps answer lease questions only: the run-off lens, the lease filters, and the
   // table's tenant columns. On the bare market map they were ~1,300 rows of nothing, and
   // slow enough to crowd out the fetch that actually draws the pins.
@@ -673,31 +792,36 @@ export function PropertiesPage() {
    * filter on its own, a drawn shape, a portfolio, and the table.
    */
   const book = useMemo(
-    // Memoised for its identity as much as its contents: `properties ?? []` would mint a
-    // fresh empty array on every render while the book is still loading, and everything
-    // downstream keys its useMemo off this.
-    () =>
-      viewportOnly
-        ? mapView.data.properties
-        : searchOnly
-          ? mapSearch.data.properties
-          : (properties ?? []),
-    [viewportOnly, searchOnly, mapView.data.properties, mapSearch.data.properties, properties],
+    // Memoised for its identity as much as its contents: a fresh `[]` on every render
+    // would invalidate every useMemo downstream that keys off this.
+    () => (viewportOnly ? mapView.data.properties : serverPage.data.properties),
+    [viewportOnly, mapView.data.properties, serverPage.data.properties],
   )
-  const ownerCtx = useMemo(() => {
-    const base = viewportOnly
-      ? mapView.data.ownerContext
-      : searchOnly
-        ? mapSearch.data.ownerContext
-        : ownerCtxBook
-    // Overlay-included rows come from the book, so their owner context must too —
-    // otherwise the union's rows export with blank owner columns. Base wins on
-    // collision: it is what the rest of the page is filtering on.
-    if (overlayIncludes.length === 0 || !ownerCtxBook?.size) return base
-    const merged = new Map(ownerCtxBook)
-    for (const [id, ctx] of base ?? []) merged.set(id, ctx)
-    return merged
-  }, [viewportOnly, searchOnly, mapView.data.ownerContext, mapSearch.data.ownerContext, ownerCtxBook, overlayIncludes])
+  /**
+   * Scoped to the rows on screen, not the whole view.
+   *
+   * Un-scoped this pages the entire asking view — 10.7 s measured, the single biggest
+   * remaining cost on a map load, and it was competing with warroom_page for one of two
+   * cores. The page never holds more than ~1,000 rows now, so asking the question about
+   * exactly those is both cheaper and the same answer.
+   */
+  const askingIds = useMemo(() => book.map((p) => p.id), [book])
+  const { data: askingMap } = useCurrentAsking(askingIds, askingNeeded)
+  /**
+   * Owner context now arrives WITH the rows it belongs to.
+   *
+   * Every server path — the viewport RPC and warroom_page alike — returns each property's
+   * owner context alongside it, scoped to what came back. The book-wide fetch is left as
+   * a fallback for the one thing still reading it: the overlay union's rows, which the
+   * page hydrates from the book rather than from a page of results.
+   */
+  /**
+   * Owner context arrives WITH the rows it belongs to, on every path — the viewport RPC
+   * and warroom_page both return it scoped to what they returned, the overlay union
+   * included. The old 64-bucket whole-book fetch is gone: it was ~10 s of database time
+   * per load and it was what starved warroom_page of a connection.
+   */
+  const ownerCtx = viewportOnly ? mapView.data.ownerContext : serverPage.data.ownerContext
 
   // Deep link from a property's mini-map: /properties?view=map&q=<address>.
   // Every filter here is sticky, so a saved county/type/shape from an earlier session
@@ -791,13 +915,10 @@ export function PropertiesPage() {
     })
 
   // The county list is derived from the data (98% populated) so it only offers real values.
-  // Book-only by design: the county dropdown is a table filter, and the table always has
-  // the book behind it.
-  const counties = useMemo(() => {
-    const set = new Set<string>()
-    for (const p of properties ?? []) if (p.county) set.add(p.county)
-    return [...set].sort()
-  }, [properties])
+  // Was derived from the book, which was free only while the whole book sat in memory.
+  // One page would offer whichever counties page 1 happens to hold, so it comes from the
+  // city->county lookup instead.
+  const { data: counties = [] } = useCountyOptions()
 
   // One canonical searchable string per property, rebuilt only when the book changes — the
   // normalizer is too costly to re-run over ~17k rows on every keystroke.
@@ -940,6 +1061,16 @@ export function PropertiesPage() {
     null
 
   const { baseFiltered, includeCandidates, condoHidden } = useMemo(() => {
+    /**
+     * In server mode Postgres has already applied every one of these rules, including the
+     * condo gate and the overlay union, and `condo_hidden` came back with the counts.
+     * Re-running the loop here would be worse than redundant: it only holds ONE PAGE of
+     * rows, so any filter needing a lookup the page didn't carry would silently drop
+     * matches that Postgres correctly found.
+     */
+    if (serverMode) {
+      return { baseFiltered: book, includeCandidates: [] as typeof book, condoHidden: 0 }
+    }
     // Empty when Postgres did the matching. Re-running the browser's own test over those
     // rows would quietly drop the hits it found by parcel number or folio, which do not
     // appear in the haystack at all — the same trap `contact-select` avoids with
@@ -1099,7 +1230,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
+  }, [serverMode, book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, crossovers, county, sfMin, sfMax, acMin, acMax, priceMin, priceMax, psfMin, psfMax, polygon])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1267,10 +1398,32 @@ export function PropertiesPage() {
   const getExportLease = (propertyId: string) =>
     leaseMatch?.top.get(propertyId) ?? leaseSoonest.get(propertyId)
 
-  // Paginate the table display (data is fully loaded; this just bounds the DOM).
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  /**
+   * How many rows the current question actually has, and what the condo lens removed.
+   *
+   * In server mode `filtered` is ONE PAGE, so its length is never the answer — the total
+   * comes from warroom_counts, which lands a beat after the page. Until it does the total
+   * is null, and every count line below says "…" rather than inventing a number: reading
+   * "100 matching" while page 2 exists is exactly the lie the honest-count rules exist to
+   * prevent.
+   */
+  const resultTotal = serverMode ? (serverCounts.data?.total ?? null) : filtered.length
+  const resultCondoHidden = serverMode ? (serverCounts.data?.condoHidden ?? 0) : condoHidden
+  /** For the places that must print something: the page's own length is a safe floor. */
+  const resultTotalOrPage = resultTotal ?? filtered.length
+
+  // The server returns exactly one page, already ordered; the client slices only when it
+  // is holding the whole set itself (the bare map).
+  //
+  // A full page with no total yet means there is certainly at least one more — so paging
+  // stays usable while the count is in flight, instead of collapsing to "Page 1 of 1" and
+  // stranding Alex on the first hundred rows.
+  const pageCount =
+    resultTotal == null && serverMode && filtered.length >= PAGE_SIZE
+      ? page + 2
+      : Math.max(1, Math.ceil(resultTotalOrPage / PAGE_SIZE))
   const safePage = Math.min(page, pageCount - 1)
-  const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
+  const paged = serverMode ? filtered : filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
 
   const clearFilters = () => {
     setStatus('all')
@@ -1307,16 +1460,16 @@ export function PropertiesPage() {
   // Said out loud wherever a count is: rows the condo exclusion removed from the
   // current set. Without it, a hidden unit reads as "we don't have that property".
   const condoSuffix =
-    condoHidden > 0 ? ` · ${condoHidden.toLocaleString()} condo units hidden` : ''
+    resultCondoHidden > 0 ? ` · ${resultCondoHidden.toLocaleString()} condo units hidden` : ''
 
   /** The top bar's map count — same honesty rules the old toolbar line followed. */
   const mapStatusText =
     overlayIncludes.length > 0
       ? isLoading
         ? 'Loading the book to include the overlay…'
-        : `${filtered.length.toLocaleString()} matching incl. overlay properties${condoSuffix}`
+        : `${fmtTotal(resultTotal)} matching incl. overlay properties${condoSuffix}`
       : polygon
-        ? `${filtered.length.toLocaleString()} in shape${condoSuffix}`
+        ? `${fmtTotal(resultTotal)} in shape${condoSuffix}`
         : searchOnly
           ? searching
             ? 'Searching…'
@@ -1326,14 +1479,14 @@ export function PropertiesPage() {
               mapSearch.isError
               ? 'Search failed — try again'
               : mapSearch.searchCapped
-              ? filtered.length < MAP_SEARCH_LIMIT
-                ? `${filtered.length.toLocaleString()} of the first ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
+              ? resultTotalOrPage < MAP_SEARCH_LIMIT
+                ? `${fmtTotal(resultTotal)} of the first ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
                 : `First ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
-              : `${filtered.length.toLocaleString()} matching${condoSuffix}`
+              : `${fmtTotal(resultTotal)} matching${condoSuffix}`
           : hasQuery
             ? isLoading
               ? 'Loading the book to filter it…'
-              : `${filtered.length.toLocaleString()} matching${condoSuffix}`
+              : `${fmtTotal(resultTotal)} matching${condoSuffix}`
             : mapView.isFetching
               ? 'Loading this area…'
               : // The box count comes from the server, which counts condo units too —
@@ -1406,7 +1559,6 @@ export function PropertiesPage() {
       includeNoSale={includeNoSale} onIncludeNoSale={setIncludeNoSale}
       condoHidden={condoHidden}
       overlays={overlays} onOverlays={setOverlays}
-      onOverlayIncludeOn={() => setWantsBook(true)}
     />
   )
 
@@ -1546,11 +1698,11 @@ export function PropertiesPage() {
             variant="outline"
             className="shrink-0"
             onClick={() => setExportOpen(true)}
-            disabled={filtered.length === 0}
+            disabled={resultTotalOrPage === 0}
           >
             <Download className="size-4" />
             <span className="hidden sm:inline">Export CSV</span>
-            {filtered.length > 0 ? ` (${filtered.length.toLocaleString()})` : ''}
+            {resultTotal != null && resultTotal > 0 ? ` (${resultTotal.toLocaleString()})` : ''}
           </Button>
           {view === 'map' && (
             <Sheet>
@@ -1572,7 +1724,7 @@ export function PropertiesPage() {
               the rail now (Alex, 2026-08-16). Opening it is the same signal as clicking
               the search box: a filter is about to narrow the book, so fetch it now. */}
           {view === 'table' && (
-          <Popover onOpenChange={(open) => open && setWantsBook(true)}>
+          <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline">
                 <SlidersHorizontal className="size-4" />
@@ -1732,7 +1884,7 @@ export function PropertiesPage() {
                   onCheckedChange={(v) => setIncludeCondos(v === true)}
                 />
                 Include condo units
-                {!includeCondos && condoHidden > 0 && (
+                {!includeCondos && resultCondoHidden > 0 && (
                   <span className="text-xs text-muted-foreground">
                     ({condoHidden.toLocaleString()} hidden)
                   </span>
@@ -2004,7 +2156,7 @@ export function PropertiesPage() {
           there is no denominator to quote. */}
       {view === 'table' && !isLoading && !isError && !viewportOnly && !searchOnly && (properties ?? []).length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Showing {filtered.length} of {(properties ?? []).length} properties
+          Showing {paged.length.toLocaleString()} of {fmtTotal(resultTotal)} properties
           {condoSuffix}
         </p>
       )}
@@ -2012,7 +2164,7 @@ export function PropertiesPage() {
           "0 matching" line above it would contradict that. */}
       {!isError && !mapSearch.isError && searchOnly && view === 'table' && !searching && (
         <p className="text-xs text-muted-foreground">
-          {filtered.length.toLocaleString()} matching “{search.trim()}”{condoSuffix}
+          {fmtTotal(resultTotal)} matching “{search.trim()}”{condoSuffix}
           {mapSearch.searchCapped && ` — first ${MAP_SEARCH_LIMIT.toLocaleString()}, narrow the search`}
         </p>
       )}
@@ -2036,7 +2188,7 @@ export function PropertiesPage() {
             <span className="font-medium">{portfolioOwnerName ?? 'Portfolio'}</span>
             <span className="text-muted-foreground">
               {' — '}
-              {filtered.length} propert{filtered.length === 1 ? 'y' : 'ies'} owned — other
+              {fmtTotal(resultTotal)} propert{resultTotal === 1 ? 'y' : 'ies'} owned — other
               filters are paused so the whole portfolio shows
             </span>
           </p>
@@ -2075,16 +2227,16 @@ export function PropertiesPage() {
                   ? 'Searching…'
                   : mapSearch.isError
                     ? 'Could not run that search — try again.'
-                    : filtered.length === 0
-                      ? condoHidden > 0
+                    : resultTotalOrPage === 0
+                      ? resultCondoHidden > 0
                         ? `Only condo units match “${search.trim()}” (${condoHidden.toLocaleString()} hidden) — turn on “Include condo units” to see them.`
                         : `Nothing matches “${search.trim()}”.`
                       : undefined
                 : hasQuery
                   ? isLoading
                     ? 'Loading the book to filter it…'
-                    : filtered.length === 0
-                      ? condoHidden > 0
+                    : resultTotalOrPage === 0
+                      ? resultCondoHidden > 0
                         ? `Only condo units match (${condoHidden.toLocaleString()} hidden) — turn on “Include condo units” to see them.`
                         : 'Nothing matches the current search/filters.'
                       : undefined
@@ -2092,7 +2244,7 @@ export function PropertiesPage() {
                     ? 'Could not load the properties in this area — pan to retry.'
                     : mapView.isFetching
                       ? 'Loading the properties in view…'
-                      : condoHidden > 0
+                      : resultCondoHidden > 0
                         ? `Only condo units here (${condoHidden.toLocaleString()} hidden) — turn on “Include condo units” to see them.`
                         : 'No properties here yet — pan or zoom out to find some.'
             }
@@ -2126,27 +2278,31 @@ export function PropertiesPage() {
         </div>
       ) : isError || (searchOnly && mapSearch.isError) ? (
         <ListErrorState message="Could not load properties." onRetry={() => refetch()} />
-      ) : /* Under a search the book is never fetched, so its emptiness says nothing about
-            whether Alex has any properties — only that he hasn't loaded them. */
-        !searchOnly && (properties ?? []).length === 0 ? (
+      ) : /* "You own nothing yet" is only true when nothing is NARROWING the set. This
+            used to read the book's length, which no longer exists -- and an absent book
+            reads as zero, so this branch swallowed the whole table. Wait for the real
+            total before claiming it: a null total means the count is still in flight. */
+        !searchOnly && !hasQuery && resultTotal === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
             No properties yet — use “Add property” above to add the buildings and land you're working.
           </p>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : resultTotalOrPage === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
-          {condoHidden > 0 ? (
+          {resultCondoHidden > 0 ? (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Only condo units match — {condoHidden.toLocaleString()} hidden by the condo filter.
+                Only condo units match — {resultCondoHidden.toLocaleString()} hidden by the condo filter.
               </p>
               <Button variant="outline" size="sm" onClick={() => setIncludeCondos(true)}>
                 Include condo units
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No properties match “{search.trim()}”</p>
+            <p className="text-sm text-muted-foreground">
+              {search.trim() ? `No properties match “${search.trim()}”` : 'Nothing matches these filters.'}
+            </p>
           )}
         </div>
       ) : (
@@ -2261,8 +2417,8 @@ export function PropertiesPage() {
           {pageCount > 1 && (
             <div className="flex items-center justify-between gap-2 pt-1">
               <p className="text-xs text-muted-foreground tabular-nums">
-                {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of{' '}
-                {filtered.length}
+                {safePage * PAGE_SIZE + 1}–{safePage * PAGE_SIZE + paged.length} of{' '}
+                {fmtTotal(resultTotal)}
               </p>
               <div className="flex items-center gap-2">
                 <Button

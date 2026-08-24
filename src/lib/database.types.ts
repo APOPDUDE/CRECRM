@@ -4692,7 +4692,7 @@ export type Database = {
         Returns: { id: string }[]
       }
       warroom_page: {
-        Args: { p_filters: Json; p_limit?: number; p_offset?: number }
+        Args: { p_filters: Json; p_limit?: number; p_offset?: number; p_ordered?: boolean }
         Returns: { owner_ctx: Json; property: Json }[]
       }
       warroom_predicate: { Args: { p_filters: Json }; Returns: Json }
