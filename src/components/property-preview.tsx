@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/sheet'
 import { toast } from 'sonner'
 import { InlineEditField } from '@/components/inline-edit-field'
+import { SiteIntelligence } from '@/components/site-intelligence'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { useProperty, useUpdateProperty } from '@/hooks/use-properties'
 import { useCurrentAsking, useCurrentListingEvent } from '@/hooks/use-comps'
@@ -90,6 +91,10 @@ export function PropertyPreview({ propertyId, open, onOpenChange }: PropertyPrev
                   </Badge>
                 )}
               </div>
+
+              {/* Renders nothing until the enrichment pass has reached this parcel,
+                  so the preview is unchanged for anything it has no answers about. */}
+              <SiteIntelligence propertyId={p.id} />
 
               {listingUrl && (
                 <Button asChild variant="outline" className="w-full justify-between">
