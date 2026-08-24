@@ -1,73 +1,87 @@
-# Re-test after the author's fix — still broken (2026-08-23)
+# Re-test after the author's fix — it partly works, and my first read was wrong (2026-08-23/24)
 
 The author replied saying an older published version plus two simultaneously-down paid
-providers caused the zeros, that they reproduced our exact search on a fixed version, and that
-they were pushing it to our scraper.
+providers caused the zeros, that they reproduced our search on a fixed version, and that they
+were pushing it to our scraper.
 
-**The build did land. It still returns zero.**
+**Correction to the first pass of this file.** It concluded "still broken, the author's
+explanation doesn't match the log". That was overstated. It tested the *saved Apify tasks*,
+got zeros, and generalised. Alex then ran the actor directly and it worked. Both are true —
+the actor is intermittent, and a handful of failures is not proof it is dead.
 
-## What we tested
+## What is actually true
 
 The tasks run `memo23/apify-loopnet-search-cheerio` (actor `RuOxoBM1bnc5pQ3TJ`) — *not*
-`kazkn/commercial-real-estate-brokerage-intel` as earlier notes assumed. Same codebase family;
-worth correcting because it's the actor you have to look at.
+`kazkn/commercial-real-estate-brokerage-intel` as earlier notes assumed. Rebuilt
+**2026-08-23 10:58 UTC → build `0.0.285`**, so the fix is genuinely published.
 
-That actor was rebuilt **today at 10:58 UTC → build `0.0.285`** (previous runs were `0.0.284`),
-so the fix is genuinely published. We then ran both tasks fresh at ~19:05 UTC:
-
-| task | build | status | items | cost |
-|---|---|---|---|---|
-| `cre-loopnet-daily-hillsborough` (industrial + land) | 0.0.285 | **FAILED** | 0 | $0.0097 |
-| `cre-loopnet-daily-hillsborough-restaurants` — **the author's own repro case** | 0.0.285 | **FAILED** | 0 | $0.0046 |
-
-The scheduled 11:00 and 11:12 UTC runs, the first two to pick up `0.0.285`, also both failed.
-
-## The log, from their own repro case (run `xKAa77XIVhYe2jIYM`)
+**The free lane works again, at least sometimes.** Alex's run `HxjsHQaPm6LEifJ5F` (01:21 UTC,
+build 0.0.285) returned **26 listings**, and its log shows the token-free scraper succeeding
+outright:
 
 ```
-[appcheck] App Check token expired — using the website/unblocker fallback for this run
-[unblocker] scrape.do primed: lead f3b4a1e7… (1,667,902 of 3,500,000 left); 1 key(s) spent/retired.
-[proxy-check] proxy 1: OK
-[internal] SRP .../restaurants/hillsborough-county-fl/for-sale/: mobile search 403 (App Check) → trying token-free SRP scrape first.
-[internal] SRP ...: impit attempt 1 (chrome) → 403 [hard-block]
-[internal] SRP ...: impit attempt 8 (chrome) → 403 [hard-block]
-[internal] SRP ...: token-free lanes blocked → falling back to website search via the paid unblocker
-[unblocker] ✗ scrapedo failed search ... (status=502) — trying next provider.
-[unblocker] ✗ scrapingbee returned HTTP 401 (invalid/expired API key) — DISABLING it for the
-            rest of this run. Refresh the scrapingbee key.
-[FAIL] Scraped 0 items across 1 start URL(s) — every source failed to return data
+[internal] SRP .../restaurants/hillsborough-county-fl/for-sale/: impit attempt 1 (chrome) → 200 [ok]
+[internal] SRP ...: impit collected 26 listing id(s) across 2 page(s) — enriching
 ```
 
-## Two places the explanation doesn't match the log
+That is the lane that had been returning `403 [hard-block]` on all 8 attempts since 08-17. So
+the author did fix something real.
 
-1. **"One provider hit its monthly quota, resets Aug 29."** The log shows scrape.do priming with
-   **1,667,902 of 3,500,000 credits left** and then failing with **502** — a server error, not a
-   quota refusal. The other provider returns **HTTP 401 invalid/expired API key**, which is also
-   not a quota condition. Both are the same failures we reported on 08-18, verbatim.
-2. **"Your searches were served by an older published version."** Plausible for the runs before
-   today, but the two runs above are on `0.0.285`, built after the fix, and the free bypass lane
-   still returns `403 [hard-block]` on all 8 attempts.
+**But it is a coin flip.** Five minutes after that success, on the same URL and the same build,
+three runs of mine failed with `impit attempt 1..8 → 403 [hard-block]` and then both paid
+backups down. Same pattern as the original outage — the difference is that the free lane now
+*sometimes* wins instead of never.
 
-So the token-free lane is still blocked and **both** paid lanes are still down. Nothing about
-our input or our proxy is implicated — `[proxy-check] proxy 1: OK`.
+## `moreResults` is not the cause — ruled out by test
 
-## Where this leaves us
+Our saved tasks send `moreResults: true`; Alex's manual input sent `false`. That was the only
+substantive difference between the two inputs (everything else in his input is the schema
+default spelled out), so it was the obvious suspect. A/B/A on the same URL, minutes apart:
 
-No change. The live sweep stays on `azzouzana/loopnet-scraper`; kazkn/memo23 remains a canary
-only, and nothing ingests from it. `select * from v_sweep_actor_health order by day desc, source;`
-is the standing answer to "is it back yet".
+| run | moreResults | result |
+|---|---|---|
+| Alex's (console) | false | **SUCCEEDED, 26 items** |
+| A1 mine | false | FAILED, 0 |
+| B mine | true | FAILED, 0 |
+| A2 mine | false | FAILED, 0 |
+
+`false` both succeeded and failed, so the flag is not the discriminator. It may still matter at
+*scale* — `moreResults: true` pages far deeper, and each extra page is another chance to trip
+Akamai, so a 4-URL county task with deep pagination has many more ways to fail than a 26-listing
+restaurant search. That is untested; it is a hypothesis, not a finding.
+
+## The one part of the author's explanation that still doesn't fit
+
+They said one paid provider "hit its monthly quota, which resets on Aug 29". Every failing log
+shows scrape.do priming with **1,651,834 of 3,500,000 credits left** and then returning **502**,
+while scrapingbee returns **HTTP 401 (invalid/expired API key)**. Neither is a quota condition.
+Both paid lanes still appear genuinely down — which is why a bad draw on the free lane still
+ends in zero rather than falling back cleanly.
+
+## Where this leaves the sweep
+
+No change for now. The live sweep stays on `azzouzana/loopnet-scraper`, which delivered 3 of 4
+on its first real pass. memo23/kazkn stays a canary; nothing ingests from it.
+
+If its success rate keeps climbing it becomes worth re-wiring as a second source — but the
+canary has to earn that call with data, not one good run. Watch:
+
+```sql
+select * from v_sweep_actor_health order by day desc, source;
+```
 
 ## A canary bug this re-test exposed
 
-`v_sweep_actor_health` reported **0 delivered on 2026-08-22 — but Pasco and Pinellas had actually
-SUCCEEDED that day.** Cause: the canary read `stats.datasetItemCount` off the run object, and
-`/v2/actor-runs` does not return that field, so every row logged `item_count = null` and the
-`delivered` count (which requires `item_count > 0`) was always zero.
+`v_sweep_actor_health` reported **0 delivered on 2026-08-22 — but Pasco and Pinellas had
+actually SUCCEEDED.** The canary read `stats.datasetItemCount` off the run object, and
+`/v2/actor-runs` does not return that field, so every row logged `item_count = null` and
+`delivered` (which requires `item_count > 0`) was always zero.
 
-That is the worst possible failure for a canary — it would have stayed silent on the very day
-kazkn came back. Fixed: WF3's canary chain now fetches each run's dataset for its real
-`itemCount`, records `SUCCEEDED`-with-0-items as `BLOCKED`, and writes a real error string
-instead of the null that FAILED runs leave behind (kazkn failures carry no `statusMessage`).
+That is the worst possible failure for a canary: it would have stayed silent on the very day
+the actor came back — exactly the mistake this file is a correction of, wired into code.
+Fixed — WF3's canary chain now fetches each run's dataset for its real `itemCount`, records
+`SUCCEEDED`-with-0-items as `BLOCKED`, and writes a real error string instead of the null a
+FAILED run leaves behind.
 
-Chain is now: `Read kazkn runs → Build canary rows → Fetch item counts → Merge item counts →
+Chain: `Read kazkn runs → Build canary rows → Fetch item counts → Merge item counts →
 Log canary → Alert → Slack`.
