@@ -380,6 +380,20 @@ export function PropertiesPage() {
   // (standard 'other' codes and county customs). ANDs with the bucketed use select.
   const [dorSelRaw, setDorSel] = usePersistentState<DorSelection>('properties:dorSel', DOR_SELECTION_DEFAULT)
   const dorSel = useMemo(() => safeDorSelection(dorSelRaw), [dorSelRaw])
+  const [bookModeRaw, setBookMode] = usePersistentState<'industrial' | 'land'>('properties:book', 'industrial')
+  const bookMode = bookModeRaw === 'land' ? 'land' : 'industrial'
+  // Crossing INTO the land book with no DOR selection seeds the baseline
+  // (all land codes on). Transition-only, so the picker's Clear stays cleared —
+  // an effect keyed on inactivity alone would snap Clear right back.
+  const prevBookRef = useRef<string | null>(null)
+  useEffect(() => {
+    const prev = prevBookRef.current
+    prevBookRef.current = bookMode
+    if (prev !== 'land' && bookMode === 'land' && !dorSelectionActive(dorSel)) {
+      setDorSel({ ...DOR_SELECTION_DEFAULT, land: 'all' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookMode])
   /**
    * The land book's BASELINE selection is land:'all' (Alex 2026-08-24: opening the
    * picker there should show every land code checked, not ask him to build the set
@@ -459,20 +473,7 @@ export function PropertiesPage() {
   // (just-land rows excluded so it never slows or clutters), Land is the developer-land
   // book. <=5% building-to-land crossovers appear in both. Server-side on every data
   // path — the book fetch, the viewport RPC and typed search all carry it.
-  const [bookModeRaw, setBookMode] = usePersistentState<'industrial' | 'land'>('properties:book', 'industrial')
-  const bookMode = bookModeRaw === 'land' ? 'land' : 'industrial'
-  // Crossing INTO the land book with no DOR selection seeds the baseline
-  // (all land codes on). Transition-only, so the picker's Clear stays cleared —
-  // an effect keyed on inactivity alone would snap Clear right back.
-  const prevBookRef = useRef<string | null>(null)
-  useEffect(() => {
-    const prev = prevBookRef.current
-    prevBookRef.current = bookMode
-    if (prev !== 'land' && bookMode === 'land' && !dorSelectionActive(dorSel)) {
-      setDorSel({ ...DOR_SELECTION_DEFAULT, land: 'all' })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookMode])
+
   // "Search leases" (Alex, 2026-08-16): the lease windows live in the rail behind one
   // toggle — new listing lands, draw the area, flip this on, and every tenant close to
   // expiry nearby is on screen with their DM. On the map the windows only APPLY while

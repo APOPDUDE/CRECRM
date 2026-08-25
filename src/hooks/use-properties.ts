@@ -156,19 +156,30 @@ export function useProperties(enabled = true, book: PropertyBook = 'all') {
       // per book row. parcel_enrichment is keyed by property_id, so this is a
       // single index scan per page.
       const scores = async () => {
+        // Sequential offset-paging here was the book fetch's hidden whale: fine at
+        // the ~5k scored rows it was written against, but the scorer has since
+        // published 60k+ — sixty round trips one after another added tens of
+        // seconds to EVERY book load (Alex 2026-08-24: filters/shape "taking
+        // forever"). Same uuid-bucket parallel pattern as the book itself.
         const m = new Map<string, number>()
-        for (let off = 0; ; off += PAGE) {
-          const r = await supabase
-            .from('parcel_enrichment')
-            .select('property_id, suitability_score')
-            .not('suitability_score', 'is', null)
-            .range(off, off + PAGE - 1)
-          if (r.error) throw r.error
-          for (const x of r.data ?? []) {
-            if (x.suitability_score !== null) m.set(x.property_id, Number(x.suitability_score))
-          }
-          if ((r.data ?? []).length < PAGE) break
-        }
+        const SBUCKETS = 32
+        const sbound = (i: number) =>
+          `${(i * 8).toString(16).padStart(2, '0')}000000-0000-0000-0000-000000000000`
+        await Promise.all(
+          Array.from({ length: SBUCKETS }, async (_, i) => {
+            let q = supabase
+              .from('parcel_enrichment')
+              .select('property_id, suitability_score')
+              .not('suitability_score', 'is', null)
+              .gte('property_id', sbound(i))
+            if (i < SBUCKETS - 1) q = q.lt('property_id', sbound(i + 1))
+            const r = await q.limit(5000)
+            if (r.error) throw r.error
+            for (const x of r.data ?? []) {
+              if (x.suitability_score !== null) m.set(x.property_id, Number(x.suitability_score))
+            }
+          }),
+        )
         return m
       }
       // Page by UUID RANGE on the PK, never by OFFSET-over-a-sort: ordering by
@@ -420,11 +431,14 @@ export function usePagedLandBook(page: number, enabled = true) {
         .order('address')
         .range(from, from + PAGE - 1)
       if (error) throw error
-      const rows = (data ?? []).map((r) => ({
-        ...(r as unknown as Property),
-        source_address: (r as { address: string | null }).address,
-        listings: [], matches: [], suitability_score: null,
-      })) as PropertyWithCounts[]
+      const rows = (data ?? []).map((r) => {
+        const row = r as unknown as Property
+        return {
+          ...row,
+          source_address: row.address,
+          listings: [], matches: [], suitability_score: null,
+        }
+      }) as PropertyWithCounts[]
       return { rows, total: count ?? rows.length }
     },
   })
