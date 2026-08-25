@@ -4564,6 +4564,10 @@ export type Database = {
         Args: { p_county: string; p_limit?: number }
         Returns: Json
       }
+      enrich_flood: {
+        Args: { p_county: string; p_limit?: number }
+        Returns: Json
+      }
       enrich_gas: {
         Args: { p_county: string; p_limit?: number }
         Returns: Json
@@ -4577,6 +4581,14 @@ export type Database = {
         Returns: Json
       }
       enrich_roads: {
+        Args: { p_county: string; p_limit?: number }
+        Returns: Json
+      }
+      enrich_sweep: {
+        Args: { p_batch?: number; p_max_rounds?: number }
+        Returns: Json
+      }
+      enrich_wetlands: {
         Args: { p_county: string; p_limit?: number }
         Returns: Json
       }
@@ -4816,6 +4828,15 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       strip_html: { Args: { p: string }; Returns: string }
+      suggest_properties: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          address: string
+          city: string
+          county: string
+          id: string
+        }[]
+      }
       suggest_properties_to_client: {
         Args: { p_client_id: string; p_property_ids: string[] }
         Returns: Json
