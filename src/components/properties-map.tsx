@@ -191,6 +191,7 @@ function FitToPoints({
   const map = useMap()
   const first = useRef(true)
   const lastForce = useRef<string | null>(null)
+  const lastSig = useRef<string | null>(null)
   useEffect(() => {
     const isFirst = first.current
     first.current = false
@@ -200,6 +201,15 @@ function FitToPoints({
     if (points.length > 0) lastForce.current = forceKey ?? null
     if (isFirst && skipInitial && !forced) return
     if (suspended || points.length === 0) return
+    // Refit only when the SET changes, not the array identity. A refetch of the
+    // same search hands back a fresh array of the same pins, and refitting on it
+    // yanked the camera back out mid-zoom (Alex 2026-08-24: "when I do a search
+    // and zoom in it keeps zooming me back out"). First/last id + count is a
+    // cheap stand-in for set equality — any real change to the result set moves
+    // at least one of them.
+    const sig = `${points.length}:${points[0].id}:${points[points.length - 1].id}`
+    if (!forced && sig === lastSig.current) return
+    lastSig.current = sig
     const bounds = L.latLngBounds(points.map((pt) => [pt.lat, pt.lng] as [number, number]))
     // How far apart the pins actually are decides how far to go in — not how many there are.
     // An assemblage is several parcels on one corner: three pins 30m apart at zoom 17 land on
