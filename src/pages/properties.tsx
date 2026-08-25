@@ -49,7 +49,8 @@ import {
 } from '@/hooks/use-property-tag-filter'
 import { useLastSales } from '@/hooks/use-last-sales'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties } from '@/hooks/use-properties'
+import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties, usePagedLandBook,
+} from '@/hooks/use-properties'
 import {
   MAP_SEARCH_LIMIT,
   useMapProperties,
@@ -628,9 +629,20 @@ export function PropertiesPage() {
   // deciding instead of after.
   // An active "Include in search" needs the book too: the union scans every row's
   // zoning fields, and half its point is rows the camera has never seen.
-  const needsBook = (!viewportOnly && !searchOnly) || wantsBook || overlayIncludes.length > 0
+  /**
+   * The PLAIN land-book table — no search, no filters, no shape — is served a
+   * page at a time by the server (Alex 2026-08-24: the 100k-row book download
+   * just to show 100 rows made the list "take forever"). Anything that needs
+   * whole-book answers (a filter Apply, a search, Export, Review, the map's
+   * include-in-search overlay) flips wantsBook and the full fetch takes over.
+   */
+  const tableFastPath =
+    view === 'table' && bookMode === 'land' && !searchOnly &&
+    activeFilterCount === 0 && !polygon && !wantsBook && overlayIncludes.length === 0
+  const needsBook = ((!viewportOnly && !searchOnly) && !tableFastPath) || wantsBook || overlayIncludes.length > 0
 
   const { data: properties, isLoading, isError, refetch } = useProperties(needsBook, bookMode)
+  const landPage = usePagedLandBook(page, tableFastPath)
   const { data: goodDealIds } = useGoodDealIds()
   const { data: executedIds } = useExecutedPropertyIds()
   const { data: askingMap } = useCurrentAsking()
@@ -1274,9 +1286,11 @@ export function PropertiesPage() {
     leaseMatch?.top.get(propertyId) ?? leaseSoonest.get(propertyId)
 
   // Paginate the table display (data is fully loaded; this just bounds the DOM).
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  // On the fast path the server's page IS the table's page and its count the total.
+  const tableTotal = tableFastPath ? (landPage.data?.total ?? 0) : filtered.length
+  const pageCount = Math.max(1, Math.ceil(tableTotal / PAGE_SIZE))
   const safePage = Math.min(page, pageCount - 1)
-  const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
+  const paged = tableFastPath ? (landPage.data?.rows ?? []) : filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
 
   const clearFilters = () => {
     setStatus('all')
@@ -1567,7 +1581,7 @@ export function PropertiesPage() {
               variant="outline"
               className="shrink-0"
               title="Review the current list card by card — aerial shot, keep or remove"
-              onClick={() => setReviewOpen(true)}
+              onClick={() => { if (tableFastPath) setWantsBook(true); setReviewOpen(true) }}
             >
               Review
             </Button>
@@ -1604,12 +1618,16 @@ export function PropertiesPage() {
             size="sm"
             variant="outline"
             className="shrink-0"
-            onClick={() => setExportOpen(true)}
-            disabled={filtered.length === 0}
+            // Export needs the whole set; on the paged fast path that means loading
+            // the book first — the click starts the load AND opens the dialog.
+            onClick={() => { if (tableFastPath) setWantsBook(true); setExportOpen(true) }}
+            disabled={tableFastPath ? tableTotal === 0 : filtered.length === 0}
           >
             <Download className="size-4" />
             <span className="hidden sm:inline">Export CSV</span>
-            {filtered.length > 0 ? ` (${filtered.length.toLocaleString()})` : ''}
+            {(tableFastPath ? tableTotal : filtered.length) > 0
+              ? ` (${(tableFastPath ? tableTotal : filtered.length).toLocaleString()})`
+              : ''}
           </Button>
           {view === 'map' && (
             <Sheet>
@@ -2063,7 +2081,7 @@ export function PropertiesPage() {
           there is no denominator to quote. */}
       {view === 'table' && !isLoading && !isError && !viewportOnly && !searchOnly && (properties ?? []).length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Showing {filtered.length} of {(properties ?? []).length} properties
+          Showing {tableFastPath ? paged.length : filtered.length} of {(tableFastPath ? tableTotal : (properties ?? []).length).toLocaleString()} properties
           {condoSuffix}
         </p>
       )}
@@ -2177,23 +2195,24 @@ export function PropertiesPage() {
           />
           </div>
         </div>
-      ) : isLoading || searching ? (
+      ) : isLoading || searching || (tableFastPath && landPage.isLoading) ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
-      ) : isError || (searchOnly && mapSearch.isError) ? (
-        <ListErrorState message="Could not load properties." onRetry={() => refetch()} />
+      ) : isError || (searchOnly && mapSearch.isError) || (tableFastPath && landPage.isError) ? (
+        <ListErrorState message="Could not load properties." onRetry={() => (tableFastPath ? landPage.refetch() : refetch())} />
       ) : /* Under a search the book is never fetched, so its emptiness says nothing about
-            whether Alex has any properties — only that he hasn't loaded them. */
-        !searchOnly && (properties ?? []).length === 0 ? (
+            whether Alex has any properties — only that he hasn't loaded them. The paged
+            fast path likewise never fetches the book — its own page speaks for it. */
+        !searchOnly && !tableFastPath && (properties ?? []).length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
             No properties yet — use “Add property” above to add the buildings and land you're working.
           </p>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : (tableFastPath ? paged.length === 0 : filtered.length === 0) ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
           {condoHidden > 0 ? (
             <div className="space-y-3">
@@ -2320,8 +2339,8 @@ export function PropertiesPage() {
           {pageCount > 1 && (
             <div className="flex items-center justify-between gap-2 pt-1">
               <p className="text-xs text-muted-foreground tabular-nums">
-                {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of{' '}
-                {filtered.length}
+                {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, tableTotal)} of{' '}
+                {tableTotal.toLocaleString()}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -2382,7 +2401,14 @@ export function PropertiesPage() {
 
       />
 
-      <PropertyReview open={reviewOpen} onOpenChange={setReviewOpen} properties={filtered} />
+      {reviewOpen && (
+        <PropertyReview
+          open={reviewOpen}
+          onOpenChange={setReviewOpen}
+          properties={filtered}
+          loading={isLoading || !properties}
+        />
+      )}
 
       <PropertyFormDialog open={formOpen} onOpenChange={setFormOpen} property={editing} />
       <ConfirmDeleteDialog

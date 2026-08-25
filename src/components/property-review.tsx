@@ -30,10 +30,14 @@ export function PropertyReview({
   open,
   onOpenChange,
   properties,
+  loading = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   properties: Property[]
+  /** The full list is still loading (the paged fast path defers the book fetch
+   *  to the Review click) — hold the deck until it lands. */
+  loading?: boolean
 }) {
   const queryClient = useQueryClient()
   const [idx, setIdx] = useState(0)
@@ -46,14 +50,16 @@ export function PropertyReview({
   // The list is frozen at open: mid-session tag writes must not reshuffle the
   // deck under the reviewer.
   const [deck, setDeck] = useState<Property[]>([])
+  const [seeded, setSeeded] = useState(false)
   useEffect(() => {
-    if (open) {
-      setDeck(properties)
-      setIdx(0)
-      setTrail([])
-    }
+    if (!open) { setSeeded(false); return }
+    if (seeded || loading) return
+    setDeck(properties)
+    setIdx(0)
+    setTrail([])
+    setSeeded(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, loading, seeded])
 
   const current = deck[idx]
   const finished = open && deck.length > 0 && idx >= deck.length
@@ -158,7 +164,11 @@ export function PropertyReview({
           Review each property on an aerial map and keep or remove it.
         </DialogDescription>
 
-        {deck.length === 0 ? (
+        {loading && !seeded ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            Loading the full list…
+          </p>
+        ) : deck.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">
             Nothing to review — the current list is empty.
           </p>
