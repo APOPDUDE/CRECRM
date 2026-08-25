@@ -426,3 +426,56 @@ Verified against the real Hillsborough log: `urls_ok 3, urls_expected 4`, blocke
 ```sql
 select county, succeeded, failed, urls_ok, urls_expected, last_error from v_sweep_runs_today;
 ```
+
+
+---
+
+## Wider net: industrial-space, no land filter, record-if-known (2026-08-25)
+
+### `industrial-space` is an ADDITION, not a swap — tested
+
+Alex asked to switch the for-lease URL from `industrial-properties` to
+`industrial-space/...?view=map`. Tested on Hillsborough before rolling it out, and a straight
+swap would have been a bad trade:
+
+| | `industrial-properties` | `industrial-space` |
+|---|---|---|
+| rows | **770** | 194 |
+| `address` populated | 960/960 | **0/194** |
+| `propertyType` | populated | `None` on all |
+| overlap | — | 146 shared, **624 lost**, **48 unique** |
+
+Since the mapper requires an address, swapping would have imported **zero** for-lease rows.
+`?view=map` is not the cause — the plain URL behaves identically; it is the facet, which the
+actor reads via `srp-ldjson` rather than `free-mobile-api`.
+
+But the 48 unique rows are real and big — 122,946 SF and 182,337 SF CBRE, 50,000 SF JLL — so
+`industrial-space/.../for-lease/` was **added as a 5th URL** on every county rather than
+replacing anything. For-sale stays `industrial-properties`, as asked.
+
+Its rows need special handling, all in the mapper:
+- address/city/state/zip come from **`listingName`** (`'13300 McCormick Dr, Tampa, FL 33626'`,
+  parses 194/194); `address` itself is always null
+- size comes from **`totalSize` as a STRING** (`'90750'`), so `sizeToSf` coerces before testing
+- `propertyType` is always null, so a row is typed industrial when
+  `_dataSource === 'srp-ldjson'` — the URL already typed it
+
+### No land filter
+
+Land is now kept unconditionally. It went 67 → 140 (0.5 AC floor) → **all of it**. The land
+search URLs are already county- and land-scoped, so the URL is the filter.
+
+### Record anything that matches a property we own
+
+`record_market_listings_for_known(jsonb)` (migration `20260825140000`) attaches a market listing
+to an **existing** property, matching on `source_key` then exact address+city+state. It **cannot
+insert a property** — `import_scraped_listings` stays the only path that creates — and it never
+re-keys one, because claim-by-address is how a listing ends up on a neighbouring parcel.
+
+So a Hillsborough run now splits: **596 create** (429 industrial + 167 land) and **556
+match-only** (Office, Medical, Strip Center…) offered to the matcher. Live test: 4 of 5 matched
+real buildings with correct rate and SF, the invented address was skipped, and no property was
+created.
+
+Verified end to end on the real 960 + 194 row datasets: 596 create / 556 match, **nothing
+dropped**, every row carrying an address.

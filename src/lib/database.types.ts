@@ -4777,6 +4777,10 @@ export type Database = {
       }
       property_last_sales: { Args: never; Returns: Json }
       recent_touches: { Args: { p_phone: string }; Returns: number }
+      record_market_listings_for_known: {
+        Args: { p_rows: Json }
+        Returns: Json
+      }
       record_text_send_result: { Args: { p: Json }; Returns: Json }
       refresh_condo_units: { Args: never; Returns: number }
       refresh_county_market_stats: { Args: never; Returns: number }
