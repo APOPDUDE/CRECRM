@@ -383,3 +383,46 @@ canary-logging the same runs would double-count them in `v_sweep_actor_health`.
 id (`41300132` = `/Listing/41300132/`), so the re-list dedup has nothing to key on and a
 re-list mints a new property row again. `market_listings` is unaffected — it keys on the
 listing id, which memo23 provides.
+
+
+---
+
+## Land coverage + partial-run detection (2026-08-25)
+
+Alex asked why `14525 N FLORIDA AVE, Tampa` — on the market, 6.8 acres — had never been swept,
+and guessed we weren't searching land. We were. The real answers were two different bugs.
+
+### 1. The mapper was throwing most land away
+
+Every county task runs 4 URLs including `land/.../for-lease` and `land/.../for-sale`, and they
+work — 260 of Hillsborough's 960 rows were land. But the mapper kept land only when its text
+read industrial, which discarded **146 Commercial land parcels, keeping 67 of 250**. Those are
+not scraps: median **1.58 AC**, up to 122 AC, e.g. `10916 N Nebraska Ave — $2.9M, 2.92 AC`.
+
+Now land is kept unless it is residential/agricultural, with a **0.5 AC floor** (which drops 27
+sub-half-acre retail pads that are not IOS candidates). Verified on the real 960-row dataset:
+**kept 256 → 375**, land **67 → 140**, zero residential leaked.
+
+### 2. A county can lose a search and still look clean
+
+`14525 N Florida Ave` wasn't filtered out — it was never returned. The Hillsborough log:
+
+```
+industrial-properties/.../for-lease/ -> collected 750 ids / 30 pages
+land/.../for-sale/                   -> collected 200 ids /  9 pages
+land/.../for-lease/                  -> collected  60 ids /  3 pages
+industrial-properties/.../for-sale/  -> impit x8 403, camoufox x2 403, scrapedo 502, 0 ids
+```
+
+**The run still exited SUCCEEDED with 960 items.** A quarter of the county's coverage vanished
+and `sweep_runs` recorded a healthy county — `item_count` can never catch this, because 960 rows
+from 3 of 4 URLs looks better than a good day in a small county.
+
+WF3 now fetches each run's log, counts `SRP <url>: ... collected N listing id(s)` per URL, and
+records `urls_ok` / `urls_expected` (migration `20260825120000`). Short runs are logged
+**`PARTIAL`**, which `v_sweep_runs_today` counts as failed, so the retry re-runs that county.
+Verified against the real Hillsborough log: `urls_ok 3, urls_expected 4`, blocked URL named.
+
+```sql
+select county, succeeded, failed, urls_ok, urls_expected, last_error from v_sweep_runs_today;
+```
