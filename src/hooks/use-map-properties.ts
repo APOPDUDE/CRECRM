@@ -184,3 +184,29 @@ export function useMapSearch(query: string, enabled = true, book: PropertyBook =
   const data = result.data ?? EMPTY
   return { ...result, data, searchCapped: data.properties.length >= MAP_SEARCH_LIMIT }
 }
+
+/** One typeahead suggestion — what the dropdown needs and nothing else. */
+export type SearchSuggestion = { id: string; address: string; city: string | null; county: string | null }
+
+/**
+ * Google-style typeahead for the search box: top-8 address matches while typing,
+ * from suggest_properties (prefix-first over search_text, ~60ms). Deliberately
+ * separate from useMapSearch — the committed search is thorough and ~900ms, far
+ * too heavy to run per keystroke, which is exactly why the box stopped doing
+ * that. Suggestions are the light preview; Enter still runs the real thing.
+ */
+export function useSearchSuggestions(query: string, enabled = true) {
+  const q = query.trim()
+  return useQuery({
+    queryKey: ['search-suggest', q],
+    enabled: enabled && q.length >= 3,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('suggest_properties', { p_query: q, p_limit: 8 })
+      if (error) throw error
+      return (data ?? []) as SearchSuggestion[]
+    },
+  })
+}

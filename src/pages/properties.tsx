@@ -56,6 +56,7 @@ import {
   useMapProperties,
   useMapSearch,
   type MapViewport,
+  useSearchSuggestions,
 } from '@/hooks/use-map-properties'
 import { useIndustrialCrossovers, isZonedIndustrial } from '@/hooks/use-zoning-map'
 import {
@@ -344,6 +345,22 @@ export function PropertiesPage() {
   // the clear button write `search` directly and the effect keeps the box honest.
   const [searchInput, setSearchInput] = useState(search)
   useEffect(() => setSearchInput(search), [search])
+  // Google-style typeahead under the box: light suggestions while typing (the
+  // committed search stays Enter-only). Open while the box is focused and the
+  // typed text differs from the running query; picking one commits it.
+  const [sugOpen, setSugOpen] = useState(false)
+  const [sugIdx, setSugIdx] = useState(-1)
+  const debouncedInput = useDebouncedValue(searchInput.trim(), 150)
+  const suggestions = useSearchSuggestions(
+    debouncedInput,
+    sugOpen && debouncedInput !== search.trim(),
+  ).data
+  const pickSuggestion = (addr: string) => {
+    setSugOpen(false)
+    setSugIdx(-1)
+    setSearchInput(addr)
+    setSearch(addr)
+  }
   // Filters + column choice persist across navigation (sticky) so returning from a
   // property detail keeps the list exactly as it was.
   const [status, setStatus] = usePersistentState('properties:status', 'all')
@@ -1553,11 +1570,48 @@ export function PropertiesPage() {
                 search box no longer has a book to warm. */}
             <Input
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') setSearch(searchInput.trim()) }}
+              onChange={(e) => { setSearchInput(e.target.value); setSugOpen(true); setSugIdx(-1) }}
+              onFocus={() => setSugOpen(true)}
+              onBlur={() => setSugOpen(false)}
+              onKeyDown={(e) => {
+                const list = sugOpen ? (suggestions ?? []) : []
+                if (e.key === 'ArrowDown' && list.length > 0) {
+                  e.preventDefault(); setSugIdx((i) => (i + 1) % list.length)
+                } else if (e.key === 'ArrowUp' && list.length > 0) {
+                  e.preventDefault(); setSugIdx((i) => (i <= 0 ? list.length - 1 : i - 1))
+                } else if (e.key === 'Escape') {
+                  setSugOpen(false); setSugIdx(-1)
+                } else if (e.key === 'Enter') {
+                  if (sugIdx >= 0 && list[sugIdx]) pickSuggestion(list[sugIdx].address)
+                  else { setSugOpen(false); setSearch(searchInput.trim()) }
+                }
+              }}
               placeholder="Search properties… (Enter to search)"
               className="pl-9 pr-8"
             />
+            {sugOpen && searchInput.trim().length >= 3 && searchInput.trim() !== search.trim() &&
+              (suggestions?.length ?? 0) > 0 && (
+              <ul className="absolute top-full left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-md border bg-popover py-1 shadow-md">
+                {suggestions!.map((sg, i) => (
+                  <li key={sg.id}>
+                    <button
+                      type="button"
+                      // mousedown beats the input's blur, which would close the list first
+                      onMouseDown={(e) => { e.preventDefault(); pickSuggestion(sg.address) }}
+                      onMouseEnter={() => setSugIdx(i)}
+                      className={`flex w-full items-baseline justify-between gap-2 px-3 py-1.5 text-left text-sm ${
+                        i === sugIdx ? 'bg-accent text-accent-foreground' : ''
+                      }`}
+                    >
+                      <span className="truncate">{sg.address}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {[sg.city, sg.county].filter(Boolean).join(' · ')}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             {/* The search is sticky now, so it needs a one-tap way out — without this,
                 yesterday's query silently narrows today's map. */}
             {(search !== '' || searchInput !== '') && (
