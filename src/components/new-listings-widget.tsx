@@ -97,6 +97,22 @@ export function NewListingsWidget() {
                       >
                         {p.address}
                       </Link>
+                      {/* Which side it's listed on. Comes from market_listings.listing_type,
+                          which the sweep sets from the search URL — a building listed both
+                          ways shows both chips. */}
+                      {p.deal_types.map((t) => (
+                        <span
+                          key={t}
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                            t === 'lease'
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                          }`}
+                          title={t === 'lease' ? 'Listed for lease' : 'Listed for sale'}
+                        >
+                          {t === 'lease' ? 'Lease' : 'Sale'}
+                        </span>
+                      ))}
                       {p.listing_url && (
                         <a
                           href={p.listing_url}

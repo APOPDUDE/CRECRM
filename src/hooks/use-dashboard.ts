@@ -155,6 +155,34 @@ export type NewListing = {
   land_acres: number | null
   property_type: Enums<'property_kind'> | null
   created_at: string
+  /**
+   * Which side the listing is on, read from market_listings.listing_type — the sweep records
+   * it from the search URL it came from. A building can be listed both ways at once, so this
+   * is an array, not a value.
+   */
+  deal_types: Enums<'deal_type'>[]
+}
+
+/**
+ * Lease/sale per property, from the listing rows themselves. Deliberately not inferred from
+ * "is there a rate or a price?" — that guess filed every rate-less lease listing as a sale
+ * (fixed 2026-08-21), and the sweep already knows the answer from the URL it scraped.
+ */
+async function fetchDealTypes(ids: string[]): Promise<Map<string, Enums<'deal_type'>[]>> {
+  const out = new Map<string, Enums<'deal_type'>[]>()
+  if (ids.length === 0) return out
+  const { data, error } = await supabase
+    .from('market_listings')
+    .select('property_id, listing_type')
+    .in('property_id', ids)
+    .eq('status', 'on_market')
+  if (error) throw error
+  for (const row of data ?? []) {
+    const prev = out.get(row.property_id) ?? []
+    if (!prev.includes(row.listing_type)) prev.push(row.listing_type)
+    out.set(row.property_id, prev)
+  }
+  return out
 }
 
 /** Most rows we'll render in the widget; the badge still reports the true total. */
@@ -215,9 +243,14 @@ export function useNewListings(filter: NewListingsTypeFilter = 'industrial') {
         .order('created_at', { ascending: false })
         .limit(NEW_LISTINGS_RENDER_CAP)
       if (error) throw error
-      const items = (await withListingUrls(
-        (data ?? []) as Omit<NewListing, 'listing_url'>[],
-      )) as NewListing[]
+      const withUrls = (await withListingUrls(
+        (data ?? []) as Omit<NewListing, 'listing_url' | 'deal_types'>[],
+      )) as Omit<NewListing, 'deal_types'>[]
+      const dealTypes = await fetchDealTypes(withUrls.map((r) => r.id))
+      const items: NewListing[] = withUrls.map((r) => ({
+        ...r,
+        deal_types: dealTypes.get(r.id) ?? [],
+      }))
       const total = count ?? items.length
 
       // The widget hides only when NOTHING is new — the filtered lens still needs the
