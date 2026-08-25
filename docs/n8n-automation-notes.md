@@ -479,3 +479,32 @@ created.
 
 Verified end to end on the real 960 + 194 row datasets: 596 create / 556 match, **nothing
 dropped**, every row carrying an address.
+
+
+---
+
+## The 2,508-item bug (2026-08-25)
+
+The first live memo23 sweeps (08-24, 08-25) both ran for ~an hour and then **errored** at
+`Import properties (RPC)` with `ETIMEDOUT`, while still importing some data — and wrote nothing
+to `sweep_runs`, which is why `v_sweep_runs_today` read empty while new properties appeared.
+
+Cause: **n8n's HTTP Request node splits a JSON array response into one item per element.** The
+6 county datasets came back as **2,508 separate items**, so the mapper saw each listing as its
+own run (`returned: 1`), emitted 2,508 chunks, and fired 2,508 sequential Supabase calls until
+the connection timed out. Only 6 of those 2,508 items carried a valid `jobKey`, so the run log
+never assembled.
+
+Fix: `Fetch dataset items (Apify)` now sets **`fullResponse: true`**, so each request yields ONE
+item whose `body` is the array and run grouping survives. The mapper reads `.body` first.
+Re-tested on the real datasets: **4 items emitted instead of 2,508**, Hillsborough correctly
+reporting `returned: 960` → 402 create + 556 match.
+
+`fullResponse` is load-bearing here. Removing it silently restores the 2,508-call behaviour.
+
+## Lease/Sale chip on new listings
+
+`market_listings.listing_type` now surfaces in the New listings widget as a blue **LEASE** or
+amber **SALE** chip. It is read from the listing row — never inferred from whether a rate or a
+price came back, which is the guess that filed rate-less lease listings as sales until 08-21.
+A building listed both ways shows both chips.
