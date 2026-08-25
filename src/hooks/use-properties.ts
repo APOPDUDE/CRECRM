@@ -383,6 +383,53 @@ export function useUpdateProperty() {
  * carries a much wider payload; a tag edit is a one-column write that should not be
  * able to move a pin. Empty array is stored as null so "no tags" is one value, not two.
  */
+/**
+ * ONE PAGE of the land book, straight from the server, in address order.
+ *
+ * The plain land-book table (no search, no filters) was downloading the whole
+ * 100k-row book to render 100 rows (Alex 2026-08-24: "taking forever again...
+ * it should be the normal list"). This serves exactly the visible page plus an
+ * exact count; the whole-book fetch now runs only when something genuinely
+ * needs whole-book answers — a filter Apply, a search, Export, Review.
+ * Ordered by properties_land_book_address_idx, so it stays an index scan.
+ */
+export function usePagedLandBook(page: number, enabled = true) {
+  return useQuery({
+    queryKey: ['land-book-page', page],
+    enabled,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const SELECT =
+        'id, address, city, state, zip, county, parcel_number, site_address, folio, ' +
+        'property_type, gross_sf, ' +
+        'land_acres, specs, listing_status, year_built, zoning_description, ' +
+        'zoning_district, lat, lng, owner_company_id, owner_name, owner_mailing_address, ' +
+        'last_sale_date, last_sale_price, created_at, updated_at, ' +
+        'zoning_type, zoning_code, zoning_jurisdiction, dor_use_code, is_condo_unit, ' +
+        'in_land_book, land_only'
+      const PAGE = 100
+      const from = page * PAGE
+      const { data, error, count } = await supabase
+        .from('properties')
+        .select(SELECT, { count: 'exact' })
+        .eq('in_land_book', true)
+        .not('address', 'ilike', '%unavailable%')
+        .not('address', 'ilike', 'Portfolio of %')
+        .order('address')
+        .range(from, from + PAGE - 1)
+      if (error) throw error
+      const rows = (data ?? []).map((r) => ({
+        ...(r as unknown as Property),
+        source_address: (r as { address: string | null }).address,
+        listings: [], matches: [], suitability_score: null,
+      })) as PropertyWithCounts[]
+      return { rows, total: count ?? rows.length }
+    },
+  })
+}
+
 export function useUpdatePropertyTags() {
   const queryClient = useQueryClient()
   return useMutation({
