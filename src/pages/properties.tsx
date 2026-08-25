@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
@@ -40,6 +40,7 @@ import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { PARCEL_ZOOM, PropertiesMap } from '@/components/properties-map'
 import { MapFilterRail, type OwnerChannels } from '@/components/map-filter-rail'
+import { PropertyReview } from '@/components/property-review'
 import {
   PROPERTY_TAG_OPTIONS,
   safeTagFilter,
@@ -378,7 +379,19 @@ export function PropertiesPage() {
   // (standard 'other' codes and county customs). ANDs with the bucketed use select.
   const [dorSelRaw, setDorSel] = usePersistentState<DorSelection>('properties:dorSel', DOR_SELECTION_DEFAULT)
   const dorSel = useMemo(() => safeDorSelection(dorSelRaw), [dorSelRaw])
-  const dorActive = dorSelectionActive(dorSel)
+  /**
+   * The land book's BASELINE selection is land:'all' (Alex 2026-08-24: opening the
+   * picker there should show every land code checked, not ask him to build the set
+   * up from nothing). Exactly-that-selection therefore counts as INACTIVE for
+   * filtering: the land book already contains only land-book rows, so "all land
+   * codes" filters nothing — and treating it as active would force the 100k-row
+   * book fetch just for opening the book. Unchecking any code makes a real subset
+   * and the filter goes live.
+   */
+  const isLandBaseline = (sel: DorSelection) =>
+    sel.land === 'all' && sel.extra.length === 0 &&
+    sel.industrial === 'off' && sel.retail === 'off' && sel.office === 'off' && sel.multifamily === 'off'
+  const dorActive = dorSelectionActive(dorSel) && !(bookMode === 'land' && isLandBaseline(dorSel))
   // A category on 'all' matches by the dor_codes table's filing — that mapping has to
   // be on hand for the filter, not just the picker.
   const { data: dorEntries } = useDorCodes(dorActive)
@@ -447,6 +460,18 @@ export function PropertiesPage() {
   // path — the book fetch, the viewport RPC and typed search all carry it.
   const [bookModeRaw, setBookMode] = usePersistentState<'industrial' | 'land'>('properties:book', 'industrial')
   const bookMode = bookModeRaw === 'land' ? 'land' : 'industrial'
+  // Crossing INTO the land book with no DOR selection seeds the baseline
+  // (all land codes on). Transition-only, so the picker's Clear stays cleared —
+  // an effect keyed on inactivity alone would snap Clear right back.
+  const prevBookRef = useRef<string | null>(null)
+  useEffect(() => {
+    const prev = prevBookRef.current
+    prevBookRef.current = bookMode
+    if (prev !== 'land' && bookMode === 'land' && !dorSelectionActive(dorSel)) {
+      setDorSel({ ...DOR_SELECTION_DEFAULT, land: 'all' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookMode])
   // "Search leases" (Alex, 2026-08-16): the lease windows live in the rail behind one
   // toggle — new listing lands, draw the area, flip this on, and every tenant close to
   // expiry nearby is on screen with their DM. On the map the windows only APPLY while
@@ -475,6 +500,8 @@ export function PropertiesPage() {
   const dmFilter = ['all', 'verified', 'unverified'].includes(dmFilterRaw) ? dmFilterRaw : 'all'
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
+  // Card-by-card keep/remove pass over the current list (property-review.tsx)
+  const [reviewOpen, setReviewOpen] = useState(false)
   const [pushOpen, setPushOpen] = useState(false)
   const [ownerMsgOpen, setOwnerMsgOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
@@ -1534,6 +1561,17 @@ export function PropertiesPage() {
               Search
             </Button>
           )}
+          {view === 'table' && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              title="Review the current list card by card — aerial shot, keep or remove"
+              onClick={() => setReviewOpen(true)}
+            >
+              Review
+            </Button>
+          )}
           <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
             <Button
               variant={view === 'table' ? 'secondary' : 'ghost'}
@@ -2343,6 +2381,8 @@ export function PropertiesPage() {
         onDownloadSkipped={exportSkipped}
 
       />
+
+      <PropertyReview open={reviewOpen} onOpenChange={setReviewOpen} properties={filtered} />
 
       <PropertyFormDialog open={formOpen} onOpenChange={setFormOpen} property={editing} />
       <ConfirmDeleteDialog
