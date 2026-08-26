@@ -468,3 +468,43 @@ The cron sweep was unscheduled first so nothing kept writing.
 3. Treat the GIS cache as disposable. `gis.layer_features` and `gis.parcels`
    are both rebuildable from the source services in under an hour; nothing in
    them is original data. If space is ever tight, truncate them first.
+
+### 10.8 Pipeline complete (2026-08-26 23:55 UTC) — final numbers
+
+Every planned signal that had a public source is now measured over all
+**96,876** land-book parcels, and every parcel carries a published score.
+
+| Domain | Coverage | Highlights |
+| --- | --- | --- |
+| Electricity | 100% | provider (Duke/TECO/etc), substation + transmission distance & kV |
+| Gas transmission | 100% | distance + operator (distribution still awaits PHMSA NPMS) |
+| Road / rail | 100% | state-road AADT + truck volume, interchange mi, CSX mi |
+| Parcel shape | 99.99% | oriented depth × width, rectangularity (2 degenerate slivers skipped) |
+| FEMA flood | 99.7% | avg 31.4% SFHA; 46,036 fully dry; 19,671 ≥90% (score-killed) |
+| NWI wetlands | 100% | avg 17.8%; 54,012 at zero; 8,532 ≥85% (score-killed) |
+
+Score: avg 50.9, avg factor coverage 0.500 (the water/sewer/soils/slope/
+broadband factors stay honestly out of the denominator until their sources
+land). 29,440 parcels ≥70; 20,881 at 0 via a flood or wetlands dealbreaker.
+Spot-check of the top decile reads like a developer's wish list — e.g.
+3501 N 46th St, Hillsborough: 11.3 ac, 0% flood, 0% wetlands, substation
+2,455 ft, interchange 0.59 mi → 99.4.
+
+Cache: FEMA 272,710 polygons (ordered walk verified through offset 143k with
+zero new writes; the 100%-mapped flood spot-check is the operative proof),
+NWI 264,765 polygons (340 tiles, two full passes). Database 1,513 MB of the
+Pro tier's 8 GB.
+
+**Three ops lessons this run burned in:**
+1. Never offset-page an ArcGIS layer without `orderByFields` — the unordered
+   walk silently skipped most of the NFHL (41/288 parcels mapped).
+2. FEMA reassigns OBJECTIDs between NFHL editions, so a long-lived cache
+   accumulates duplicate polygons — overlap math must union per class, never
+   sum raw intersections.
+3. Container-driven harvest loops die with the container. The durable pattern
+   is pg_cron + pg_net firing the edge function's drain mode: the database
+   drives its own harvest, four async posts a minute, no runner to babysit.
+
+Still open (unchanged from §10.6): water/sewer geometry (no usable public
+layers found; 40/112 of score weight), SSURGO soils, 3DEP slope, drive-time,
+FCC broadband, county-road frontage.
