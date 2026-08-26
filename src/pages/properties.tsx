@@ -1169,6 +1169,28 @@ export function PropertiesPage() {
   }, [baseFiltered, includeCandidates, overlayIncludes, overlayOnlys, overlays, portfolioOwnerId, crossovers])
 
   /**
+   * The searched property wears red (Alex 2026-08-26: "so I know what property it is").
+   *
+   * A committed search returns more than the address typed — the owner's other buildings,
+   * tenant matches, parcel hits — and on the map they all wore the same pins. The results
+   * whose OWN address/parcel carries every typed token are the property being looked for;
+   * those get the red pin and the red table row. Whole-word matching on purpose:
+   * substring would light "10250 Chestnut" for a "1025 Chestnut" search.
+   */
+  const searchHitIds = useMemo(() => {
+    const ids = new Set<string>()
+    const tokens = searchTokens(search)
+    if (tokens.length === 0) return ids
+    for (const p of filtered) {
+      const words = new Set(
+        buildHaystack([p.address, p.city, p.state, p.zip, p.parcel_number]).split(' '),
+      )
+      if (tokens.every((t) => words.has(t))) ids.add(p.id)
+    }
+    return ids
+  }, [filtered, search])
+
+  /**
    * Everything the map should RECOGNISE, as opposed to everything it should pin.
    *
    * The answer to the question keeps the pins; the properties around it keep their
@@ -2230,6 +2252,7 @@ export function PropertiesPage() {
             }
             goodDealIds={goodDealIds}
             executedIds={executedIds}
+            highlightIds={searchHitIds}
             ownerContext={mapOwnerCtx}
             // The tenant hover-card follows the lease QUESTION, not a lens: only while
             // a lease window narrows the set does the pin name who is leaving.
@@ -2300,7 +2323,9 @@ export function PropertiesPage() {
                 {paged.map((property) => (
                   <TableRow
                     key={property.id}
-                    className="cursor-pointer"
+                    className={`cursor-pointer${
+                      searchHitIds.has(property.id) ? ' bg-red-50 hover:bg-red-100/70' : ''
+                    }`}
                     onClick={() => navigate(`/properties/${property.id}`)}
                   >
                     <TableCell className="font-medium">
@@ -2346,7 +2371,9 @@ export function PropertiesPage() {
             {paged.map((property) => (
               <div
                 key={property.id}
-                className="flex items-center justify-between gap-2 rounded-lg border bg-card"
+                className={`flex items-center justify-between gap-2 rounded-lg border ${
+                  searchHitIds.has(property.id) ? 'border-red-300 bg-red-50' : 'bg-card'
+                }`}
               >
                 <Link to={`/properties/${property.id}`} className="flex min-w-0 flex-1 flex-col p-3">
                   <span className="truncate text-sm font-medium">{property.address}</span>

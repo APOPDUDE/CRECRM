@@ -567,9 +567,12 @@ export function ringsBbox(rings: LatLng[][]): [number, number, number, number] {
  * ONE colour scheme: gold = executed under us, BLUE = we can reach the owner today
  * (phone- or email-verified — Alex 2026-08-16: "verified contacts should be blue
  * still"), green = on market, slate = off market. Executed outranks verified outranks
- * market status. Red belongs to the industrial overlay, not to pins.
+ * market status. Red used to belong solely to the industrial overlay; since 2026-08-26
+ * it also marks the searched property ("so I know what property it is" — Alex), and
+ * that outranks everything, because it only exists while a search is asking for it.
  */
 const PIN = {
+  searched: '#dc2626',
   executed: '#f59e0b',
   verified: '#2563eb',
   on: '#059669',
@@ -727,6 +730,7 @@ export function PropertiesMap({
   emptyHint,
   goodDealIds,
   executedIds,
+  highlightIds,
   ownerContext,
   leaseInfo,
   polygon,
@@ -752,6 +756,8 @@ export function PropertiesMap({
   emptyHint?: string
   goodDealIds?: Set<string>
   executedIds?: Set<string>
+  /** The searched property/properties — these pins (and their parcel outlines) wear red. */
+  highlightIds?: Set<string>
   ownerContext?: Map<string, OwnerContext>
   /**
    * Property id -> its representative lease, for the hover card. The parent passes it
@@ -804,17 +810,20 @@ export function PropertiesMap({
     return m
   }, [parcelSource])
 
-  // Executed wins (a closed deal is usually off-market too), then verified-owner blue.
+  // Searched wins outright — it answers "which one did I just type". Then executed
+  // (a closed deal is usually off-market too), then verified-owner blue.
   const colorOf = useCallback(
     (id: string, p: Property) =>
-      executedIds?.has(id)
-        ? PIN.executed
-        : ownerContext?.get(id)?.owner_reachable
-          ? PIN.verified
-          : p.listing_status === 'off_market'
-            ? PIN.off
-            : PIN.on,
-    [executedIds, ownerContext],
+      highlightIds?.has(id)
+        ? PIN.searched
+        : executedIds?.has(id)
+          ? PIN.executed
+          : ownerContext?.get(id)?.owner_reachable
+            ? PIN.verified
+            : p.listing_status === 'off_market'
+              ? PIN.off
+              : PIN.on,
+    [highlightIds, executedIds, ownerContext],
   )
 
   // Same colour the dot would have used, keyed by property, so the parcel outline can
@@ -957,7 +966,11 @@ export function PropertiesMap({
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <p className="text-xs text-muted-foreground">{headline}</p>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          {LEGEND.map(({ c, label }) => (
+          {/* the red chip only exists while a search is painting something red */}
+          {[
+            ...((highlightIds?.size ?? 0) > 0 ? [{ c: PIN.searched, label: 'Searched' }] : []),
+            ...LEGEND,
+          ].map(({ c, label }) => (
             <span key={label} className="inline-flex items-center gap-1.5">
               <span
                 className="inline-block size-2.5 rounded-full ring-1 ring-white"
@@ -1057,17 +1070,25 @@ export function PropertiesMap({
               })}
             </>
           )}
-          {shown.map(({ id, lat, lng, p }) => {
+          {/* Searched pins render LAST — SVG paint order is mount order, and the red pin
+              must not hide under a neighbour in a dense block — and a touch larger. */}
+          {[...shown]
+            .sort(
+              (a, b) =>
+                Number(highlightIds?.has(a.id) ?? false) - Number(highlightIds?.has(b.id) ?? false),
+            )
+            .map(({ id, lat, lng, p }) => {
             // Zoomed in far enough that this property's parcel outline is drawn: the
             // outline IS the marker now, so skip the dot rather than stack both.
             if (outlinedIds.has(id)) return null
             const fillColor = colorOf(id, p)
+            const searched = highlightIds?.has(id) ?? false
             return (
               <CircleMarker
                 key={id}
                 center={[lat, lng]}
-                radius={7}
-                pathOptions={{ color: '#fff', weight: 1.5, fillColor, fillOpacity: 0.9 }}
+                radius={searched ? 9 : 7}
+                pathOptions={{ color: '#fff', weight: searched ? 2.5 : 1.5, fillColor, fillOpacity: searched ? 1 : 0.9 }}
                 // while drawing, a click near a pin should add a vertex (the event bubbles
                 // to the map), not navigate away mid-shape
                 eventHandlers={{ click: () => { if (!drawMode) navigate(`/properties/${id}`) } }}
