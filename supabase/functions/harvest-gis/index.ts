@@ -279,35 +279,52 @@ Deno.serve(async (req) => {
     params.inSR = "4326";
     params.spatialRel = "esriSpatialRelIntersects";
   }
-  const data = await fetchPage(cfg.url, params);
-  if (data.error) {
-    return new Response(JSON.stringify({ error: "arcgis error", detail: data.error }), { status: 502 });
-  }
-  const feats = (data.features ?? []) as { id?: number; properties?: Record<string, unknown>; geometry?: unknown }[];
-  // geoJSON responses carry the OID as `id`; fall back to a stable offset index
-  const features = feats.map((f, i) => {
-    const attrs = f.properties ?? {};
-    const fromAttr = cfg.oid ? Number(attrs[cfg.oid]) : NaN;
-    return {
-      oid: Number.isFinite(fromAttr)
-        ? fromAttr
-        : (typeof f.id === "number" ? f.id : offset + i),
-      attrs,
-      geom: f.geometry,
-    };
-  }).filter((f) => f.geom);
-
+  // drain mode: loop pages inside ONE invocation until the query is exhausted.
+  // Exists so pg_cron + pg_net can drive a harvest with no external runner at
+  // all — one POST per tile, no offset bookkeeping outside this function.
+  const drain = body.drain === true;
+  const started = Date.now();
+  let cursor = offset;
+  let pages = 0;
+  let sentTotal = 0;
   let tally: unknown = null;
-  if (features.length) {
-    const { data: t, error } = await supabase.rpc("import_gis_features", {
-      p: { source_id: source, url: cfg.url, county: cfg.county, features },
-    });
-    if (error) return new Response(JSON.stringify({ error: `import failed: ${error.message}` }), { status: 500 });
-    tally = t;
+  for (;;) {
+    params.resultOffset = String(cursor);
+    const data = await fetchPage(cfg.url, params);
+    if (data.error) {
+      return new Response(JSON.stringify({ error: "arcgis error", detail: data.error, at: cursor }), { status: 502 });
+    }
+    const feats = (data.features ?? []) as { id?: number; properties?: Record<string, unknown>; geometry?: unknown }[];
+    // geoJSON responses carry the OID as `id`; fall back to a stable offset index
+    const features = feats.map((f, i) => {
+      const attrs = f.properties ?? {};
+      const fromAttr = cfg.oid ? Number(attrs[cfg.oid]) : NaN;
+      return {
+        oid: Number.isFinite(fromAttr)
+          ? fromAttr
+          : (typeof f.id === "number" ? f.id : cursor + i),
+        attrs,
+        geom: f.geometry,
+      };
+    }).filter((f) => f.geom);
+
+    if (features.length) {
+      const { data: t, error } = await supabase.rpc("import_gis_features", {
+        p: { source_id: source, url: cfg.url, county: cfg.county, features },
+      });
+      if (error) return new Response(JSON.stringify({ error: `import failed: ${error.message}`, at: cursor }), { status: 500 });
+      tally = t;
+    }
+    pages += 1;
+    sentTotal += features.length;
+    const more = feats.length === page;
+    cursor = more && feats.length > 0 ? cursor + feats.length : -1;
+    // single-page mode, exhausted, or out of budget (edge wall clock is 150s)
+    if (!drain || cursor < 0 || pages >= 40 || Date.now() - started > 110_000) {
+      return new Response(JSON.stringify({
+        mode, source, offset, pages, sent: sentTotal,
+        next_offset: cursor >= 0 ? cursor : null, complete: cursor < 0, tally,
+      }), { headers: { "Content-Type": "application/json" } });
+    }
   }
-  const more = feats.length === page;
-  return new Response(JSON.stringify({
-    mode, source, offset, fetched: feats.length, sent: features.length,
-    next_offset: more && feats.length > 0 ? offset + feats.length : null, tally,
-  }), { headers: { "Content-Type": "application/json" } });
 });
