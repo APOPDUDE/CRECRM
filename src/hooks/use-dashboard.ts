@@ -111,22 +111,47 @@ function offMarketFloorIso(): string {
 /**
  * Properties flipped to off_market in the last 7 days (present last sweep, gone this
  * one), most recently first. Powers the dashboard "New off-market" widget.
+ *
+ * Keyed on `market_listings.off_market_at` — the actual flip event — NOT
+ * `properties.updated_at`. `off_market` is the resting state of the whole 119k
+ * county book, and `updated_at` bumps on ANY write, so the old query surfaced
+ * every off-market property a bulk job touched (the 08-23 enrichment pass put
+ * 42k rows in the window and pegged the widget at its 100-row cap).
  */
 export function useRecentlyOffMarket() {
   return useQuery({
     queryKey: ['recently-off-market'],
     queryFn: async (): Promise<OffMarketProperty[]> => {
       const { data, error } = await supabase
-        .from('properties')
-        .select('id, address, city, state, gross_sf, property_type, updated_at')
-        .eq('listing_status', 'off_market')
-        .gte('updated_at', offMarketFloorIso())
-        .order('updated_at', { ascending: false })
-        .limit(100)
+        .from('market_listings')
+        .select(
+          'off_market_at, property:properties!market_listings_property_id_fkey(id, address, city, state, gross_sf, property_type, listing_status)',
+        )
+        .gte('off_market_at', offMarketFloorIso())
+        .order('off_market_at', { ascending: false })
+        .limit(200)
       if (error) throw error
-      return (await withListingUrls(
-        (data ?? []) as Omit<OffMarketProperty, 'listing_url'>[],
-      )) as OffMarketProperty[]
+      type Row = {
+        off_market_at: string
+        property: (Omit<OffMarketProperty, 'listing_url' | 'updated_at'> & {
+          listing_status: string | null
+        }) | null
+      }
+      // A building only reads "off market" once EVERY listing on it is off — the
+      // rollup on properties encodes that, so a flip on one side of a building
+      // that is still listed on the other stays out of the feed. Dedupe: a lease
+      // and a sale listing on the same building can flip in the same sweep.
+      const seen = new Set<string>()
+      const rows: Omit<OffMarketProperty, 'listing_url'>[] = []
+      for (const r of (data ?? []) as unknown as Row[]) {
+        const p = r.property
+        if (!p || p.listing_status !== 'off_market' || seen.has(p.id)) continue
+        seen.add(p.id)
+        const { listing_status: _drop, ...rest } = p
+        rows.push({ ...rest, updated_at: r.off_market_at })
+        if (rows.length >= 100) break
+      }
+      return (await withListingUrls(rows)) as OffMarketProperty[]
     },
   })
 }
