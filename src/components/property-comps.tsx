@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { ExternalLink, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CompEditDialog } from '@/components/comp-edit-dialog'
 import { usePropertyComps, useDeleteComp, type PropertyComp } from '@/hooks/use-comps'
+import { useProperty } from '@/hooks/use-properties'
 import { clientLabel } from '@/hooks/use-suggestions'
 import { formatCurrency, formatPsf } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
+import { listingUrlFromSourceKey } from '@/lib/listing-url'
 
 /** One-line summary: leases show base -> opex -> all-in/mo; sales show price -> $/SF. */
 function compMetrics(c: PropertyComp): string {
@@ -43,6 +45,9 @@ function CompList({
   comps: PropertyComp[]
 }) {
   const del = useDeleteComp()
+  // Already in cache — the property page loaded this row before the widget rendered.
+  // Only feeds the cosmetic slug in the listing URL.
+  const { data: property } = useProperty(propertyId)
   const [editing, setEditing] = useState<PropertyComp | null>(null)
   const [adding, setAdding] = useState(false)
   const title = kind === 'asking' ? 'Asking comps' : 'Executed comps'
@@ -62,7 +67,12 @@ function CompList({
         <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">No {kind} comps yet.</p>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {comps.map((c) => (
+          {comps.map((c) => {
+            // Built from the comp's OWN source_key — never the scraped listing_url,
+            // which can carry a neighbor's id. The comp keeps this link for good:
+            // going off market changes the property rollup, never the comp.
+            const listingUrl = listingUrlFromSourceKey(c.source_key, property?.address, property?.city)
+            return (
             <li key={c.id} className="flex items-start justify-between gap-3 p-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -90,6 +100,17 @@ function CompList({
                     ) : (
                       <span className="font-medium">{c.tenant_name}</span>
                     ))}
+                  {listingUrl && (
+                    <a
+                      href={listingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      View listing
+                      <ExternalLink className="size-3" />
+                    </a>
+                  )}
                 </div>
                 <div className="mt-0.5 text-sm">{compMetrics(c) || '—'}</div>
                 <div className="text-xs text-muted-foreground">
@@ -119,7 +140,8 @@ function CompList({
                 </Button>
               </div>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
       <CompEditDialog open={adding} onOpenChange={setAdding} propertyId={propertyId} kind={kind} />

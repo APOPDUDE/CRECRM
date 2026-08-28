@@ -119,6 +119,8 @@ export type PropertyComp = {
   executed_at: string | null
   commission_fee: number | null
   source: string | null
+  /** The comp's OWN listing identity — the only thing its listing link may be built from. */
+  source_key: string | null
   tenant_name: string | null
   tenant_company_id: string | null
   pursuit_id: string | null
@@ -140,7 +142,7 @@ export function usePropertyComps(propertyId: string | undefined) {
       const { data, error } = await supabase
         .from('comps')
         .select(
-          'id, kind, deal_type, as_of_date, asking_lease_rate_psf, executed_lease_rate_psf, lease_structure, term_months, free_rent_months, ti_psf, opex_psf, escalations, commencement_date, expiration_date, sale_price, cap_rate_pct, sf, executed_at, commission_fee, source, tenant_name, tenant_company_id, pursuit_id, pursuit:pursuits!comps_pursuit_id_fkey(actual_fee, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))',
+          'id, kind, deal_type, as_of_date, asking_lease_rate_psf, executed_lease_rate_psf, lease_structure, term_months, free_rent_months, ti_psf, opex_psf, escalations, commencement_date, expiration_date, sale_price, cap_rate_pct, sf, executed_at, commission_fee, source, source_key, tenant_name, tenant_company_id, pursuit_id, pursuit:pursuits!comps_pursuit_id_fkey(actual_fee, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))',
         )
         .eq('property_id', propertyId!)
         .in('kind', ['asking', 'executed'])

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
+import { ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,9 +24,11 @@ import {
 import { CompanySelect } from '@/components/company-select'
 import { useCompany } from '@/hooks/use-companies'
 import { useUpsertComp, type PropertyComp } from '@/hooks/use-comps'
+import { useProperty } from '@/hooks/use-properties'
 import { useAuth } from '@/hooks/use-auth'
 import type { TablesUpdate } from '@/lib/database.types'
 import { numOrNull } from '@/lib/format'
+import { listingUrlFromSourceKey } from '@/lib/listing-url'
 
 const NO_STRUCT = '__none'
 
@@ -45,6 +48,11 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
   const editing = !!comp
   const k = (comp?.kind as 'asking' | 'executed') ?? kind
   const isExecuted = k === 'executed'
+  // Cache hit — the property page loaded this row already; only feeds the URL slug.
+  const { data: property } = useProperty(propertyId)
+  // The comp's OWN source_key, never the scraped listing_url. Survives off-market:
+  // the identity lives on the comp, so the link never goes away with the rollup.
+  const listingUrl = editing ? listingUrlFromSourceKey(comp?.source_key, property?.address, property?.city) : null
 
   const [dealType, setDealType] = useState<'lease' | 'sale'>('lease')
   const [asOf, setAsOf] = useState('')
@@ -138,8 +146,19 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {editing ? 'Edit' : 'Add'} {k} comp
+            {listingUrl && (
+              <a
+                href={listingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                View listing
+                <ExternalLink className="size-3" />
+              </a>
+            )}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
