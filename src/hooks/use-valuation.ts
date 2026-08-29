@@ -165,6 +165,22 @@ export interface LandEstimate extends BucketStats {
   total: number | null
   total_low: number | null
   total_high: number | null
+  /** Acres the engine multiplied the rate by — usable where measured, else gross. */
+  basis_acres: number | null
+  acres_basis: 'usable' | 'gross'
+  /** Land size-decay exponent in force (measured; -0.15 when the fit failed). */
+  size_beta: number | null
+  /** True = every comp in the estimate is an asking price — no executed corroboration. */
+  asking_only: boolean
+  /** Share of the estimate carried by its single heaviest comp. */
+  top_weight_pct: number | null
+  /** What the parcel would rent for let as an IOS yard — county rate, capped acres. */
+  rent_monthly: number | null
+  rent_per_acre_month: number | null
+  /** 'alex' = his quoted market rate; 'interpolated'/'default' = needs confirming. */
+  rent_source: string | null
+  rentable_acres: number | null
+  rent_capped: boolean
 }
 
 export interface TaxEstimate {
@@ -199,6 +215,9 @@ export interface PropertyValuation {
     /** County land value + land share of JV (FDOR roll) — context for the sale splits. */
     land_just_value: number | null
     land_value_share: number | null
+    /** What can be built here — sparse today (~5% of vacant land), shown when present. */
+    zoning_code: string | null
+    zoning_description: string | null
   }
   method: ValuationMethod
   land_component: LandComponent

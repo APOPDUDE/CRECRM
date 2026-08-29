@@ -18,15 +18,19 @@ const confidenceStyles: Record<string, string> = {
 export function ConfidenceBadge({
   confidence,
   n,
+  askingOnly,
 }: {
   confidence: string | null | undefined
   n?: number | null
+  /** True = every comp behind the number is an asking price — say so on the badge. */
+  askingOnly?: boolean | null
 }) {
   if (!confidence) return null
   return (
     <Badge variant="outline" className={`font-medium ${confidenceStyles[confidence] ?? confidenceStyles.low}`}>
       {confidence} confidence
       {n != null && ` · ${n} comps`}
+      {askingOnly ? ' · asking-only' : ''}
     </Badge>
   )
 }
@@ -92,7 +96,7 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
   const high = headline?.total_high ?? null
   const unitRate = isLand
     ? val.land?.per_acre != null
-      ? `${compactUsd(val.land.per_acre)} / acre`
+      ? `${compactUsd(val.land.per_acre)} / ${val.land.acres_basis === 'usable' ? 'usable ' : ''}acre`
       : null
     : val.sale?.psf != null
       ? `$${val.sale.psf.toFixed(0)} / SF`
@@ -102,16 +106,22 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
   // display-depth comps and county transfer records that never feed the math.
   const compCount = val.comps.filter((c) => c.in_estimate && c.included).length
   const land = val.sale?.land_total ?? 0
-  const landRent = val.lease?.land_monthly ?? 0
+  // A land subject's yard rent comes from its own land node; improved sites from lease.
+  const landRent = isLand ? (val.land?.rent_monthly ?? 0) : (val.lease?.land_monthly ?? 0)
   const buildingRent = val.lease?.building_monthly ?? 0
   // Per-acre is plain division on figures the engine already returned — a broker
   // comparing IOS sites thinks in $/acre, not $/SF, and the yard is most of the deal.
   // On USABLE acres, not total: 4325 Hwy 92 is 25.94 acres of which 21.49 are
   // wetland, and spreading the price over the swamp read as $27K/acre when the dry
-  // ground is worth $133K.
-  const acres = val.land_component.acres_usable ?? val.subject.land_acres ?? null
-  const acresAreUsable = val.land_component.acres_usable != null && !val.land_component.usable_is_estimated
-  const pricePerAcre = total != null && acres ? total / acres : null
+  // ground is worth $133K. For a land subject the engine's rate and basis are used
+  // directly — the card must never show a rate the engine didn't use.
+  const acres = isLand
+    ? (val.land?.basis_acres ?? val.subject.land_acres ?? null)
+    : (val.land_component.acres_usable ?? val.subject.land_acres ?? null)
+  const acresAreUsable = isLand
+    ? val.land?.acres_basis === 'usable'
+    : val.land_component.acres_usable != null && !val.land_component.usable_is_estimated
+  const pricePerAcre = !isLand && total != null && acres ? total / acres : null
   const rentPerAcreMo = val.lease?.monthly != null && acres ? val.lease.monthly / acres : null
   const landRentPerAcreMo = val.land_component.rent_per_acre_month || null
   const landPerAcre = val.land_component.excess_acre_value || null
@@ -126,7 +136,11 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
             {headline?.avg_miles != null && ` · avg ${headline.avg_miles} mi away`}
           </p>
         </div>
-        <ConfidenceBadge confidence={headline?.confidence} n={headline?.n} />
+        <ConfidenceBadge
+          confidence={headline?.confidence}
+          n={headline?.n}
+          askingOnly={isLand ? val.land?.asking_only : undefined}
+        />
       </div>
 
       {/* Headline: what it's worth. */}
@@ -173,14 +187,43 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
           </>
         ) : (
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {val.subject.sf ? 'Not enough sale comps nearby.' : 'No building size on file — add one to value it.'}
+            {val.subject.sf
+              ? 'Not enough sale comps nearby.'
+              : val.subject.land_acres
+                ? 'Not enough land comps nearby to value this parcel.'
+                : 'No building size or acreage on file — add one to value it.'}
           </p>
         )}
+        {/* What can be built here decides what dirt is worth; say what we know. */}
+        {isLand &&
+          (val.subject.zoning_code ||
+            (acresAreUsable &&
+              val.subject.land_acres != null &&
+              acres != null &&
+              acres < val.subject.land_acres)) && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {[
+                val.subject.zoning_code
+                  ? `Zoned ${val.subject.zoning_code}${
+                      val.subject.zoning_description ? ` — ${val.subject.zoning_description}` : ''
+                    }`
+                  : null,
+                acresAreUsable &&
+                val.subject.land_acres != null &&
+                acres != null &&
+                acres < val.subject.land_acres
+                  ? `priced on ${acres} usable of ${val.subject.land_acres} ac`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
       </div>
 
       {/* Rent, split. The building and the yard are two different products let on
           two different units, and on an IOS site the yard is most of the cheque. */}
-      {landRent > 0 && (
+      {!isLand && landRent > 0 && (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border bg-muted/40 p-3">
           <Metric
             label="Building rent"
@@ -205,6 +248,43 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
         </dl>
       )}
 
+      {isLand ? (
+        /* A vacant parcel has no building rent — its one rent number is the yard,
+           and it's an "if let as IOS" figure, not income the ground earns today. */
+        <dl className="grid grid-cols-3 gap-x-4 gap-y-3 border-t pt-3">
+          <Metric
+            label="Yard rent"
+            value={landRent > 0 ? `${formatCurrency(landRent)}/mo` : null}
+            sub={
+              landRent > 0 && val.land?.rent_per_acre_month
+                ? `${formatCurrency(val.land.rent_per_acre_month)}/acre/mo · ${val.land.rentable_acres} ac`
+                : null
+            }
+            hint={`If cleared and let as an industrial outdoor storage yard, at the ${
+              val.land?.rent_source === 'alex'
+                ? 'county market rate'
+                : 'estimated county rate — confirm it'
+            }. Raw or wooded ground needs site work first.`}
+          />
+          <Metric
+            label="Yard rent per year"
+            value={landRent > 0 ? formatCurrency(landRent * 12) : null}
+            sub={val.land?.rent_capped ? `capped at ${val.land.rentable_acres} rentable ac` : null}
+          />
+          <Metric
+            label="Annual taxes"
+            value={tax != null ? formatCurrency(tax) : null}
+            sub={val.tax ? `${val.tax.millage} mills` : null}
+            hint={
+              val.tax
+                ? `${val.tax.rate_pct}% of value at ${val.tax.county ?? 'county'} millage${
+                    val.tax.source === 'broker' ? '' : ' — an approximate rate you can correct'
+                  }.`
+                : undefined
+            }
+          />
+        </dl>
+      ) : (
       <dl className="grid grid-cols-3 gap-x-4 gap-y-3 border-t pt-3">
         <Metric
           label={landRent > 0 ? 'Total rent' : 'Rent'}
@@ -265,6 +345,7 @@ export function ValueEstimateCard({ propertyId }: { propertyId: string }) {
           }
         />
       </dl>
+      )}
 
       <Button variant="outline" size="sm" className="self-start" onClick={() => setMathOpen(true)}>
         <Calculator className="size-4" />

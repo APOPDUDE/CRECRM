@@ -261,8 +261,11 @@ function bucketMathLine(bucket: ValuationBucket, val: PropertyValuation): string
       ? `${base} + ${formatCurrency(val.sale.land_total)} land = ${formatCurrency(val.sale.total)}`
       : base
   }
-  if (bucket === 'land' && val.land && acres) {
-    return `${compactUsd(val.land.per_acre)}/AC × ${acres} acres = ${formatCurrency(val.land.total)}`
+  if (bucket === 'land' && val.land) {
+    const landAcres = val.land.basis_acres ?? acres
+    if (!landAcres) return null
+    const basis = val.land.acres_basis === 'usable' ? 'usable ' : ''
+    return `${compactUsd(val.land.per_acre)}/AC × ${landAcres} ${basis}acres = ${formatCurrency(val.land.total)}`
   }
   return null
 }
