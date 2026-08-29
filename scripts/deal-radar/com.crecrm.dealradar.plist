@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.crecrm.dealradar</string>
+  <!-- zsh -lc so the login PATH (homebrew/nvm node) is available; launchd's own env is bare -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd '/Users/apop/CRE CRM/scripts/deal-radar' &amp;&amp; npm start</string>
+  </array>
+  <!-- every 45 min; a full cycle (6 markets x 9 keywords = 54 searches at ~21s
+       spacing) takes ~19 min, leaving headroom before the next launch -->
+  <key>StartInterval</key>
+  <integer>2700</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/apop/Library/Logs/deal-radar.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/apop/Library/Logs/deal-radar.log</string>
+</dict>
+</plist>

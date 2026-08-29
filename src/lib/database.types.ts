@@ -999,6 +999,159 @@ export type Database = {
           },
         ]
       }
+      deal_radar: {
+        Row: {
+          author_name: string | null
+          category: string | null
+          contact_id: string | null
+          created_at: string
+          external_id: string
+          found_at: string
+          group_id: string | null
+          group_name: string | null
+          id: string
+          keyword: string | null
+          lat: number | null
+          listing_type: Database["public"]["Enums"]["deal_radar_type"]
+          listing_url: string
+          lng: number | null
+          location_text: string | null
+          market: string
+          messaged_at: string | null
+          notes: string | null
+          owner_email: string | null
+          owner_phone: string | null
+          posted_at: string | null
+          price: number | null
+          property_id: string | null
+          raw_json: Json
+          size_acres: number | null
+          size_sqft: number | null
+          source: Database["public"]["Enums"]["deal_radar_source"]
+          status: Database["public"]["Enums"]["deal_radar_status"]
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_name?: string | null
+          category?: string | null
+          contact_id?: string | null
+          created_at?: string
+          external_id: string
+          found_at?: string
+          group_id?: string | null
+          group_name?: string | null
+          id?: string
+          keyword?: string | null
+          lat?: number | null
+          listing_type: Database["public"]["Enums"]["deal_radar_type"]
+          listing_url: string
+          lng?: number | null
+          location_text?: string | null
+          market: string
+          messaged_at?: string | null
+          notes?: string | null
+          owner_email?: string | null
+          owner_phone?: string | null
+          posted_at?: string | null
+          price?: number | null
+          property_id?: string | null
+          raw_json?: Json
+          size_acres?: number | null
+          size_sqft?: number | null
+          source?: Database["public"]["Enums"]["deal_radar_source"]
+          status?: Database["public"]["Enums"]["deal_radar_status"]
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_name?: string | null
+          category?: string | null
+          contact_id?: string | null
+          created_at?: string
+          external_id?: string
+          found_at?: string
+          group_id?: string | null
+          group_name?: string | null
+          id?: string
+          keyword?: string | null
+          lat?: number | null
+          listing_type?: Database["public"]["Enums"]["deal_radar_type"]
+          listing_url?: string
+          lng?: number | null
+          location_text?: string | null
+          market?: string
+          messaged_at?: string | null
+          notes?: string | null
+          owner_email?: string | null
+          owner_phone?: string | null
+          posted_at?: string | null
+          price?: number | null
+          property_id?: string | null
+          raw_json?: Json
+          size_acres?: number | null
+          size_sqft?: number | null
+          source?: Database["public"]["Enums"]["deal_radar_source"]
+          status?: Database["public"]["Enums"]["deal_radar_status"]
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_radar_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_radar_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_radar_runs: {
+        Row: {
+          error_detail: Json
+          errors: number
+          finished_at: string | null
+          hits: number
+          id: string
+          inserted: number
+          ok: boolean | null
+          searches: number
+          started_at: string
+        }
+        Insert: {
+          error_detail?: Json
+          errors?: number
+          finished_at?: string | null
+          hits?: number
+          id?: string
+          inserted?: number
+          ok?: boolean | null
+          searches?: number
+          started_at?: string
+        }
+        Update: {
+          error_detail?: Json
+          errors?: number
+          finished_at?: string | null
+          hits?: number
+          id?: string
+          inserted?: number
+          ok?: boolean | null
+          searches?: number
+          started_at?: string
+        }
+        Relationships: []
+      }
       dor_codes: {
         Row: {
           category: string
@@ -4974,6 +5127,15 @@ export type Database = {
         | "vendor"
         | "other"
       deal_flag_status: "pending" | "dismissed"
+      deal_radar_source: "marketplace" | "group"
+      deal_radar_status:
+        | "new"
+        | "messaged"
+        | "replied"
+        | "negotiating"
+        | "dead"
+        | "converted"
+      deal_radar_type: "industrial" | "land"
       deal_type: "lease" | "sale" | "both"
       email_campaign_purpose:
         | "off_market_seller"
@@ -5258,6 +5420,16 @@ export const Constants = {
         "other",
       ],
       deal_flag_status: ["pending", "dismissed"],
+      deal_radar_source: ["marketplace", "group"],
+      deal_radar_status: [
+        "new",
+        "messaged",
+        "replied",
+        "negotiating",
+        "dead",
+        "converted",
+      ],
+      deal_radar_type: ["industrial", "land"],
       deal_type: ["lease", "sale", "both"],
       email_campaign_purpose: [
         "off_market_seller",

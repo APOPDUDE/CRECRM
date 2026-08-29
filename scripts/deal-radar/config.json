@@ -1,0 +1,43 @@
+{
+  "markets": [
+    { "name": "Tampa", "lat": 27.9506, "lng": -82.4572, "radius_miles": 30 },
+    { "name": "Pinellas (St. Pete-Clearwater)", "lat": 27.8656, "lng": -82.7001, "radius_miles": 20 },
+    { "name": "Plant City", "lat": 28.0186, "lng": -82.1126, "radius_miles": 15 },
+    { "name": "Lakeland", "lat": 28.0395, "lng": -81.9498, "radius_miles": 25 },
+    { "name": "Orlando", "lat": 28.5383, "lng": -81.3792, "radius_miles": 30 },
+    { "name": "Sarasota-Bradenton", "lat": 27.3364, "lng": -82.5307, "radius_miles": 25 }
+  ],
+  "keywords": [
+    "warehouse",
+    "industrial",
+    "flex space",
+    "land",
+    "acreage",
+    "commercial lot",
+    "truck parking",
+    "outdoor storage",
+    "truck yard"
+  ],
+  "min_price": 5000,
+  "limit_per_search": 20,
+  "abort_after_consecutive_failures": 3,
+  "groups": [
+    {
+      "name": "FL CRE Group 1",
+      "url": "https://www.facebook.com/groups/274714022370896",
+      "market": "Florida (group)"
+    },
+    {
+      "name": "Commercial Real Estate in Florida",
+      "url": "https://www.facebook.com/groups/commercialrealestateinflorida",
+      "market": "Florida (group)"
+    },
+    {
+      "name": "FL CRE Group 3",
+      "url": "https://www.facebook.com/groups/1079627142435079",
+      "market": "Florida (group)"
+    }
+  ],
+  "group_posts_per_scroll": 40,
+  "group_scrolls": 6
+}
