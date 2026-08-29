@@ -126,6 +126,19 @@ reliably. If you ever change that, note that a sleeping Mac skips scheduled runs
 
 ---
 
+## Updating later
+
+The worker gets improvements over time. To pull the latest onto this Mac:
+
+```bash
+cd ~/CRECRM && git pull && cd scripts/deal-radar && npm install
+```
+
+The launch agent picks up the new code on its next run — no need to reload it
+unless `com.crecrm.dealradar.plist` itself changed. If it did, re-copy it (step 6).
+
+---
+
 ## When something looks wrong
 
 - **Every Marketplace search errors** → Facebook rotated its internal query ids.
