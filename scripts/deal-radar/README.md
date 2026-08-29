@@ -106,6 +106,17 @@ pipeline (`normalize.mjs`):
    tail -f ~/Library/Logs/deal-radar.log
    ```
 
+   **On a 24/7 ingestion box, stop the Mac from sleeping** — a sleeping machine
+   coalesces/skips launchd `StartInterval` runs. Either System Settings → Battery/
+   Lock Screen → never sleep on power, or run it under `caffeinate`:
+
+   ```bash
+   # keep the system awake while the launch agent lives (leave running / add to login items)
+   caffeinate -s -w $(launchctl list | awk '/com.crecrm.dealradar/{print $1}') 2>/dev/null &
+   # simplest: caffeinate the whole box
+   sudo pmset -c sleep 0 disksleep 0
+   ```
+
 ## Config (`config.json`)
 
 - `markets` — `{name, lat, lng, radius_miles}` per metro (radius converted to
