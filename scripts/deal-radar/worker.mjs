@@ -49,10 +49,12 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 })
 
-const MIN_CALL_GAP_MS = 21_000 // 3/min with headroom
+const PACE_MIN_MS = config.pace_min_ms ?? 300_000 // min gap between searches (default 5 min)
+const PACE_MAX_MS = config.pace_max_ms ?? 600_000 // max gap between searches (default 10 min)
 let lastCallAt = 0
 async function pace() {
-  const wait = lastCallAt + MIN_CALL_GAP_MS + Math.floor(Math.random() * 4000) - Date.now()
+  const gap = PACE_MIN_MS + Math.floor(Math.random() * Math.max(0, PACE_MAX_MS - PACE_MIN_MS))
+  const wait = lastCallAt + gap - Date.now()
   if (wait > 0) await new Promise((r) => setTimeout(r, wait))
   lastCallAt = Date.now()
 }
@@ -76,7 +78,7 @@ async function alert(message) {
 /** Call one MCP tool, returning parsed JSON payload or throwing with a useful message. */
 async function callSearch(client, args) {
   await pace()
-  const res = await client.callTool({ name: 'search_listings', arguments: args })
+  const res = await client.callTool({ name: 'search_listings', arguments: args }, undefined, { timeout: 120_000 }) // 60s SDK default is too tight for first-search session init + high-volume terms
   const text = (res?.content ?? [])
     .filter((c) => c.type === 'text')
     .map((c) => c.text)

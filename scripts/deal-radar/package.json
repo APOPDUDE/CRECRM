@@ -12,6 +12,6 @@
     "@supabase/supabase-js": "^2.108.1"
   },
   "optionalDependencies": {
-    "playwright": "^1.48.0"
+    "playwright": "^1.62.1"
   }
 }

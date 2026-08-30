@@ -1,25 +1,27 @@
 {
   "markets": [
-    { "name": "Tampa", "lat": 27.9506, "lng": -82.4572, "radius_miles": 30 },
-    { "name": "Pinellas (St. Pete-Clearwater)", "lat": 27.8656, "lng": -82.7001, "radius_miles": 20 },
-    { "name": "Plant City", "lat": 28.0186, "lng": -82.1126, "radius_miles": 15 },
-    { "name": "Lakeland", "lat": 28.0395, "lng": -81.9498, "radius_miles": 25 },
-    { "name": "Orlando", "lat": 28.5383, "lng": -81.3792, "radius_miles": 30 },
-    { "name": "Sarasota-Bradenton", "lat": 27.3364, "lng": -82.5307, "radius_miles": 25 }
+    {
+      "name": "Central Florida",
+      "lat": 27.9506,
+      "lng": -82.4572,
+      "radius_miles": 150
+    }
   ],
   "keywords": [
     "warehouse",
     "industrial",
     "flex space",
+    "commercial building",
+    "building for sale",
+    "commercial property",
     "land",
     "acreage",
-    "commercial lot",
-    "truck parking",
-    "outdoor storage",
-    "truck yard"
+    "commercial lot"
   ],
   "min_price": 5000,
   "limit_per_search": 20,
+  "pace_min_ms": 300000,
+  "pace_max_ms": 600000,
   "abort_after_consecutive_failures": 3,
   "groups": [
     {
@@ -35,6 +37,11 @@
     {
       "name": "FLORIDA WAREHOUSE BUY/SELL/RENT/TRADE",
       "url": "https://www.facebook.com/groups/1079627142435079",
+      "market": "Florida (group)"
+    },
+    {
+      "name": "FL CRE Group (798052127462556)",
+      "url": "https://www.facebook.com/groups/798052127462556",
       "market": "Florida (group)"
     }
   ],
