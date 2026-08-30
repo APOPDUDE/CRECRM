@@ -1739,6 +1739,98 @@ export type Database = {
           },
         ]
       }
+      listing_space_runs: {
+        Row: {
+          challenges: number
+          error_detail: Json | null
+          errors: number
+          finished_at: string | null
+          id: string
+          ok: boolean | null
+          pages: number
+          pages_ok: number
+          spaces_seen: number
+          started_at: string
+        }
+        Insert: {
+          challenges?: number
+          error_detail?: Json | null
+          errors?: number
+          finished_at?: string | null
+          id?: string
+          ok?: boolean | null
+          pages?: number
+          pages_ok?: number
+          spaces_seen?: number
+          started_at: string
+        }
+        Update: {
+          challenges?: number
+          error_detail?: Json | null
+          errors?: number
+          finished_at?: string | null
+          id?: string
+          ok?: boolean | null
+          pages?: number
+          pages_ok?: number
+          spaces_seen?: number
+          started_at?: string
+        }
+        Relationships: []
+      }
+      listing_spaces: {
+        Row: {
+          available: string | null
+          build_out: string | null
+          first_seen_at: string
+          gone_at: string | null
+          id: string
+          label: string
+          last_seen_at: string
+          listing_id: string
+          rate_psf: number | null
+          size_sf: number | null
+          space_use: string | null
+          term: string | null
+        }
+        Insert: {
+          available?: string | null
+          build_out?: string | null
+          first_seen_at?: string
+          gone_at?: string | null
+          id?: string
+          label: string
+          last_seen_at?: string
+          listing_id: string
+          rate_psf?: number | null
+          size_sf?: number | null
+          space_use?: string | null
+          term?: string | null
+        }
+        Update: {
+          available?: string | null
+          build_out?: string | null
+          first_seen_at?: string
+          gone_at?: string | null
+          id?: string
+          label?: string
+          last_seen_at?: string
+          listing_id?: string
+          rate_psf?: number | null
+          size_sf?: number | null
+          space_use?: string | null
+          term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_spaces_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "market_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       listings: {
         Row: {
           actual_fee: number | null
@@ -4967,6 +5059,7 @@ export type Database = {
       }
       import_land_values: { Args: { p: Json }; Returns: Json }
       import_lease_comps: { Args: { p: Json }; Returns: Json }
+      import_listing_spaces: { Args: { p: Json }; Returns: Json }
       import_outreach_targets: { Args: { p: Json }; Returns: Json }
       import_owner_addresses: { Args: { p: Json }; Returns: Json }
       import_parcel_enrichment: { Args: { p: Json }; Returns: Json }
@@ -4994,6 +5087,14 @@ export type Database = {
       is_va: { Args: never; Returns: boolean }
       kick_deal_flag_evals: { Args: never; Returns: string }
       kick_market_refresh: { Args: never; Returns: string }
+      listing_space_targets: {
+        Args: { p_limit?: number }
+        Returns: {
+          listing_id: string
+          source_listing_id: string
+          url: string
+        }[]
+      }
       map_properties: {
         Args: {
           p_book?: string

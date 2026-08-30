@@ -172,6 +172,44 @@ export function useDeleteUnit() {
   })
 }
 
+/** One suite off the live listing's Availability grid (U3 scraper), self-refreshing. */
+export interface ListingSpace {
+  id: string
+  label: string
+  size_sf: number | null
+  rate_psf: number | null
+  space_use: string | null
+  build_out: string | null
+  available: string | null
+  term: string | null
+}
+
+/**
+ * The suites a property's live LoopNet lease listing advertises, per the
+ * listing-spaces worker. Display + one-click mint into `units`; never auto-copied —
+ * advertised sizes churn between scrapes (the 08-14 lesson), so the scraped rows
+ * stay derived and only a human turns one into a unit.
+ */
+export function useListingSpaces(propertyId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['listing-spaces', propertyId],
+    enabled: !!propertyId,
+    queryFn: async (): Promise<ListingSpace[]> => {
+      const { data, error } = await supabase
+        .from('listing_spaces')
+        .select(
+          'id,label,size_sf,rate_psf,space_use,build_out,available,term,market_listings!inner(property_id,status)',
+        )
+        .eq('market_listings.property_id', propertyId!)
+        .eq('market_listings.status', 'on_market')
+        .is('gone_at', null)
+        .order('label')
+      if (error) throw error
+      return (data ?? []).map(({ market_listings: _m, ...s }) => s as ListingSpace)
+    },
+  })
+}
+
 /** The unit(s) a prospect inquired on — shown on the match slide-over. */
 export function usePursuitUnits(pursuitId: string | undefined) {
   return useQuery({

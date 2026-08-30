@@ -6,7 +6,15 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AddUnitDialog } from '@/components/add-unit-dialog'
-import { useUnits, useDeleteUnit, unitSizeLabel, type Unit } from '@/hooks/use-units'
+import {
+  useUnits,
+  useDeleteUnit,
+  useCreateUnit,
+  useListingSpaces,
+  unitSizeLabel,
+  type ListingSpace,
+  type Unit,
+} from '@/hooks/use-units'
 import { useDorCodes } from '@/hooks/use-dor-codes'
 import { dorNorm, zoningKindLabels } from '@/lib/zoning'
 import { formatCurrency, formatSf } from '@/lib/format'
@@ -68,6 +76,28 @@ function Stat({
 export function PropertySynopsis({ property }: { property: Tables<'properties'> }) {
   const { data: units = [] } = useUnits([property.id])
   const del = useDeleteUnit()
+  const { data: adSpaces = [] } = useListingSpaces(property.id)
+  const createUnit = useCreateUnit()
+
+  // One click copies an advertised suite into a real unit. The scraped row keeps
+  // refreshing on its own; the unit is Alex's editable copy from that moment on.
+  const mintUnit = (s: ListingSpace) =>
+    createUnit.mutate(
+      {
+        property_id: property.id,
+        label: s.label,
+        size_sf: s.size_sf,
+        asking_rate_psf: s.rate_psf,
+        notes:
+          [s.space_use, s.build_out, s.available ? `available ${s.available}` : null]
+            .filter(Boolean)
+            .join(' · ') || null,
+      },
+      {
+        onSuccess: () => toast.success(`Unit "${s.label}" added from the listing`),
+        onError: () => toast.error('Could not add the unit'),
+      },
+    )
   const [addOpen, setAddOpen] = useState(false)
   // A unit is revised constantly - the space shrinks, the rate moves, it lets.
   // Editing has to be reachable from the row itself, not a re-entry.
@@ -248,6 +278,61 @@ export function PropertySynopsis({ property }: { property: Tables<'properties'> 
             </li>
           ))}
         </ul>
+      )}
+
+      {/* What the live listing itself advertises, suite by suite (U3 scraper).
+          Self-refreshing and read-only — one click copies a suite into a real unit. */}
+      {adSpaces.length > 0 && (
+        <>
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              Advertised spaces ({adSpaces.length})
+            </h2>
+            <span className="text-xs text-muted-foreground">from the live listing</span>
+          </div>
+          <ul className="divide-y rounded-lg border">
+            {adSpaces.map((s) => {
+              const taken = units.some(
+                (u) => (u.label || '').trim().toLowerCase() === s.label.trim().toLowerCase(),
+              )
+              return (
+                <li key={s.id} className="flex items-center justify-between gap-3 p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-medium">{s.label}</span>
+                      {s.size_sf != null && (
+                        <span className="text-muted-foreground">
+                          {s.size_sf.toLocaleString('en-US')} SF
+                        </span>
+                      )}
+                      <span className="text-muted-foreground">
+                        {s.rate_psf != null ? `$${s.rate_psf} PSF/yr` : 'rate on request'}
+                      </span>
+                      {s.available && (
+                        <span className="text-muted-foreground">avail {s.available}</span>
+                      )}
+                    </div>
+                    {(s.space_use || s.build_out) && (
+                      <div className="truncate text-xs text-muted-foreground">
+                        {[s.space_use, s.build_out].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={taken || createUnit.isPending}
+                    title={taken ? 'A unit with this label already exists' : 'Copy into units'}
+                    onClick={() => mintUnit(s)}
+                  >
+                    {taken ? 'In units' : 'Add as unit'}
+                  </Button>
+                </li>
+              )
+            })}
+          </ul>
+        </>
       )}
 
       <AddUnitDialog
