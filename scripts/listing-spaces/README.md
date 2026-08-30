@@ -25,19 +25,23 @@ What it does, once a day at 07:10:
 The scraped suites feed `v_property_available_space` (source `listing_space`) and show
 on the property page, where one click copies a suite into a real `units` row.
 
-## Setup (on the scraper Mac, after `git pull`)
+## Setup (on the scraper Mac — repo lives at `~/CRECRM` there, per the Deal Radar setup)
 
 ```
-cd "/Users/apop/CRE CRM/scripts/listing-spaces"
-npm install
-cp ../deal-radar/.env .env              # same SUPABASE_URL + SERVICE key (+ ALERT_WEBHOOK_URL)
-npm test                                # parser fixtures (offline)
-LS_TEST_URL='https://www.loopnet.com/Listing/1575-Cattlemen-Rd-Sarasota-FL/34383202/' npm start
-                                        # smoke test: one page, prints suites, no DB writes
-npm start                               # one supervised run — watch it do ~40 pages
-cp com.crecrm.listingspaces.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.crecrm.listingspaces.plist
+cd ~/CRECRM && git pull && bash scripts/listing-spaces/setup.sh
 ```
+
+That installs deps, copies `../deal-radar/.env` (same SUPABASE_URL + service_role key),
+runs the offline parser test, then a live smoke test (a Chrome window opens ~30s and the
+two Cattlemen suites print — no DB writes). If the suites printed:
+
+```
+bash ~/CRECRM/scripts/listing-spaces/setup.sh --schedule
+```
+
+`--schedule` rewrites the plist's paths for that machine into `~/Library/LaunchAgents/`
+(the committed plist carries the main-Mac path; never load it unrewritten) and loads it.
+Optional supervised full run first: `cd ~/CRECRM/scripts/listing-spaces && npm start`.
 
 Env knobs: `LS_LIMIT` (pages/run, default 40), `LS_PROFILE_DIR`, `LS_CHROME_BIN`
 (default the standard /Applications path), `LS_CDP_PORT` (default 9223 — must be free),
