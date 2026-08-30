@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      _fp_land_post_20260829: {
+        Row: {
+          grp: number | null
+          id: string | null
+          rn: number | null
+          val: Json | null
+        }
+        Insert: {
+          grp?: number | null
+          id?: string | null
+          rn?: number | null
+          val?: Json | null
+        }
+        Update: {
+          grp?: number | null
+          id?: string | null
+          rn?: number | null
+          val?: Json | null
+        }
+        Relationships: []
+      }
+      _fp_land_pre_20260829: {
+        Row: {
+          grp: number | null
+          id: string | null
+          rn: number | null
+          val: Json | null
+        }
+        Insert: {
+          grp?: number | null
+          id?: string | null
+          rn?: number | null
+          val?: Json | null
+        }
+        Update: {
+          grp?: number | null
+          id?: string | null
+          rn?: number | null
+          val?: Json | null
+        }
+        Relationships: []
+      }
+      _fp_land_subjects_20260829: {
+        Row: {
+          grp: number | null
+          id: string | null
+          rn: number | null
+        }
+        Insert: {
+          grp?: number | null
+          id?: string | null
+          rn?: number | null
+        }
+        Update: {
+          grp?: number | null
+          id?: string | null
+          rn?: number | null
+        }
+        Relationships: []
+      }
       area_code_timezones: {
         Row: {
           area_code: string
@@ -446,6 +506,7 @@ export type Database = {
         Row: {
           as_of_date: string | null
           asking_lease_rate_psf: number | null
+          asking_lease_rate_psf_max: number | null
           broker_company: string | null
           broker_email: string | null
           broker_name: string | null
@@ -467,6 +528,7 @@ export type Database = {
           land_acres: number | null
           lease_structure: Database["public"]["Enums"]["lease_structure"] | null
           listed_at: string | null
+          listing_building_sf: number | null
           listing_description: string | null
           listing_title: string | null
           listing_url: string | null
@@ -487,6 +549,7 @@ export type Database = {
           source: string
           source_key: string | null
           source_last_updated: string | null
+          space_count: number | null
           tenant_company_id: string | null
           tenant_name: string | null
           term_months: number | null
@@ -498,6 +561,7 @@ export type Database = {
         Insert: {
           as_of_date?: string | null
           asking_lease_rate_psf?: number | null
+          asking_lease_rate_psf_max?: number | null
           broker_company?: string | null
           broker_email?: string | null
           broker_name?: string | null
@@ -521,6 +585,7 @@ export type Database = {
             | Database["public"]["Enums"]["lease_structure"]
             | null
           listed_at?: string | null
+          listing_building_sf?: number | null
           listing_description?: string | null
           listing_title?: string | null
           listing_url?: string | null
@@ -541,6 +606,7 @@ export type Database = {
           source?: string
           source_key?: string | null
           source_last_updated?: string | null
+          space_count?: number | null
           tenant_company_id?: string | null
           tenant_name?: string | null
           term_months?: number | null
@@ -552,6 +618,7 @@ export type Database = {
         Update: {
           as_of_date?: string | null
           asking_lease_rate_psf?: number | null
+          asking_lease_rate_psf_max?: number | null
           broker_company?: string | null
           broker_email?: string | null
           broker_name?: string | null
@@ -575,6 +642,7 @@ export type Database = {
             | Database["public"]["Enums"]["lease_structure"]
             | null
           listed_at?: string | null
+          listing_building_sf?: number | null
           listing_description?: string | null
           listing_title?: string | null
           listing_url?: string | null
@@ -595,6 +663,7 @@ export type Database = {
           source?: string
           source_key?: string | null
           source_last_updated?: string | null
+          space_count?: number | null
           tenant_company_id?: string | null
           tenant_name?: string | null
           term_months?: number | null
@@ -937,6 +1006,65 @@ export type Database = {
         }
         Relationships: []
       }
+      deal_flag_evals: {
+        Row: {
+          detail: Json | null
+          evaluated_at: string
+          land_pct: number | null
+          lease_pct: number | null
+          property_id: string
+          sale_pct: number | null
+          stale: boolean
+        }
+        Insert: {
+          detail?: Json | null
+          evaluated_at?: string
+          land_pct?: number | null
+          lease_pct?: number | null
+          property_id: string
+          sale_pct?: number | null
+          stale?: boolean
+        }
+        Update: {
+          detail?: Json | null
+          evaluated_at?: string
+          land_pct?: number | null
+          lease_pct?: number | null
+          property_id?: string
+          sale_pct?: number | null
+          stale?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_flag_evals_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_flag_evals_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_flag_evals_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_flag_evals_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
       deal_flags: {
         Row: {
           created_at: string
@@ -1113,6 +1241,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_radar_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_radar_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_radar_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -1735,8 +1884,10 @@ export type Database = {
         Row: {
           asking_price: number | null
           asking_rate_psf: number | null
+          asking_rate_psf_max: number | null
           broker_company: string | null
           broker_name: string | null
+          building_sf: number | null
           cap_rate_pct: number | null
           created_at: string
           first_seen_at: string
@@ -1748,6 +1899,7 @@ export type Database = {
           raw: Json | null
           source: string
           source_listing_id: string
+          space_count: number | null
           sqft: number | null
           status: Database["public"]["Enums"]["listing_market_status"]
           updated_at: string
@@ -1756,8 +1908,10 @@ export type Database = {
         Insert: {
           asking_price?: number | null
           asking_rate_psf?: number | null
+          asking_rate_psf_max?: number | null
           broker_company?: string | null
           broker_name?: string | null
+          building_sf?: number | null
           cap_rate_pct?: number | null
           created_at?: string
           first_seen_at?: string
@@ -1769,6 +1923,7 @@ export type Database = {
           raw?: Json | null
           source?: string
           source_listing_id: string
+          space_count?: number | null
           sqft?: number | null
           status?: Database["public"]["Enums"]["listing_market_status"]
           updated_at?: string
@@ -1777,8 +1932,10 @@ export type Database = {
         Update: {
           asking_price?: number | null
           asking_rate_psf?: number | null
+          asking_rate_psf_max?: number | null
           broker_company?: string | null
           broker_name?: string | null
+          building_sf?: number | null
           cap_rate_pct?: number | null
           created_at?: string
           first_seen_at?: string
@@ -1790,6 +1947,7 @@ export type Database = {
           raw?: Json | null
           source?: string
           source_listing_id?: string
+          space_count?: number | null
           sqft?: number | null
           status?: Database["public"]["Enums"]["listing_market_status"]
           updated_at?: string
@@ -3480,6 +3638,8 @@ export type Database = {
           start_url: string | null
           started_at: string | null
           status: string
+          urls_expected: number | null
+          urls_ok: number | null
         }
         Insert: {
           actor_id?: string | null
@@ -3497,6 +3657,8 @@ export type Database = {
           start_url?: string | null
           started_at?: string | null
           status: string
+          urls_expected?: number | null
+          urls_ok?: number | null
         }
         Update: {
           actor_id?: string | null
@@ -3514,6 +3676,8 @@ export type Database = {
           start_url?: string | null
           started_at?: string | null
           status?: string
+          urls_expected?: number | null
+          urls_ok?: number | null
         }
         Relationships: []
       }
@@ -4300,6 +4464,12 @@ export type Database = {
         }
         Relationships: []
       }
+      v_outreach_verified_property: {
+        Row: {
+          property_id: string | null
+        }
+        Relationships: []
+      }
       v_property_available_space: {
         Row: {
           asking_rate_psf: number | null
@@ -4488,6 +4658,8 @@ export type Database = {
           last_finished_at: string | null
           runs: number | null
           succeeded: number | null
+          urls_expected: number | null
+          urls_ok: number | null
         }
         Relationships: []
       }
@@ -4820,6 +4992,8 @@ export type Database = {
       }
       intake_prospect: { Args: { p: Json; p_owner: string }; Returns: Json }
       is_va: { Args: never; Returns: boolean }
+      kick_deal_flag_evals: { Args: never; Returns: string }
+      kick_market_refresh: { Args: never; Returns: string }
       map_properties: {
         Args: {
           p_book?: string
@@ -4859,6 +5033,7 @@ export type Database = {
       outreach_call_audience: { Args: { p: Json }; Returns: Json }
       outreach_ghl_mark: { Args: { p: Json }; Returns: Json }
       outreach_ghl_push_rows: { Args: { p_list: string }; Returns: Json }
+      outreach_list_suppressed: { Args: { p_list: string }; Returns: Json }
       outreach_mail_audience: { Args: { p: Json }; Returns: Json }
       outreach_mark_wrong_number: { Args: { p: Json }; Returns: Json }
       phone_e164: { Args: { p: string }; Returns: string }
@@ -4922,6 +5097,10 @@ export type Database = {
       }
       property_last_sales: { Args: never; Returns: Json }
       recent_touches: { Args: { p_phone: string }; Returns: number }
+      record_market_listings_for_known: {
+        Args: { p_rows: Json }
+        Returns: Json
+      }
       record_text_send_result: { Args: { p: Json }; Returns: Json }
       refresh_condo_units: { Args: never; Returns: number }
       refresh_county_market_stats: { Args: never; Returns: number }
@@ -4931,6 +5110,7 @@ export type Database = {
       refresh_property_market_position: { Args: never; Returns: number }
       refresh_property_owner_rollup: { Args: never; Returns: number }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
+      run_deal_flag_evals: { Args: { p_limit?: number }; Returns: Json }
       score_parcels: {
         Args: { p_county?: string; p_limit?: number; p_min_coverage?: number }
         Returns: Json
@@ -4998,24 +5178,45 @@ export type Database = {
         Args: { p_counties?: string[]; p_fresh_within_days?: number }
         Returns: Json
       }
-      sweep_log_run: {
-        Args: {
-          p_actor_id?: string
-          p_county?: string
-          p_deal_type?: string
-          p_error?: string
-          p_finished_at?: string
-          p_imported?: number
-          p_item_count?: number
-          p_property_type?: string
-          p_run_id: string
-          p_source?: string
-          p_start_url?: string
-          p_started_at?: string
-          p_status: string
-        }
-        Returns: string
-      }
+      sweep_log_run:
+        | {
+            Args: {
+              p_actor_id?: string
+              p_county?: string
+              p_deal_type?: string
+              p_error?: string
+              p_finished_at?: string
+              p_imported?: number
+              p_item_count?: number
+              p_property_type?: string
+              p_run_id: string
+              p_source?: string
+              p_start_url?: string
+              p_started_at?: string
+              p_status: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_actor_id?: string
+              p_county?: string
+              p_deal_type?: string
+              p_error?: string
+              p_finished_at?: string
+              p_imported?: number
+              p_item_count?: number
+              p_property_type?: string
+              p_run_id: string
+              p_source?: string
+              p_start_url?: string
+              p_started_at?: string
+              p_status: string
+              p_urls_expected?: number
+              p_urls_ok?: number
+            }
+            Returns: string
+          }
       sweep_mark_off_market: {
         Args: { p_seen_property_ids: string[] }
         Returns: Json
@@ -5126,7 +5327,7 @@ export type Database = {
         | "broker"
         | "vendor"
         | "other"
-      deal_flag_status: "pending" | "dismissed"
+      deal_flag_status: "pending" | "dismissed" | "expired"
       deal_radar_source: "marketplace" | "group"
       deal_radar_status:
         | "new"
@@ -5419,7 +5620,7 @@ export const Constants = {
         "vendor",
         "other",
       ],
-      deal_flag_status: ["pending", "dismissed"],
+      deal_flag_status: ["pending", "dismissed", "expired"],
       deal_radar_source: ["marketplace", "group"],
       deal_radar_status: [
         "new",
@@ -5557,3 +5758,4 @@ export const Constants = {
     },
   },
 } as const
+

@@ -67,10 +67,12 @@ export function DealFlagsWidget() {
 
   const handleScan = () =>
     scan.mutate(undefined, {
-      onSuccess: (created) =>
-        created > 0
-          ? toast.success(`${created} new deal${created === 1 ? '' : 's'} flagged`)
-          : toast.info('No new deals found'),
+      onSuccess: (queued) =>
+        queued > 0
+          ? toast.success(
+              `Scan started — ${queued.toLocaleString('en-US')} listing${queued === 1 ? '' : 's'} queued. Flags update in a few minutes.`,
+            )
+          : toast.info('Nothing new to scan'),
       onError: () => toast.error('Could not scan for deals'),
     })
 

@@ -114,8 +114,11 @@ export function useRestoreDealFlags() {
 }
 
 /**
- * Scan the last two weeks of on-market imports for below-market askings (the sweep
- * also runs this automatically per import batch). Returns how many got flagged.
+ * Queue a re-scan of the last two weeks of on-market imports. Since the v2 engine
+ * (2026-08-29) this no longer flags synchronously: the RPC marks the target set stale
+ * and schedules a background batch that re-values each listing through
+ * estimate_property_value — flags land a few minutes later. Returns how many
+ * listings were queued.
  */
 export function useScanDealFlags() {
   const qc = useQueryClient()
@@ -123,7 +126,7 @@ export function useScanDealFlags() {
     mutationFn: async () => {
       const { data, error } = await supabase.rpc('flag_deal_candidates', { p_days: 14 })
       if (error) throw error
-      return (data as { deals_flagged?: number } | null)?.deals_flagged ?? 0
+      return (data as { queued?: number } | null)?.queued ?? 0
     },
     onSuccess: () => invalidate(qc),
   })
