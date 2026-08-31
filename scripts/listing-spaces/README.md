@@ -6,7 +6,9 @@ count, and a rate range — never which suites). Runs on the scraper Mac next to
 Deal Radar worker. DB half: `supabase/migrations/20260830120000_listing_spaces.sql`;
 design + audit: `context/deal-flags-and-unit-sf-2026-08-29.md` §U3.
 
-What it does, once a day at 07:10:
+What it does, three times a day (07:10, 12:40, 17:35 local — ~5h apart so the bot wall
+resets between sessions; the pool is ~900 listings and the wall caps a single run near
+27, so frequency is how coverage happens without any run getting more aggressive):
 1. `listing_space_targets(40)` — the 40 least-recently-scraped on-market LoopNet lease
    listings that advertise more than one space or less than the whole building.
 2. Launches the REAL installed Chrome (own process, profile `~/.listing-spaces-chrome`)
@@ -42,6 +44,10 @@ bash ~/CRECRM/scripts/listing-spaces/setup.sh --schedule
 `--schedule` rewrites the plist's paths for that machine into `~/Library/LaunchAgents/`
 (the committed plist carries the main-Mac path; never load it unrewritten) and loads it.
 Optional supervised full run first: `cd ~/CRECRM/scripts/listing-spaces && npm start`.
+
+**To change the schedule** (e.g. after a `git pull` that updates the plist): re-run
+`bash scripts/listing-spaces/setup.sh --schedule` — it unloads and reloads the agent, so
+the new times take effect. It currently runs 3×/day (07:10, 12:40, 17:35 local).
 
 Env knobs: `LS_LIMIT` (pages/run, default 40), `LS_PROFILE_DIR`, `LS_CHROME_BIN`
 (default the standard /Applications path), `LS_CDP_PORT` (default 9223 — must be free),

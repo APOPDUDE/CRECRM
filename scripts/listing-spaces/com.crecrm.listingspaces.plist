@@ -11,15 +11,35 @@
     <string>-lc</string>
     <string>cd '/Users/apop/CRE CRM/scripts/listing-spaces' &amp;&amp; npm start</string>
   </array>
-  <!-- Once daily, 07:10 local. 40 pages at 15-35s jitter = ~17 min; the target pool
-       (~250-400 listings) cycles in about a week. Politeness beats freshness here. -->
+  <!-- THREE times a day, ~5h apart (07:10, 12:40, 17:35 local). Each run is
+       independently gentle: up to 40 pages at 15-35s jitter (~17 min) and it STOPS on
+       two consecutive bot-walls. The wall — not the cap — is the real ceiling (a run
+       naturally ends ~27 pages in), so frequency, not per-run size, is the safe way to
+       cover the pool: ~908 target listings, ~27/permissive-run, first full pass in
+       ~11-12 days, then maintenance. Self-throttling: a run started while the wall is
+       up stops after a page or two and costs almost nothing. The 5h gap gives the wall
+       ample time to reset between sessions. -->
   <key>StartCalendarInterval</key>
-  <dict>
-    <key>Hour</key>
-    <integer>7</integer>
-    <key>Minute</key>
-    <integer>10</integer>
-  </dict>
+  <array>
+    <dict>
+      <key>Hour</key>
+      <integer>7</integer>
+      <key>Minute</key>
+      <integer>10</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>12</integer>
+      <key>Minute</key>
+      <integer>40</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>17</integer>
+      <key>Minute</key>
+      <integer>35</integer>
+    </dict>
+  </array>
   <key>RunAtLoad</key>
   <false/>
   <key>StandardOutPath</key>
