@@ -1972,6 +1972,98 @@ export type Database = {
           },
         ]
       }
+      market_events: {
+        Row: {
+          address: string | null
+          city: string | null
+          county: string | null
+          created_at: string
+          detail: Json
+          event_date: string | null
+          event_type: Database["public"]["Enums"]["market_event_type"]
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          parcel_number: string | null
+          property_id: string | null
+          source: string
+          source_key: string
+          status: Database["public"]["Enums"]["market_event_status"]
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          county?: string | null
+          created_at?: string
+          detail?: Json
+          event_date?: string | null
+          event_type: Database["public"]["Enums"]["market_event_type"]
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          parcel_number?: string | null
+          property_id?: string | null
+          source: string
+          source_key: string
+          status?: Database["public"]["Enums"]["market_event_status"]
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          county?: string | null
+          created_at?: string
+          detail?: Json
+          event_date?: string | null
+          event_type?: Database["public"]["Enums"]["market_event_type"]
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          parcel_number?: string | null
+          property_id?: string | null
+          source?: string
+          source_key?: string
+          status?: Database["public"]["Enums"]["market_event_status"]
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
       market_listings: {
         Row: {
           asking_price: number | null
@@ -5060,6 +5152,7 @@ export type Database = {
       import_land_values: { Args: { p: Json }; Returns: Json }
       import_lease_comps: { Args: { p: Json }; Returns: Json }
       import_listing_spaces: { Args: { p: Json }; Returns: Json }
+      import_market_events: { Args: { p: Json }; Returns: Json }
       import_outreach_targets: { Args: { p: Json }; Returns: Json }
       import_owner_addresses: { Args: { p: Json }; Returns: Json }
       import_parcel_enrichment: { Args: { p: Json }; Returns: Json }
@@ -5115,6 +5208,7 @@ export type Database = {
         Args: { p_property_ids: string[] }
         Returns: Json
       }
+      market_monitor_health: { Args: never; Returns: Json }
       name_has_all_tokens: {
         Args: { p_n: number; p_text: string; p_tokens: string[] }
         Returns: boolean
@@ -5495,6 +5589,8 @@ export type Database = {
       lease_structure: "NNN" | "NN" | "MG" | "FS" | "IG"
       listing_market_status: "on_market" | "off_market"
       listing_stage: "proposal" | "listed" | "closed"
+      market_event_status: "new" | "seen" | "dismissed"
+      market_event_type: "permit" | "sale" | "zoning_change"
       msg_direction: "inbound" | "outbound"
       msg_protocol: "imessage" | "sms" | "rcs" | "unknown"
       note_kind: "note" | "call" | "text" | "email" | "meeting" | "tour"
@@ -5795,6 +5891,8 @@ export const Constants = {
       lease_structure: ["NNN", "NN", "MG", "FS", "IG"],
       listing_market_status: ["on_market", "off_market"],
       listing_stage: ["proposal", "listed", "closed"],
+      market_event_status: ["new", "seen", "dismissed"],
+      market_event_type: ["permit", "sale", "zoning_change"],
       msg_direction: ["inbound", "outbound"],
       msg_protocol: ["imessage", "sms", "rcs", "unknown"],
       note_kind: ["note", "call", "text", "email", "meeting", "tour"],
@@ -5859,4 +5957,3 @@ export const Constants = {
     },
   },
 } as const
-
