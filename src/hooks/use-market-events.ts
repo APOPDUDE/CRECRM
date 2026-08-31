@@ -78,6 +78,56 @@ export function useMarketMonitorHealth() {
   })
 }
 
+/** Every event tied to one property — the "Property history" section, all statuses. */
+export function usePropertyMarketEvents(propertyId: string | undefined) {
+  return useQuery({
+    queryKey: ['market_events', 'property', propertyId],
+    enabled: !!propertyId,
+    queryFn: async (): Promise<MarketEventRow[]> => {
+      const { data, error } = await supabase
+        .from('market_events')
+        .select('*')
+        .eq('property_id', propertyId!)
+        .order('event_date', { ascending: false, nullsFirst: false })
+        .order('first_seen_at', { ascending: false })
+        .limit(100)
+      if (error) throw error
+      return data ?? []
+    },
+  })
+}
+
+export interface MarketEventAlert {
+  event_id: string
+  event_type: MarketEventType
+  title: string
+  url: string | null
+  event_date: string | null
+  first_seen_at: string
+  property_id: string
+  address: string | null
+  city: string | null
+  owner_name: string | null
+  contact_name: string | null
+  contact_phone: string | null
+}
+
+/**
+ * NEW events on properties whose owner has a VERIFIED contact — the dashboard
+ * popup. The rule lives in Postgres (market_event_alerts, security invoker so
+ * the VA silo applies); rows leave when the event is marked seen/dismissed.
+ */
+export function useMarketEventAlerts() {
+  return useQuery({
+    queryKey: ['market_events', 'alerts'],
+    queryFn: async (): Promise<MarketEventAlert[]> => {
+      const { data, error } = await supabase.rpc('market_event_alerts', { p_limit: 20 })
+      if (error) throw error
+      return (data ?? []) as MarketEventAlert[]
+    },
+  })
+}
+
 function invalidate(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ['market_events'] })
 }

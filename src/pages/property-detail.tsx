@@ -19,6 +19,7 @@ import { PropertyTasks } from '@/components/property-tasks'
 import { PropertyComps } from '@/components/property-comps'
 import { SiteIntelligence } from '@/components/site-intelligence'
 import { PropertyTourNotes } from '@/components/property-tour-notes'
+import { PropertyHistory } from '@/components/property-history'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { EnrichParcelDialog } from '@/components/enrich-parcel-dialog'
 import { PropertyTypeBadge } from '@/pages/properties'
@@ -561,6 +562,8 @@ export function PropertyDetailPage() {
           </p>
         )}
       </section>
+
+      <PropertyHistory propertyId={property.id} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Danger zone</h2>

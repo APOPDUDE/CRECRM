@@ -5208,6 +5208,23 @@ export type Database = {
         Args: { p_property_ids: string[] }
         Returns: Json
       }
+      market_event_alerts: {
+        Args: { p_limit?: number }
+        Returns: {
+          address: string
+          city: string
+          contact_name: string
+          contact_phone: string
+          event_date: string
+          event_id: string
+          event_type: Database["public"]["Enums"]["market_event_type"]
+          first_seen_at: string
+          owner_name: string
+          property_id: string
+          title: string
+          url: string
+        }[]
+      }
       market_monitor_health: { Args: never; Returns: Json }
       name_has_all_tokens: {
         Args: { p_n: number; p_text: string; p_tokens: string[] }
