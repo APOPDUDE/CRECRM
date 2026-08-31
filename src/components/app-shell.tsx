@@ -18,6 +18,7 @@ import {
   Phone,
   MoreHorizontal,
   Radar,
+  RadioTower,
   Target,
   Upload,
   Users,
@@ -58,13 +59,14 @@ const pipelinePrefixes = ['/pipelines', '/landlord-rep', '/tenant-rep']
 const prospectingItems = [
   { to: '/prospecting', label: 'Leads', icon: Target },
   { to: '/deal-radar', label: 'Deal Radar', icon: Radar },
+  { to: '/market-monitor', label: 'Market Monitor', icon: RadioTower },
   { to: '/outreach/import', label: 'Import list', icon: Upload },
   { to: '/outreach/calls', label: 'Calls & texts', icon: Phone },
   { to: '/texting', label: 'Texting', icon: MessageSquare },
   { to: '/email', label: 'Email', icon: Mail },
   { to: '/outreach/postcards', label: 'Postcards', icon: Mailbox },
 ]
-const prospectingPrefixes = ['/prospecting', '/deal-radar', '/outreach', '/email', '/texting']
+const prospectingPrefixes = ['/prospecting', '/deal-radar', '/market-monitor', '/outreach', '/email', '/texting']
 
 const moreItems = [
   { to: '/tasks', label: 'Tasks', icon: ListTodo },
@@ -79,6 +81,7 @@ const sectionLabels: Record<string, string> = {
   pipelines: 'Pipelines',
   prospecting: 'Prospecting',
   'deal-radar': 'Deal Radar',
+  'market-monitor': 'Market Monitor',
   // Detail/match boards still live under these path prefixes — keep their breadcrumb labels.
   'landlord-rep': 'Landlord Rep',
   'tenant-rep': 'Tenant Rep',

@@ -15,6 +15,7 @@ import { ReppingPage, ReppingRedirect } from '@/pages/repping'
 import { BuyersPage } from '@/pages/buyers'
 import { ProspectingPage } from '@/pages/prospecting'
 import { DealRadarPage } from '@/pages/deal-radar'
+import { MarketEventsPage } from '@/pages/market-events'
 import { PropertyBoardPage } from '@/pages/property-board'
 import { TenantBoardPage } from '@/pages/tenant-board'
 import { TasksPage } from '@/pages/tasks'
@@ -119,6 +120,7 @@ export default function App() {
                 <Route path="/repping" element={<ReppingRedirect />} />
                 <Route path="/prospecting" element={<ProspectingPage />} />
                 <Route path="/deal-radar" element={<DealRadarPage />} />
+                <Route path="/market-monitor" element={<MarketEventsPage />} />
                 <Route path="/landlord-rep" element={<Navigate to="/pipelines/landlord" replace />} />
                 <Route path="/landlord-rep/:listingId" element={<PropertyBoardPage />} />
                 <Route path="/tenant-rep" element={<Navigate to="/pipelines/tenant" replace />} />
