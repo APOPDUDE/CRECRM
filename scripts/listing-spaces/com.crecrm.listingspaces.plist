@@ -11,21 +11,27 @@
     <string>-lc</string>
     <string>cd '/Users/apop/CRE CRM/scripts/listing-spaces' &amp;&amp; npm start</string>
   </array>
-  <!-- THREE times a day, ~5h apart (07:10, 12:40, 17:35 local). Each run is
-       independently gentle: up to 40 pages at 15-35s jitter (~17 min) and it STOPS on
-       two consecutive bot-walls. The wall — not the cap — is the real ceiling (a run
-       naturally ends ~27 pages in), so frequency, not per-run size, is the safe way to
-       cover the pool: ~908 target listings, ~27/permissive-run, first full pass in
-       ~11-12 days, then maintenance. Self-throttling: a run started while the wall is
-       up stops after a page or two and costs almost nothing. The 5h gap gives the wall
-       ample time to reset between sessions. -->
+  <!-- FOUR times a day, 6h apart (00:40, 06:40, 12:40, 18:40 local). The gentle
+       profile (worker.mjs env): ~15 listings per run at a 2-4 min variable gap, so a
+       session trickles over ~45 min instead of a burst — we walled inside one 13-min
+       burst on 08-31, and the low instantaneous rate is the lever the short-window wall
+       most likely keys on. Each run STOPS on two consecutive walls and self-throttles
+       (a run begun while the wall is up costs a page or two). ~908 target listings; at
+       a wall-free ~60/day, first full pass in ~15 days, then maintenance. Dial the pace
+       via LS_LIMIT / LS_GAP_MIN_SEC / LS_GAP_MAX_SEC in .env if the wall proves lenient. -->
   <key>StartCalendarInterval</key>
   <array>
     <dict>
       <key>Hour</key>
-      <integer>7</integer>
+      <integer>0</integer>
       <key>Minute</key>
-      <integer>10</integer>
+      <integer>40</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>6</integer>
+      <key>Minute</key>
+      <integer>40</integer>
     </dict>
     <dict>
       <key>Hour</key>
@@ -35,9 +41,9 @@
     </dict>
     <dict>
       <key>Hour</key>
-      <integer>17</integer>
+      <integer>18</integer>
       <key>Minute</key>
-      <integer>35</integer>
+      <integer>40</integer>
     </dict>
   </array>
   <key>RunAtLoad</key>

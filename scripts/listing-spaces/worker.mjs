@@ -31,7 +31,14 @@ const {
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
   ALERT_WEBHOOK_URL,
-  LS_LIMIT = '40',
+  // Gentle-by-default profile (2026-08-31, Alex's call after we walled inside one
+  // 13-min burst): ~15 listings per run at a 2-4 min variable gap, so a session
+  // spreads over ~45 min instead of hammering. Frequency (4x/day, see plist) carries
+  // the coverage; the low instantaneous rate is what the short-window wall likely
+  // keys on. All three are env-tunable so we can dial UP if the wall proves tolerant.
+  LS_LIMIT = '15',
+  LS_GAP_MIN_SEC = '120',
+  LS_GAP_MAX_SEC = '240',
   LS_PROFILE_DIR = join(homedir(), '.listing-spaces-chrome'),
   LS_CHROME_BIN = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   LS_CDP_PORT = '9223',
@@ -132,7 +139,11 @@ async function alert(message) {
   }
 }
 
-const jitterGap = () => 15_000 + Math.floor(Math.random() * 20_000)
+// Variable gap between listings, bounded by the env profile. The randomness matters
+// as much as the length — a fixed cadence is itself a bot tell.
+const GAP_MIN = Math.max(5, parseInt(LS_GAP_MIN_SEC, 10) || 120) * 1000
+const GAP_MAX = Math.max(GAP_MIN + 1000, (parseInt(LS_GAP_MAX_SEC, 10) || 240) * 1000)
+const jitterGap = () => GAP_MIN + Math.floor(Math.random() * (GAP_MAX - GAP_MIN))
 
 /**
  * Runs in the page. Verified live against 1575 Cattlemen Rd (2026-08-30): the LDP

@@ -6,9 +6,11 @@ count, and a rate range — never which suites). Runs on the scraper Mac next to
 Deal Radar worker. DB half: `supabase/migrations/20260830120000_listing_spaces.sql`;
 design + audit: `context/deal-flags-and-unit-sf-2026-08-29.md` §U3.
 
-What it does, three times a day (07:10, 12:40, 17:35 local — ~5h apart so the bot wall
-resets between sessions; the pool is ~900 listings and the wall caps a single run near
-27, so frequency is how coverage happens without any run getting more aggressive):
+What it does, four times a day (00:40, 06:40, 12:40, 18:40 local — 6h apart so the bot
+wall resets between sessions). The pool is ~900 listings; rather than burst through them,
+each run trickles ~15 listings at a **2–4 min variable gap** (~45 min/run) and stops on
+two consecutive walls. Low instantaneous rate + spread-out sessions is the gentle,
+defensible way to widen coverage — never fingerprint/behavior spoofing to beat the wall:
 1. `listing_space_targets(40)` — the 40 least-recently-scraped on-market LoopNet lease
    listings that advertise more than one space or less than the whole building.
 2. Launches the REAL installed Chrome (own process, profile `~/.listing-spaces-chrome`)
@@ -49,9 +51,16 @@ Optional supervised full run first: `cd ~/CRECRM/scripts/listing-spaces && npm s
 `bash scripts/listing-spaces/setup.sh --schedule` — it unloads and reloads the agent, so
 the new times take effect. It currently runs 3×/day (07:10, 12:40, 17:35 local).
 
-Env knobs: `LS_LIMIT` (pages/run, default 40), `LS_PROFILE_DIR`, `LS_CHROME_BIN`
-(default the standard /Applications path), `LS_CDP_PORT` (default 9223 — must be free),
-`LS_TEST_URL` (smoke-test mode, no DB needed). Requires Google Chrome installed.
+Env knobs: `LS_LIMIT` (listings/run, default 15), `LS_GAP_MIN_SEC` / `LS_GAP_MAX_SEC`
+(gap between listings, default 120–240s), `LS_PROFILE_DIR`, `LS_CHROME_BIN` (default the
+standard /Applications path), `LS_CDP_PORT` (default 9223 — must be free), `LS_TEST_URL`
+(smoke-test mode, no DB needed). Requires Google Chrome installed.
+
+**Tuning the pace:** if `listing_space_runs` shows runs completing all `LS_LIMIT` pages
+with `challenges = 0` for a week, the wall is tolerant — raise `LS_LIMIT` and/or shorten
+the gap in `.env`. If `challenges >= 2` keeps aborting runs early, go gentler (fewer
+listings, longer gap). Never respond to walls with stealth (mouse/fingerprint spoofing,
+IP rotation) — the safe levers are volume and spacing only.
 
 ## Health checks
 
