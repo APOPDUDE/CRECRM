@@ -7,6 +7,7 @@ import { AddToClientDialog, type AddToClientProperty } from '@/components/add-to
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import {
   bestDiscount,
+  landUse,
   usePendingDealFlags,
   useDismissDealFlags,
   useRestoreDealFlags,
@@ -43,9 +44,15 @@ export function DealFlagsWidget() {
     const filtered =
       typeFilter === 'all'
         ? flags
-        : flags.filter(
-            (f) => f.property?.property_type == null || INDUSTRIAL_FEED_KINDS.has(f.property.property_type),
-          )
+        : flags.filter((f) => {
+            const p = f.property
+            if (p?.property_type == null) return true
+            if (!INDUSTRIAL_FEED_KINDS.has(p.property_type)) return false
+            // Within land, hide the retail/residential/multifamily/etc. LoopNet mixes in
+            // — it stays in the book and in the "all" view, just not in the deal scan.
+            if (p.property_type === 'land') return !landUse(p)?.nonIndustrial
+            return true
+          })
     // Strongest discount first — the whole point is "look at this one".
     return [...filtered].sort(
       (a, b) => (bestDiscount(a)?.pct ?? 0) - (bestDiscount(b)?.pct ?? 0),
@@ -139,12 +146,14 @@ export function DealFlagsWidget() {
               const p = f.property!
               const best = bestDiscount(f)
               const asking = askingMap?.get(p.id)
+              // For land, the use chip (below) carries the type; drop the redundant "Land".
+              const use = landUse(p)
               const metrics = [
                 formatPsf(asking?.rate),
                 formatCurrency(asking?.price),
                 formatSf(p.gross_sf),
                 p.land_acres != null ? `${p.land_acres} AC` : null,
-                p.property_type ? propertyKindLabels[p.property_type] : null,
+                p.property_type && p.property_type !== 'land' ? propertyKindLabels[p.property_type] : null,
               ].filter(Boolean)
               return (
                 <li key={f.id} className="flex flex-wrap items-start justify-between gap-3 p-3">
@@ -161,6 +170,24 @@ export function DealFlagsWidget() {
                       {best && (
                         <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 tabular-nums">
                           {Math.abs(best.pct)}% below market ({best.kind})
+                        </span>
+                      )}
+                      {/* Land use — green reads as "worth a look" (industrial/ambiguous),
+                          gray as "skip" (retail/residential/etc.). Only shown for land. */}
+                      {use && (
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                            use.nonIndustrial
+                              ? 'bg-gray-500/10 text-gray-500'
+                              : 'bg-emerald-500/10 text-emerald-600'
+                          }`}
+                          title={
+                            use.nonIndustrial
+                              ? 'Non-industrial land — hidden from the industrial filter'
+                              : 'Industrial or unclassified land'
+                          }
+                        >
+                          {use.label}
                         </span>
                       )}
                       {asking?.listing_url && (
