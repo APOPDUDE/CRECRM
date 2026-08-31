@@ -481,7 +481,7 @@ export function MapFilterRail(props: {
           the same question and was table-only until now. Same `ownerFilter` state the
           table's popover writes. */}
       <div className="space-y-1.5 border-t pt-3">
-        <Label>Verified contact</Label>
+        <Label>Verified owner</Label>
         <Segmented
           value={p.ownerFilter}
           options={[

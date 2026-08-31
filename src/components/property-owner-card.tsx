@@ -322,7 +322,7 @@ function AddContactForm({ property }: { property: Property }) {
     return (
       <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
         <Plus className="size-4" />
-        Add verified contact
+        Add verified owner
       </Button>
     )
   }
@@ -346,7 +346,7 @@ function AddContactForm({ property }: { property: Property }) {
       },
       {
         onSuccess: () => {
-          toast.success('Verified contact added')
+          toast.success('Verified owner added')
           setOpen(false)
           setFirst('')
           setLast('')

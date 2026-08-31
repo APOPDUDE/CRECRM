@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { Check, ChevronDown, Copy, ExternalLink, ImageOff, MessageCircle, Send } from 'lucide-react'
+import { Check, ChevronDown, Copy, ExternalLink, ImageOff, MessageCircle, Send, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -58,8 +58,27 @@ export function DealRadarCard({ row, openMessenger, onOpenDetail }: DealRadarCar
     toast(ok ? 'Message copied.' : 'Copy failed.')
   }
 
+  // Cross off from the daily review. Sets 'dead' (leaves the default open view); the
+  // row stays in the DB so the scraper's external_id dedupe never re-adds it as new.
+  function handleDiscard() {
+    const prev = row.status
+    updateStatus.mutate({ id: row.id, status: 'dead' })
+    toast('Crossed off.', {
+      action: { label: 'Undo', onClick: () => updateStatus.mutate({ id: row.id, status: prev }) },
+    })
+  }
+
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border bg-card shadow-sm">
+    <div className="relative flex flex-col overflow-hidden rounded-lg border bg-card shadow-sm">
+      <button
+        type="button"
+        onClick={handleDiscard}
+        title="Cross off (discard)"
+        aria-label="Cross off this listing"
+        className="absolute right-2 top-2 z-10 flex size-6 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-red-600/90"
+      >
+        <X className="size-3.5" />
+      </button>
       <button
         type="button"
         onClick={() => onOpenDetail?.(row)}

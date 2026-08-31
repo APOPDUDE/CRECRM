@@ -661,7 +661,7 @@ function hoverCardHtml(
       `<div class="font-medium">${esc(ctx.owner_name)}</div>`,
       `<div class="opacity-70">${
         ctx.owner_contact_verified
-          ? 'Verified contact'
+          ? 'Verified owner'
           : (ctx.owner_contact_count ?? 0) > 0
             ? `${ctx.owner_contact_count} contact${ctx.owner_contact_count === 1 ? '' : 's'}, unverified`
             : 'No contact yet'
