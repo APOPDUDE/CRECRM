@@ -7,9 +7,11 @@ Deal Radar worker. DB half: `supabase/migrations/20260830120000_listing_spaces.s
 design + audit: `context/deal-flags-and-unit-sf-2026-08-29.md` §U3.
 
 What it does, four times a day (00:40, 06:40, 12:40, 18:40 local — 6h apart so the bot
-wall resets between sessions). The pool is ~900 listings; rather than burst through them,
-each run trickles ~15 listings at a **2–4 min variable gap** (~45 min/run) and stops on
-two consecutive walls. Low instantaneous rate + spread-out sessions is the gentle,
+wall resets between sessions). The pool is ~900 listings. Each run walks up to 40 at a
+**2–4 min variable gap** and stops on two consecutive walls. The slow gap is the
+wall-avoidance lever; the 40 cap is only a ceiling — stop-on-challenge means the SITE
+caps us, not the number, so a lenient-wall run harvests fully (~160/day across the four)
+and a wall-y one just stops early. Low rate + spread-out sessions is the gentle,
 defensible way to widen coverage — never fingerprint/behavior spoofing to beat the wall:
 1. `listing_space_targets(40)` — the 40 least-recently-scraped on-market LoopNet lease
    listings that advertise more than one space or less than the whole building.

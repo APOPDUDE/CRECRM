@@ -11,14 +11,13 @@
     <string>-lc</string>
     <string>cd '/Users/apop/CRE CRM/scripts/listing-spaces' &amp;&amp; npm start</string>
   </array>
-  <!-- FOUR times a day, 6h apart (00:40, 06:40, 12:40, 18:40 local). The gentle
-       profile (worker.mjs env): ~15 listings per run at a 2-4 min variable gap, so a
-       session trickles over ~45 min instead of a burst — we walled inside one 13-min
-       burst on 08-31, and the low instantaneous rate is the lever the short-window wall
-       most likely keys on. Each run STOPS on two consecutive walls and self-throttles
-       (a run begun while the wall is up costs a page or two). ~908 target listings; at
-       a wall-free ~60/day, first full pass in ~15 days, then maintenance. Dial the pace
-       via LS_LIMIT / LS_GAP_MIN_SEC / LS_GAP_MAX_SEC in .env if the wall proves lenient. -->
+  <!-- FOUR times a day, 6h apart (00:40, 06:40, 12:40, 18:40 local). Slow gap
+       (2-4 min variable, worker.mjs env) is the wall-avoidance lever; the per-run cap
+       is 40 only as a CEILING — stop-on-2-walls means the site, not the cap, ends a run,
+       so a lenient-wall run can harvest fully (~160/day across the 4 runs) while a wall-y
+       one just stops early and costs nothing. ~908 target listings → first full pass in
+       roughly a week if the wall tolerates the slower rate, longer if it keeps trimming.
+       Tune via LS_LIMIT / LS_GAP_MIN_SEC / LS_GAP_MAX_SEC in .env from the run log. -->
   <key>StartCalendarInterval</key>
   <array>
     <dict>

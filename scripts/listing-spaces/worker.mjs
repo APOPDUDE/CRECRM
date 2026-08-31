@@ -31,12 +31,15 @@ const {
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
   ALERT_WEBHOOK_URL,
-  // Gentle-by-default profile (2026-08-31, Alex's call after we walled inside one
-  // 13-min burst): ~15 listings per run at a 2-4 min variable gap, so a session
-  // spreads over ~45 min instead of hammering. Frequency (4x/day, see plist) carries
-  // the coverage; the low instantaneous rate is what the short-window wall likely
-  // keys on. All three are env-tunable so we can dial UP if the wall proves tolerant.
-  LS_LIMIT = '15',
+  // Pacing profile (2026-08-31). The GAP is the wall-avoidance lever — kept slow
+  // (2-4 min variable) since we walled inside one 13-min burst. The CAP is only a
+  // ceiling: stop-on-challenge means the wall, not this number, ends a run, so the cap
+  // is set HIGH (40) to let a quiet-wall day harvest fully — up to ~160/day across the
+  // 4 runs, trimmed to whatever the site actually tolerates. Raising the cap costs
+  // nothing on wall-y days (the run just stops early) and a lot on lenient ones. All
+  // three are env-tunable: read the run log, then dial the gap DOWN or cap UP only if
+  // runs are completing clean with challenges=0.
+  LS_LIMIT = '40',
   LS_GAP_MIN_SEC = '120',
   LS_GAP_MAX_SEC = '240',
   LS_PROFILE_DIR = join(homedir(), '.listing-spaces-chrome'),
