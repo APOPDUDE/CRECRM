@@ -2,8 +2,8 @@
  * Listing-spaces worker (U3).
  *
  * The Apify placard feed can never say WHICH suites a lease listing offers — only the
- * sum, a count, and a rate range. This worker runs on the scraper Mac (launchd, see
- * com.crecrm.listingspaces.plist), opens each multi/partial-space on-market lease
+ * sum, a count, and a rate range. This worker runs on the scraper Mac (launchd, 3x/day
+ * ~5h apart, see com.crecrm.listingspaces.plist), opens each multi/partial-space lease
  * listing in the REAL installed Chrome (its own process + profile, attached over the
  * DevTools port — see attachRealChrome for why), reads LoopNet's "All Available
  * Spaces" grid, and writes per-suite rows through the import_listing_spaces RPC.
