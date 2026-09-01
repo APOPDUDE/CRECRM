@@ -9,7 +9,8 @@
   },
   "distress": {
     "hc_code_enforcement": true,
-    "hc_lis_pendens": true
+    "hc_lis_pendens": true,
+    "manatee_lis_pendens": true
   },
   "overlap_days": 7,
   "initial_lookback_days": 30,

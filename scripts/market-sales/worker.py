@@ -501,6 +501,38 @@ def rows_hc_lis_pendens(lookback_days=14):
     return by_inst
 
 
+def rows_manatee_lis_pendens(lookback_days=14):
+    """Manatee Clerk records portal — clean anonymous GET:
+    /OfficialRecords/Search/InstrumentType/17/{start}/{end}/1/500 (17 = LIS PENDENS).
+    FROM = plaintiff, TO = defendants. Fresh rows show 'FROM COURTS' until parties are
+    indexed a few days later — the rolling window re-reads them, and dedupe only fires
+    once a defendant actually matches the book.
+    """
+    start = (date.today() - timedelta(days=lookback_days)).isoformat()
+    end = date.today().isoformat()
+    url = ("https://records.manateeclerk.com/OfficialRecords/Search/InstrumentType/17/"
+           f"{start}/{end}/1/500")
+    html = http(url, timeout=90).read().decode(errors="replace")
+    def clean(c):
+        return [x.strip() for x in re.sub(r"<[^>]+>", "\n", c).replace("\r", "\n").split("\n") if x.strip()]
+    out = {}
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+        cells = re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)
+        if len(cells) < 10:
+            continue
+        inst = "".join(clean(cells[1]))
+        if not inst.isdigit():
+            continue
+        try:
+            rec = datetime.strptime("".join(clean(cells[9])), "%m-%d-%Y").date().isoformat()
+        except ValueError:
+            rec = None
+        out[inst] = {"plaintiffs": [p for p in clean(cells[2]) if p.upper() != "FROM COURTS"],
+                     "defendants": clean(cells[3]), "recorded": rec, "case": None,
+                     "legal": " ".join(clean(cells[8]))[:200] or None}
+    return out
+
+
 def rows_hc_code_enforcement():
     where = "STATUS IN (" + ",".join(f"'{s}'" for s in CE_OPEN_STATUSES) + ")"
     for a in arcgis_rows(f"{CE_BASE}/0", where, "Permits_Pl,ADDRESS,PARCEL_NO_NO,STATUS,OFFICER"):
@@ -552,7 +584,7 @@ def run():
         only in (None, "distress", "hillsborough")
     log(f"run start — counties: {counties}{' + distress' if distress_on else ''}{' (dry-run)' if dry else ''}")
 
-    book_counties = list(dict.fromkeys(counties + (["hillsborough"] if distress_on else [])))
+    book_counties = list(dict.fromkeys(counties + (["hillsborough", "manatee"] if distress_on else [])))
     try:
         book, owner_names = fetch_book(env, book_counties)
     except Exception as e:
@@ -667,11 +699,15 @@ def run():
             log(f"  ERROR: {e}")
         report["counties"]["hc_code_enforcement"] = cinfo
 
-    if distress_on and cfg.get("distress", {}).get("hc_lis_pendens", True):
+    LP_SOURCES = [("hc_lis_pendens", "hillsborough", rows_hc_lis_pendens),
+                  ("manatee_lis_pendens", "manatee", rows_manatee_lis_pendens)]
+    for lp_source, lp_county, lp_fetch in (LP_SOURCES if distress_on else []):
+        if not cfg.get("distress", {}).get(lp_source, True):
+            continue
         cinfo = {"scanned": 0, "book_hits": 0, "sent": 0, "error": None}
-        log("— hc_lis_pendens: clerk lis pendens, last 14d")
+        log(f"— {lp_source}: clerk lis pendens, last 14d")
         try:
-            hnames = owner_names.get("hillsborough", {})
+            hnames = owner_names.get(lp_county, {})
             # Institutional names show up constantly as JOINED co-defendants (junior
             # lienholders, HOAs, govt) in suits about OTHER people's property — and the
             # book owns their branches/common areas, so they false-match. Party order is
@@ -680,7 +716,7 @@ def run():
                     "UNITED STATES", "SECRETARY OF", "DEPARTMENT OF", "CLERK OF",
                     " BANK", "BANK ", "CREDIT UNION", "MORTGAGE", "LENDING", " LOAN",
                     "FINANCIAL", "FINANCE", " ASSOCIATION", "TENANT")
-            for inst, g in rows_hc_lis_pendens().items():
+            for inst, g in lp_fetch().items():
                 cinfo["scanned"] += 1
                 hit, hit_name = None, None
                 for dn in g["defendants"]:
@@ -701,10 +737,10 @@ def run():
                     title += f", {city}"
                 events.append({
                     "event_type": "foreclosure",
-                    "source": "hc_lis_pendens",
-                    "source_key": f"hclp:{inst}",
+                    "source": lp_source,
+                    "source_key": f"{lp_source}:{inst}",
                     "event_date": g["recorded"],
-                    "county": "Hillsborough",
+                    "county": lp_county.capitalize(),
                     "parcel_number": parcel_number,
                     "address": addr,
                     "city": city,
@@ -722,7 +758,7 @@ def run():
         except Exception as e:
             cinfo["error"] = str(e)[:300]
             log(f"  ERROR: {e}")
-        report["counties"]["hc_lis_pendens"] = cinfo
+        report["counties"][lp_source] = cinfo
 
     report["total_events"] = len(events)
     if dry:

@@ -58,7 +58,7 @@ function staleDaysFor(src: string): number {
   if (src === 'hcfl_permits') return 45
   if (src === 'hc_zoning_hearings') return 21
   if (src.startsWith('county_sales:') || src === 'hc_code_enforcement') return 12
-  if (src === 'hc_lis_pendens') return 45 // book-owner LPs are rare; quiet stretches are normal
+  if (src.endsWith('_lis_pendens')) return 45 // book-owner LPs are rare; quiet stretches are normal
   return 7
 }
 

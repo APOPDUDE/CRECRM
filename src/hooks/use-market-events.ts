@@ -136,6 +136,7 @@ export function marketSourceLabel(source: string): string {
     hc_zoning_hearings: 'Hillsborough hearings',
     hc_code_enforcement: 'Hillsborough code enforcement',
     hc_lis_pendens: 'Hillsborough lis pendens',
+    manatee_lis_pendens: 'Manatee lis pendens',
   }
   if (fixed[source]) return fixed[source]
   const sale = /^county_sales:(\w+)/.exec(source)
