@@ -128,6 +128,20 @@ export function useMarketEventAlerts() {
   })
 }
 
+/** Human label for a market_events source key (shared by the feed + property history). */
+export function marketSourceLabel(source: string): string {
+  const fixed: Record<string, string> = {
+    tampa_permits: 'Tampa permits',
+    hcfl_permits: 'Hillsborough Co permits',
+    hc_zoning_hearings: 'Hillsborough hearings',
+    hc_code_enforcement: 'Hillsborough code enforcement',
+  }
+  if (fixed[source]) return fixed[source]
+  const sale = /^county_sales:(\w+)/.exec(source)
+  if (sale) return sale[1][0].toUpperCase() + sale[1].slice(1) + ' sales'
+  return source
+}
+
 function invalidate(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ['market_events'] })
 }

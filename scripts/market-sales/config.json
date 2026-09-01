@@ -7,6 +7,9 @@
     "sarasota": { "enabled": true },
     "manatee": { "enabled": true }
   },
+  "distress": {
+    "hc_code_enforcement": true
+  },
   "overlap_days": 7,
   "initial_lookback_days": 30,
   "max_events_per_county": 400

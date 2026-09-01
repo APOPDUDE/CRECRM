@@ -1,16 +1,12 @@
-import { ExternalLink, HardHat, Landmark, Tag } from 'lucide-react'
+import { AlertTriangle, ExternalLink, HardHat, Landmark, Tag } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { usePropertyMarketEvents, type MarketEventType } from '@/hooks/use-market-events'
+import { marketSourceLabel, usePropertyMarketEvents, type MarketEventType } from '@/hooks/use-market-events'
 
 const TYPE_META: Record<MarketEventType, { label: string; icon: typeof HardHat }> = {
   permit: { label: 'Permit', icon: HardHat },
   sale: { label: 'Sale', icon: Tag },
   zoning_change: { label: 'Zoning', icon: Landmark },
-}
-
-const SOURCE_LABELS: Record<string, string> = {
-  tampa_permits: 'City of Tampa',
-  hcfl_permits: 'Hillsborough County',
+  code_enforcement: { label: 'Code enforcement', icon: AlertTriangle },
 }
 
 function detailStr(detail: unknown, key: string): string | null {
@@ -50,7 +46,7 @@ export function PropertyHistory({ propertyId }: { propertyId: string }) {
                 )}
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                   {e.event_date && <span>{e.event_date}</span>}
-                  <span>· {SOURCE_LABELS[e.source] ?? e.source}</span>
+                  <span>· {marketSourceLabel(e.source)}</span>
                   {status && <span>· {status}</span>}
                   <span>· spotted {formatDistanceToNow(new Date(e.first_seen_at))} ago</span>
                 </div>

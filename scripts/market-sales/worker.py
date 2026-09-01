@@ -389,6 +389,80 @@ FETCHERS = {
 }
 
 
+# ── distress tier: HC code enforcement (cases / condemnations / liens) ──────
+# CodeEnforcementCasesMapService is Accela-fed, county-wide, "active" snapshots with no
+# date columns — so no cursor: every run sends all OPEN cases matched to the book and the
+# server-side dedupe alerts only on first sight. Weekly cadence fits (cases run months).
+
+CE_BASE = ("https://services.arcgis.com/apTfC6SUmnNfnxuF/arcgis/rest/services/"
+           "CodeEnforcementCasesMapService/FeatureServer")
+CE_OPEN_STATUSES = (
+    "Warning Issued", "Pending", "Fine Run", "Adjudicated", "Abatement", "Notice Issued",
+    "Referred", "In Review", "Hearing Scheduled", "New Owner Fine", "Open", "Inspection",
+    "Extension", "In Progress",
+)
+
+
+def arcgis_rows(url, where, out_fields):
+    offset = 0
+    while True:
+        q = urllib.parse.urlencode({
+            "where": where, "outFields": out_fields, "returnGeometry": "false",
+            "resultOffset": offset, "resultRecordCount": 2000, "f": "json"})
+        with http(f"{url}/query?{q}", timeout=120) as r:
+            d = json.load(r)
+        if "error" in d:
+            raise RuntimeError(f"arcgis error: {d['error']}")
+        feats = d.get("features", [])
+        for f in feats:
+            yield f["attributes"]
+        if not d.get("exceededTransferLimit") and len(feats) < 2000:
+            return
+        offset += len(feats)
+
+
+def folio_variants(v):
+    """HC folio spellings: '003052.4000', bare int 50767 (→ 050767 + 0000), digit runs."""
+    s = str(v or "").strip()
+    out = []
+    dz = digits(s)
+    if dz:
+        out.append(dz)
+    if "." in s:
+        i, frac = s.split(".", 1)
+        out.append(digits(i) .zfill(6) + digits(frac).ljust(4, "0"))
+    elif dz and len(dz) <= 6:
+        out.append(dz.zfill(6) + "0000")
+    return [k for k in dict.fromkeys(out) if k]
+
+
+def rows_hc_code_enforcement():
+    where = "STATUS IN (" + ",".join(f"'{s}'" for s in CE_OPEN_STATUSES) + ")"
+    for a in arcgis_rows(f"{CE_BASE}/0", where, "Permits_Pl,ADDRESS,PARCEL_NO_NO,STATUS,OFFICER"):
+        case = (a.get("Permits_Pl") or "").strip()
+        if not case:
+            continue
+        yield {"keys": folio_variants(a.get("PARCEL_NO_NO")), "kind": "case", "case": case,
+               "status": (a.get("STATUS") or "").strip(),
+               "src_addr": " ".join((a.get("ADDRESS") or "").split()),
+               "detail": {"officer": (a.get("OFFICER") or "").strip() or None}}
+    for a in arcgis_rows(f"{CE_BASE}/1", "1=1", "CASE_,DATA_STATUS,FOLIO,ADDRESS"):
+        case = (a.get("CASE_") or "").strip()
+        if not case:
+            continue
+        yield {"keys": folio_variants(a.get("FOLIO")), "kind": "condemnation", "case": case,
+               "status": (a.get("DATA_STATUS") or "").strip(),
+               "src_addr": " ".join((a.get("ADDRESS") or "").split()), "detail": {}}
+    for a in arcgis_rows(f"{CE_BASE}/3", "1=1", "Permits_Pl,ADDRESS,PARCEL_NO,BALANCE"):
+        case = (a.get("Permits_Pl") or "").strip()
+        if not case:
+            continue
+        yield {"keys": folio_variants(a.get("PARCEL_NO")), "kind": "lien", "case": case,
+               "status": None,
+               "src_addr": " ".join((a.get("ADDRESS") or "").split()),
+               "detail": {"balance": a.get("BALANCE")}}
+
+
 # ── main ────────────────────────────────────────────────────────────────────
 
 def run():
@@ -409,10 +483,13 @@ def run():
     counties = [c for c, cc in cfg.get("counties", {}).items() if cc.get("enabled")]
     if only:
         counties = [c for c in counties if c == only]
-    log(f"run start — counties: {counties}{' (dry-run)' if dry else ''}")
+    distress_on = bool(cfg.get("distress", {}).get("hc_code_enforcement", True)) and \
+        only in (None, "distress", "hillsborough")
+    log(f"run start — counties: {counties}{' + distress' if distress_on else ''}{' (dry-run)' if dry else ''}")
 
+    book_counties = list(dict.fromkeys(counties + (["hillsborough"] if distress_on else [])))
     try:
-        book = fetch_book(env, counties)
+        book = fetch_book(env, book_counties)
     except Exception as e:
         log(f"FATAL: book fetch failed: {e}")
         return
@@ -477,6 +554,53 @@ def run():
             cinfo["error"] = str(e)[:300]
             log(f"  ERROR: {e}")
         report["counties"][county] = cinfo
+
+    # distress tier (no cursor — dedupe alerts only on first sight of a case)
+    if distress_on:
+        cinfo = {"scanned": 0, "book_hits": 0, "sent": 0, "error": None}
+        log("— hc_code_enforcement: cases + condemnations + liens")
+        try:
+            hbook = book.get("hillsborough", {})
+            for row in rows_hc_code_enforcement():
+                cinfo["scanned"] += 1
+                hit = next((hbook[k] for k in row["keys"] if k in hbook), None)
+                if not hit:
+                    continue
+                cinfo["book_hits"] += 1
+                parcel_number, addr, city = hit
+                if not addr or len(addr.strip()) <= 2:
+                    addr = parcel_number
+                kind = row["kind"]
+                if kind == "lien":
+                    bal = money(row["detail"].get("balance"))
+                    title = f"CE lien{' ' + bal if bal else ''} — {addr}"
+                elif kind == "condemnation":
+                    title = f"Condemnation ({row['status'] or 'active'}) — {addr}"
+                else:
+                    title = f"Code enforcement ({row['status']}) — {addr}"
+                if city:
+                    title += f", {city}"
+                detail = {k: v for k, v in row["detail"].items() if v not in (None, "")}
+                detail.update({"kind": kind, "case": row["case"], "status": row["status"],
+                               "source_address": row["src_addr"] or None})
+                events.append({
+                    "event_type": "code_enforcement",
+                    "source": "hc_code_enforcement",
+                    "source_key": f"hcce:{row['case']}",
+                    "event_date": None,
+                    "county": "Hillsborough",
+                    "parcel_number": parcel_number,
+                    "address": addr,
+                    "city": city,
+                    "title": title[:300],
+                    "detail": detail,
+                })
+                cinfo["sent"] += 1
+            log(f"  scanned {cinfo['scanned']:,} open cases; {cinfo['book_hits']} on book")
+        except Exception as e:
+            cinfo["error"] = str(e)[:300]
+            log(f"  ERROR: {e}")
+        report["counties"]["hc_code_enforcement"] = cinfo
 
     report["total_events"] = len(events)
     if dry:

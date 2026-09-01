@@ -5366,7 +5366,11 @@ export type Database = {
       listing_market_status: "on_market" | "off_market"
       listing_stage: "proposal" | "listed" | "closed"
       market_event_status: "new" | "seen" | "dismissed"
-      market_event_type: "permit" | "sale" | "zoning_change"
+      market_event_type:
+        | "permit"
+        | "sale"
+        | "zoning_change"
+        | "code_enforcement"
       msg_direction: "inbound" | "outbound"
       msg_protocol: "imessage" | "sms" | "rcs" | "unknown"
       note_kind: "note" | "call" | "text" | "email" | "meeting" | "tour"
@@ -5669,7 +5673,12 @@ export const Constants = {
       listing_market_status: ["on_market", "off_market"],
       listing_stage: ["proposal", "listed", "closed"],
       market_event_status: ["new", "seen", "dismissed"],
-      market_event_type: ["permit", "sale", "zoning_change"],
+      market_event_type: [
+        "permit",
+        "sale",
+        "zoning_change",
+        "code_enforcement",
+      ],
       msg_direction: ["inbound", "outbound"],
       msg_protocol: ["imessage", "sms", "rcs", "unknown"],
       note_kind: ["note", "call", "text", "email", "meeting", "tour"],

@@ -26,8 +26,8 @@ cat > "$PLIST" <<EOF
 <plist version="1.0"><dict>
   <key>Label</key><string>com.crecrm.market-sales</string>
   <key>ProgramArguments</key><array>
-    <string>/usr/bin/python3</string>
-    <string>$HERE/worker.py</string>
+    <string>/bin/bash</string>
+    <string>$HERE/run.sh</string>
   </array>
   <key>StartCalendarInterval</key><dict>
     <key>Weekday</key><integer>1</integer>

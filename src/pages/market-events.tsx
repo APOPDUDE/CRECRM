@@ -26,6 +26,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { ListErrorState } from '@/components/list-error-state'
 import {
+  marketSourceLabel,
   useMarketEvents,
   useMarketEventCounts,
   useMarketMonitorHealth,
@@ -46,18 +47,16 @@ const TYPE_META: Record<MarketEventType, { label: string; icon: typeof HardHat }
   permit: { label: 'Permit', icon: HardHat },
   sale: { label: 'Sale', icon: Tag },
   zoning_change: { label: 'Zoning', icon: Landmark },
-}
-
-/** Human names for feed sources; unknown sources fall back to the raw key. */
-const SOURCE_LABELS: Record<string, string> = {
-  tampa_permits: 'Tampa',
-  hcfl_permits: 'Hillsborough Co',
+  code_enforcement: { label: 'Code enforcement', icon: AlertTriangle },
 }
 
 /** Staleness thresholds (days) mirrored from the n8n watchdog. */
-const STALE_AFTER_DAYS: Record<string, number> = {
-  tampa_permits: 5,
-  hcfl_permits: 45,
+function staleDaysFor(src: string): number {
+  if (src === 'tampa_permits') return 5
+  if (src === 'hcfl_permits') return 45
+  if (src === 'hc_zoning_hearings') return 21
+  if (src.startsWith('county_sales:') || src === 'hc_code_enforcement') return 12
+  return 7
 }
 
 function detailField(row: MarketEventRow, key: string): string | null {
@@ -135,11 +134,11 @@ export function MarketEventsPage() {
         {health && Object.keys(health).length > 0 ? (
           Object.entries(health).map(([src, seconds]) => {
             const days = seconds / 86400
-            const stale = days > (STALE_AFTER_DAYS[src] ?? 7)
+            const stale = days > staleDaysFor(src)
             return (
               <span key={src} className={stale ? 'text-amber-600' : undefined}>
                 {stale && <AlertTriangle className="mr-1 inline size-3" />}
-                {SOURCE_LABELS[src] ?? src}: {formatDistanceToNow(Date.now() - seconds * 1000)} ago
+                {marketSourceLabel(src)}: {formatDistanceToNow(Date.now() - seconds * 1000)} ago
               </span>
             )
           })
@@ -189,7 +188,7 @@ export function MarketEventsPage() {
             <SelectItem value="all">All sources</SelectItem>
             {sources.map((s) => (
               <SelectItem key={s} value={s}>
-                {SOURCE_LABELS[s] ?? s}
+                {marketSourceLabel(s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -259,7 +258,7 @@ function MarketEventRowItem({
           <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{description}</p>
         )}
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-          <span>{SOURCE_LABELS[row.source] ?? row.source}</span>
+          <span>{marketSourceLabel(row.source)}</span>
           {row.event_date && <span>· {row.event_date}</span>}
           {permitStatus && <span>· {permitStatus}</span>}
           <span>· spotted {formatDistanceToNow(new Date(row.first_seen_at))} ago</span>
