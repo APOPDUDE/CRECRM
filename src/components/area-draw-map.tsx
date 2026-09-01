@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Check, Trash2, Undo2, X } from 'lucide-react'
 import { CircleMarker, MapContainer, Polygon, Polyline, TileLayer, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { fetchNamedAreaTargets, useNamedAreaList } from '@/hooks/use-named-areas'
+import type { NamedAreaOption } from '@/hooks/use-named-areas'
 import type { TargetArea } from '@/lib/clients'
 
 /** Each click in draw mode drops a vertex. */
@@ -33,6 +36,37 @@ export function AreaDrawMap({
 }) {
   const [draft, setDraft] = useState<[number, number][] | null>(null)
   const [name, setName] = useState('')
+  const [areaQuery, setAreaQuery] = useState('')
+  const namedAreas = useNamedAreaList()
+
+  // Typed county/city → real boundary polygon, no drawing. Same {name, ring}
+  // shape as a drawn area, so matching downstream can't tell them apart.
+  const namedMatches = useMemo(() => {
+    const q = areaQuery.trim().toLowerCase()
+    if (q.length < 2) return []
+    const list = namedAreas.data ?? []
+    const starts = list.filter((a) => a.name.toLowerCase().startsWith(q))
+    const contains = list.filter(
+      (a) => !a.name.toLowerCase().startsWith(q) && a.name.toLowerCase().includes(q),
+    )
+    return [...starts, ...contains].slice(0, 8)
+  }, [areaQuery, namedAreas.data])
+
+  const addNamed = async (opt: NamedAreaOption) => {
+    setAreaQuery('')
+    try {
+      const targets = await fetchNamedAreaTargets(opt.id)
+      const existing = new Set(areas.map((a) => a.name))
+      const fresh = targets.filter((t) => !existing.has(t.name))
+      if (!fresh.length) {
+        toast.info(`${opt.name} is already on the map`)
+        return
+      }
+      onChange([...areas, ...fresh])
+    } catch {
+      toast.error(`Couldn't load the boundary for ${opt.name}`)
+    }
+  }
 
   const finish = () => {
     if (!draft || draft.length < 3) return
@@ -55,9 +89,36 @@ export function AreaDrawMap({
     <div className="space-y-2">
       <div className="flex h-8 items-center gap-2">
         {draft === null ? (
-          <Button type="button" variant="outline" size="sm" onClick={() => setDraft([])}>
-            Draw an area
-          </Button>
+          <>
+            <Button type="button" variant="outline" size="sm" onClick={() => setDraft([])}>
+              Draw an area
+            </Button>
+            <div className="relative">
+              <Input
+                value={areaQuery}
+                onChange={(e) => setAreaQuery(e.target.value)}
+                placeholder="Add a county or city..."
+                className="h-8 w-52"
+              />
+              {namedMatches.length > 0 && (
+                <div className="absolute left-0 top-full z-20 mt-1 w-64 overflow-hidden rounded-md border bg-popover shadow-md">
+                  {namedMatches.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => void addNamed(m)}
+                      className="flex w-full items-center justify-between px-2.5 py-1.5 text-left text-sm hover:bg-accent"
+                    >
+                      <span className="truncate">{m.name}</span>
+                      <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                        {m.kind === 'county' ? 'County' : m.county ? `${m.county} Co.` : 'City'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         ) : (
           <>
             <Input

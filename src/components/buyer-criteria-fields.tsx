@@ -203,8 +203,8 @@ export function BuyerCriteriaFields({
         <div className="space-y-2">
           <Label>Where they'll buy</Label>
           <p className="text-xs text-muted-foreground">
-            Draw the areas. An address is either inside one or it isn't — no city spelling to get
-            wrong when a deal comes in.
+            Type a county or city to drop its real boundary on the map, or draw a custom shape.
+            An address is either inside an area or it isn't — nothing depends on spelling.
           </p>
           <AreaDrawMap areas={value.target_areas} onChange={(a) => patch({ target_areas: a })} />
         </div>

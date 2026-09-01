@@ -8,6 +8,7 @@ const sourceConfig: Record<LeadSource, { label: string; className: string }> = {
   loopnet: { label: 'LoopNet', className: 'bg-blue-50 text-blue-700 border-blue-200' },
   sign_call: { label: 'Sign call', className: 'bg-amber-50 text-amber-700 border-amber-200' },
   cold_call: { label: 'Cold call', className: 'bg-slate-50 text-slate-600 border-slate-200' },
+  in_person: { label: 'In person', className: 'bg-rose-50 text-rose-700 border-rose-200' },
   email: { label: 'Email', className: 'bg-violet-50 text-violet-700 border-violet-200' },
   text: { label: 'Text', className: 'bg-teal-50 text-teal-700 border-teal-200' },
   website: { label: 'Website', className: 'bg-green-50 text-green-700 border-green-200' },

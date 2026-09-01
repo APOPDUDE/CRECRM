@@ -1922,6 +1922,42 @@ export type Database = {
           },
         ]
       }
+      named_areas: {
+        Row: {
+          center_lat: number | null
+          center_lng: number | null
+          county: string | null
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          rings: Json
+          state: string
+        }
+        Insert: {
+          center_lat?: number | null
+          center_lng?: number | null
+          county?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          name: string
+          rings: Json
+          state?: string
+        }
+        Update: {
+          center_lat?: number | null
+          center_lng?: number | null
+          county?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          rings?: Json
+          state?: string
+        }
+        Relationships: []
+      }
       news_items: {
         Row: {
           created_at: string
@@ -5073,6 +5109,7 @@ export type Database = {
       }
       record_text_send_result: { Args: { p: Json }; Returns: Json }
       refresh_condo_units: { Args: never; Returns: number }
+      resolve_named_areas: { Args: { p_names: string[] }; Returns: Json }
       refresh_county_market_stats: { Args: never; Returns: number }
       refresh_derived_property_tags: { Args: never; Returns: Json }
       refresh_land_book: { Args: never; Returns: Json }
@@ -5357,6 +5394,7 @@ export type Database = {
         | "loopnet"
         | "sign_call"
         | "cold_call"
+        | "in_person"
         | "email"
         | "text"
         | "website"
@@ -5663,6 +5701,7 @@ export const Constants = {
         "loopnet",
         "sign_call",
         "cold_call",
+        "in_person",
         "email",
         "text",
         "website",
