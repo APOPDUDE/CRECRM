@@ -1,0 +1,13 @@
+{
+  "counties": {
+    "hillsborough": { "enabled": true },
+    "pinellas": { "enabled": true },
+    "pasco": { "enabled": true },
+    "polk": { "enabled": true },
+    "sarasota": { "enabled": true },
+    "manatee": { "enabled": true }
+  },
+  "overlap_days": 7,
+  "initial_lookback_days": 30,
+  "max_events_per_county": 400
+}

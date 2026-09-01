@@ -36,3 +36,7 @@ secrets.md
 *.njsproj
 *.sln
 *.sw?
+scripts/market-sales/.env
+scripts/market-sales/state.json
+scripts/market-sales/downloads/
+scripts/market-sales/logs/
