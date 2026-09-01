@@ -5,13 +5,16 @@ import type { Enums, Tables } from '@/lib/database.types'
 export type DealRadarStatus = Enums<'deal_radar_status'>
 export type DealRadarType = Enums<'deal_radar_type'>
 export type DealRadarSource = Enums<'deal_radar_source'>
+export type DealRadarIntent = Enums<'deal_radar_intent'>
 export type DealRadarRow = Tables<'deal_radar'>
 
 export interface DealRadarFilters {
   /** null = the default working set (everything not dead/converted). */
   status?: DealRadarStatus | 'open' | null
   market?: string | null
+  location?: string | null
   type?: DealRadarType | null
+  intent?: DealRadarIntent | null
   source?: DealRadarSource | null
   minPrice?: number | null
   maxPrice?: number | null
@@ -32,7 +35,9 @@ export function useDealRadar(filters: DealRadarFilters = { status: 'open' }) {
       if (filters.status === 'open') q = q.in('status', OPEN_STATUSES)
       else if (filters.status) q = q.eq('status', filters.status)
       if (filters.market) q = q.eq('market', filters.market)
+      if (filters.location) q = q.eq('location_text', filters.location)
       if (filters.type) q = q.eq('listing_type', filters.type)
+      if (filters.intent) q = q.eq('listing_intent', filters.intent)
       if (filters.source) q = q.eq('source', filters.source)
       if (filters.minPrice != null) q = q.gte('price', filters.minPrice)
       if (filters.maxPrice != null) q = q.lte('price', filters.maxPrice)
@@ -129,5 +134,35 @@ export function useUpdateDealRadar() {
       if (error) throw error
     },
     onSuccess: () => invalidate(qc),
+  })
+}
+
+/** Set sale/lease intent by hand — for the "?" ones the title didn't state. */
+export function useSetDealRadarIntent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, intent }: { id: string; intent: DealRadarIntent }) => {
+      const { error } = await supabase.from('deal_radar').update({ listing_intent: intent }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidate(qc),
+  })
+}
+
+/** Distinct Facebook locations present in the live feed, for the location filter. */
+export function useDealRadarLocations() {
+  return useQuery({
+    queryKey: ['deal_radar', 'locations'],
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('deal_radar')
+        .select('location_text')
+        .not('location_text', 'is', null)
+        .neq('status', 'dead')
+      if (error) throw error
+      const set = new Set<string>()
+      for (const r of data ?? []) if (r.location_text) set.add(r.location_text)
+      return [...set].sort()
+    },
   })
 }

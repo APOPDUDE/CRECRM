@@ -14,6 +14,8 @@ import { useMarkMessaged, useUpdateDealRadarStatus, type DealRadarRow } from '@/
 import {
   formatRadarPrice,
   formatRadarSize,
+  intentBadgeClass,
+  intentLabels,
   renderMessage,
   STATUS_ORDER,
   statusBadgeClass,
@@ -99,9 +101,12 @@ export function DealRadarCard({ row, openMessenger, onOpenDetail }: DealRadarCar
             <ImageOff className="size-8" />
           </div>
         )}
-        <div className="absolute left-2 top-2 flex gap-1.5">
+        <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
           <Badge variant="outline" className={cn('backdrop-blur', typeBadgeClass[row.listing_type])}>
             {typeLabels[row.listing_type]}
+          </Badge>
+          <Badge variant="outline" className={cn('backdrop-blur', intentBadgeClass[row.listing_intent])}>
+            {intentLabels[row.listing_intent]}
           </Badge>
           {row.status !== 'new' && (
             <Badge variant="outline" className={cn('backdrop-blur', statusBadgeClass[row.status])}>
@@ -125,15 +130,13 @@ export function DealRadarCard({ row, openMessenger, onOpenDetail }: DealRadarCar
         </div>
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <Badge variant="secondary" className="font-normal">
-            {row.market}
-          </Badge>
-          {row.source === 'group' ? (
+          {row.source === 'group' && (
             <Badge variant="outline" className="border-sky-200 bg-sky-50 font-normal text-sky-700">
               {row.group_name ?? 'Group'}
             </Badge>
-          ) : null}
-          {row.location_text && <span>{row.location_text}</span>}
+          )}
+          {/* The real Facebook location — falls back to the search market for group posts. */}
+          <span className="font-medium text-foreground/80">{row.location_text ?? row.market}</span>
           {size && <span>· {size}</span>}
           {ageLabel && <span>· {ageLabel}</span>}
         </div>

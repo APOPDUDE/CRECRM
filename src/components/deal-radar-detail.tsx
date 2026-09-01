@@ -9,12 +9,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { CreateDealDialog } from '@/components/create-deal-dialog'
-import { useUpdateDealRadar, type DealRadarRow } from '@/hooks/use-deal-radar'
+import { useSetDealRadarIntent, useUpdateDealRadar, type DealRadarRow } from '@/hooks/use-deal-radar'
 import {
+  type DealRadarIntent,
   formatRadarPrice,
   formatRadarSize,
+  INTENT_ORDER,
+  intentBadgeClass,
+  intentLabels,
   renderMessage,
   statusBadgeClass,
   statusLabels,
@@ -38,6 +49,7 @@ interface DealRadarDetailProps {
  */
 export function DealRadarDetail({ row, open, onOpenChange }: DealRadarDetailProps) {
   const update = useUpdateDealRadar()
+  const setIntent = useSetDealRadarIntent()
   const [notes, setNotes] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
 
@@ -71,17 +83,40 @@ export function DealRadarDetail({ row, open, onOpenChange }: DealRadarDetailProp
               <Badge variant="outline" className={typeBadgeClass[row.listing_type]}>
                 {typeLabels[row.listing_type]}
               </Badge>
+              <Badge variant="outline" className={intentBadgeClass[row.listing_intent]}>
+                {intentLabels[row.listing_intent]}
+              </Badge>
               <Badge variant="outline" className={statusBadgeClass[row.status]}>
                 {statusLabels[row.status]}
               </Badge>
               <Badge variant="secondary" className="font-normal">
-                {row.market}
+                {row.location_text ?? row.market}
               </Badge>
               {row.source === 'group' && row.group_name && (
                 <Badge variant="outline" className="border-sky-200 bg-sky-50 font-normal text-sky-700">
                   {row.group_name}
                 </Badge>
               )}
+            </div>
+
+            {/* Categorize the "?" ones the title didn't state as sale or lease. */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Sale / lease</span>
+              <Select
+                value={row.listing_intent}
+                onValueChange={(v) => setIntent.mutate({ id: row.id, intent: v as DealRadarIntent })}
+              >
+                <SelectTrigger className="h-8 w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INTENT_ORDER.map((i) => (
+                    <SelectItem key={i} value={i}>
+                      {intentLabels[i]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">

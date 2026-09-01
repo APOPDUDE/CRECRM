@@ -100,29 +100,33 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
     if (!canSubmit || !userId) return
     setBusy(true)
     try {
-      // 1. A property per parcel, each enriched from the county appraiser.
+      // 1. A property per parcel, each enriched from the county appraiser. Per-parcel
+      //    guarded so one bad parcel doesn't abort the rest (or orphan the others).
       const propertyIds: string[] = []
-      let primaryId: string | null = null
       for (const p of validParcels) {
-        const created = await createProperty.mutateAsync({
-          address: address.trim(),
-          city,
-          state: 'FL',
-          parcel_number: formatParcelId(p.parcel, p.county),
-          county: p.county,
-          property_type: propertyType,
-          lat: row!.lat,
-          lng: row!.lng,
-        })
-        propertyIds.push(created.id)
-        if (!primaryId) primaryId = created.id
         try {
-          await enrich.mutateAsync(created.id)
-        } catch {
-          /* enrichment is best-effort — a bad/unknown parcel shouldn't block the deal */
+          const created = await createProperty.mutateAsync({
+            address: address.trim(),
+            city,
+            state: 'FL',
+            parcel_number: formatParcelId(p.parcel, p.county),
+            county: p.county,
+            property_type: propertyType,
+            lat: row!.lat,
+            lng: row!.lng,
+          })
+          propertyIds.push(created.id)
+          try {
+            await enrich.mutateAsync(created.id)
+          } catch {
+            /* enrichment is best-effort — a bad/unknown parcel shouldn't block the deal */
+          }
+        } catch (err) {
+          toast.error(friendlyDbError(err, `Could not add parcel ${p.parcel}`))
         }
       }
-      if (!primaryId) throw new Error('No property was created')
+      if (propertyIds.length === 0) throw new Error('No property could be created — check the parcel + county')
+      const primaryId = propertyIds[0]
 
       // 2. Owner data lands on the property during enrichment.
       const { data: primary } = await supabase
@@ -131,12 +135,14 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
         .eq('id', primaryId)
         .single()
 
-      // 3. Optional contact. An `owner` becomes the property's verified owner.
+      // 3. Optional contact — an `owner` becomes the property's verified owner.
+      //    Everything past the property is BEST-EFFORT: the radar link (step 5) must
+      //    still land, so a contact/prospect hiccup never leaves the property orphaned.
       let contactId: string | null = null
       let ownerCompanyId = primary?.owner_company_id ?? null
       if (hasContact) {
-        if (type === 'owning_entity' && phone.trim() && primary) {
-          try {
+        try {
+          if (type === 'owning_entity' && phone.trim() && primary) {
             await addVerifiedOwner.mutateAsync({
               property: {
                 parcel_number: primary.parcel_number,
@@ -156,42 +162,46 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
               .eq('id', primaryId)
               .single()
             ownerCompanyId = after?.owner_company_id ?? ownerCompanyId
-          } catch (err) {
-            toast.error(friendlyDbError(err, 'Deal created, but verifying the owner failed'))
+          } else {
+            const c = await upsertContact.mutateAsync({
+              first_name: first.trim() || 'Unknown',
+              last_name: last.trim() || null,
+              phone: phone.trim() || null,
+              email: email.trim() || null,
+              category: type,
+            })
+            contactId = c.id
           }
-        } else {
-          const c = await upsertContact.mutateAsync({
-            first_name: first.trim() || 'Unknown',
-            last_name: last.trim() || null,
-            phone: phone.trim() || null,
-            email: email.trim() || null,
-            category: type,
-          })
-          contactId = c.id
+        } catch (err) {
+          toast.error(friendlyDbError(err, 'Deal created, but the contact step failed'))
         }
       }
 
-      // 4. The prospect (standalone lead). Needs a contact or a company — use the
-      //    typed contact, else the county-found owner company. Skip if neither.
+      // 4. The prospect (standalone lead) — best-effort. Needs a contact or a company:
+      //    the typed contact, else the county-found owner company. Skip if neither.
       if (contactId || ownerCompanyId) {
-        const { data: prospect, error: pErr } = await supabase
-          .from('prospects')
-          .insert({
-            owner_id: userId,
-            contact_id: contactId,
-            company_id: contactId ? null : ownerCompanyId,
-            description: row!.title,
-            lead_type: 'deal_radar',
-          })
-          .select('id')
-          .single()
-        if (pErr) throw pErr
-        await supabase
-          .from('prospect_properties')
-          .insert(propertyIds.map((property_id) => ({ prospect_id: prospect.id, property_id })))
+        try {
+          const { data: prospect, error: pErr } = await supabase
+            .from('prospects')
+            .insert({
+              owner_id: userId,
+              contact_id: contactId,
+              company_id: contactId ? null : ownerCompanyId,
+              description: row!.title,
+              lead_type: 'deal_radar',
+            })
+            .select('id')
+            .single()
+          if (pErr) throw pErr
+          await supabase
+            .from('prospect_properties')
+            .insert(propertyIds.map((property_id) => ({ prospect_id: prospect.id, property_id })))
+        } catch (err) {
+          toast.error(friendlyDbError(err, 'Deal created, but the lead was not opened'))
+        }
       }
 
-      // 5. Mark the radar row converted + linked.
+      // 5. Mark the radar row converted + linked — always runs once a property exists.
       await supabase
         .from('deal_radar')
         .update({ status: 'converted', property_id: primaryId, contact_id: contactId })

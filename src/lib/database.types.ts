@@ -1140,6 +1140,7 @@ export type Database = {
           id: string
           keyword: string | null
           lat: number | null
+          listing_intent: Database["public"]["Enums"]["deal_radar_intent"]
           listing_type: Database["public"]["Enums"]["deal_radar_type"]
           listing_url: string
           lng: number | null
@@ -1173,6 +1174,7 @@ export type Database = {
           id?: string
           keyword?: string | null
           lat?: number | null
+          listing_intent?: Database["public"]["Enums"]["deal_radar_intent"]
           listing_type: Database["public"]["Enums"]["deal_radar_type"]
           listing_url: string
           lng?: number | null
@@ -1206,6 +1208,7 @@ export type Database = {
           id?: string
           keyword?: string | null
           lat?: number | null
+          listing_intent?: Database["public"]["Enums"]["deal_radar_intent"]
           listing_type?: Database["public"]["Enums"]["deal_radar_type"]
           listing_url?: string
           lng?: number | null
@@ -5011,6 +5014,10 @@ export type Database = {
         Returns: Json
       }
       cross_reference: { Args: { p_property_ids: string[] }; Returns: Json }
+      deal_radar_intent_of: {
+        Args: { p_text: string }
+        Returns: Database["public"]["Enums"]["deal_radar_intent"]
+      }
       derive_pursuit_deal_type: {
         Args: { p_client_id: string; p_property_id: string }
         Returns: Database["public"]["Enums"]["deal_type"]
@@ -5540,6 +5547,7 @@ export type Database = {
         | "vendor"
         | "other"
       deal_flag_status: "pending" | "dismissed" | "expired"
+      deal_radar_intent: "sale" | "lease" | "unknown"
       deal_radar_source: "marketplace" | "group"
       deal_radar_status:
         | "new"
@@ -5835,6 +5843,7 @@ export const Constants = {
         "other",
       ],
       deal_flag_status: ["pending", "dismissed", "expired"],
+      deal_radar_intent: ["sale", "lease", "unknown"],
       deal_radar_source: ["marketplace", "group"],
       deal_radar_status: [
         "new",

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { AlertTriangle, Radar, RefreshCw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
@@ -18,45 +18,47 @@ import { ListErrorState } from '@/components/list-error-state'
 import {
   useDealRadar,
   useDealRadarLatestRun,
+  useDealRadarLocations,
   useDealRadarStats,
   type DealRadarFilters,
-  type DealRadarSource,
-  type DealRadarStatus,
+  type DealRadarIntent,
   type DealRadarType,
 } from '@/hooks/use-deal-radar'
-import { isRunStale, statusLabels, typeLabels } from '@/lib/deal-radar'
+import { INTENT_ORDER, intentLabels, isRunStale, typeLabels } from '@/lib/deal-radar'
 import { numOrNull } from '@/lib/format'
 
-const STATUS_TABS: { value: DealRadarStatus | 'open'; label: string }[] = [
-  { value: 'open', label: 'Working' },
-  { value: 'new', label: 'New' },
-  { value: 'messaged', label: 'Messaged' },
-  { value: 'replied', label: 'Replied' },
-  { value: 'negotiating', label: 'Negotiating' },
+type RadarView = 'all' | 'fbm' | 'groups' | 'converted' | 'dead'
+
+const VIEW_TABS: { value: RadarView; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'fbm', label: 'FBM' },
+  { value: 'groups', label: 'Groups' },
   { value: 'converted', label: 'Converted' },
   { value: 'dead', label: 'Dead' },
 ]
 
 /**
- * Deal Radar — new industrial/land listings pulled off Facebook Marketplace by
- * the Mac worker, surfaced for one-click, human-sent outreach. Cards default to
- * the New column, newest first.
+ * Deal Radar — new industrial/land listings pulled off Facebook Marketplace and
+ * CRE groups by the Mac worker, surfaced for one-click, human-sent outreach.
+ * Segmented by source (FBM / Groups), with Dead its own bucket. More tabs later.
  */
 export function DealRadarPage() {
-  const [status, setStatus] = useState<DealRadarStatus | 'open'>('new')
-  const [market, setMarket] = useState<string>('all')
+  const [view, setView] = useState<RadarView>('all')
+  const [location, setLocation] = useState<string>('all')
   const [type, setType] = useState<DealRadarType | 'all'>('all')
-  const [source, setSource] = useState<DealRadarSource | 'all'>('all')
+  const [intent, setIntent] = useState<DealRadarIntent | 'all'>('all')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [minSqft, setMinSqft] = useState('')
   const [detailId, setDetailId] = useState<string | null>(null)
 
   const filters: DealRadarFilters = {
-    status,
-    market: market === 'all' ? null : market,
+    // All / FBM / Groups show the working set; Converted and Dead are their own views.
+    status: view === 'dead' ? 'dead' : view === 'converted' ? 'converted' : 'open',
+    source: view === 'fbm' ? 'marketplace' : view === 'groups' ? 'group' : null,
+    location: location === 'all' ? null : location,
     type: type === 'all' ? null : type,
-    source: source === 'all' ? null : source,
+    intent: intent === 'all' ? null : intent,
     minPrice: numOrNull(minPrice),
     maxPrice: numOrNull(maxPrice),
     minSqft: numOrNull(minSqft),
@@ -65,13 +67,7 @@ export function DealRadarPage() {
   const { data: rows = [], isLoading, isError, refetch } = useDealRadar(filters)
   const { data: stats } = useDealRadarStats()
   const { data: lastRun } = useDealRadarLatestRun()
-
-  // Market options: whatever markets the DB has actually produced.
-  const markets = useMemo(() => {
-    const set = new Set<string>(stats ? [...stats.byMarket.keys()] : [])
-    for (const r of rows) set.add(r.market)
-    return [...set].sort()
-  }, [rows, stats])
+  const { data: locations = [] } = useDealRadarLocations()
 
   const runStale = isRunStale(lastRun?.started_at)
 
@@ -91,7 +87,7 @@ export function DealRadarPage() {
         </Button>
       </div>
 
-      {/* Worker health + per-market new-lead badges */}
+      {/* Worker health strip */}
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         {lastRun ? (
           <span className={runStale ? 'text-amber-600' : undefined}>
@@ -103,24 +99,16 @@ export function DealRadarPage() {
         ) : (
           <span>Worker has not reported a poll yet.</span>
         )}
-        {stats &&
-          markets
-            .filter((m) => (stats.byMarket.get(m) ?? 0) > 0)
-            .map((m) => (
-              <Badge key={m} variant="secondary" className="font-normal">
-                {m}: {stats.byMarket.get(m)}
-              </Badge>
-            ))}
       </div>
 
-      {/* Status tabs */}
+      {/* Source tabs: FBM / Groups / Dead (+ All) */}
       <div className="flex flex-wrap gap-1.5">
-        {STATUS_TABS.map((t) => (
+        {VIEW_TABS.map((t) => (
           <Button
             key={t.value}
             size="sm"
-            variant={status === t.value ? 'default' : 'outline'}
-            onClick={() => setStatus(t.value)}
+            variant={view === t.value ? 'default' : 'outline'}
+            onClick={() => setView(t.value)}
           >
             {t.label}
           </Button>
@@ -129,15 +117,15 @@ export function DealRadarPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={market} onValueChange={setMarket}>
-          <SelectTrigger className="h-9 w-[190px]">
-            <SelectValue placeholder="Market" />
+        <Select value={location} onValueChange={setLocation}>
+          <SelectTrigger className="h-9 w-[200px]">
+            <SelectValue placeholder="Location" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All markets</SelectItem>
-            {markets.map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
+            <SelectItem value="all">All locations</SelectItem>
+            {locations.map((l) => (
+              <SelectItem key={l} value={l}>
+                {l}
               </SelectItem>
             ))}
           </SelectContent>
@@ -154,14 +142,17 @@ export function DealRadarPage() {
           </SelectContent>
         </Select>
 
-        <Select value={source} onValueChange={(v) => setSource(v as DealRadarSource | 'all')}>
-          <SelectTrigger className="h-9 w-[150px]">
-            <SelectValue placeholder="Source" />
+        <Select value={intent} onValueChange={(v) => setIntent(v as DealRadarIntent | 'all')}>
+          <SelectTrigger className="h-9 w-[160px]">
+            <SelectValue placeholder="Sale / lease" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All sources</SelectItem>
-            <SelectItem value="marketplace">Marketplace</SelectItem>
-            <SelectItem value="group">Groups</SelectItem>
+            <SelectItem value="all">Sale &amp; lease</SelectItem>
+            {INTENT_ORDER.map((i) => (
+              <SelectItem key={i} value={i}>
+                {intentLabels[i]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -199,9 +190,11 @@ export function DealRadarPage() {
       ) : rows.length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
           <Radar className="mx-auto mb-2 size-6 opacity-40" />
-          {status === 'new'
-            ? 'No new listings in this filter yet. The worker checks every 45 minutes.'
-            : `No ${status === 'open' ? 'working' : statusLabels[status as DealRadarStatus].toLowerCase()} listings match.`}
+          {view === 'dead'
+            ? 'Nothing crossed off yet.'
+            : view === 'converted'
+              ? 'No deals created from listings yet.'
+              : 'No listings match this filter yet. The worker polls every 3 hours.'}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

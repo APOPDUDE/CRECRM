@@ -74,6 +74,25 @@ export const STATUS_ORDER: DealRadarStatus[] = [
   'dead',
 ]
 
+// Sale vs lease, read off the listing title/price by the worker's DB trigger.
+// 'unknown' shows a "?" for the human to categorize.
+export type DealRadarIntent = Enums<'deal_radar_intent'>
+
+export const intentLabels: Record<DealRadarIntent, string> = {
+  sale: 'For sale',
+  lease: 'For lease',
+  unknown: '?',
+}
+
+export const intentBadgeClass: Record<DealRadarIntent, string> = {
+  sale: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  lease: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  unknown: 'bg-gray-100 text-gray-500 border-gray-200',
+}
+
+/** The order the intent picker offers moves in. */
+export const INTENT_ORDER: DealRadarIntent[] = ['sale', 'lease', 'unknown']
+
 /** Rate for a lease vs total for a sale is ambiguous on Marketplace — show it raw. */
 export function formatRadarPrice(row: DealRadarRow): string | null {
   return compactUsd(row.price)
