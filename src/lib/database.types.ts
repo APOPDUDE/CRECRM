@@ -5112,7 +5112,6 @@ export type Database = {
       }
       record_text_send_result: { Args: { p: Json }; Returns: Json }
       refresh_condo_units: { Args: never; Returns: number }
-      resolve_named_areas: { Args: { p_names: string[] }; Returns: Json }
       refresh_county_market_stats: { Args: never; Returns: number }
       refresh_derived_property_tags: { Args: never; Returns: Json }
       refresh_land_book: { Args: never; Returns: Json }
