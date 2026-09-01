@@ -5,6 +5,7 @@ import {
   Building2,
   Check,
   ExternalLink,
+  Gavel,
   HardHat,
   Landmark,
   RadioTower,
@@ -48,6 +49,7 @@ const TYPE_META: Record<MarketEventType, { label: string; icon: typeof HardHat }
   sale: { label: 'Sale', icon: Tag },
   zoning_change: { label: 'Zoning', icon: Landmark },
   code_enforcement: { label: 'Code enforcement', icon: AlertTriangle },
+  foreclosure: { label: 'Pre-foreclosure', icon: Gavel },
 }
 
 /** Staleness thresholds (days) mirrored from the n8n watchdog. */
@@ -56,6 +58,7 @@ function staleDaysFor(src: string): number {
   if (src === 'hcfl_permits') return 45
   if (src === 'hc_zoning_hearings') return 21
   if (src.startsWith('county_sales:') || src === 'hc_code_enforcement') return 12
+  if (src === 'hc_lis_pendens') return 45 // book-owner LPs are rare; quiet stretches are normal
   return 7
 }
 

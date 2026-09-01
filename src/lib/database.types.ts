@@ -4787,6 +4787,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      call_form_context: { Args: { p_phone: string }; Returns: Json }
       claim_text_sends: { Args: { p_limit?: number }; Returns: Json[] }
       client_area_match: {
         Args: { p_areas: Json; p_lat: number; p_lng: number }
@@ -4947,6 +4948,7 @@ export type Database = {
       import_lease_comps: { Args: { p: Json }; Returns: Json }
       import_listing_spaces: { Args: { p: Json }; Returns: Json }
       import_market_events: { Args: { p: Json }; Returns: Json }
+      import_named_areas: { Args: { p: Json }; Returns: Json }
       import_outreach_targets: { Args: { p: Json }; Returns: Json }
       import_owner_addresses: { Args: { p: Json }; Returns: Json }
       import_parcel_enrichment: { Args: { p: Json }; Returns: Json }
@@ -4964,6 +4966,7 @@ export type Database = {
       import_zoning: { Args: { p: Json }; Returns: Json }
       ingest_blooio_event: { Args: { p: Json }; Returns: Json }
       ingest_scrub_result: { Args: { p: Json }; Returns: Json }
+      intake_broker: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_buyer_tag: { Args: { p: Json }; Returns: Json }
       intake_client: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_landlord_listing: {
@@ -5117,6 +5120,7 @@ export type Database = {
       refresh_property_market_position: { Args: never; Returns: number }
       refresh_property_owner_rollup: { Args: never; Returns: number }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
+      resolve_named_areas: { Args: { p_names: string[] }; Returns: Json }
       run_deal_flag_evals: { Args: { p_limit?: number }; Returns: Json }
       score_parcels: {
         Args: { p_county?: string; p_limit?: number; p_min_coverage?: number }
@@ -5409,6 +5413,7 @@ export type Database = {
         | "sale"
         | "zoning_change"
         | "code_enforcement"
+        | "foreclosure"
       msg_direction: "inbound" | "outbound"
       msg_protocol: "imessage" | "sms" | "rcs" | "unknown"
       note_kind: "note" | "call" | "text" | "email" | "meeting" | "tour"
@@ -5717,6 +5722,7 @@ export const Constants = {
         "sale",
         "zoning_change",
         "code_enforcement",
+        "foreclosure",
       ],
       msg_direction: ["inbound", "outbound"],
       msg_protocol: ["imessage", "sms", "rcs", "unknown"],

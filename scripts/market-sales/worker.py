@@ -150,18 +150,26 @@ def pinellas_reorder(d):
     return d[4:6] + d[2:4] + d[0:2] + d[6:] if len(d) >= 6 else d
 
 
+def norm_name(s):
+    """County owner names and clerk party names share LAST-FIRST convention — normalize
+    both sides identically (upper, alnum+space only, collapsed) and match exactly."""
+    return " ".join(re.sub(r"[^A-Z0-9 ]", " ", (s or "").upper()).split())
+
+
 def fetch_book(env, counties):
-    """{county: {digit_key: (parcel_number, address, city)}} for every book property.
+    """{county: {digit_key: (parcel_number, address, city)}} for every book property,
+    plus a per-county OWNER NAME index for lis-pendens matching (name → up to 8 parcels).
 
     Pinellas rows are indexed under BOTH digit orders; Hillsborough under folio AND pin.
     """
     tok = supabase_token(env)
     headers = {"apikey": env["SUPABASE_ANON_KEY"], "Authorization": f"Bearer {tok}"}
     book = {c: {} for c in counties}
+    names = {c: {} for c in counties}
     offset, page = 0, 1000
     while True:
         url = (f"{env['SUPABASE_URL']}/rest/v1/properties"
-               f"?select=parcel_number,folio,county,site_address,address,city"
+               f"?select=parcel_number,folio,county,site_address,address,city,owner_name"
                f"&order=id&limit={page}&offset={offset}")
         with http(url, headers=headers, timeout=60) as r:
             rows = json.load(r)
@@ -179,11 +187,17 @@ def fetch_book(env, counties):
             fd = digits(row.get("folio"))
             if fd and county == "hillsborough":
                 book[county][fd] = val
+            nm = norm_name(row.get("owner_name"))
+            if nm and len(nm) > 4:
+                lst = names[county].setdefault(nm, [])
+                if len(lst) < 8:
+                    lst.append(val)
         if len(rows) < page:
             break
         offset += page
-    log(f"  book keys: " + ", ".join(f"{c}:{len(v)}" for c, v in book.items()))
-    return book
+    log(f"  book keys: " + ", ".join(f"{c}:{len(v)}" for c, v in book.items())
+        + " | owner names: " + ", ".join(f"{c}:{len(v)}" for c, v in names.items()))
+    return book, names
 
 
 # ── county fetchers: yield {key(s), date, price, qual, extra} ───────────────
@@ -436,6 +450,57 @@ def folio_variants(v):
     return [k for k in dict.fromkeys(out) if k]
 
 
+ORI_BASE = "https://publicaccess.hillsclerk.com"
+
+
+def rows_hc_lis_pendens(lookback_days=14):
+    """Hillsborough Clerk ORI Public Access (OnBase PAV) — lis pendens recordings.
+
+    Anonymous: GET the page for cookies, then POST the legacy KeywordSearch
+    (QueryID 322 = ORI-Document Type; keyword 1285 = doc type, 1634 = record date).
+    Rows come one per PARTY; group by instrument. PARTY 1 = plaintiff (lender/HOA),
+    PARTY 2 = defendants (the owners) — matched upstream against book owner names.
+    """
+    import http.cookiejar
+    cj = http.cookiejar.CookieJar()
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    op.addheaders = list(UA.items())
+    op.open(ORI_BASE + "/oripublicaccess/customSearch.html", timeout=60).read()
+    fmt = lambda d: d.strftime("%m/%d/%Y")
+    body = json.dumps({"QueryID": 322, "QueryLimit": 5000, "Keywords": [
+        {"ID": 1285, "Value": "(LP) LIS PENDENS", "KeywordOperator": "="},
+        {"ID": 1634, "Value": fmt(date.today() - timedelta(days=lookback_days)) + " 00:00:00.000",
+         "KeywordOperator": ">="},
+        {"ID": 1634, "Value": fmt(date.today()) + " 23:59:59.999", "KeywordOperator": "<="},
+    ]}).encode()
+    req = urllib.request.Request(ORI_BASE + "/oripublicaccess/api/CustomQuery/KeywordSearch",
+                                 data=body, headers={"Content-Type": "application/json"})
+    d = json.load(op.open(req, timeout=120))
+    by_inst = {}
+    for item in d.get("Data", []):
+        v = [c.get("Value") or "" for c in item.get("DisplayColumnValues", [])]
+        if len(v) < 8 or not v[7]:
+            continue
+        g = by_inst.setdefault(v[7], {"plaintiffs": [], "defendants": [], "recorded": None,
+                                      "case": None, "legal": None})
+        if v[0] == "PARTY 1" and v[1]:
+            g["plaintiffs"].append(v[1])
+        if v[0] == "PARTY 2" and v[1]:
+            g["defendants"].append(v[1])
+        if v[2] and not g["recorded"]:
+            try:
+                g["recorded"] = datetime.strptime(v[2].split(" ")[0], "%m/%d/%Y").date().isoformat()
+            except ValueError:
+                pass
+        if v[6] and not g["legal"]:
+            g["legal"] = v[6][:200]
+        if not g["case"]:
+            m = re.search(r"Case # - ?([0-9A-Z-]{8,})", item.get("Name") or "")
+            if m:
+                g["case"] = m.group(1)
+    return by_inst
+
+
 def rows_hc_code_enforcement():
     where = "STATUS IN (" + ",".join(f"'{s}'" for s in CE_OPEN_STATUSES) + ")"
     for a in arcgis_rows(f"{CE_BASE}/0", where, "Permits_Pl,ADDRESS,PARCEL_NO_NO,STATUS,OFFICER"):
@@ -489,7 +554,7 @@ def run():
 
     book_counties = list(dict.fromkeys(counties + (["hillsborough"] if distress_on else [])))
     try:
-        book = fetch_book(env, book_counties)
+        book, owner_names = fetch_book(env, book_counties)
     except Exception as e:
         log(f"FATAL: book fetch failed: {e}")
         return
@@ -601,6 +666,63 @@ def run():
             cinfo["error"] = str(e)[:300]
             log(f"  ERROR: {e}")
         report["counties"]["hc_code_enforcement"] = cinfo
+
+    if distress_on and cfg.get("distress", {}).get("hc_lis_pendens", True):
+        cinfo = {"scanned": 0, "book_hits": 0, "sent": 0, "error": None}
+        log("— hc_lis_pendens: clerk lis pendens, last 14d")
+        try:
+            hnames = owner_names.get("hillsborough", {})
+            # Institutional names show up constantly as JOINED co-defendants (junior
+            # lienholders, HOAs, govt) in suits about OTHER people's property — and the
+            # book owns their branches/common areas, so they false-match. Party order is
+            # alphabetical (not pleading order), so a blocklist is the only filter.
+            SKIP = ("UNKNOWN", "CITY OF ", "STATE OF ", "COUNTY OF ", "HILLSBOROUGH COUNTY",
+                    "UNITED STATES", "SECRETARY OF", "DEPARTMENT OF", "CLERK OF",
+                    " BANK", "BANK ", "CREDIT UNION", "MORTGAGE", "LENDING", " LOAN",
+                    "FINANCIAL", "FINANCE", " ASSOCIATION", "TENANT")
+            for inst, g in rows_hc_lis_pendens().items():
+                cinfo["scanned"] += 1
+                hit, hit_name = None, None
+                for dn in g["defendants"]:
+                    n = norm_name(dn)
+                    if not n or any(k in n for k in SKIP):
+                        continue
+                    if n in hnames:
+                        hit, hit_name = hnames[n], dn
+                        break
+                if not hit:
+                    continue
+                cinfo["book_hits"] += 1
+                parcel_number, addr, city = hit[0]
+                if not addr or len(addr.strip()) <= 2:
+                    addr = parcel_number
+                title = f"Lis pendens filed: {hit_name} — {addr}"
+                if city:
+                    title += f", {city}"
+                events.append({
+                    "event_type": "foreclosure",
+                    "source": "hc_lis_pendens",
+                    "source_key": f"hclp:{inst}",
+                    "event_date": g["recorded"],
+                    "county": "Hillsborough",
+                    "parcel_number": parcel_number,
+                    "address": addr,
+                    "city": city,
+                    "title": title[:300],
+                    "detail": {"stage": "lis_pendens", "instrument": inst, "case": g["case"],
+                               "plaintiffs": g["plaintiffs"][:3] or None,
+                               "defendants": g["defendants"][:6] or None,
+                               "legal": g["legal"],
+                               "owner_parcels_in_book": len(hit),
+                               "note": ("owner holds multiple book parcels — pull the case to confirm "
+                                        "which property is in the suit") if len(hit) > 1 else None},
+                })
+                cinfo["sent"] += 1
+            log(f"  {cinfo['scanned']} filings scanned; {cinfo['book_hits']} matched book owners")
+        except Exception as e:
+            cinfo["error"] = str(e)[:300]
+            log(f"  ERROR: {e}")
+        report["counties"]["hc_lis_pendens"] = cinfo
 
     report["total_events"] = len(events)
     if dry:
