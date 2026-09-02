@@ -9,48 +9,60 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<header class="top">
-  <a class="wordmark" href="/">Alex Poplawski</a>
-  <div class="top-right">
-    <span class="mono tag">Industrial &amp; IOS &middot; Tampa Bay</span>
-    <a class="top-phone" href="tel:+19418068432">(941) 806-8432</a>
-  </div>
-</header>
+<div class="wrap">
+  <header class="top">
+    <span>Alex Poplawski<span class="tag"> &middot; Tampa Bay industrial</span></span>
+    <a href="tel:+19418068432">(941) 806-8432</a>
+  </header>
+  <main>
+    <h1>Got <span>it.</span></h1>
+    <p class="lede no-cal">I'll reach out directly within one business day. Can't wait? Call or text <a href="tel:+19418068432">(941) 806-8432</a>.</p>
+    <p class="lede with-cal" hidden>Two ways from here. Pick whichever you like.</p>
 
-<main>
-  <section class="hero thanks">
-    <p class="eyebrow mono">Received</p>
-    <h1>Got it.</h1>
-    <p class="lede">I'll call you within one business day. If it can't wait, call or text me now at <a href="tel:+19418068432">(941) 806-8432</a>.</p>
-  </section>
+    <section class="choice with-cal" hidden>
+      <p class="choice-label"><span class="num">1</span> Pick a time now</p>
+      <div id="calendly" class="calendly"></div>
+    </section>
 
-  <section class="how">
-    <h2>What happens next</h2>
-    <ol class="steps">
-      <li>I run your requirement against what's listed and what's quietly available in the book.</li>
-      <li>You get a short list with real numbers: all-in monthly, the specs that matter, and the downsides of each.</li>
-      <li>We tour the ones worth your time, and I negotiate the deal on your side.</li>
-    </ol>
-    <p><a class="btn btn-ghost" href="/">Back to the start</a></p>
-  </section>
-</main>
+    <section class="choice with-cal" hidden>
+      <p class="choice-label"><span class="num">2</span> Or sit tight</p>
+      <p class="choice-text">I'll reach out directly within one business day. Can't wait? Call or text <a href="tel:+19418068432">(941) 806-8432</a>.</p>
+    </section>
 
-<footer>
-  <div class="cols">
-    <div>
-      <p class="name">Alex Poplawski</p>
-      <p>Industrial, Industrial Outdoor Storage (IOS), warehouse, flex, and land. Tenant and buyer representation across Tampa Bay.</p>
-      <p><a href="tel:+19418068432">(941) 806-8432</a><br><a href="mailto:alex@axis.deals">alex@axis.deals</a></p>
-    </div>
-    <div class="mono legal">
-      <p>Alexander Poplawski LLC d/b/a <a href="https://axis.deals">AXIS</a><br>Licensed real estate brokerage<br>4490 Riverwood Ave, Sarasota, FL 34231</p>
-      <p>&copy; 2026</p>
-    </div>
-  </div>
-</footer>
+    <p><a class="back" href="/">Back</a></p>
+  </main>
+  <footer>
+    <span>Alex Poplawski &middot; <a href="tel:+19418068432">(941) 806-8432</a> &middot; <a href="mailto:alex@axis.deals">alex@axis.deals</a></span>
+    <span>Alexander Poplawski LLC d/b/a AXIS &middot; Sarasota, FL</span>
+  </footer>
+</div>
+<script>
+(function () {
+  // Alex's Calendly event link. Empty = the page just says "I'll reach out". Preview any link with ?cal=URL.
+  var CALENDLY_URL = 'https://calendly.com/alex-axis/30min';
+  var q = new URLSearchParams(location.search).get('cal');
+  if (q && /^https:\/\/calendly\.com\//.test(q)) CALENDLY_URL = q;
+  if (!CALENDLY_URL) return;
+  var lead = {};
+  try { lead = JSON.parse(sessionStorage.getItem('lead') || '{}'); } catch (e) {}
+  var els = document.querySelectorAll('.with-cal'); for (var i = 0; i < els.length; i++) els[i].hidden = false;
+  els = document.querySelectorAll('.no-cal'); for (var j = 0; j < els.length; j++) els[j].hidden = true;
+  var s = document.createElement('script');
+  s.src = 'https://assets.calendly.com/assets/external/widget.js';
+  s.async = true;
+  s.onload = function () {
+    window.Calendly.initInlineWidget({
+      url: CALENDLY_URL + (CALENDLY_URL.indexOf('?') > -1 ? '&' : '?') + 'hide_gdpr_banner=1',
+      parentElement: document.getElementById('calendly'),
+      prefill: { name: lead.name || '', email: lead.email || '' }
+    });
+  };
+  document.head.appendChild(s);
+})();
+</script>
 </body>
 </html>
