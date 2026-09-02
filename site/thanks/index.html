@@ -26,6 +26,7 @@
     <section class="choice with-cal" hidden>
       <p class="choice-label"><span class="num">1</span> Pick a time now</p>
       <div id="calendly" class="calendly"></div>
+      <p class="choice-text small">Calendar not loading? <a id="cal-link" href="https://calendly.com/alex-axis/30min" target="_blank" rel="noopener">Open it in a new tab</a>.</p>
     </section>
 
     <section class="choice with-cal" hidden>
@@ -50,6 +51,7 @@
   var lead = {};
   try { lead = JSON.parse(sessionStorage.getItem('lead') || '{}'); } catch (e) {}
   var els = document.querySelectorAll('.with-cal'); for (var i = 0; i < els.length; i++) els[i].hidden = false;
+  var link = document.getElementById('cal-link'); if (link) link.href = CALENDLY_URL;
   els = document.querySelectorAll('.no-cal'); for (var j = 0; j < els.length; j++) els[j].hidden = true;
   var s = document.createElement('script');
   s.src = 'https://assets.calendly.com/assets/external/widget.js';
