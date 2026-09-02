@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev", "--", "--port", "${PORT}"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4173", "-d", "site"],
+      "port": 4173
     }
   ]
 }
