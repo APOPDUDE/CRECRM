@@ -4,6 +4,8 @@
   --ink: #0e1320;
   --navy: #0f2a5f;
   --navy-2: #0a1f47;
+  --accent: #1e4fd8;
+  --accent-2: #173fb0;
   --muted: #5b6270;
   --line: #e4e7ec;
   --border: #c9cfd9;
@@ -33,13 +35,15 @@ em { font-style: normal; }
 .top a { text-decoration: none; white-space: nowrap; }
 
 /* Headline */
+.eyebrow { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--navy); margin: 56px 0 0; }
+.eyebrow + h1 { margin-top: 18px; }
 h1 {
   font-family: "IBM Plex Sans Condensed", "Arial Narrow", Impact, sans-serif;
   font-weight: 700; text-transform: uppercase;
   font-size: clamp(44px, 9vw, 74px); line-height: 0.94; letter-spacing: -0.01em;
   margin: 72px 0 22px;
 }
-h1 span { color: var(--navy); }
+h1 span { color: var(--accent); }
 .lede { font-size: 17px; color: var(--muted); max-width: 50ch; margin: 0 0 52px; }
 .back { font-family: "IBM Plex Mono", monospace; font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; }
 
@@ -54,7 +58,7 @@ legend {
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .f { display: block; margin-bottom: 16px; }
 .lbl { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-.lbl em { color: var(--navy); }
+.lbl em { color: var(--accent); }
 input:not([type="radio"]):not([type="checkbox"]), select, textarea {
   width: 100%; font: inherit; font-size: 16px; color: var(--ink);
   padding: 12px 14px; border: 1px solid var(--border); border-radius: 6px; background: #fff;
@@ -86,12 +90,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--n
   display: block; width: 100%; cursor: pointer;
   font-family: "IBM Plex Sans Condensed", "Arial Narrow", Impact, sans-serif;
   font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 22px; line-height: 1;
-  padding: 18px 20px; border: 0; border-radius: 6px; background: var(--navy); color: #fff;
+  padding: 18px 20px; border: 0; border-radius: 6px; background: var(--accent); color: #fff;
 }
-.btn:hover { background: var(--navy-2); }
+.btn:hover { background: var(--accent-2); }
 .btn:disabled { opacity: 0.6; cursor: default; }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); }
-.fine { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+.fine { font-size: 13px; color: var(--muted); margin: 14px 0 64px; }
 .status { font-size: 14px; color: var(--danger); margin: 10px 0 0; }
 .status:empty { display: none; }
 

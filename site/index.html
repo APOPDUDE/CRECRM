@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Book your free consult - Alex Poplawski</title>
-<meta name="description" content="Warehouse, yard, flex, or land in Tampa Bay. Tell me what you're working with and I'll take it from there. Reply within one business day.">
+<title>Book your free consultation - Alex Poplawski</title>
+<meta name="description" content="Warehouse, outdoor storage, flex, or land in Tampa Bay. Tell me what you're working with and I'll take it from there. Reply within one business day.">
 <link rel="canonical" href="https://alexpoplawski.com/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://alexpoplawski.com/">
-<meta property="og:title" content="Book your free consult - Alex Poplawski">
-<meta property="og:description" content="Warehouse, yard, flex, or land in Tampa Bay. Tell me what you're working with and I'll take it from there.">
+<meta property="og:title" content="Book your free consultation - Alex Poplawski">
+<meta property="og:description" content="Warehouse, outdoor storage, flex, or land in Tampa Bay. Tell me what you're working with and I'll take it from there.">
 <meta property="og:image" content="https://alexpoplawski.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -21,14 +21,10 @@
 </head>
 <body>
 <div class="wrap">
-  <header class="top">
-    <span>Alex Poplawski<span class="tag"> &middot; Tampa Bay industrial</span></span>
-    <a href="tel:+19418068432">(941) 806-8432</a>
-  </header>
-
   <main>
-    <h1>Book your free<br><span>consult.</span></h1>
-    <p class="lede">$128M+ closed. Warehouse, yard, flex, and land across Tampa Bay. Tell me what you're working with and I'll take it from there.</p>
+    <p class="eyebrow">Alex Poplawski CRE</p>
+    <h1>Book your free<br><span>consultation.</span></h1>
+    <p class="lede">Warehouse, outdoor storage, flex, and land across Tampa Bay. Tell me what you're working with and I'll take it from there.</p>
 
     <form id="lead" action="https://n8n.ayxco.com/webhook/alexpoplawski-lead" method="post" novalidate>
       <input type="hidden" name="t" value="">
@@ -51,12 +47,12 @@
       <fieldset>
         <legend>02 / What you need</legend>
         <div class="f">
-          <span class="lbl">I want to <em>*</em></span>
-          <div class="pills" role="radiogroup" aria-label="I want to">
-            <label><input type="radio" name="need" value="lease" required><span>Lease space</span></label>
+          <span class="lbl">What do you need help with? <em>*</em></span>
+          <div class="pills" role="radiogroup" aria-label="What do you need help with">
+            <label><input type="radio" name="need" value="lease" required><span>Lease a space</span></label>
             <label><input type="radio" name="need" value="buy"><span>Buy a property</span></label>
             <label><input type="radio" name="need" value="sell"><span>Sell a property</span></label>
-            <label><input type="radio" name="need" value="not_sure"><span>Not sure yet</span></label>
+            <label><input type="radio" name="need" value="advice"><span>Market advice</span></label>
           </div>
         </div>
         <div class="row" data-when="space">
@@ -69,7 +65,7 @@
               <option value="10000_25000">10,000 to 25,000 SF</option>
               <option value="25000_50000">25,000 to 50,000 SF</option>
               <option value="50000_plus">50,000+ SF</option>
-              <option value="no_building">Yard or land only</option>
+              <option value="no_building">Outdoor storage or land only</option>
               <option value="not_sure">Not sure yet</option>
             </select>
           </label>
@@ -94,36 +90,44 @@
       </fieldset>
 
       <fieldset>
-        <legend>03 / Timing</legend>
-        <label class="f"><span class="lbl">How soon? <em>*</em></span>
-          <select name="timing" required>
-            <option value="">Select one</option>
-            <option value="now">Need to move now</option>
-            <option value="3_months">Next 3 months</option>
-            <option value="6_months">3 to 6 months</option>
-            <option value="12_months">6 to 12 months</option>
-            <option value="exploring">Just exploring</option>
-          </select>
-        </label>
+        <legend>03 / Timeline</legend>
+        <div class="row">
+          <label class="f" data-when="space"><span class="lbl">When does your current lease expire?</span>
+            <select name="lease_ends">
+              <option value="">Select one</option>
+              <option value="expired_mtm">Already expired / month-to-month</option>
+              <option value="under_6">Less than 6 months</option>
+              <option value="6_12">6 to 12 months</option>
+              <option value="12_18">12 to 18 months</option>
+              <option value="18_plus">18+ months</option>
+              <option value="none">No existing lease</option>
+              <option value="na">Not applicable</option>
+            </select>
+          </label>
+          <label class="f"><span class="lbl">How urgent is this? <em>*</em></span>
+            <select name="timing" required>
+              <option value="">Select one</option>
+              <option value="now">Need to move now</option>
+              <option value="3_months">Next 3 months</option>
+              <option value="6_months">3 to 6 months</option>
+              <option value="exploring">Just exploring</option>
+            </select>
+          </label>
+        </div>
       </fieldset>
 
       <fieldset>
-        <legend>04 / Anything else</legend>
-        <label class="f"><span class="lbl">Tell me what's going on</span><textarea name="details" rows="4" placeholder="Doors, clear height, power, yard, a building you already saw, your current lease. Whatever matters."></textarea></label>
+        <legend>04 / Context</legend>
+        <label class="f"><span class="lbl">Tell me what's going on</span><textarea name="details" rows="4" placeholder="My landlord just sent a renewal at $14 psf. I'm not sure if that's fair for Tampa right now..."></textarea></label>
       </fieldset>
 
       <div class="submit">
-        <button type="submit" class="btn">Book free consult</button>
-        <p class="fine">I read these myself and call back within one business day.</p>
+        <button type="submit" class="btn">Book free consultation</button>
+        <p class="fine">Alex or a team member will reach out within one business day.</p>
         <p class="status" role="status" aria-live="polite"></p>
       </div>
     </form>
   </main>
-
-  <footer>
-    <span>Alex Poplawski &middot; <a href="tel:+19418068432">(941) 806-8432</a> &middot; <a href="mailto:alex@axis.deals">alex@axis.deals</a></span>
-    <span>Alexander Poplawski LLC d/b/a AXIS &middot; Sarasota, FL</span>
-  </footer>
 </div>
 <script src="/form.js" defer></script>
 </body>
