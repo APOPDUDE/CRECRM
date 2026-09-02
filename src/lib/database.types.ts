@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      _fix_office_industrial_20260901: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string | null
+          old_gross_sf: number | null
+          old_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          old_gross_sf?: number | null
+          old_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          old_gross_sf?: number | null
+          old_type?: string | null
+        }
+        Relationships: []
+      }
+      _fix_office_industrial_20260901b: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string | null
+          lat: number | null
+          old_gross_sf: number | null
+          old_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          lat?: number | null
+          old_gross_sf?: number | null
+          old_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          lat?: number | null
+          old_gross_sf?: number | null
+          old_type?: string | null
+        }
+        Relationships: []
+      }
       area_code_timezones: {
         Row: {
           area_code: string
@@ -5413,6 +5464,9 @@ export type Database = {
         | "zoning_change"
         | "code_enforcement"
         | "foreclosure"
+        | "life_event"
+        | "bankruptcy"
+        | "tax_delinquent"
       msg_direction: "inbound" | "outbound"
       msg_protocol: "imessage" | "sms" | "rcs" | "unknown"
       note_kind: "note" | "call" | "text" | "email" | "meeting" | "tour"
@@ -5722,6 +5776,9 @@ export const Constants = {
         "zoning_change",
         "code_enforcement",
         "foreclosure",
+        "life_event",
+        "bankruptcy",
+        "tax_delinquent",
       ],
       msg_direction: ["inbound", "outbound"],
       msg_protocol: ["imessage", "sms", "rcs", "unknown"],

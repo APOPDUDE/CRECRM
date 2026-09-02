@@ -9,8 +9,11 @@ import {
   HardHat,
   Landmark,
   RadioTower,
+  Receipt,
   RefreshCw,
   RotateCcw,
+  Scale,
+  ScrollText,
   Tag,
   X,
 } from 'lucide-react'
@@ -50,6 +53,9 @@ const TYPE_META: Record<MarketEventType, { label: string; icon: typeof HardHat }
   zoning_change: { label: 'Zoning', icon: Landmark },
   code_enforcement: { label: 'Code enforcement', icon: AlertTriangle },
   foreclosure: { label: 'Pre-foreclosure', icon: Gavel },
+  life_event: { label: 'Life event', icon: ScrollText },
+  bankruptcy: { label: 'Bankruptcy', icon: Scale },
+  tax_delinquent: { label: 'Tax delinquent', icon: Receipt },
 }
 
 /** Staleness thresholds (days) mirrored from the n8n watchdog. */
@@ -58,7 +64,8 @@ function staleDaysFor(src: string): number {
   if (src === 'hcfl_permits') return 45
   if (src === 'hc_zoning_hearings') return 21
   if (src.startsWith('county_sales:') || src === 'hc_code_enforcement') return 12
-  if (src.endsWith('_lis_pendens')) return 45 // book-owner LPs are rare; quiet stretches are normal
+  if (src.endsWith('_lis_pendens') || src.endsWith('_life_events') || src === 'flmb_bankruptcy')
+    return 45 // match-only sources are rare; quiet stretches are normal
   return 7
 }
 

@@ -10,7 +10,10 @@
   "distress": {
     "hc_code_enforcement": true,
     "hc_lis_pendens": true,
-    "manatee_lis_pendens": true
+    "manatee_lis_pendens": true,
+    "hc_life_events": true,
+    "manatee_life_events": true,
+    "flmb_bankruptcy": true
   },
   "overlap_days": 7,
   "initial_lookback_days": 30,

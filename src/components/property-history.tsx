@@ -1,4 +1,4 @@
-import { AlertTriangle, ExternalLink, Gavel, HardHat, Landmark, Tag } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Gavel, HardHat, Landmark, Receipt, Scale, ScrollText, Tag } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { marketSourceLabel, usePropertyMarketEvents, type MarketEventType } from '@/hooks/use-market-events'
 
@@ -8,6 +8,9 @@ const TYPE_META: Record<MarketEventType, { label: string; icon: typeof HardHat }
   zoning_change: { label: 'Zoning', icon: Landmark },
   code_enforcement: { label: 'Code enforcement', icon: AlertTriangle },
   foreclosure: { label: 'Pre-foreclosure', icon: Gavel },
+  life_event: { label: 'Life event', icon: ScrollText },
+  bankruptcy: { label: 'Bankruptcy', icon: Scale },
+  tax_delinquent: { label: 'Tax delinquent', icon: Receipt },
 }
 
 function detailStr(detail: unknown, key: string): string | null {

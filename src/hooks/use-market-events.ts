@@ -137,6 +137,9 @@ export function marketSourceLabel(source: string): string {
     hc_code_enforcement: 'Hillsborough code enforcement',
     hc_lis_pendens: 'Hillsborough lis pendens',
     manatee_lis_pendens: 'Manatee lis pendens',
+    hc_life_events: 'Hillsborough probate/divorce/death',
+    manatee_life_events: 'Manatee probate/death',
+    flmb_bankruptcy: 'Bankruptcy court (MDFL)',
   }
   if (fixed[source]) return fixed[source]
   const sale = /^county_sales:(\w+)/.exec(source)

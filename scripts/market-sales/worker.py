@@ -453,13 +453,14 @@ def folio_variants(v):
 ORI_BASE = "https://publicaccess.hillsclerk.com"
 
 
-def rows_hc_lis_pendens(lookback_days=14):
-    """Hillsborough Clerk ORI Public Access (OnBase PAV) — lis pendens recordings.
+def _hc_ori_query(doc_type_value, lookback_days=14, kind=None):
+    """Hillsborough Clerk ORI Public Access (OnBase PAV) — one doc-type search.
 
     Anonymous: GET the page for cookies, then POST the legacy KeywordSearch
-    (QueryID 322 = ORI-Document Type; keyword 1285 = doc type, 1634 = record date).
-    Rows come one per PARTY; group by instrument. PARTY 1 = plaintiff (lender/HOA),
-    PARTY 2 = defendants (the owners) — matched upstream against book owner names.
+    (QueryID 322 = ORI-Document Type; keyword 1285 = doc type string like
+    "(LP) LIS PENDENS" — exact vocabulary harvested from live results, see
+    data/monitoring/_sources.md). Rows come one per PARTY; group by instrument.
+    PARTY 1 = plaintiff/decedent/first party, PARTY 2 = defendants/second party.
     """
     import http.cookiejar
     cj = http.cookiejar.CookieJar()
@@ -468,7 +469,7 @@ def rows_hc_lis_pendens(lookback_days=14):
     op.open(ORI_BASE + "/oripublicaccess/customSearch.html", timeout=60).read()
     fmt = lambda d: d.strftime("%m/%d/%Y")
     body = json.dumps({"QueryID": 322, "QueryLimit": 5000, "Keywords": [
-        {"ID": 1285, "Value": "(LP) LIS PENDENS", "KeywordOperator": "="},
+        {"ID": 1285, "Value": doc_type_value, "KeywordOperator": "="},
         {"ID": 1634, "Value": fmt(date.today() - timedelta(days=lookback_days)) + " 00:00:00.000",
          "KeywordOperator": ">="},
         {"ID": 1634, "Value": fmt(date.today()) + " 23:59:59.999", "KeywordOperator": "<="},
@@ -498,19 +499,39 @@ def rows_hc_lis_pendens(lookback_days=14):
             m = re.search(r"Case # - ?([0-9A-Z-]{8,})", item.get("Name") or "")
             if m:
                 g["case"] = m.group(1)
+    if kind:
+        for g in by_inst.values():
+            g["kind"] = kind
     return by_inst
 
 
-def rows_manatee_lis_pendens(lookback_days=14):
+def rows_hc_lis_pendens(lookback_days=14):
+    return _hc_ori_query("(LP) LIS PENDENS", lookback_days)
+
+
+def rows_hc_life_events(lookback_days=14):
+    """Death certificates, probate filings, divorce judgments hitting HC official
+    records — the classic life-event lead set, one ORI query per doc type."""
+    out = {}
+    for val, kind in [("(DC) DEATH CERTIFICATE", "Death certificate recorded"),
+                      ("(PRO) PROBATE DOCUMENTS", "Probate filing"),
+                      ("(DRJUD) DOMESTIC RELATIONS JUDGMENT", "Divorce judgment"),
+                      ("(COHOME) COURT ORDER DETER HMSTD", "Homestead determination (estate)")]:
+        out.update(_hc_ori_query(val, lookback_days, kind=kind))
+    return out
+
+
+def _manatee_type_query(type_id, lookback_days=14, kind=None):
     """Manatee Clerk records portal — clean anonymous GET:
-    /OfficialRecords/Search/InstrumentType/17/{start}/{end}/1/500 (17 = LIS PENDENS).
-    FROM = plaintiff, TO = defendants. Fresh rows show 'FROM COURTS' until parties are
-    indexed a few days later — the rolling window re-reads them, and dedupe only fires
-    once a defendant actually matches the book.
+    /OfficialRecords/Search/InstrumentType/{id}/{start}/{end}/1/500
+    (17 = LIS PENDENS, 10 = DEATH CERTIFICATE, 27 = PROBATE COURT PAPER).
+    FROM = first party, TO = second party. Fresh rows show 'FROM COURTS' until
+    parties are indexed a few days later — the rolling window re-reads them, and
+    dedupe only fires once a name actually matches the book.
     """
     start = (date.today() - timedelta(days=lookback_days)).isoformat()
     end = date.today().isoformat()
-    url = ("https://records.manateeclerk.com/OfficialRecords/Search/InstrumentType/17/"
+    url = (f"https://records.manateeclerk.com/OfficialRecords/Search/InstrumentType/{type_id}/"
            f"{start}/{end}/1/500")
     html = http(url, timeout=90).read().decode(errors="replace")
     def clean(c):
@@ -530,6 +551,56 @@ def rows_manatee_lis_pendens(lookback_days=14):
         out[inst] = {"plaintiffs": [p for p in clean(cells[2]) if p.upper() != "FROM COURTS"],
                      "defendants": clean(cells[3]), "recorded": rec, "case": None,
                      "legal": " ".join(clean(cells[8]))[:200] or None}
+    if kind:
+        for g in out.values():
+            g["kind"] = kind
+    return out
+
+
+def rows_manatee_lis_pendens(lookback_days=14):
+    return _manatee_type_query(17, lookback_days)
+
+
+def rows_manatee_life_events(lookback_days=14):
+    out = {}
+    for tid, kind in [(10, "Death certificate recorded"), (27, "Probate filing")]:
+        out.update(_manatee_type_query(tid, lookback_days, kind=kind))
+    return out
+
+
+def rows_flmb_bankruptcy(lookback_days=None):
+    """Middle District of Florida bankruptcy court RSS (CM/ECF, all divisions —
+    Tampa is office 8; the feed covers every book county and then some). ~3,000
+    docket items spanning the last few days; we keep the FIRST item per case,
+    split joint debtors on ' and ', and let book owner-name matching do all the
+    filtering. Chapter rides into the title and detail.
+    """
+    import email.utils
+    xml = http("https://ecf.flmb.uscourts.gov/cgi-bin/rss_outside.pl", timeout=180).read().decode(errors="replace")
+    import html as htmlmod
+    out = {}
+    for item in re.findall(r"<item>(.*?)</item>", xml, re.S):
+        title = htmlmod.unescape((re.search(r"<title>(.*?)</title>", item, re.S) or [None, ""])[1]).strip()
+        m = re.match(r"(\d:\d\d-bk-\d+)-?\s*(.+)", title)
+        if not m:
+            continue
+        case, names = m.group(1), m.group(2).strip()
+        if case in out:
+            continue
+        desc = htmlmod.unescape((re.search(r"<description>(.*?)</description>", item, re.S) or [None, ""])[1])
+        ch = (re.search(r"Chapter:\s*(\d+)", desc) or [None, ""])[1]
+        rec = None
+        pub = (re.search(r"<pubDate>(.*?)</pubDate>", item) or [None, ""])[1]
+        if pub:
+            try:
+                rec = email.utils.parsedate_to_datetime(pub).date().isoformat()
+            except (TypeError, ValueError):
+                pass
+        out[case] = {"plaintiffs": [],
+                     "defendants": [n.strip() for n in re.split(r"\s+and\s+", names) if n.strip()],
+                     "recorded": rec, "case": case,
+                     "legal": f"Chapter {ch}" if ch else None,
+                     "kind": f"Bankruptcy filed (Ch. {ch})" if ch else "Bankruptcy filed"}
     return out
 
 
@@ -699,15 +770,29 @@ def run():
             log(f"  ERROR: {e}")
         report["counties"]["hc_code_enforcement"] = cinfo
 
-    LP_SOURCES = [("hc_lis_pendens", "hillsborough", rows_hc_lis_pendens),
-                  ("manatee_lis_pendens", "manatee", rows_manatee_lis_pendens)]
-    for lp_source, lp_county, lp_fetch in (LP_SOURCES if distress_on else []):
+    # (source, county|None=all, fetch, event_type, default label, party sides to match)
+    DISTRESS_SOURCES = [
+        ("hc_lis_pendens", "hillsborough", rows_hc_lis_pendens, "foreclosure",
+         "Lis pendens filed", ("defendants",)),
+        ("manatee_lis_pendens", "manatee", rows_manatee_lis_pendens, "foreclosure",
+         "Lis pendens filed", ("defendants",)),
+        ("hc_life_events", "hillsborough", rows_hc_life_events, "life_event",
+         "Life event", ("plaintiffs", "defendants")),
+        ("manatee_life_events", "manatee", rows_manatee_life_events, "life_event",
+         "Life event", ("plaintiffs", "defendants")),
+        ("flmb_bankruptcy", None, rows_flmb_bankruptcy, "bankruptcy",
+         "Bankruptcy filed", ("defendants",)),
+    ]
+    for lp_source, lp_county, lp_fetch, lp_event_type, lp_label, lp_sides in (DISTRESS_SOURCES if distress_on else []):
         if not cfg.get("distress", {}).get(lp_source, True):
             continue
         cinfo = {"scanned": 0, "book_hits": 0, "sent": 0, "error": None}
-        log(f"— {lp_source}: clerk lis pendens, last 14d")
+        log(f"— {lp_source}: clerk/court records, last 14d")
         try:
-            hnames = owner_names.get(lp_county, {})
+            # county=None (bankruptcy) matches against EVERY county's owner index and
+            # takes the county from wherever the name hits.
+            county_indexes = ([(lp_county, owner_names.get(lp_county, {}))] if lp_county
+                              else sorted(owner_names.items()))
             # Institutional names show up constantly as JOINED co-defendants (junior
             # lienholders, HOAs, govt) in suits about OTHER people's property — and the
             # book owns their branches/common areas, so they false-match. Party order is
@@ -715,16 +800,27 @@ def run():
             SKIP = ("UNKNOWN", "CITY OF ", "STATE OF ", "COUNTY OF ", "HILLSBOROUGH COUNTY",
                     "UNITED STATES", "SECRETARY OF", "DEPARTMENT OF", "CLERK OF",
                     " BANK", "BANK ", "CREDIT UNION", "MORTGAGE", "LENDING", " LOAN",
-                    "FINANCIAL", "FINANCE", " ASSOCIATION", "TENANT")
+                    "FINANCIAL", "FINANCE", " ASSOCIATION", "TENANT",
+                    # institutions that appear as creditors/co-parties in estates and
+                    # suits about OTHER people's affairs (TECO showed up in a probate
+                    # case as a party and false-matched its book-owned parcels)
+                    "TAMPA ELECTRIC", "ELECTRIC COMPANY", " ENERGY", "PEOPLES GAS",
+                    "UTILIT", "INSURANCE", "HOSPITAL", "HEALTHCARE")
             for inst, g in lp_fetch().items():
                 cinfo["scanned"] += 1
-                hit, hit_name = None, None
-                for dn in g["defendants"]:
-                    n = norm_name(dn)
-                    if not n or any(k in n for k in SKIP):
-                        continue
-                    if n in hnames:
-                        hit, hit_name = hnames[n], dn
+                hit, hit_name, hit_county = None, None, None
+                for side in lp_sides:
+                    for dn in g.get(side) or []:
+                        n = norm_name(dn)
+                        if not n or any(k in n for k in SKIP):
+                            continue
+                        for cty, hnames in county_indexes:
+                            if n in hnames:
+                                hit, hit_name, hit_county = hnames[n], dn, cty
+                                break
+                        if hit:
+                            break
+                    if hit:
                         break
                 if not hit:
                     continue
@@ -732,20 +828,20 @@ def run():
                 parcel_number, addr, city = hit[0]
                 if not addr or len(addr.strip()) <= 2:
                     addr = parcel_number
-                title = f"Lis pendens filed: {hit_name} — {addr}"
+                title = f"{g.get('kind') or lp_label}: {hit_name} — {addr}"
                 if city:
                     title += f", {city}"
                 events.append({
-                    "event_type": "foreclosure",
+                    "event_type": lp_event_type,
                     "source": lp_source,
                     "source_key": f"{lp_source}:{inst}",
                     "event_date": g["recorded"],
-                    "county": lp_county.capitalize(),
+                    "county": hit_county.capitalize(),
                     "parcel_number": parcel_number,
                     "address": addr,
                     "city": city,
                     "title": title[:300],
-                    "detail": {"stage": "lis_pendens", "instrument": inst, "case": g["case"],
+                    "detail": {"stage": g.get("kind") or lp_label, "instrument": inst, "case": g["case"],
                                "plaintiffs": g["plaintiffs"][:3] or None,
                                "defendants": g["defendants"][:6] or None,
                                "legal": g["legal"],
