@@ -166,3 +166,39 @@ export function useDealRadarLocations() {
     },
   })
 }
+
+/**
+ * New Facebook listings awaiting dashboard triage (status 'new', not yet reviewed),
+ * grouped by sale/lease/unknown for the dashboard widget.
+ */
+export function useFacebookTriage() {
+  return useQuery({
+    queryKey: ['deal_radar', 'triage'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deal_radar')
+        .select('*')
+        .eq('status', 'new')
+        .is('reviewed_at', null)
+        .order('found_at', { ascending: false })
+        .limit(200)
+      if (error) throw error
+      const rows = (data ?? []) as DealRadarRow[]
+      const groups: Record<DealRadarIntent, DealRadarRow[]> = { sale: [], lease: [], unknown: [] }
+      for (const r of rows) groups[r.listing_intent].push(r)
+      return { rows, groups, total: rows.length }
+    },
+  })
+}
+
+/** "Yes / keep" — stamp reviewed_at so it leaves the triage queue but stays a live radar row. */
+export function useReviewDealRadar() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('deal_radar').update({ reviewed_at: new Date().toISOString() }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidate(qc),
+  })
+}

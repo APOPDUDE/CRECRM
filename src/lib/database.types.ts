@@ -1132,6 +1132,7 @@ export type Database = {
           keyword: string | null
           lat: number | null
           listing_intent: Database["public"]["Enums"]["deal_radar_intent"]
+          reviewed_at: string | null
           listing_type: Database["public"]["Enums"]["deal_radar_type"]
           listing_url: string
           lng: number | null
@@ -1166,6 +1167,7 @@ export type Database = {
           keyword?: string | null
           lat?: number | null
           listing_intent?: Database["public"]["Enums"]["deal_radar_intent"]
+          reviewed_at?: string | null
           listing_type: Database["public"]["Enums"]["deal_radar_type"]
           listing_url: string
           lng?: number | null
@@ -1200,6 +1202,7 @@ export type Database = {
           keyword?: string | null
           lat?: number | null
           listing_intent?: Database["public"]["Enums"]["deal_radar_intent"]
+          reviewed_at?: string | null
           listing_type?: Database["public"]["Enums"]["deal_radar_type"]
           listing_url?: string
           lng?: number | null
