@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -34,12 +35,12 @@ export function MarkLostDialog({
   const [reason, setReason] = useState('')
   const [markDead, setMarkDead] = useState(true)
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (open) {
       setReason('')
       setMarkDead(true)
     }
-  }, [open])
+  })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { CalendarClock, Check, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,10 +27,10 @@ function TaskRow({ task }: { task: PropertyTask }) {
   const initialDate = task.due_date ?? ''
   const [time, setTime] = useState(initialTime)
   const [date, setDate] = useState(initialDate)
-  useEffect(() => {
+  useResetOn([initialTime, initialDate], () => {
     setTime(initialTime)
     setDate(initialDate)
-  }, [initialTime, initialDate])
+  })
 
   const commit = () => {
     if (time === initialTime && date === initialDate) return

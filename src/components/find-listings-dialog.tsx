@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -50,7 +51,7 @@ export function FindListingsDialog({
   const [f, setF] = useState<Record<string, string>>({})
   const [keywords, setKeywords] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, tenantRep], () => {
     if (!open) return
     setMarkets(tenantRep.target_markets ?? '')
     setTypes(tenantRep.property_type ? [tenantRep.property_type] : [])
@@ -65,7 +66,7 @@ export function FindListingsDialog({
       price_max: '',
     })
     setKeywords('')
-  }, [open, tenantRep])
+  })
 
   const setk = (k: string) => (e: { target: { value: string } }) =>
     setF((p) => ({ ...p, [k]: e.target.value }))

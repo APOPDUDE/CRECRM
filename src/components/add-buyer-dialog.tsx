@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -100,7 +101,7 @@ export function AddBuyerDialog({
   > | null>(null)
   const propResults = usePropertySearch(propSearch)
 
-  useEffect(() => {
+  useResetOn([open, prefill?.contactId, prefill?.companyId], () => {
     if (!open) return
     setContactId(prefill?.contactId ?? null)
     setCompanyId(prefill?.companyId ?? null)
@@ -110,7 +111,7 @@ export function AddBuyerDialog({
     setCriteria(emptyBuyerCriteria())
     setPropSearch('')
     setInquiredProp(null)
-  }, [open, prefill?.contactId, prefill?.companyId])
+  })
 
   // The calls, texts and VA notes already logged against this person — shown in the form
   // so filling in criteria doesn't mean remembering the conversation cold.

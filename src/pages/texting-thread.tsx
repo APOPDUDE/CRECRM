@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ArrowLeft, Check, Loader2, Minus, Send, X } from 'lucide-react'
@@ -93,14 +94,14 @@ export function TextingThreadPage() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
 
-  useEffect(() => {
+  useResetOn([confirmOpen, candidates], () => {
     if (!confirmOpen) return
     const initial = candidates.length === 1 ? candidates[0] : null
     setTargetId(initial?.target_id ?? null)
     const { first, last } = splitName(initial?.name)
     setFirstName(first)
     setLastName(last)
-  }, [confirmOpen, candidates])
+  })
 
   const pickCandidate = (candidate: ThreadCandidate) => {
     setTargetId(candidate.target_id)

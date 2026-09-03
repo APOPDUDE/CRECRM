@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MapPin } from 'lucide-react'
 import { CircleMarker, GeoJSON, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -122,42 +122,39 @@ const OUTLINE_STYLE = {
  * on a property while doing a search it resets the search criteria").
  */
 export function PropertyMiniMap({ lat, lng, address, city, state, zip, parcelNumber, className }: PropertyMiniMapProps) {
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    finite(lat) && finite(lng) ? { lat, lng } : null,
-  )
-  const [outline, setOutline] = useState<OutlineFeature[] | null>(null)
-
+  // The pin is the stored point when there is one, else whatever the address geocodes to.
+  const hasPoint = finite(lat) && finite(lng)
+  const [geocoded, setGeocoded] = useState<{ lat: number; lng: number } | null>(null)
   useEffect(() => {
-    if (finite(lat) && finite(lng)) {
-      setCoords({ lat, lng })
-      return
-    }
-    if (!address) {
-      setCoords(null)
-      return
-    }
+    if (hasPoint || !address) return
     let cancelled = false
     geocodeAddress({ address, city, state, zip }).then((r) => {
-      if (!cancelled && r) setCoords(r)
+      if (!cancelled && r) setGeocoded(r)
     })
     return () => {
       cancelled = true
     }
-  }, [lat, lng, address, city, state, zip])
+  }, [hasPoint, address, city, state, zip])
+  const coords = useMemo(
+    () => (finite(lat) && finite(lng) ? { lat, lng } : address ? geocoded : null),
+    [lat, lng, address, geocoded],
+  )
 
+  // The outline remembers which point it was fetched for, so a stale one never draws
+  // around a different pin while the next fetch is in flight.
+  const outlineKey = coords ? `${coords.lat},${coords.lng},${parcelNumber ?? ''}` : null
+  const [fetched, setFetched] = useState<{ key: string; features: OutlineFeature[] | null } | null>(null)
   useEffect(() => {
-    if (!coords) {
-      setOutline(null)
-      return
-    }
+    if (!coords || !outlineKey) return
     let cancelled = false
-    fetchParcelOutline(coords.lat, coords.lng, parcelNumber).then((f) => {
-      if (!cancelled) setOutline(f)
+    fetchParcelOutline(coords.lat, coords.lng, parcelNumber).then((features) => {
+      if (!cancelled) setFetched({ key: outlineKey, features })
     })
     return () => {
       cancelled = true
     }
-  }, [coords, parcelNumber])
+  }, [coords, outlineKey, parcelNumber])
+  const outline = fetched?.key === outlineKey ? fetched.features : null
 
   // No stored coords and geocoding hasn't resolved (or there's nothing to geocode):
   // keep the slot visible instead of vanishing.

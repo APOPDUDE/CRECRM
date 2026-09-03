@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { addDays, addMonths, format } from 'date-fns'
 import { CalendarClock, Check, Mail, MessageSquare, Phone, StickyNote, Users } from 'lucide-react'
@@ -118,7 +119,7 @@ export function TaskCompleteDialog({ task, open, onOpenChange, onCompleted }: Ta
   const [followUpDate, setFollowUpDate] = useState('')
   const [newDueDate, setNewDueDate] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, task], () => {
     if (!open || !task) return
     setMode('done')
     setNote('')
@@ -129,7 +130,7 @@ export function TaskCompleteDialog({ task, open, onOpenChange, onCompleted }: Ta
     // never silently lands a month or a quarter away.
     setFollowUpDate(DATE_PRESETS[1].date())
     setNewDueDate(DATE_PRESETS[1].date())
-  }, [open, task])
+  })
 
   if (!task) return null
 

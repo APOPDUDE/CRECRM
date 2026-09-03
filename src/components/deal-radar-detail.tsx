@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { ExternalLink, Handshake } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -53,9 +54,9 @@ export function DealRadarDetail({ row, open, onOpenChange }: DealRadarDetailProp
   const [notes, setNotes] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
 
-  useEffect(() => {
+  useResetOn([row?.id, row?.notes], () => {
     setNotes(row?.notes ?? '')
-  }, [row?.id, row?.notes])
+  })
 
   if (!row) return null
 

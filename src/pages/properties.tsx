@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
@@ -326,6 +327,8 @@ const MAX_COLUMNS = 6
 /** Rows per page in the table — keeps the DOM light even with thousands of properties. */
 const PAGE_SIZE = 100
 
+const NO_LEASES: LeaseComp[] = []
+
 export function PropertiesPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -344,7 +347,7 @@ export function PropertiesPage() {
   // felt slow (Alex 2026-08-24). Enter or the Search button commits; deep links and
   // the clear button write `search` directly and the effect keeps the box honest.
   const [searchInput, setSearchInput] = useState(search)
-  useEffect(() => setSearchInput(search), [search])
+  useResetOn([search], () => setSearchInput(search))
   // Google-style typeahead under the box: light suggestions while typing (the
   // committed search stays Enter-only). Open while the box is focused and the
   // typed text differs from the running query; picking one commits it.
@@ -675,7 +678,9 @@ export function PropertiesPage() {
   // table's tenant columns. On the bare market map they were ~1,300 rows of nothing, and
   // slow enough to crowd out the fetch that actually draws the pins.
   const { data: crossovers } = useIndustrialCrossovers()
-  const { data: leases = [] } = useLeaseComps(view === 'table' || searchLeases || exportWantsLeases)
+  // A stable empty default: `= []` would mint a new array per render while the query is
+  // idle, which rebuilds the lease-match memo (and its id set) on every pass.
+  const { data: leases = NO_LEASES } = useLeaseComps(view === 'table' || searchLeases || exportWantsLeases)
   /**
    * The viewport is fetched for two different jobs, and the second one outlives the first.
    *
@@ -1232,9 +1237,9 @@ export function PropertiesPage() {
   }, [viewportOnly, mapView.data.ownerContext, ownerCtx])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
-  useEffect(() => {
+  useResetOn([search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, radius, leaseMatchIds], () => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, radius, leaseMatchIds])
+  })
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the

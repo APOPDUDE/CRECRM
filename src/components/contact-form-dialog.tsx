@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -62,7 +63,7 @@ export function ContactFormDialog({
   const [category, setCategory] = useState<Enums<'contact_category'> | null>(null)
   const [notes, setNotes] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, contact, defaultCompanyId], () => {
     if (open) {
       setFirstName(contact?.first_name ?? '')
       setLastName(contact?.last_name ?? '')
@@ -73,7 +74,7 @@ export function ContactFormDialog({
       setCategory(contact?.category ?? null)
       setNotes(contact?.notes ?? '')
     }
-  }, [open, contact, defaultCompanyId])
+  })
 
   // When creating, a typed phone that matches an existing contact means we're
   // really editing that contact — phone is the identity, so we upsert. The lookup asks the

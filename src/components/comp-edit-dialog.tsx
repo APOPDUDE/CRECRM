@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
 import { ExternalLink } from 'lucide-react'
@@ -74,7 +75,7 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
   // "find it in the full list" broke silently once the list hit PostgREST's 1000-row cap.
   const { data: pickedCompany } = useCompany(tenantCompanyId ?? undefined)
 
-  useEffect(() => {
+  useResetOn([open, comp, k], () => {
     if (!open) return
     setDealType((comp?.deal_type as 'lease' | 'sale') ?? 'lease')
     setAsOf(comp?.as_of_date ?? comp?.executed_at ?? format(new Date(), 'yyyy-MM-dd'))
@@ -92,7 +93,7 @@ export function CompEditDialog({ open, onOpenChange, propertyId, kind, comp }: C
     setExpire(comp?.expiration_date ?? '')
     setFee(comp?.commission_fee?.toString() ?? '')
     setTenantCompanyId(comp?.tenant_company_id ?? null)
-  }, [open, comp, k])
+  })
 
   const isSale = dealType === 'sale'
 

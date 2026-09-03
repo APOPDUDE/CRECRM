@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -66,7 +67,7 @@ export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange, 
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState('available')
 
-  useEffect(() => {
+  useResetOn([open, defaultPropertyId, unit], () => {
     if (!open) return
     setPropertyId(unit?.property_id ?? defaultPropertyId)
     setLabel(unit?.label ?? '')
@@ -82,7 +83,7 @@ export function AddUnitDialog({ parcels, defaultPropertyId, open, onOpenChange, 
     setAmps(str(unit?.amps))
     setNotes(unit?.notes ?? '')
     setStatus(unit?.status ?? 'available')
-  }, [open, defaultPropertyId, unit])
+  })
 
   const canSave = !!propertyId && (sf.trim() !== '' || acres.trim() !== '')
 

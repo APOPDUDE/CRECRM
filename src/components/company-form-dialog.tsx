@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -66,7 +67,7 @@ export function CompanyFormDialog({
   const [naics, setNaics] = useState('')
   const [sic, setSic] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, company, defaultType], () => {
     if (open) {
       setName(company?.name ?? '')
       setType(company?.type ?? defaultType)
@@ -79,7 +80,7 @@ export function CompanyFormDialog({
       setNaics(company?.naics ?? '')
       setSic(company?.sic ?? '')
     }
-  }, [open, company, defaultType])
+  })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()

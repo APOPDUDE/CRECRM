@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { Archive, ArchiveRestore } from 'lucide-react'
 import { toast } from 'sonner'
@@ -147,7 +148,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
   const [criteria, setCriteria] = useState<BuyerCriteria>(emptyBuyerCriteria)
   const [areas, setAreas] = useState<TargetArea[]>([])
 
-  useEffect(() => {
+  useResetOn([open, tenantRep], () => {
     if (!open) return
     setBrokerId(tenantRep.broker_contact_id ?? null)
     setAreas(parseTargetAreas(tenantRep.target_areas))
@@ -176,7 +177,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
       rent_budget_max: s(tenantRep.rent_budget_max),
       must_haves: s(tenantRep.must_haves),
     })
-  }, [open, tenantRep])
+  })
 
   const set = (k: string) => (e: { target: { value: string } }) =>
     setF((prev) => ({ ...prev, [k]: e.target.value }))

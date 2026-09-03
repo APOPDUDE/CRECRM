@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -69,7 +70,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
   const [specs, setSpecs] = useState('')
   const [listingStatus, setListingStatus] = useState<Enums<'listing_market_status'>>('on_market')
 
-  useEffect(() => {
+  useResetOn([open, property], () => {
     if (open) {
       // the form edits properties.address itself, so it shows the source address rather than
       // the county situs address the rest of the app displays — otherwise opening a property
@@ -86,7 +87,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
       setSpecs(property?.specs ?? '')
       setListingStatus(property?.listing_status ?? 'on_market')
     }
-  }, [open, property])
+  })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()

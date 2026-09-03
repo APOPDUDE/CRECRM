@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -46,9 +47,9 @@ export function AddToClientDialog({ property, open, onOpenChange }: AddToClientD
   const createMatch = useCreateMatch()
   const [clientId, setClientId] = useState('')
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (open) setClientId('')
-  }, [open])
+  })
 
   if (!property) return null
 

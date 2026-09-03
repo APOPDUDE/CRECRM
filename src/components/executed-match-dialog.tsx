@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
@@ -77,7 +78,7 @@ export function ExecutedMatchDialog({
   const [term, setTerm] = useState('')
   const [freeRent, setFreeRent] = useState('')
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (open) {
       setFee('')
       setFeeTouched(false)
@@ -94,7 +95,7 @@ export function ExecutedMatchDialog({
       setTerm('')
       setFreeRent('')
     }
-  }, [open])
+  })
 
   const calc = useMemo(() => {
     if (!commissionCalcContext) return null
@@ -109,9 +110,9 @@ export function ExecutedMatchDialog({
     })
   }, [commissionCalcContext, dealType, rate, price, term])
 
-  useEffect(() => {
+  useResetOn([calc?.netFee, feeTouched], () => {
     if (!feeTouched && calc?.netFee != null) setFee(String(Math.round(calc.netFee)))
-  }, [calc?.netFee, feeTouched])
+  })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()

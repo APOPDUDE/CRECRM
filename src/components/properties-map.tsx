@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import { Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
@@ -28,17 +28,13 @@ const DESKTOP_QUERY = '(min-width: 768px)'
 
 /** Live desktop/mobile check so rotating or resizing re-caps without a reload. */
 function useIsDesktop(): boolean {
-  const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(DESKTOP_QUERY).matches,
-  )
-  useEffect(() => {
-    const mq = window.matchMedia(DESKTOP_QUERY)
-    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
-    mq.addEventListener('change', onChange)
-    setIsDesktop(mq.matches)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return isDesktop
+  return useSyncExternalStore(subscribeDesktopQuery, readDesktopQuery)
+}
+const readDesktopQuery = () => window.matchMedia(DESKTOP_QUERY).matches
+function subscribeDesktopQuery(onChange: () => void) {
+  const mq = window.matchMedia(DESKTOP_QUERY)
+  mq.addEventListener('change', onChange)
+  return () => mq.removeEventListener('change', onChange)
 }
 
 const finite = (n: number | null | undefined): n is number =>

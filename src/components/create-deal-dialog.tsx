@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -69,7 +70,7 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
   const [type, setType] = useState<Enums<'contact_category'>>('owning_entity')
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
+  useResetOn([open, row?.id], () => {
     if (open && row) {
       // Radar location_text is roughly "City, Florida" — seed the address field with it.
       setAddress(row.location_text ?? '')
@@ -81,7 +82,7 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
       setType('owning_entity')
       setBusy(false)
     }
-  }, [open, row?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  })
 
   if (!row) return null
 

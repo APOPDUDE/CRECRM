@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { Loader2, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -142,7 +143,7 @@ export function BuyerBlastDialog({
   const userId = session?.user.id
   const results = usePropertyPointSearch(dealQuery)
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (!open) return
     setSegment('')
     setDealQuery('')
@@ -151,12 +152,12 @@ export function BuyerBlastDialog({
     setMessage('')
     setTouched(false)
     setMode('draft')
-  }, [open])
+  })
 
   // Retype the message whenever the deal changes, until the user edits it themselves.
-  useEffect(() => {
+  useResetOn([deal, dealUrl, touched], () => {
     if (!touched) setMessage(composeMessage(deal, dealUrl))
-  }, [deal, dealUrl, touched])
+  })
 
   const pickDeal = async (p: PropertyPoint) => {
     setDealQuery('')

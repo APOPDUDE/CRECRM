@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -143,7 +144,7 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
   const unitSf = units.find((u) => u.size_sf != null)?.size_sf ?? null
   const unitRate = units.find((u) => u.asking_rate_psf != null)?.asking_rate_psf ?? null
 
-  useEffect(() => {
+  useResetOn([open, match, listing, property, listingEvent, unitSf, unitRate], () => {
     if (!open) return
     setEffectiveDate(format(new Date(), 'yyyy-MM-dd'))
     setProposedSf(str(match.proposed_sf ?? unitSf ?? property?.gross_sf))
@@ -172,7 +173,7 @@ export function DraftDocDialog({ open, onOpenChange, match, docType }: DraftDocD
       [listingEvent?.broker_name, listingEvent?.broker_company].filter(Boolean).join(', ') || '',
     )
     // Prefill once per open — listing/property/units land async, so re-run as they arrive.
-  }, [open, match, listing, property, listingEvent, unitSf, unitRate])
+  })
 
   const cityStateZip = useMemo(
     () => [property?.city, [property?.state, property?.zip].filter(Boolean).join(' ')].filter(Boolean).join(', '),

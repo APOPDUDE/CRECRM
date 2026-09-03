@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, RotateCcw, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -51,15 +52,14 @@ export function PropertyReview({
   // deck under the reviewer.
   const [deck, setDeck] = useState<Property[]>([])
   const [seeded, setSeeded] = useState(false)
-  useEffect(() => {
+  useResetOn([open, loading, seeded], () => {
     if (!open) { setSeeded(false); return }
     if (seeded || loading) return
     setDeck(properties)
     setIdx(0)
     setTrail([])
     setSeeded(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, loading, seeded])
+  })
 
   const current = deck[idx]
   const finished = open && deck.length > 0 && idx >= deck.length

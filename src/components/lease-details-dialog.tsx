@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { format, max, parseISO, subDays } from 'date-fns'
 import { toast } from 'sonner'
@@ -41,14 +42,14 @@ export function LeaseDetailsDialog({ open, onOpenChange, match }: LeaseDetailsDi
   const [expiration, setExpiration] = useState('')
   const [renewal, setRenewal] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, match], () => {
     if (open) {
       setExecution(match.executed_date ?? '')
       setCommencement('')
       setExpiration('')
       setRenewal('')
     }
-  }, [open, match])
+  })
 
   const tenantName =
     match.tenant_company?.name ??

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { format } from 'date-fns'
 import { CircleDashed, Crosshair, Layers, MessageSquare, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -679,14 +680,8 @@ const RADIUS_MAX_MI = 25
  */
 function RadiusMiles({ miles, onChange }: { miles: number; onChange: (m: number) => void }) {
   const [draft, setDraft] = useState(miles)
-  // Reset the draft when the parent hands us a new value (circle re-dropped, undo, etc.).
-  // Done during render — the "adjusting state on prop change" pattern — rather than in an
-  // effect, which react-hooks/set-state-in-effect rejects.
-  const [lastMiles, setLastMiles] = useState(miles)
-  if (miles !== lastMiles) {
-    setLastMiles(miles)
-    setDraft(miles)
-  }
+  // The parent handing us a new value (circle re-dropped, undo) replaces the draft.
+  useResetOn([miles], () => setDraft(miles))
   useEffect(() => {
     if (draft === miles) return
     const t = window.setTimeout(() => onChange(draft), 200)

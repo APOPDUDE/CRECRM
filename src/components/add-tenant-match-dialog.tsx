@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
 import { useQueryClient } from '@tanstack/react-query'
@@ -76,7 +77,7 @@ export function AddTenantMatchDialog({
   const [budget, setBudget] = useState('')
   const [mustHaves, setMustHaves] = useState('')
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (!open) return
     setCompanyId(null)
     setContactId(null)
@@ -88,7 +89,7 @@ export function AddTenantMatchDialog({
     setBudget('')
     setMustHaves('')
     setSelectedUnitIds([])
-  }, [open])
+  })
 
   const toggleUnit = (id: string) =>
     setSelectedUnitIds((cur) => (cur.includes(id) ? cur.filter((u) => u !== id) : [...cur, id]))

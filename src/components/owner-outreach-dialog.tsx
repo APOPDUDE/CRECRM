@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { Loader2, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -148,7 +149,7 @@ export function OwnerOutreachDialog({
   const [busy, setBusy] = useState(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (!open) return
     setSegment('')
     setTemplateId(OWNER_TEMPLATES[0].id)
@@ -162,7 +163,7 @@ export function OwnerOutreachDialog({
     setPaceId(DEFAULT_PACE)
     setSendAt('')
     setGoal('')
-  }, [open])
+  })
 
   const pickTemplate = (id: string) => {
     setTemplateId(id)

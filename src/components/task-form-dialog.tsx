@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -48,14 +49,14 @@ export function TaskFormDialog({ open, onOpenChange, task, attachTo }: TaskFormD
   const [dueDate, setDueDate] = useState('')
   const [details, setDetails] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, task], () => {
     if (open) {
       setTitle(task?.title ?? '')
       setKind(task?.kind ?? 'general')
       setDueDate(task?.due_date ?? '')
       setDetails(task?.details ?? '')
     }
-  }, [open, task])
+  })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()

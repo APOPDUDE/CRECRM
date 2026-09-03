@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { addDays, format } from 'date-fns'
 import { Button } from '@/components/ui/button'
@@ -63,12 +64,12 @@ export function StageDateDialog({
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, stage], () => {
     if (open && stage) {
       setDate(format(addDays(new Date(), CONFIG[stage].defaultDaysOut), 'yyyy-MM-dd'))
       setTime('')
     }
-  }, [open, stage])
+  })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
