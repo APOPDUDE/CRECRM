@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
+import { useNow } from '@/hooks/use-now'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
@@ -35,7 +37,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
+import { PropertyFormDialog } from '@/components/property-form-dialog'
+import { propertyKindLabels } from '@/lib/labels'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { PARCEL_ZOOM, PropertiesMap } from '@/components/properties-map'
@@ -326,6 +329,8 @@ const MAX_COLUMNS = 6
 /** Rows per page in the table — keeps the DOM light even with thousands of properties. */
 const PAGE_SIZE = 100
 
+const NO_LEASES: LeaseComp[] = []
+
 export function PropertiesPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -344,7 +349,7 @@ export function PropertiesPage() {
   // felt slow (Alex 2026-08-24). Enter or the Search button commits; deep links and
   // the clear button write `search` directly and the effect keeps the box honest.
   const [searchInput, setSearchInput] = useState(search)
-  useEffect(() => setSearchInput(search), [search])
+  useResetOn([search], () => setSearchInput(search))
   // Google-style typeahead under the box: light suggestions while typing (the
   // committed search stays Enter-only). Open while the box is focused and the
   // typed text differs from the running query; picking one commits it.
@@ -484,7 +489,8 @@ export function PropertiesPage() {
   const activity = ['all', 'recent', 'quiet'].includes(activityRaw) ? activityRaw : 'all'
   const ACTIVITY_DAYS = 30
   // Frozen per mount so the filter can't reshuffle rows under you as the clock ticks.
-  const activityCutoff = useMemo(() => Date.now() - ACTIVITY_DAYS * 86400000, [])
+  const nowMs = useNow()
+  const activityCutoff = nowMs - ACTIVITY_DAYS * 86400000
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
   // Which book the War Room shows (Alex 2026-08-21): Industrial is the normal book
   // (just-land rows excluded so it never slows or clutters), Land is the developer-land
@@ -675,7 +681,9 @@ export function PropertiesPage() {
   // table's tenant columns. On the bare market map they were ~1,300 rows of nothing, and
   // slow enough to crowd out the fetch that actually draws the pins.
   const { data: crossovers } = useIndustrialCrossovers()
-  const { data: leases = [] } = useLeaseComps(view === 'table' || searchLeases || exportWantsLeases)
+  // A stable empty default: `= []` would mint a new array per render while the query is
+  // idle, which rebuilds the lease-match memo (and its id set) on every pass.
+  const { data: leases = NO_LEASES } = useLeaseComps(view === 'table' || searchLeases || exportWantsLeases)
   /**
    * The viewport is fetched for two different jobs, and the second one outlives the first.
    *
@@ -1087,7 +1095,7 @@ export function PropertiesPage() {
       if (soldFilterOn && lastSales) {
         const last = lastSales.get(p.id)
         if (last) {
-          const cutoff = Date.now() - soldYearsNum * 365.25 * 24 * 3600 * 1000
+          const cutoff = nowMs - soldYearsNum * 365.25 * 24 * 3600 * 1000
           if (new Date(last).getTime() >= cutoff) continue
         } else if (!includeNoSale) continue
       }
@@ -1150,7 +1158,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon, radius])
+  }, [book, portfolioAll, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, nowMs, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon, radius])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1232,9 +1240,9 @@ export function PropertiesPage() {
   }, [viewportOnly, mapView.data.ownerContext, ownerCtx])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
-  useEffect(() => {
+  useResetOn([search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, radius, leaseMatchIds], () => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, radius, leaseMatchIds])
+  })
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the

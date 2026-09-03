@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -34,11 +35,11 @@ export function TenantCommissionDialog({ open, onOpenChange, tenantRep }: Tenant
   const [fee, setFee] = useState('')
   const [commission, setCommission] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, tenantRep], () => {
     if (!open) return
     setFee(tenantRep.actual_fee?.toString() ?? '')
     setCommission(tenantRep.commission_pct?.toString() ?? '')
-  }, [open, tenantRep])
+  })
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()

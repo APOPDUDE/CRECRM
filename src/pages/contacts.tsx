@@ -45,10 +45,7 @@ import type { Contact, ContactSort } from '@/hooks/use-contacts'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { friendlyDbError } from '@/lib/db-errors'
-
-export function contactName(contact: Pick<Contact, 'first_name' | 'last_name'>) {
-  return [contact.first_name, contact.last_name].filter(Boolean).join(' ')
-}
+import { contactName } from '@/lib/contact-name'
 
 const SORT_LABELS: Record<ContactSort, string> = {
   created: 'Recently added',

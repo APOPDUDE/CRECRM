@@ -165,7 +165,7 @@ export function useUpsertComp() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (comp: TablesUpdate<'comps'> & { property_id: string }) => {
-      let saved: { pursuit_id: string | null; commission_fee: number | null } | null = null
+      let saved: { pursuit_id: string | null; commission_fee: number | null } | null
       if (comp.id) {
         const { id, ...rest } = comp
         const { data, error } = await supabase

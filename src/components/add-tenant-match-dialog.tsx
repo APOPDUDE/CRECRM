@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
 import { useQueryClient } from '@tanstack/react-query'
@@ -25,7 +26,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
-import { leadSourceLabels } from '@/components/source-badge'
+import { leadSourceLabels } from '@/lib/labels'
 import { useUnits, useSetPursuitUnits, unitSizeLabel } from '@/hooks/use-units'
 import { asPursuitInsert, resolvePursuitSide } from '@/hooks/use-matches'
 import { formatPsf } from '@/lib/format'
@@ -76,7 +77,7 @@ export function AddTenantMatchDialog({
   const [budget, setBudget] = useState('')
   const [mustHaves, setMustHaves] = useState('')
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (!open) return
     setCompanyId(null)
     setContactId(null)
@@ -88,7 +89,7 @@ export function AddTenantMatchDialog({
     setBudget('')
     setMustHaves('')
     setSelectedUnitIds([])
-  }, [open])
+  })
 
   const toggleUnit = (id: string) =>
     setSelectedUnitIds((cur) => (cur.includes(id) ? cur.filter((u) => u !== id) : [...cur, id]))

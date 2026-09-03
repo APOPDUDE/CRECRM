@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { Building2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -41,14 +42,14 @@ export function AddProspectDialog({ open, onOpenChange }: AddProspectDialogProps
   const [picked, setPicked] = useState<PickedProperty[]>([])
   const { data: results = [], isFetching } = usePropertySearch(search)
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (open) {
       setContactId(null)
       setDescription('')
       setSearch('')
       setPicked([])
     }
-  }, [open])
+  })
 
   const addProperty = (p: ParcelSearchResult) => {
     setPicked((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]))

@@ -65,7 +65,7 @@ export async function callN8nWebhook<T = unknown>(
     return body as T
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('The automation is taking longer than expected — try again in a moment.')
+      throw new Error('The automation is taking longer than expected — try again in a moment.', { cause: err })
     }
     throw err
   } finally {

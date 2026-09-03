@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -51,7 +52,7 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
   const [coBroke, setCoBroke] = useState('')
   const [expiration, setExpiration] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, listing], () => {
     if (!open) return
     setBuildingSf(listing.property?.gross_sf?.toString() ?? '')
     setRate(listing.asking_rate_psf?.toString() ?? '')
@@ -61,7 +62,7 @@ export function ListingTermsDialog({ open, onOpenChange, listing }: ListingTerms
     setCommission(listing.commission_pct?.toString() ?? '')
     setCoBroke(listing.co_broke_split_pct?.toString() ?? '')
     setExpiration(listing.listing_expiration ?? '')
-  }, [open, listing])
+  })
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()

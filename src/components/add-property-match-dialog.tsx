@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { format } from 'date-fns'
 import { Building2, Plus, Search, X } from 'lucide-react'
@@ -123,7 +124,7 @@ export function AddPropertyMatchDialog({
   const debouncedSearch = useDebouncedValue(search, 200)
   const { data: results = [], isFetching } = usePropertySearch(debouncedSearch)
 
-  useEffect(() => {
+  useResetOn([open, initialMode, showPaste], () => {
     if (open) {
       setMode(showPaste ? initialMode : 'manual')
       setLoopnetUrls([''])
@@ -133,7 +134,7 @@ export function AddPropertyMatchDialog({
       setParcel('')
       setCounty('')
     }
-  }, [open, initialMode, showPaste])
+  })
 
   // Paste a mix of LoopNet + Crexi links; we detect the source per URL (so a link
   // in the "wrong" box still works) and run both scrapers at the same time. The

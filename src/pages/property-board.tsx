@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNow } from '@/hooks/use-now'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Pencil, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -10,10 +11,11 @@ import type { ExecutedResult } from '@/components/executed-match-dialog'
 import { ListingTermsDialog } from '@/components/listing-terms-dialog'
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { MatchCard } from '@/components/match-card'
-import { BoardInfoPanel, SidebarSection, useInfoPanelCollapsed } from '@/components/board-info-panel'
+import { BoardInfoPanel, SidebarSection } from '@/components/board-info-panel'
+import { useInfoPanelCollapsed } from '@/hooks/use-info-panel-collapsed'
 import { TaskFocusBanner } from '@/components/task-focus-banner'
 import { AddListingParcelDialog } from '@/components/add-listing-parcel-dialog'
-import { propertyKindLabels } from '@/components/property-form-dialog'
+import { propertyKindLabels } from '@/lib/labels'
 import { ContactActions } from '@/components/contact-actions'
 import { PropertyMiniMap } from '@/components/property-mini-map'
 import { ListErrorState } from '@/components/list-error-state'
@@ -37,7 +39,8 @@ import {
   useReorderPursuit,
   sortOrderBefore,
 } from '@/hooks/use-matches'
-import { BoardSideToggle, useBoardSide } from '@/components/board-side-toggle'
+import { BoardSideToggle } from '@/components/board-side-toggle'
+import { useBoardSide } from '@/hooks/use-board-side'
 import { PassedRail } from '@/components/passed-rail'
 import type { MatchWithRelations } from '@/hooks/use-matches'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
@@ -54,6 +57,7 @@ import { boardSides, dealSideLabels, pursuitLabelsFor, propertyBoardStages } fro
 type PendingMove = { match: MatchWithRelations; toStage: Enums<'pursuit_stage'> }
 
 export function PropertyBoardPage() {
+  const nowMs = useNow()
   const { listingId } = useParams()
   const navigate = useNavigate()
   const { data: listing, isLoading, isError } = useListingDetail(listingId)
@@ -340,7 +344,7 @@ export function PropertyBoardPage() {
     const dates = liveProspects.map((m) => m.inquiry_date).filter(Boolean) as string[]
     if (!dates.length) return null
     const oldest = dates.reduce((a, b) => (a < b ? a : b))
-    return Math.max(0, Math.round((Date.now() - new Date(oldest).getTime()) / 86400000))
+    return Math.max(0, Math.round((nowMs - new Date(oldest).getTime()) / 86400000))
   })()
 
   // Live commission estimate from the asking terms (shown on the Terms panel).

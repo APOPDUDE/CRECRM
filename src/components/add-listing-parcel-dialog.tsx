@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { Building2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -56,13 +57,13 @@ export function AddListingParcelDialog({
   const createProperty = useCreateProperty()
   const enrich = useEnrichProperty()
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (open) {
       setAddress('')
       setParcel('')
       setCounty('')
     }
-  }, [open])
+  })
 
   const onListing = new Set(existingPropertyIds)
   const matches = results.filter((r) => !onListing.has(r.id))

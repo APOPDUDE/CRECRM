@@ -2,7 +2,7 @@ import type { PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import type { CurrentAsking } from '@/hooks/use-comps'
 import type { LeaseComp } from '@/hooks/use-lease-comps'
-import { propertyKindLabels } from '@/components/property-form-dialog'
+import { propertyKindLabels } from '@/lib/labels'
 import { isZonedIndustrial } from '@/hooks/use-zoning-map'
 import { dorBucket, dorBucketLabels } from '@/lib/zoning'
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight, ExternalLink, Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AddToClientDialog, type AddToClientProperty } from '@/components/add-to-client-dialog'
-import { propertyKindLabels } from '@/components/property-form-dialog'
+import { propertyKindLabels } from '@/lib/labels'
 import {
   useNewListings,
   useClearNewListings,

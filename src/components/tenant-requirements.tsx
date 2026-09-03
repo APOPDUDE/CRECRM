@@ -1,5 +1,5 @@
-import { rangeSummary } from '@/components/tenant-rep-card'
-import { propertyKindLabels } from '@/components/property-form-dialog'
+import { rangeSummary } from '@/lib/tenant-rep-summary'
+import { propertyKindLabels } from '@/lib/labels'
 import type { Tables } from '@/lib/database.types'
 import {
   buyerKindLabels,

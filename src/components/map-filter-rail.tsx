@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { format } from 'date-fns'
 import { CircleDashed, Crosshair, Layers, MessageSquare, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -679,7 +680,8 @@ const RADIUS_MAX_MI = 25
  */
 function RadiusMiles({ miles, onChange }: { miles: number; onChange: (m: number) => void }) {
   const [draft, setDraft] = useState(miles)
-  useEffect(() => setDraft(miles), [miles])
+  // The parent handing us a new value (circle re-dropped, undo) replaces the draft.
+  useResetOn([miles], () => setDraft(miles))
   useEffect(() => {
     if (draft === miles) return
     const t = window.setTimeout(() => onChange(draft), 200)

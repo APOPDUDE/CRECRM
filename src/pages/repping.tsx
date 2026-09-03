@@ -38,7 +38,8 @@ import { ListingCard } from '@/components/listing-card'
 import { ListErrorState } from '@/components/list-error-state'
 import { MarkLostDialog } from '@/components/mark-lost-dialog'
 import { SourceBadge } from '@/components/source-badge'
-import { TenantRepCard, sizeSummary } from '@/components/tenant-rep-card'
+import { TenantRepCard } from '@/components/tenant-rep-card'
+import { sizeSummary } from '@/lib/tenant-rep-summary'
 import {
   useListings,
   useMarkListingLost,

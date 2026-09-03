@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import {
   Dialog,
   DialogContent,
@@ -53,9 +54,9 @@ export function TourOutcomeDialog({
   const [reason, setReason] = useState('')
 
   // Reset between openings, or the last deal's reason bleeds into the next one.
-  useEffect(() => {
+  useResetOn([open], () => {
     if (open) setReason('')
-  }, [open])
+  })
 
   if (!outcome) return null
   const cfg = CONFIG[outcome]

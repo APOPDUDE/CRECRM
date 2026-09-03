@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -23,15 +24,7 @@ import { useCreateCompany, useUpdateCompany } from '@/hooks/use-companies'
 import type { Company } from '@/hooks/use-companies'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
-
-export const companyTypeLabels: Record<Enums<'company_type'>, string> = {
-  landlord: 'Landlord',
-  owning_entity: 'Owning entity',
-  tenant: 'Tenant',
-  broker: 'Broker',
-  vendor: 'Vendor',
-  other: 'Other',
-}
+import { companyTypeLabels } from '@/lib/labels'
 
 interface CompanyFormDialogProps {
   open: boolean
@@ -66,7 +59,7 @@ export function CompanyFormDialog({
   const [naics, setNaics] = useState('')
   const [sic, setSic] = useState('')
 
-  useEffect(() => {
+  useResetOn([open, company, defaultType], () => {
     if (open) {
       setName(company?.name ?? '')
       setType(company?.type ?? defaultType)
@@ -79,7 +72,7 @@ export function CompanyFormDialog({
       setNaics(company?.naics ?? '')
       setSic(company?.sic ?? '')
     }
-  }, [open, company, defaultType])
+  })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()

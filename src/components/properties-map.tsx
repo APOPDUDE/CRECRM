@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import { Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { propertyKindLabels } from '@/components/property-form-dialog'
+import { propertyKindLabels } from '@/lib/labels'
 import type { Property } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
@@ -11,13 +11,14 @@ import type { CurrentAsking } from '@/hooks/use-comps'
 import type { LeaseComp } from '@/hooks/use-lease-comps'
 import { pointInPolygon, type LatLng, type RadiusFilter } from '@/lib/geo'
 import { isZonedIndustrial } from '@/hooks/use-zoning-map'
-import type { Geometry } from 'geojson'
+import type { Feature, Geometry } from 'geojson'
 import { MapOverlays } from '@/components/map-overlays'
 import type { OverlayState } from '@/lib/overlays'
 import { HistoricalImagery } from '@/components/historical-imagery'
 import { MapReferenceLayers } from '@/components/map-reference-layers'
 import { MapLayers, type LayerStatus } from '@/components/map-utility-layers'
 import { EASEMENT_LAYER, UTILITY_LAYERS, imageryCoverage } from '@/lib/map-layers'
+import { PARCEL_SERVICES, outerRings, parcelKey, parcelKeys, ringsBbox } from '@/lib/parcel-services'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
 // the comfortable ceiling on a phone. Desktop has the headroom for the whole book, so
@@ -28,17 +29,13 @@ const DESKTOP_QUERY = '(min-width: 768px)'
 
 /** Live desktop/mobile check so rotating or resizing re-caps without a reload. */
 function useIsDesktop(): boolean {
-  const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(DESKTOP_QUERY).matches,
-  )
-  useEffect(() => {
-    const mq = window.matchMedia(DESKTOP_QUERY)
-    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
-    mq.addEventListener('change', onChange)
-    setIsDesktop(mq.matches)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return isDesktop
+  return useSyncExternalStore(subscribeDesktopQuery, readDesktopQuery)
+}
+const readDesktopQuery = () => window.matchMedia(DESKTOP_QUERY).matches
+function subscribeDesktopQuery(onChange: () => void) {
+  const mq = window.matchMedia(DESKTOP_QUERY)
+  mq.addEventListener('change', onChange)
+  return () => mq.removeEventListener('change', onChange)
 }
 
 const finite = (n: number | null | undefined): n is number =>
@@ -222,7 +219,7 @@ function FitToPoints({
     const span = bounds.getNorthEast().distanceTo(bounds.getSouthWest())
     const maxZoom = span < 250 ? 19 : points.length <= 3 ? 17 : 14
     map.fitBounds(bounds, { padding: [30, 30], maxZoom })
-  }, [points, map, suspended, forceKey])
+  }, [points, map, suspended, skipInitial, forceKey])
   return null
 }
 
@@ -276,66 +273,6 @@ const METERS_PER_MILE = 1609.344
 // otherwise a popup with the county's own facts.
 export const PARCEL_ZOOM = 16
 
-type ParcelSvc = {
-  name: string
-  url: string
-  /** rough county bounds [minLat, minLng, maxLat, maxLng] to skip irrelevant services */
-  box: [number, number, number, number]
-  fields: string[]
-  attrs: (a: Record<string, unknown>) => { parcel: string; addr: string; owner: string; sf: string; acres: string }
-}
-
-const str0 = (v: unknown) => (v == null ? '' : String(v).trim())
-
-export const PARCEL_SERVICES: ParcelSvc[] = [
-  {
-    name: 'Hillsborough',
-    url: 'https://maps.hillsboroughcounty.org/arcgis/rest/services/InfoLayers/HC_Parcels/FeatureServer/0',
-    box: [27.57, -82.65, 28.2, -82.05],
-    fields: ['PIN', 'SITE_ADDR', 'OWNER', 'HEAT_AR', 'ACREAGE'],
-    attrs: (a) => ({ parcel: str0(a.PIN), addr: str0(a.SITE_ADDR), owner: str0(a.OWNER), sf: str0(a.HEAT_AR), acres: str0(a.ACREAGE) }),
-  },
-  {
-    name: 'Pinellas',
-    url: 'https://egis.pinellas.gov/pcpagis/rest/services/Pcpao_gov/PropertyPopup_A/MapServer/0',
-    box: [27.6, -82.9, 28.2, -82.55],
-    fields: ['DISPLAY_STRAP', 'SITE_ADDR', 'OWNER1', 'TOTAL_GROSS_SQFT', 'ACREAGE'],
-    attrs: (a) => ({ parcel: str0(a.DISPLAY_STRAP), addr: str0(a.SITE_ADDR), owner: str0(a.OWNER1), sf: str0(a.TOTAL_GROSS_SQFT), acres: str0(a.ACREAGE) }),
-  },
-  {
-    name: 'Sarasota',
-    url: 'https://services3.arcgis.com/icrWMv7eBkctFu1f/arcgis/rest/services/ParcelHosted/FeatureServer/0',
-    box: [26.9, -82.75, 27.4, -82.05],
-    fields: ['ID', 'FULLADDRESS', 'NAME1', 'GRND_AREA', 'MeasuredAcreage'],
-    attrs: (a) => ({ parcel: str0(a.ID), addr: str0(a.FULLADDRESS), owner: str0(a.NAME1), sf: str0(a.GRND_AREA), acres: str0(a.MeasuredAcreage) }),
-  },
-  {
-    name: 'Pasco',
-    url: 'https://pascogis.pascocountyfl.net/gisweb/rest/services/PascoView/PascoMapper_R_OP/MapServer/7',
-    box: [28.15, -82.9, 28.5, -82.05],
-    fields: ['VPARCEL', 'SITE_ADDRESS', 'OWNER_NAME_1', 'LIVING_AREA', 'SITE_ACRES'],
-    attrs: (a) => ({ parcel: str0(a.VPARCEL), addr: str0(a.SITE_ADDRESS), owner: str0(a.OWNER_NAME_1), sf: str0(a.LIVING_AREA), acres: str0(a.SITE_ACRES) }),
-  },
-  {
-    name: 'Manatee',
-    url: 'https://gis.manateepao.com/arcgis/rest/services/Website/WebLayers/MapServer/0',
-    box: [27.35, -82.75, 27.65, -82.05],
-    fields: ['PARID', 'SITUS_ADDRESS', 'PAR_OWNER_NAME1', 'BLDGS_SQFT_LIVING', 'LAND_ACREAGE_CAMA'],
-    attrs: (a) => ({ parcel: str0(a.PARID), addr: str0(a.SITUS_ADDRESS), owner: str0(a.PAR_OWNER_NAME1), sf: str0(a.BLDGS_SQFT_LIVING), acres: str0(a.LAND_ACREAGE_CAMA) }),
-  },
-  {
-    name: 'Polk',
-    url: 'https://gis.polk-county.net/server/rest/services/Map_Property_Appraiser/MapServer/1',
-    box: [27.6, -82.11, 28.35, -81.1],
-    fields: ['PARCELID', 'PROP_ADRNO', 'PROP_ADRSTR', 'PROP_ADRSUF', 'NAME', 'TOT_ACREAGE'],
-    attrs: (a) => ({
-      parcel: str0(a.PARCELID),
-      addr: [str0(a.PROP_ADRNO), str0(a.PROP_ADRSTR), str0(a.PROP_ADRSUF)].filter(Boolean).join(' '),
-      owner: str0(a.NAME), sf: '', acres: str0(a.TOT_ACREAGE),
-    }),
-  },
-]
-
 const PARCEL_STYLE = { color: '#ffffff', weight: 2, opacity: 0.8, fill: true, fillOpacity: 0.03 }
 const PARCEL_STYLE_HOVER = { color: '#dc2626', weight: 3.5, opacity: 1, fillOpacity: 0.12 }
 
@@ -354,27 +291,12 @@ const parcelStyleFor = (color: string) => ({
   fillColor: color,
 })
 
-/** Format-blind parcel key: letters+digits only (folio digits vs dashed PIN both normalize). */
-export const parcelKey = (p: string | null | undefined) =>
-  (p ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null
-
-/**
- * Every parcel id a property carries — an assemblage carries several.
- *
- * 343 properties store more than one parcel in the single `parcel_number` field
- * ("24-28-27-000000-033001, 24-28-27-000000-033024, …"), because that is what they are:
- * one building over four lots. The county serves those lots one at a time, so a key built
- * from the whole field matches none of them — the outlines all render as somebody else's
- * land and the property is left relying on a dot that the outlines then cover.
- *
- * Splitting is what makes an assemblage clickable, and assemblages are exactly the
- * parcels worth clicking.
- */
-export const parcelKeys = (field: string | null | undefined): string[] =>
-  (field ?? '')
-    .split(/[,;\n]/)
-    .map((part) => parcelKey(part))
-    .filter((k): k is string => k != null)
+/** A county parcel as the ArcGIS geojson endpoint returns it, stamped with our matching. */
+type ParcelFeature = {
+  type: 'Feature'
+  geometry: Geometry | null
+  properties: Record<string, unknown> & { __svc?: string; __crm?: string }
+}
 
 function ParcelLines({
   parcelIndex,
@@ -398,20 +320,13 @@ function ParcelLines({
   onMatchedIds: (ids: Set<string>) => void
   onOpenProperty: (id: string) => void
 }) {
-  const [fc, setFc] = useState<{ type: 'FeatureCollection'; features: unknown[] } | null>(null)
+  const [fc, setFc] = useState<{ type: 'FeatureCollection'; features: ParcelFeature[] } | null>(null)
   const [ver, setVer] = useState(0)
   const timer = useRef<number | null>(null)
   const seq = useRef(0)
 
-  const map = useMapEvents({ moveend: schedule, zoomend: schedule })
+  const map = useMap()
   ensureParcelPane(map)
-  // Re-run on mount AND whenever the matching inputs land: the first load usually
-  // races the viewport fetch, so the geometry pass would otherwise run against an
-  // empty point list and leave every held parcel white until the next pan.
-  useEffect(() => {
-    schedule()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [points, parcelIndex])
 
   function schedule() {
     if (timer.current) window.clearTimeout(timer.current)
@@ -427,7 +342,7 @@ function ParcelLines({
     const b = map.getBounds()
     const env = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`
     const my = ++seq.current
-    const feats: any[] = []
+    const feats: ParcelFeature[] = []
     await Promise.all(
       PARCEL_SERVICES.filter(
         (s) => b.getSouth() <= s.box[2] && b.getNorth() >= s.box[0] &&
@@ -497,18 +412,28 @@ function ParcelLines({
     setVer((v) => v + 1)
   }
 
+  useMapEvents({ moveend: schedule, zoomend: schedule })
+  // Re-run on mount AND whenever the matching inputs land: the first load usually
+  // races the viewport fetch, so the geometry pass would otherwise run against an
+  // empty point list and leave every held parcel white until the next pan.
+  useEffect(() => {
+    schedule()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [points, parcelIndex])
+
   if (!fc) return null
   return (
     <GeoJSON
       key={ver}
       pane={PARCEL_PANE}
-      data={fc as any}
-      style={(feature: any) => {
+      data={fc}
+      style={(feature?: Feature) => {
         const id = feature?.properties?.__crm as string | undefined
         const color = id ? colorById.get(id) : undefined
         return color ? parcelStyleFor(color) : PARCEL_STYLE
       }}
-      onEachFeature={(feature: any, layer: any) => {
+      onEachFeature={(feature: Feature, layer: L.Layer) => {
+        const path = layer as L.Path
         const svc = PARCEL_SERVICES.find((s) => s.name === feature?.properties?.__svc)
         if (!svc) return
         const a = svc.attrs(feature.properties ?? {})
@@ -518,8 +443,8 @@ function ParcelLines({
         const ownColor = crmId ? colorById.get(crmId) : undefined
         const base = ownColor ? parcelStyleFor(ownColor) : PARCEL_STYLE
         // hover: light the parcel up red and heavier so the cursor's target is unmistakable
-        layer.on('mouseover', () => layer.setStyle(PARCEL_STYLE_HOVER))
-        layer.on('mouseout', () => layer.setStyle(base))
+        layer.on('mouseover', () => path.setStyle(PARCEL_STYLE_HOVER))
+        layer.on('mouseout', () => path.setStyle(base))
         if (crmId) {
           // a parcel we hold: click opens the property, hover shows the SAME card the
           // circles show — the outline IS the property now
@@ -540,36 +465,6 @@ function ParcelLines({
       }}
     />
   )
-}
-
-/** The outer ring(s) of a GeoJSON Polygon/MultiPolygon as {lat,lng} lists (holes ignored
- * — a point in a courtyard still belongs to the parcel for our purposes). */
-export function outerRings(geometry: Geometry | null | undefined): LatLng[][] {
-  if (!geometry) return []
-  const toRing = (ring: number[][]) => ring.map(([lng, lat]) => ({ lat, lng }))
-  if (geometry.type === 'Polygon') {
-    return geometry.coordinates[0] ? [toRing(geometry.coordinates[0])] : []
-  }
-  if (geometry.type === 'MultiPolygon') {
-    return geometry.coordinates
-      .map((poly) => poly[0])
-      .filter((ring): ring is number[][] => ring != null)
-      .map(toRing)
-  }
-  return []
-}
-
-export function ringsBbox(rings: LatLng[][]): [number, number, number, number] {
-  let minLat = Infinity, minLng = Infinity, maxLat = -Infinity, maxLng = -Infinity
-  for (const ring of rings) {
-    for (const v of ring) {
-      if (v.lat < minLat) minLat = v.lat
-      if (v.lat > maxLat) maxLat = v.lat
-      if (v.lng < minLng) minLng = v.lng
-      if (v.lng > maxLng) maxLng = v.lng
-    }
-  }
-  return [minLat, minLng, maxLat, maxLng]
 }
 
 /**

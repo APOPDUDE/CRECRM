@@ -9,7 +9,8 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { CompanyFormDialog, companyTypeLabels } from '@/components/company-form-dialog'
+import { CompanyFormDialog } from '@/components/company-form-dialog'
+import { companyTypeLabels } from '@/lib/labels'
 import {
   COMPANY_SEARCH_MIN,
   useCompany,

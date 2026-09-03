@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { Pause, Play, ShieldBan } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -38,13 +39,13 @@ export function TextingSettingsPage() {
   const [dailyCap, setDailyCap] = useState('')
   const [rampStartedOn, setRampStartedOn] = useState('')
 
-  useEffect(() => {
+  useResetOn([settings], () => {
     if (!settings) return
     setQuietStart(toTimeInput(settings.quiet_start))
     setQuietCutoff(toTimeInput(settings.quiet_cutoff))
     setDailyCap(String(settings.per_line_daily_cap))
     setRampStartedOn(settings.ramp_started_on ?? '')
-  }, [settings])
+  })
 
   const togglePaused = async () => {
     if (!settings) return

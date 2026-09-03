@@ -12,7 +12,7 @@
 //
 // SILENT-FAILURE GUARD (the #1 risk per research): a zero-row response is recorded as
 // a LOUD {status:'not_found'} with the exact ID tried — never mistaken for "no data".
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -22,7 +22,7 @@ type Mapped = Record<string, number | string | null | undefined>;
 
 const num = (v: unknown): number | null => {
   if (v == null || v === "") return null;
-  const n = Number(String(v).replace(/[^0-9.\-]/g, ""));
+  const n = Number(String(v).replace(/[^0-9.-]/g, ""));
   return Number.isFinite(n) ? n : null;
 };
 const str = (v: unknown): string | null => {
@@ -36,10 +36,13 @@ const joinAddr = (...parts: unknown[]): string | null => {
 };
 
 // Rough centroid (first ring average) — fine for a map dot. Handles point geom too.
-function centroid(geom: any): { lat: number | null; lng: number | null } {
+type EsriGeom = { x?: number; y?: number; rings?: number[][][] } | null | undefined;
+
+function centroid(geom: unknown): { lat: number | null; lng: number | null } {
   try {
-    if (geom?.x != null && geom?.y != null) return { lat: geom.y, lng: geom.x };
-    const ring = geom?.rings?.[0];
+    const g = geom as EsriGeom;
+    if (g?.x != null && g?.y != null) return { lat: g.y, lng: g.x };
+    const ring = g?.rings?.[0];
     if (Array.isArray(ring) && ring.length) {
       let sx = 0, sy = 0, n = 0;
       for (const pt of ring) { sx += pt[0]; sy += pt[1]; n++; }
@@ -241,8 +244,8 @@ async function arcgisPointQuery(service: string, lat: number, lng: number, dista
 }
 
 /** Esri rings -> GeoJSON Polygon/MultiPolygon for import_parcel_geoms (holes are rare on parcels; every ring kept). */
-function esriRingsToGeoJson(geom: any): unknown {
-  const rings = geom?.rings;
+function esriRingsToGeoJson(geom: unknown): unknown {
+  const rings = (geom as EsriGeom)?.rings;
   if (!Array.isArray(rings) || !rings.length) return null;
   return rings.length === 1
     ? { type: "Polygon", coordinates: rings }
@@ -254,6 +257,21 @@ function houseNo(addr: unknown): string | null {
   const m = String(addr ?? "").match(/^\s*(\d+)/);
   return m ? m[1] : null;
 }
+
+/** The properties columns the drain selects (both lanes select the same list). */
+type PropertyRow = {
+  id: string;
+  address: string | null;
+  county: string;
+  parcel_number: string | null;
+  lat: number | null;
+  lng: number | null;
+  gross_sf: number | null;
+  heated_sf: number | null;
+  year_built: number | null;
+  land_acres: number | null;
+  zoning_description: string | null;
+};
 
 type PointHit = {
   parcel?: string; county?: string; feature?: { attributes: Attrs; geometry: unknown };
@@ -270,8 +288,10 @@ type PointHit = {
  * A buffered/multi hit is accepted only when it is unique or its situs house number equals
  * the listing's; otherwise it is "ambiguous", never a guess.
  */
-async function resolveParcelAtPoint(supa: any, p: any): Promise<PointHit> {
-  const { data: held } = await supa.rpc("parcel_at_point", { p_lat: p.lat, p_lng: p.lng });
+async function resolveParcelAtPoint(supa: SupabaseClient, p: PropertyRow): Promise<PointHit> {
+  const { lat, lng } = p;
+  if (lat == null || lng == null) return { reason: "no_parcel_at_point", tried: [] };
+  const { data: held } = await supa.rpc("parcel_at_point", { p_lat: lat, p_lng: lng });
   if (held?.parcel_number && held?.county && COUNTIES[held.county]) {
     return { parcel: String(held.parcel_number), county: String(held.county) };
   }
@@ -279,7 +299,7 @@ async function resolveParcelAtPoint(supa: any, p: any): Promise<PointHit> {
   if (COUNTIES[p.county]) order.push(p.county);
   for (const [name, a] of Object.entries(COUNTIES)) {
     const [s, w, n, e] = a.box;
-    if (name !== p.county && p.lat >= s && p.lat <= n && p.lng >= w && p.lng <= e) order.push(name);
+    if (name !== p.county && lat >= s && lat <= n && lng >= w && lng <= e) order.push(name);
   }
   const want = houseNo(p.address);
   const tried: string[] = [];
@@ -293,7 +313,7 @@ async function resolveParcelAtPoint(supa: any, p: any): Promise<PointHit> {
     for (const dist of [0, 30, 80]) {
       let feats: Array<{ attributes: Attrs; geometry: unknown }>;
       try {
-        feats = await arcgisPointQuery(a.service, p.lat, p.lng, dist);
+        feats = await arcgisPointQuery(a.service, lat, lng, dist);
       } catch (e) {
         lastErr = String(e);
         break; // this county is down or unhappy; try the next one
@@ -317,7 +337,7 @@ async function resolveParcelAtPoint(supa: any, p: any): Promise<PointHit> {
   return { reason: ambiguous ? "ambiguous" : "no_parcel_at_point", tried };
 }
 
-async function enrichOne(supa: any, p: any) {
+async function enrichOne(supa: SupabaseClient, p: PropertyRow) {
   let adapter = COUNTIES[p.county];
   if (!adapter) return { id: p.id, status: "unsupported_county" };
   let firstParcel = String(p.parcel_number || "").split(",")[0].trim();
@@ -441,19 +461,19 @@ Deno.serve(async (req) => {
     const ids: string[] | undefined = Array.isArray(body.property_ids) ? body.property_ids : undefined;
     const counties = Object.keys(COUNTIES);
 
-    let q = supa.from("properties")
+    const q = supa.from("properties")
       .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description");
-    let props: any[] | null = null;
+    let props: PropertyRow[] | null = null;
     if (ids) {
       const { data, error } = await q.in("id", ids);
       if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-      props = data;
+      props = data as PropertyRow[];
     } else {
       // parcel lane first (cheap, exact), then the point lane for parcel-less rows with a pin
       const { data: a, error: ea } = await q.is("appraiser_updated_at", null).in("county", counties)
         .not("parcel_number", "is", null).limit(limit);
       if (ea) return new Response(JSON.stringify({ error: ea.message }), { status: 500 });
-      props = a || [];
+      props = (a || []) as PropertyRow[];
       // one county round-trip per row (~1s): cap the lane so a 100-row drain stays inside
       // the caller's 120s timeout (WF4 every 10 min)
       const POINT_LANE_CAP = 40;
@@ -464,11 +484,11 @@ Deno.serve(async (req) => {
           .not("lat", "is", null).not("lng", "is", null).eq("is_condo_unit", false)
           .order("created_at", { ascending: false }).limit(Math.min(limit - props.length, POINT_LANE_CAP));
         if (eb) return new Response(JSON.stringify({ error: eb.message }), { status: 500 });
-        props = props.concat(b || []);
+        props = props.concat((b || []) as PropertyRow[]);
       }
     }
 
-    const results: any[] = [];
+    const results: Array<Awaited<ReturnType<typeof enrichOne>>> = [];
     for (const p of props || []) {
       results.push(await enrichOne(supa, p));
       await new Promise((r) => setTimeout(r, 150)); // be polite to county servers
@@ -486,7 +506,7 @@ Deno.serve(async (req) => {
       remaining = (c1 ?? 0) + (c2 ?? 0);
     }
 
-    const tally = results.reduce((m: any, r: any) => {
+    const tally = results.reduce<Record<string, number>>((m, r) => {
       m[r.status] = (m[r.status] || 0) + 1;
       return m;
     }, {});

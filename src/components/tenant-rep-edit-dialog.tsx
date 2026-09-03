@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { Archive, ArchiveRestore } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,15 +22,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { propertyKindLabels, tenantPropertyTypeOptions } from '@/components/property-form-dialog'
+import { propertyKindLabels, tenantPropertyTypeOptions } from '@/lib/labels'
 import { ContactSelect } from '@/components/contact-select'
-import { leadSourceLabels } from '@/components/source-badge'
-import {
-  BuyerCriteriaFields,
-  buyerCriteriaToRow,
-  emptyBuyerCriteria,
-} from '@/components/buyer-criteria-fields'
-import type { BuyerCriteria } from '@/components/buyer-criteria-fields'
+import { leadSourceLabels } from '@/lib/labels'
+import { BuyerCriteriaFields } from '@/components/buyer-criteria-fields'
+import { buyerCriteriaToRow, emptyBuyerCriteria, type BuyerCriteria } from '@/lib/buyer-criteria'
 import { useUpdateClientStatus, useUpdateTenantRep } from '@/hooks/use-tenant-reps'
 import { AreaDrawMap } from '@/components/area-draw-map'
 import { isArchivedClient, parseTargetAreas } from '@/lib/clients'
@@ -147,7 +144,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
   const [criteria, setCriteria] = useState<BuyerCriteria>(emptyBuyerCriteria)
   const [areas, setAreas] = useState<TargetArea[]>([])
 
-  useEffect(() => {
+  useResetOn([open, tenantRep], () => {
     if (!open) return
     setBrokerId(tenantRep.broker_contact_id ?? null)
     setAreas(parseTargetAreas(tenantRep.target_areas))
@@ -176,7 +173,7 @@ export function TenantRepEditDialog({ open, onOpenChange, tenantRep }: TenantRep
       rent_budget_max: s(tenantRep.rent_budget_max),
       must_haves: s(tenantRep.must_haves),
     })
-  }, [open, tenantRep])
+  })
 
   const set = (k: string) => (e: { target: { value: string } }) =>
     setF((prev) => ({ ...prev, [k]: e.target.value }))

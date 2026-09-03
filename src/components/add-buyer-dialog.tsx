@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -22,13 +23,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
 import { ConversationLog } from '@/components/conversation-log'
-import { leadSourceLabels } from '@/components/source-badge'
-import {
-  BuyerCriteriaFields,
-  buyerCriteriaToRow,
-  emptyBuyerCriteria,
-} from '@/components/buyer-criteria-fields'
-import type { BuyerCriteria } from '@/components/buyer-criteria-fields'
+import { leadSourceLabels } from '@/lib/labels'
+import { BuyerCriteriaFields } from '@/components/buyer-criteria-fields'
+import { buyerCriteriaToRow, emptyBuyerCriteria, type BuyerCriteria } from '@/lib/buyer-criteria'
 import { Building2, Plus, X } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { useContactConversations } from '@/hooks/use-communications'
@@ -100,7 +97,7 @@ export function AddBuyerDialog({
   > | null>(null)
   const propResults = usePropertySearch(propSearch)
 
-  useEffect(() => {
+  useResetOn([open, prefill?.contactId, prefill?.companyId], () => {
     if (!open) return
     setContactId(prefill?.contactId ?? null)
     setCompanyId(prefill?.companyId ?? null)
@@ -110,7 +107,7 @@ export function AddBuyerDialog({
     setCriteria(emptyBuyerCriteria())
     setPropSearch('')
     setInquiredProp(null)
-  }, [open, prefill?.contactId, prefill?.companyId])
+  })
 
   // The calls, texts and VA notes already logged against this person — shown in the form
   // so filling in criteria doesn't mean remembering the conversation cold.

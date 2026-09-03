@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -24,22 +25,7 @@ import { useCreateProperty, useUpdateProperty, useEnrichProperty } from '@/hooks
 import type { Property } from '@/hooks/use-properties'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
-
-export const propertyKindLabels: Record<Enums<'property_kind'>, string> = {
-  industrial: 'Industrial',
-  office: 'Office',
-  retail: 'Retail',
-  land: 'Land',
-  other: 'Other',
-}
-
-/** Property types offered for tenant requirements (a focused subset). */
-export const tenantPropertyTypeOptions: Enums<'property_kind'>[] = [
-  'office',
-  'retail',
-  'industrial',
-  'land',
-]
+import { propertyKindLabels } from '@/lib/labels'
 
 /** Radix Select cannot use an empty string for an item value, so null maps to this sentinel. */
 const NO_TYPE = '__none__'
@@ -69,7 +55,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
   const [specs, setSpecs] = useState('')
   const [listingStatus, setListingStatus] = useState<Enums<'listing_market_status'>>('on_market')
 
-  useEffect(() => {
+  useResetOn([open, property], () => {
     if (open) {
       // the form edits properties.address itself, so it shows the source address rather than
       // the county situs address the rest of the app displays — otherwise opening a property
@@ -86,7 +72,7 @@ export function PropertyFormDialog({ open, onOpenChange, property }: PropertyFor
       setSpecs(property?.specs ?? '')
       setListingStatus(property?.listing_status ?? 'on_market')
     }
-  }, [open, property])
+  })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()

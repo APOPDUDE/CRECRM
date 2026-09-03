@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -42,7 +43,7 @@ export function EnrichParcelDialog({ property, open, onOpenChange }: EnrichParce
   const [county, setCounty] = useState('')
   const [notFound, setNotFound] = useState(false)
 
-  useEffect(() => {
+  useResetOn([open, property], () => {
     if (open) {
       setParcel(property.parcel_number ?? '')
       setCounty(
@@ -50,7 +51,7 @@ export function EnrichParcelDialog({ property, open, onOpenChange }: EnrichParce
       )
       setNotFound(false)
     }
-  }, [open, property])
+  })
 
   const pending = updateProperty.isPending || enrich.isPending
   const canSubmit = !!parcel.trim() && !!county && !pending

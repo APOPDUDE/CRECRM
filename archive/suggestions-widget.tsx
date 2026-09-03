@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { PropertyPreview } from '@/components/property-preview'
-import { propertyKindLabels } from '@/components/property-form-dialog'
+import { propertyKindLabels } from '@/lib/labels'
 import {
   clientLabel,
   scoreSuggestion,

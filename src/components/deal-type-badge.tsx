@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import type { Enums } from '@/lib/database.types'
 import { cn } from '@/lib/utils'
 
-export const dealTypeLabels: Record<Enums<'deal_type'>, string> = {
+const dealTypeLabels: Record<Enums<'deal_type'>, string> = {
   lease: 'Lease',
   sale: 'Sale',
   both: 'Both',

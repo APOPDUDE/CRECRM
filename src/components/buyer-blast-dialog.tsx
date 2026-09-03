@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useResetOn } from '@/hooks/use-reset-on'
 import { Loader2, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -62,7 +63,7 @@ export type BlastDeal = {
  * not the finished message. The `|| "…"` fallback is GHL's own syntax and is what keeps
  * a contact with no first name from getting "Hi ,".
  */
-export const MERGE_FIELDS: { label: string; token: string }[] = [
+const MERGE_FIELDS: { label: string; token: string }[] = [
   { label: 'First name', token: '{{contact.first_name || "there"}}' },
   { label: 'Company', token: '{{contact.company_name}}' },
   { label: 'What they buy', token: '{{buyer.product}}' },
@@ -72,12 +73,12 @@ export const MERGE_FIELDS: { label: string; token: string }[] = [
 ]
 
 /** Render exactly the way the workflow will, so a preview is proof rather than a guess. */
-export function renderMerge(template: string, b: BlastBuyer | undefined): string {
+function renderMerge(template: string, b: BlastBuyer | undefined): string {
   if (!b) return template
   return renderFor(template, b.clientId || b.phone, contactValues(b))
 }
 
-export function composeMessage(deal: BlastDeal | null, dealUrl: string): string {
+function composeMessage(deal: BlastDeal | null, dealUrl: string): string {
   if (!deal) return ''
   const where = [deal.address, deal.city].filter(Boolean).join(', ')
   const size = [
@@ -142,7 +143,7 @@ export function BuyerBlastDialog({
   const userId = session?.user.id
   const results = usePropertyPointSearch(dealQuery)
 
-  useEffect(() => {
+  useResetOn([open], () => {
     if (!open) return
     setSegment('')
     setDealQuery('')
@@ -151,12 +152,12 @@ export function BuyerBlastDialog({
     setMessage('')
     setTouched(false)
     setMode('draft')
-  }, [open])
+  })
 
   // Retype the message whenever the deal changes, until the user edits it themselves.
-  useEffect(() => {
+  useResetOn([deal, dealUrl, touched], () => {
     if (!touched) setMessage(composeMessage(deal, dealUrl))
-  }, [deal, dealUrl, touched])
+  })
 
   const pickDeal = async (p: PropertyPoint) => {
     setDealQuery('')
