@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -9,6 +9,7 @@ import {
   UTILITY_LAYERS,
   imageryCoverage,
   type ReferenceLayerId,
+  type UtilityLayer,
   type UtilityLayerId,
 } from '@/lib/map-layers'
 import type { OverlayState } from '@/lib/overlays'
@@ -44,8 +45,26 @@ function Section({
   )
 }
 
+const INFRA_LAYERS = UTILITY_LAYERS.filter((l) => l.group === 'infrastructure')
+const ENV_LAYERS = UTILITY_LAYERS.filter((l) => l.group === 'environment')
+
+function LayerRow({ layer, checked, onToggle }: { layer: UtilityLayer; checked: boolean; onToggle: () => void }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2" title={layer.hint}>
+      <Checkbox checked={checked} onCheckedChange={onToggle} className="mt-0.5" />
+      <span className="flex flex-col">
+        <span className="flex items-center gap-2">
+          <Dot color={layer.color} />
+          {layer.label}
+        </span>
+        <span className="text-xs text-muted-foreground">{layer.hint}</span>
+      </span>
+    </label>
+  )
+}
+
 /**
- * The rail's Reference / Utilities + easements / Historical imagery entries — the
+ * The rail's Reference / Utilities + easements / Environment / Historical imagery entries — the
  * Paxiv Overlays and Basemap panels, in the same expandable shape as the zoning
  * layers above them. State lives in the parent's OverlayState so it persists with
  * the rest of the map.
@@ -59,8 +78,10 @@ export function MapLayerControls({
 }) {
   const anyReference = REFERENCE_LAYERS.some((l) => state.reference[l.id])
   const [refOpen, setRefOpen] = useState(anyReference)
-  const anyUtility = UTILITY_LAYERS.some((l) => state.utilities[l.id])
+  const anyUtility = INFRA_LAYERS.some((l) => state.utilities[l.id])
+  const anyEnv = ENV_LAYERS.some((l) => state.utilities[l.id])
   const [utilOpen, setUtilOpen] = useState(anyUtility || state.easements)
+  const [envOpen, setEnvOpen] = useState(anyEnv)
   const [imgOpen, setImgOpen] = useState(state.imageryYear != null)
 
   const toggleReference = (id: ReferenceLayerId) =>
@@ -68,13 +89,14 @@ export function MapLayerControls({
 
   const toggleUtility = (id: UtilityLayerId) =>
     onChange({ ...state, utilities: { ...state.utilities, [id]: !state.utilities[id] } })
+  // Select all / Clear act on this section only — the environment layers keep their own state
   const setAllLayers = (on: boolean) =>
     onChange({
       ...state,
-      utilities: Object.fromEntries(UTILITY_LAYERS.map((l) => [l.id, on])) as Partial<Record<UtilityLayerId, boolean>>,
+      utilities: { ...state.utilities, ...Object.fromEntries(INFRA_LAYERS.map((l) => [l.id, on])) },
       easements: on,
     })
-  const allOn = UTILITY_LAYERS.every((l) => state.utilities[l.id]) && state.easements
+  const allOn = INFRA_LAYERS.every((l) => state.utilities[l.id]) && state.easements
   const noneOn = !anyUtility && !state.easements
 
   const years = [...IMAGERY_YEARS].reverse()
@@ -109,22 +131,8 @@ export function MapLayerControls({
             Clear
           </Button>
         </div>
-        {UTILITY_LAYERS.map((l, i) => (
-          <Fragment key={l.id}>
-            {i > 0 && UTILITY_LAYERS[i - 1].group !== l.group && (
-              <div className="pt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">Environment</div>
-            )}
-            <label className="flex cursor-pointer items-start gap-2" title={l.hint}>
-              <Checkbox checked={!!state.utilities[l.id]} onCheckedChange={() => toggleUtility(l.id)} className="mt-0.5" />
-              <span className="flex flex-col">
-                <span className="flex items-center gap-2">
-                  <Dot color={l.color} />
-                  {l.label}
-                </span>
-                <span className="text-xs text-muted-foreground">{l.hint}</span>
-              </span>
-            </label>
-          </Fragment>
+        {INFRA_LAYERS.map((l) => (
+          <LayerRow key={l.id} layer={l} checked={!!state.utilities[l.id]} onToggle={() => toggleUtility(l.id)} />
         ))}
         <label className="flex cursor-pointer items-start gap-2" title={EASEMENT_LAYER.hint}>
           <Checkbox
@@ -142,6 +150,17 @@ export function MapLayerControls({
         </label>
         <p className="text-xs text-muted-foreground">
           Mains show from zoom 16 and easements from 15 (a few blocks). Hover a line for diameter, material, status and owner.
+        </p>
+      </Section>
+
+      {/* The ground itself — its own dropdown (Alex 2026-09-03: not stuffed in with utilities). */}
+      <Section title="Environment" open={envOpen} onToggle={() => setEnvOpen((v) => !v)}>
+        {ENV_LAYERS.map((l) => (
+          <LayerRow key={l.id} layer={l} checked={!!state.utilities[l.id]} onToggle={() => toggleUtility(l.id)} />
+        ))}
+        <p className="text-xs text-muted-foreground">
+          From zoom 12 in. Shapes are FEMA and NWI polygons dissolved and smoothed for the screen; hover for the zone,
+          base flood elevation, wetland class and code.
         </p>
       </Section>
 
