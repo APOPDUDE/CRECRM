@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { APPROVED_STATUSES } from '@/lib/deal-radar'
 import type { Enums, Tables } from '@/lib/database.types'
 
 export type DealRadarStatus = Enums<'deal_radar_status'>
@@ -9,8 +10,8 @@ export type DealRadarIntent = Enums<'deal_radar_intent'>
 export type DealRadarRow = Tables<'deal_radar'>
 
 export interface DealRadarFilters {
-  /** null = the default working set (everything not dead/converted). */
-  status?: DealRadarStatus | 'open' | null
+  /** 'open' = untriaged new listings; 'approved_bucket' = approved + converted. */
+  status?: DealRadarStatus | 'open' | 'approved_bucket' | null
   market?: string | null
   location?: string | null
   type?: DealRadarType | null
@@ -21,11 +22,12 @@ export interface DealRadarFilters {
   minSqft?: number | null
 }
 
-const OPEN_STATUSES: DealRadarStatus[] = ['new', 'messaged', 'replied', 'negotiating']
+// The untriaged working set. Approve/decline moves a listing out of it.
+const OPEN_STATUSES: DealRadarStatus[] = ['new']
 
 /**
- * The radar feed, newest first. Default (`status: 'open'`) hides dead/converted;
- * pass a concrete status to pin one column, or null for everything.
+ * The radar feed, newest first. `status: 'open'` = the untriaged new set;
+ * 'approved_bucket' = approved + converted; a concrete status pins one; null = all.
  */
 export function useDealRadar(filters: DealRadarFilters = { status: 'open' }) {
   return useQuery({
@@ -33,6 +35,7 @@ export function useDealRadar(filters: DealRadarFilters = { status: 'open' }) {
     queryFn: async (): Promise<DealRadarRow[]> => {
       let q = supabase.from('deal_radar').select('*').order('found_at', { ascending: false }).limit(500)
       if (filters.status === 'open') q = q.in('status', OPEN_STATUSES)
+      else if (filters.status === 'approved_bucket') q = q.in('status', APPROVED_STATUSES)
       else if (filters.status) q = q.eq('status', filters.status)
       if (filters.market) q = q.eq('market', filters.market)
       if (filters.location) q = q.eq('location_text', filters.location)
@@ -106,14 +109,14 @@ export function useUpdateDealRadarStatus() {
   })
 }
 
-/** Optimistic flip to Messaged when the human copies + opens the listing. */
-export function useMarkMessaged() {
+/** Messaging the owner IS approving it — flip New → Approved and stamp the reach-out. */
+export function useMarkApproved() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('deal_radar')
-        .update({ status: 'messaged', messaged_at: new Date().toISOString() })
+        .update({ status: 'approved', messaged_at: new Date().toISOString() })
         .eq('id', id)
         .eq('status', 'new') // don't stomp a later status on a re-click
       if (error) throw error
@@ -158,7 +161,7 @@ export function useDealRadarLocations() {
         .from('deal_radar')
         .select('location_text')
         .not('location_text', 'is', null)
-        .neq('status', 'dead')
+        .neq('status', 'declined')
       if (error) throw error
       const set = new Set<string>()
       for (const r of data ?? []) if (r.location_text) set.add(r.location_text)
@@ -168,8 +171,9 @@ export function useDealRadarLocations() {
 }
 
 /**
- * New Facebook listings awaiting dashboard triage (status 'new', not yet reviewed),
- * grouped by sale/lease/unknown for the dashboard widget.
+ * New Facebook listings awaiting dashboard triage (status 'new'), grouped by
+ * sale/lease/unknown. The human approves (✓) or declines (✗) each; either moves
+ * it out of 'new' so the widget only ever shows what still needs a decision.
  */
 export function useFacebookTriage() {
   return useQuery({
@@ -179,7 +183,6 @@ export function useFacebookTriage() {
         .from('deal_radar')
         .select('*')
         .eq('status', 'new')
-        .is('reviewed_at', null)
         .order('found_at', { ascending: false })
         .limit(200)
       if (error) throw error
@@ -191,28 +194,15 @@ export function useFacebookTriage() {
   })
 }
 
-/** "Yes / keep" — stamp reviewed_at so it leaves the triage queue but stays a live radar row. */
-export function useReviewDealRadar() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('deal_radar').update({ reviewed_at: new Date().toISOString() }).eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => invalidate(qc),
-  })
-}
-
-/** "Clear all" for one tab — stamp reviewed_at on every un-reviewed 'new' row of an intent. */
-export function useClearFacebookIntent() {
+/** "Decline all" for one tab — send every new listing of an intent to Declined. */
+export function useDeclineFacebookIntent() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (intent: DealRadarIntent) => {
       const { error } = await supabase
         .from('deal_radar')
-        .update({ reviewed_at: new Date().toISOString() })
+        .update({ status: 'declined' })
         .eq('status', 'new')
-        .is('reviewed_at', null)
         .eq('listing_intent', intent)
       if (error) throw error
     },

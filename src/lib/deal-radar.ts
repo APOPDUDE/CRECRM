@@ -45,34 +45,37 @@ export const typeBadgeClass: Record<DealRadarType, string> = {
   land: 'bg-lime-50 text-lime-700 border-lime-200',
 }
 
-// Status is the human's to move — the worker only ever writes 'new'.
+// The human triages each listing to one of two buckets — approved (pursuing it) or
+// declined (passed). 'converted' marks an approved listing turned into a real CRM
+// deal. The worker only ever writes 'new'. messaged/replied/negotiating/dead are
+// legacy states migrated into the new model; kept here for type-completeness.
 export const statusLabels: Record<DealRadarStatus, string> = {
   new: 'New',
-  messaged: 'Messaged',
-  replied: 'Replied',
-  negotiating: 'Negotiating',
-  dead: 'Dead',
-  converted: 'Converted',
+  approved: 'Approved',
+  declined: 'Declined',
+  converted: 'Deal created',
+  messaged: 'Approved',
+  replied: 'Approved',
+  negotiating: 'Approved',
+  dead: 'Declined',
 }
 
 export const statusBadgeClass: Record<DealRadarStatus, string> = {
   new: 'bg-blue-50 text-blue-700 border-blue-200',
-  messaged: 'bg-violet-50 text-violet-700 border-violet-200',
-  replied: 'bg-amber-50 text-amber-700 border-amber-200',
-  negotiating: 'bg-teal-50 text-teal-700 border-teal-200',
+  approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  declined: 'bg-gray-100 text-gray-500 border-gray-200',
+  converted: 'bg-teal-50 text-teal-700 border-teal-200',
+  messaged: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  replied: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  negotiating: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   dead: 'bg-gray-100 text-gray-500 border-gray-200',
-  converted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 }
 
-/** The order the status dropdown offers moves in. */
-export const STATUS_ORDER: DealRadarStatus[] = [
-  'new',
-  'messaged',
-  'replied',
-  'negotiating',
-  'converted',
-  'dead',
-]
+/** The moves the manual status picker offers. converted is set by Create deal. */
+export const STATUS_ORDER: DealRadarStatus[] = ['new', 'approved', 'declined']
+
+/** The Approved bucket holds greenlit listings plus those already turned into deals. */
+export const APPROVED_STATUSES: DealRadarStatus[] = ['approved', 'converted']
 
 // Sale vs lease, read off the listing title/price by the worker's DB trigger.
 // 'unknown' shows a "?" for the human to categorize.

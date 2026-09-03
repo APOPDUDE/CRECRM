@@ -4,9 +4,8 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
-  useClearFacebookIntent,
+  useDeclineFacebookIntent,
   useFacebookTriage,
-  useReviewDealRadar,
   useUpdateDealRadarStatus,
   type DealRadarIntent,
   type DealRadarRow,
@@ -17,14 +16,13 @@ import { cn } from '@/lib/utils'
 /**
  * Dashboard triage of new Facebook listings. One tab per intent (For sale / For
  * lease / ?), each showing that bucket's listings with the date they were scraped.
- * Per-listing keep (✓ → reviewed_at, stays a live radar row) or dismiss (✗ → dead),
- * plus a per-tab "Clear all" that marks the whole bucket reviewed so only genuinely
- * new listings show up next time. Hidden when nothing is awaiting triage.
+ * Approve (✓ → Approved bucket, where you turn it into a deal) or decline (✗ →
+ * Declined) each; a per-tab "Decline all" clears the rest of the bucket. Both land
+ * on the Deal Radar page's Approved / Declined tabs. Hidden when the queue is empty.
  */
 export function FacebookListingsWidget() {
   const { data } = useFacebookTriage()
-  const review = useReviewDealRadar()
-  const clearIntent = useClearFacebookIntent()
+  const declineIntent = useDeclineFacebookIntent()
   const setStatus = useUpdateDealRadarStatus()
   const [expanded, setExpanded] = useState(false)
   const [tab, setTab] = useState<DealRadarIntent>('sale')
@@ -35,15 +33,18 @@ export function FacebookListingsWidget() {
   const groups = data?.groups ?? { sale: [], lease: [], unknown: [] }
   const rows = groups[tab] ?? []
 
-  const keep = (row: DealRadarRow) => review.mutate(row.id)
-  const dismiss = (row: DealRadarRow) => {
-    setStatus.mutate({ id: row.id, status: 'dead' })
-    toast('Dismissed.')
+  const approve = (row: DealRadarRow) => {
+    setStatus.mutate({ id: row.id, status: 'approved' })
+    toast('Approved — find it under Deal Radar › Approved.')
   }
-  const clearAll = () => {
+  const decline = (row: DealRadarRow) => {
+    setStatus.mutate({ id: row.id, status: 'declined' })
+    toast('Declined.')
+  }
+  const declineAll = () => {
     if (rows.length === 0) return
-    clearIntent.mutate(tab)
-    toast(`Cleared ${rows.length} ${intentLabels[tab]} listing${rows.length > 1 ? 's' : ''}.`)
+    declineIntent.mutate(tab)
+    toast(`Declined ${rows.length} ${intentLabels[tab]} listing${rows.length > 1 ? 's' : ''}.`)
   }
 
   return (
@@ -85,10 +86,10 @@ export function FacebookListingsWidget() {
               size="sm"
               variant="ghost"
               className="ml-auto h-7 text-xs text-muted-foreground"
-              disabled={rows.length === 0 || clearIntent.isPending}
-              onClick={clearAll}
+              disabled={rows.length === 0 || declineIntent.isPending}
+              onClick={declineAll}
             >
-              Clear all
+              Decline all
             </Button>
           </div>
 
@@ -126,8 +127,8 @@ export function FacebookListingsWidget() {
                     size="icon"
                     variant="outline"
                     className={cn('size-7 shrink-0 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700')}
-                    title="Keep"
-                    onClick={() => keep(r)}
+                    title="Approve"
+                    onClick={() => approve(r)}
                   >
                     <Check className="size-4" />
                   </Button>
@@ -135,8 +136,8 @@ export function FacebookListingsWidget() {
                     size="icon"
                     variant="outline"
                     className="size-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600"
-                    title="Dismiss"
-                    onClick={() => dismiss(r)}
+                    title="Decline"
+                    onClick={() => decline(r)}
                   >
                     <X className="size-4" />
                   </Button>

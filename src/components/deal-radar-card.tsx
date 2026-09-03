@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useMarkMessaged, useUpdateDealRadarStatus, type DealRadarRow } from '@/hooks/use-deal-radar'
+import { useMarkApproved, useUpdateDealRadarStatus, type DealRadarRow } from '@/hooks/use-deal-radar'
 import {
   formatRadarPrice,
   formatRadarSize,
@@ -35,7 +35,7 @@ interface DealRadarCardProps {
 }
 
 export function DealRadarCard({ row, openMessenger, onOpenDetail }: DealRadarCardProps) {
-  const markMessaged = useMarkMessaged()
+  const markApproved = useMarkApproved()
   const updateStatus = useUpdateDealRadarStatus()
   const [imgFailed, setImgFailed] = useState(false)
 
@@ -49,8 +49,8 @@ export function DealRadarCard({ row, openMessenger, onOpenDetail }: DealRadarCar
     const copied = await copyToClipboard(message)
     openInNewTab(row.listing_url)
     if (openMessenger) openInNewTab('https://www.messenger.com/')
-    if (row.status === 'new') markMessaged.mutate(row.id)
-    toast(copied ? 'Message copied - paste into Messenger.' : 'Opened listing - copy failed, message shown below.', {
+    if (row.status === 'new') markApproved.mutate(row.id)
+    toast(copied ? 'Message copied - paste into Messenger. Approved.' : 'Opened listing - copy failed, message shown below.', {
       description: copied ? undefined : message,
     })
   }
@@ -60,27 +60,53 @@ export function DealRadarCard({ row, openMessenger, onOpenDetail }: DealRadarCar
     toast(ok ? 'Message copied.' : 'Copy failed.')
   }
 
-  // Cross off from the daily review. Sets 'dead' (leaves the default open view); the
-  // row stays in the DB so the scraper's external_id dedupe never re-adds it as new.
-  function handleDiscard() {
+  // Approve (pursuing it) or decline (passed). The row always stays in the DB so the
+  // scraper's external_id dedupe never re-adds it as new.
+  function handleApprove() {
+    if (row.status === 'approved') return
     const prev = row.status
-    updateStatus.mutate({ id: row.id, status: 'dead' })
-    toast('Crossed off.', {
+    updateStatus.mutate({ id: row.id, status: 'approved' })
+    toast('Approved.', {
+      action: { label: 'Undo', onClick: () => updateStatus.mutate({ id: row.id, status: prev }) },
+    })
+  }
+  function handleDecline() {
+    if (row.status === 'declined') return
+    const prev = row.status
+    updateStatus.mutate({ id: row.id, status: 'declined' })
+    toast('Declined.', {
       action: { label: 'Undo', onClick: () => updateStatus.mutate({ id: row.id, status: prev }) },
     })
   }
 
   return (
     <div className="relative flex flex-col overflow-hidden rounded-lg border bg-card shadow-sm">
-      <button
-        type="button"
-        onClick={handleDiscard}
-        title="Cross off (discard)"
-        aria-label="Cross off this listing"
-        className="absolute right-2 top-2 z-10 flex size-6 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-red-600/90"
-      >
-        <X className="size-3.5" />
-      </button>
+      <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={handleApprove}
+          title="Approve"
+          aria-label="Approve this listing"
+          className={cn(
+            'flex size-6 items-center justify-center rounded-full text-white backdrop-blur transition hover:bg-emerald-600/90',
+            row.status === 'approved' ? 'bg-emerald-600/80' : 'bg-black/45',
+          )}
+        >
+          <Check className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={handleDecline}
+          title="Decline"
+          aria-label="Decline this listing"
+          className={cn(
+            'flex size-6 items-center justify-center rounded-full text-white backdrop-blur transition hover:bg-red-600/90',
+            row.status === 'declined' ? 'bg-red-600/80' : 'bg-black/45',
+          )}
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
       <button
         type="button"
         onClick={() => onOpenDetail?.(row)}

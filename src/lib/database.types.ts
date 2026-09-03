@@ -5478,6 +5478,8 @@ export type Database = {
         | "negotiating"
         | "dead"
         | "converted"
+        | "approved"
+        | "declined"
       deal_radar_type: "industrial" | "land"
       deal_type: "lease" | "sale" | "both"
       email_campaign_purpose:
@@ -5783,6 +5785,8 @@ export const Constants = {
         "negotiating",
         "dead",
         "converted",
+        "approved",
+        "declined",
       ],
       deal_radar_type: ["industrial", "land"],
       deal_type: ["lease", "sale", "both"],

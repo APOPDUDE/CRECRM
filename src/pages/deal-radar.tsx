@@ -27,14 +27,14 @@ import {
 import { INTENT_ORDER, intentLabels, isRunStale, typeLabels } from '@/lib/deal-radar'
 import { numOrNull } from '@/lib/format'
 
-type RadarView = 'all' | 'fbm' | 'groups' | 'converted' | 'dead'
+type RadarView = 'all' | 'fbm' | 'groups' | 'approved' | 'declined'
 
 const VIEW_TABS: { value: RadarView; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'fbm', label: 'FBM' },
   { value: 'groups', label: 'Groups' },
-  { value: 'converted', label: 'Converted' },
-  { value: 'dead', label: 'Dead' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'declined', label: 'Declined' },
 ]
 
 /**
@@ -53,8 +53,9 @@ export function DealRadarPage() {
   const [detailId, setDetailId] = useState<string | null>(null)
 
   const filters: DealRadarFilters = {
-    // All / FBM / Groups show the working set; Converted and Dead are their own views.
-    status: view === 'dead' ? 'dead' : view === 'converted' ? 'converted' : 'open',
+    // All / FBM / Groups show the untriaged set; Approved and Declined are their own views.
+    status:
+      view === 'declined' ? 'declined' : view === 'approved' ? 'approved_bucket' : 'open',
     source: view === 'fbm' ? 'marketplace' : view === 'groups' ? 'group' : null,
     location: location === 'all' ? null : location,
     type: type === 'all' ? null : type,
@@ -190,10 +191,10 @@ export function DealRadarPage() {
       ) : rows.length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
           <Radar className="mx-auto mb-2 size-6 opacity-40" />
-          {view === 'dead'
-            ? 'Nothing crossed off yet.'
-            : view === 'converted'
-              ? 'No deals created from listings yet.'
+          {view === 'declined'
+            ? 'Nothing declined yet.'
+            : view === 'approved'
+              ? 'Nothing approved yet — approve a listing to line it up for a deal.'
               : 'No listings match this filter yet. The worker polls every 3 hours.'}
         </div>
       ) : (
