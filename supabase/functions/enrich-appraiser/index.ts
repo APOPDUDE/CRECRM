@@ -301,8 +301,11 @@ async function resolveParcelAtPoint(supa: any, p: any): Promise<PointHit> {
       const withId = feats.filter((f) => String((f.attributes || {})[a.idField] ?? "").trim());
       if (!withId.length) continue;
       const exact = want ? withId.filter((f) => houseNo(a.situs(f.attributes || {})) === want) : [];
+      // a lone neighbour within 30 m is accepted only when it is a real situs parcel -- the
+      // road right-of-way ("Public Lands", situs 0) is the lone neighbour of every street pin
+      const situsNo = (f: { attributes: Attrs }) => houseNo(a.situs(f.attributes || {}));
       const pick = exact.length === 1 ? exact[0]
-        : (dist < 80 && withId.length === 1 ? withId[0] : null);
+        : (withId.length === 1 && (dist === 0 || (dist < 80 && situsNo(withId[0]) != null && situsNo(withId[0]) !== "0")) ? withId[0] : null);
       if (pick) {
         return { parcel: String((pick.attributes || {})[a.idField]).trim(), county: name, feature: pick };
       }
