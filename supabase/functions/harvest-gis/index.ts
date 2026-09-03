@@ -344,23 +344,25 @@ const LAYERS: Record<string, Layer> = {
   // mapper typed them into Name), the City of Lakeland publishes one master easement
   // layer with book/page, width and a flag per type, and FDEP's CLEAR inventory carries
   // every recorded conservation easement in the state (county: null = applies to every
-  // county — the enrichers treat those as statewide coverage).
+  // county — the enrichers treat those as statewide coverage). Pages are small: these
+  // are heavy polygons, and a 2,000-feature page blew import_gis_features' 8 s budget.
   ez_hillsborough_pa: {
     url: "https://services.arcgis.com/apTfC6SUmnNfnxuF/arcgis/rest/services/HCPA_Property_Easements/FeatureServer/0",
     county: "Hillsborough", where: "1=1",
-    outFields: "FID,Name,Encumbranc,StatedArea,Historical", clip: false, page: 2000, oid: "FID", keyset: true,
+    outFields: "FID,Name,Encumbranc,StatedArea,Historical", clip: false, page: 500, oid: "FID", keyset: true,
   },
   ez_lakeland: {
     url: "https://services1.arcgis.com/mcbQY5xNGGGM1vBX/arcgis/rest/services/Easements/FeatureServer/3",
     county: "Polk", where: "1=1",
     outFields: "OBJECTID,RECORDED,REC_TYPE,BOOK,PAGE,LABEL,WIDTH,WIDTH_TYPE,WIDTHVARIES,BLANKET,SUBORDINATION,VACATED,PRELIMARY,UTILITY,ELECTRIC,DRAINAGE,WATER,WASTEWATER,GAS,INGRESS_EGRESS,SIDEWALK,PEDESTRIAN,LANDSCAPE,COMMUNICATION,LIFTSTATION,TRAFFICSIGNALIZATION,RDWY_DRWY_ALLEY,WALLFENCE,LINEOFSITE,ENVIRONMENTALTYPE,PRIVATE_ESMT,PUBLIC_ESMT,OWNER,ONBASE_URL",
-    clip: false, page: 2000, oid: "OBJECTID", keyset: true,
+    // blanket easements over whole subdivisions: 500 a page still timed out the import
+    clip: false, page: 100, oid: "OBJECTID", keyset: true,
   },
   ez_fdep_clear_conservation: {
     url: "https://ca.dep.state.fl.us/arcgis/rest/services/OpenData/STATE_OWNED_LANDS/MapServer/1",
     county: null, where: "1=1",
     outFields: "OBJECTID,FL_SOLARIS_LAND_ID,LOCATION_NAME,GRANTEE_TYPE_NAME,AGENCY_NAME,INVENTORY_ACRES_NBR",
-    clip: true, page: 1000, oid: "OBJECTID", keyset: true,
+    clip: true, page: 100, oid: "OBJECTID", keyset: true,
   },
 };
 
