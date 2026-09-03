@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useResetOn } from '@/hooks/use-reset-on'
-import { ExternalLink, Handshake } from 'lucide-react'
+import { Check, ExternalLink, Handshake, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,12 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { CreateDealDialog } from '@/components/create-deal-dialog'
-import { useSetDealRadarIntent, useUpdateDealRadar, type DealRadarRow } from '@/hooks/use-deal-radar'
+import {
+  useSetDealRadarIntent,
+  useUpdateDealRadar,
+  useUpdateDealRadarStatus,
+  type DealRadarRow,
+} from '@/hooks/use-deal-radar'
 import {
   type DealRadarIntent,
   formatRadarPrice,
@@ -51,6 +56,7 @@ interface DealRadarDetailProps {
 export function DealRadarDetail({ row, open, onOpenChange }: DealRadarDetailProps) {
   const update = useUpdateDealRadar()
   const setIntent = useSetDealRadarIntent()
+  const updateStatus = useUpdateDealRadarStatus()
   const [notes, setNotes] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
 
@@ -140,6 +146,32 @@ export function DealRadarDetail({ row, open, onOpenChange }: DealRadarDetailProp
                 </div>
               )}
             </dl>
+
+            {/* Triage: approve to pursue (then Create deal), or decline to pass. */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={row.status === 'approved' || row.status === 'converted' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => {
+                  updateStatus.mutate({ id: row.id, status: 'approved' })
+                  toast('Approved.')
+                }}
+              >
+                <Check className="size-4" />
+                {row.status === 'approved' || row.status === 'converted' ? 'Approved' : 'Approve'}
+              </Button>
+              <Button
+                variant={row.status === 'declined' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => {
+                  updateStatus.mutate({ id: row.id, status: 'declined' })
+                  toast('Declined.')
+                }}
+              >
+                <X className="size-4" />
+                {row.status === 'declined' ? 'Declined' : 'Decline'}
+              </Button>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <Button className="flex-1" onClick={() => setCreateOpen(true)}>

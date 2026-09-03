@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select'
 import { useAuth } from '@/hooks/use-auth'
 import { useCreateProperty, useEnrichProperty } from '@/hooks/use-properties'
+import { useCreateListing } from '@/hooks/use-listings'
 import { useUpsertContactByPhone } from '@/hooks/use-contacts'
 import { useAddVerifiedContact } from '@/hooks/use-owners'
 import type { DealRadarRow } from '@/hooks/use-deal-radar'
@@ -57,6 +58,7 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
   const { session } = useAuth()
   const userId = session?.user.id
   const createProperty = useCreateProperty()
+  const createListing = useCreateListing()
   const enrich = useEnrichProperty()
   const upsertContact = useUpsertContactByPhone()
   const addVerifiedOwner = useAddVerifiedContact()
@@ -68,6 +70,7 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [type, setType] = useState<Enums<'contact_category'>>('owning_entity')
+  const [dealKind, setDealKind] = useState<'lead' | 'landlord'>('lead')
   const [busy, setBusy] = useState(false)
 
   useResetOn([open, row?.id], () => {
@@ -80,6 +83,7 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
       setPhone('')
       setEmail('')
       setType('owning_entity')
+      setDealKind('lead')
       setBusy(false)
     }
   })
@@ -178,9 +182,25 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
         }
       }
 
-      // 4. The prospect (standalone lead) — best-effort. Needs a contact or a company:
-      //    the typed contact, else the county-found owner company. Skip if neither.
-      if (contactId || ownerCompanyId) {
+      // 4. The deal record — best-effort so the radar link (step 5) always lands.
+      if (dealKind === 'landlord') {
+        // Landlord rep: a listing on this property, the owner as landlord. deal_type
+        // follows the listing's intent (unknown -> both, i.e. for lease or sale).
+        try {
+          await createListing.mutateAsync({
+            owner_id: userId,
+            property_id: primaryId,
+            deal_type:
+              row!.listing_intent === 'lease' ? 'lease' : row!.listing_intent === 'sale' ? 'sale' : 'both',
+            landlord_company_id: ownerCompanyId,
+            landlord_contact_id: contactId,
+          })
+        } catch (err) {
+          toast.error(friendlyDbError(err, 'Property added, but the landlord listing was not created'))
+        }
+      } else if (contactId || ownerCompanyId) {
+        // Lead: a standalone prospect. Needs a contact or a company — the typed contact,
+        // else the county-found owner company. Skip if neither.
         try {
           const { data: prospect, error: pErr } = await supabase
             .from('prospects')
@@ -208,7 +228,7 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
         .update({ status: 'converted', property_id: primaryId, contact_id: contactId })
         .eq('id', row!.id)
 
-      toast.success('Deal created')
+      toast.success(dealKind === 'landlord' ? 'Landlord listing created' : 'Lead created')
       onCreated?.()
       onOpenChange(false)
     } catch (err) {
@@ -226,6 +246,28 @@ export function CreateDealDialog({ row, open, onOpenChange, onCreated }: CreateD
           <DialogDescription className="line-clamp-1">{row.title}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-2">
+            <Label>Convert to</Label>
+            <div className="flex gap-2">
+              {(['lead', 'landlord'] as const).map((k) => (
+                <Button
+                  key={k}
+                  type="button"
+                  size="sm"
+                  variant={dealKind === k ? 'default' : 'outline'}
+                  onClick={() => setDealKind(k)}
+                >
+                  {k === 'lead' ? 'Lead' : 'Landlord deal'}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {dealKind === 'landlord'
+                ? 'Creates a landlord-rep listing on this property (owner as landlord).'
+                : 'Opens a standalone lead to follow up with tasks.'}
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="deal-address">Address</Label>
             <Input

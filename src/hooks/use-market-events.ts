@@ -128,6 +128,37 @@ export function useMarketEventAlerts() {
   })
 }
 
+export type MarketEventFeedRow = Tables<'v_market_event_feed'>
+
+/**
+ * Dashboard Market Monitor feed: NEW events joined to owner-verification, so the
+ * widget can toggle "verified contacts only" vs "all" and slice by category.
+ * Returns the rows plus a per-category tally for the picker. v_market_event_feed
+ * is security_invoker, so the VA silo still applies.
+ */
+export function useMarketEventFeed(verifiedOnly: boolean) {
+  return useQuery({
+    queryKey: ['market_events', 'feed', verifiedOnly],
+    queryFn: async () => {
+      let q = supabase
+        .from('v_market_event_feed')
+        .select('*')
+        .eq('status', 'new')
+        .order('first_seen_at', { ascending: false })
+        .limit(500)
+      if (verifiedOnly) q = q.eq('owner_contact_verified', true)
+      const { data, error } = await q
+      if (error) throw error
+      const rows = (data ?? []) as MarketEventFeedRow[]
+      const byType: Partial<Record<MarketEventType, number>> = {}
+      for (const r of rows) {
+        if (r.event_type) byType[r.event_type] = (byType[r.event_type] ?? 0) + 1
+      }
+      return { rows, byType, total: rows.length }
+    },
+  })
+}
+
 /** Human label for a market_events source key (shared by the feed + property history). */
 export function marketSourceLabel(source: string): string {
   const fixed: Record<string, string> = {

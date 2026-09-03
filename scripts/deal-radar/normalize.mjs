@@ -59,6 +59,10 @@ const JUNK = [
   /land\s*scap/i, // landscaping services/equipment
   /\blandline\b|\blander\b/i,
   /timeshare|vacation rental/i,
+  // "industrial-style" home goods & furniture that ride the CRE searches — the
+  // "industrial barstool" problem. Consumer terms that never head a real listing.
+  /bar\s?stool|\bstool\b|\bfurniture\b|\bdecor\b|\bchair\b|\bsofa\b|\bcouch\b|\bdesk\b|dresser|nightstand|mattress|\brug\b|curtain|\blamp\b|chandelier|sconce|ottoman|headboard/i,
+  /\bsink\b|\bfaucet\b|\bvase\b|\bplanter\b|\bmirror\b|dining\s+set|bed\s+frame/i,
 ]
 
 const LAND = [
@@ -86,7 +90,13 @@ const INDUSTRIAL_STRONG = [
 ]
 
 // "industrial" on its own is usually a zoning adjective, so it ranks BELOW land.
-const INDUSTRIAL_WEAK = [/industrial/i]
+// But bare /industrial/i also matched "industrial barstool" / "industrial chic
+// decor". Require it to sit next to a CRE noun, or the listing to state a
+// lease/sale/size, so consumer goods with the "industrial" style tag drop out.
+const INDUSTRIAL_WEAK = [
+  /\bindustrial\s+(?:building|unit|space|park|property|lot|land|zoned|zoning|condo|complex|bay|suite|warehouse|yard|flex|acreage)\b/i,
+  /\bindustrial\b.*\b(?:for\s+(?:lease|rent|sale)|\d[\d,.]*\s*(?:sf|sq\.?\s*ft|acres?))\b/i,
+]
 
 /**
  * industrial | land | null (null = don't persist). Precedence:

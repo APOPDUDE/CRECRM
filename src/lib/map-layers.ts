@@ -10,10 +10,12 @@
  * Wayback, county aerials, SWFWMD), because tiles are what those servers exist for.
  */
 
-export type UtilityLayerId = 'water' | 'sewer' | 'electric' | 'gas' | 'rail'
+export type UtilityLayerId = 'water' | 'sewer' | 'electric' | 'gas' | 'rail' | 'flood' | 'wetlands'
 
 export type UtilityLayer = {
   id: UtilityLayerId
+  /** the rail's heading: what is in the ground vs what the ground is */
+  group: 'infrastructure' | 'environment'
   label: string
   color: string
   /** the map_layer_features kinds this switch turns on */
@@ -33,6 +35,12 @@ export const SEWER_COLOR = '#db2777'
 export const ELECTRIC_COLOR = '#f59e0b'
 export const GAS_COLOR = '#7c3aed'
 export const RAIL_COLOR = '#1f2937'
+export const FLOOD_COLOR = '#2563eb'
+export const FLOOD_02_COLOR = '#f59e0b'
+export const FLOODWAY_COLOR = '#1e3a8a'
+export const COASTAL_COLOR = '#7e22ce'
+export const WETLAND_COLOR = '#15803d'
+export const WETLAND_WATER_COLOR = '#0891b2'
 export const EASEMENT_COLOR = '#ea580c'
 /** public right-of-way strips in the same inventory as the easements — context, not encumbrance */
 export const ROW_COLOR = '#64748b'
@@ -43,6 +51,7 @@ export const ROW_COLOR = '#64748b'
 export const UTILITY_LAYERS: UtilityLayer[] = [
   {
     id: 'water',
+    group: 'infrastructure',
     label: 'Water mains',
     color: WATER_COLOR,
     kinds: ['water_main'],
@@ -51,6 +60,7 @@ export const UTILITY_LAYERS: UtilityLayer[] = [
   },
   {
     id: 'sewer',
+    group: 'infrastructure',
     label: 'Sewer mains',
     color: SEWER_COLOR,
     kinds: ['sewer_gravity', 'sewer_force'],
@@ -59,6 +69,7 @@ export const UTILITY_LAYERS: UtilityLayer[] = [
   },
   {
     id: 'electric',
+    group: 'infrastructure',
     label: 'Electric transmission + substations',
     color: ELECTRIC_COLOR,
     kinds: ['electric_transmission', 'electric_substation'],
@@ -67,6 +78,7 @@ export const UTILITY_LAYERS: UtilityLayer[] = [
   },
   {
     id: 'gas',
+    group: 'infrastructure',
     label: 'Gas transmission',
     color: GAS_COLOR,
     kinds: ['gas_transmission'],
@@ -75,12 +87,36 @@ export const UTILITY_LAYERS: UtilityLayer[] = [
   },
   {
     id: 'rail',
+    group: 'infrastructure',
     label: 'Railroads',
     color: RAIL_COLOR,
     kinds: ['rail_line', 'rail_crossing'],
     minZoom: 9,
     kindMinZoom: { rail_crossing: 13 },
-    hint: 'FRA network: owner, subdivision, main/branch/yard/abandoned, tracks · crossings carry trains per day',
+    hint: 'FRA network: owner, subdivision, main / industrial lead / yard / abandoned, tracks · crossings carry trains per day · click any of it for what the terms mean',
+  },
+  // ---- the ground itself. Both were already in the cache for the property-page numbers
+  // (fema_flood_zone / pct_sfha, wetlands_pct), so the map paints the SAME polygons the
+  // numbers were measured from. Neither paints at county zoom: NFHL panels and NWI
+  // photo-interpretation are parcel-scale products, and at 1:500k NWI reads as "half of
+  // inland Florida is swamp" (Alex 2026-08-16: "cover sucks").
+  {
+    id: 'flood',
+    group: 'environment',
+    label: 'Flood zones (FEMA)',
+    color: FLOOD_COLOR,
+    kinds: ['flood_zone'],
+    minZoom: 12,
+    hint: '1% annual chance (A/AE/AH/AO) blue, coastal VE purple, floodway navy, 0.2% (shaded X) amber · unshaded X not painted',
+  },
+  {
+    id: 'wetlands',
+    group: 'environment',
+    label: 'Wetlands (NWI)',
+    color: WETLAND_COLOR,
+    kinds: ['wetland'],
+    minZoom: 12,
+    hint: 'USFWS National Wetlands Inventory · a desktop screen, not a delineation — jurisdictional limits need a field survey',
   },
 ]
 
