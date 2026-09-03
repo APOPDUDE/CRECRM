@@ -429,6 +429,7 @@ export type Database = {
           industry: string | null
           mailing_address: string | null
           mailing_city: string | null
+          mailing_key: string | null
           mailing_state: string | null
           mailing_zip: string | null
           naics: string | null
