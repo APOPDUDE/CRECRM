@@ -29,6 +29,11 @@ export type LayerFeatureProps = {
   tpd_night?: number
   spd?: number
   street?: string
+  /** flood: the FEMA zone code (AE, VE, X…) and base flood elevation; wetlands: NWI code + acres */
+  zone?: string
+  bfe?: number
+  code?: string
+  acres?: number
   link?: string
   /** install year */
   yr?: number

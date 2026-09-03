@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -109,17 +109,22 @@ export function MapLayerControls({
             Clear
           </Button>
         </div>
-        {UTILITY_LAYERS.map((l) => (
-          <label key={l.id} className="flex cursor-pointer items-start gap-2" title={l.hint}>
-            <Checkbox checked={!!state.utilities[l.id]} onCheckedChange={() => toggleUtility(l.id)} className="mt-0.5" />
-            <span className="flex flex-col">
-              <span className="flex items-center gap-2">
-                <Dot color={l.color} />
-                {l.label}
+        {UTILITY_LAYERS.map((l, i) => (
+          <Fragment key={l.id}>
+            {i > 0 && UTILITY_LAYERS[i - 1].group !== l.group && (
+              <div className="pt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">Environment</div>
+            )}
+            <label className="flex cursor-pointer items-start gap-2" title={l.hint}>
+              <Checkbox checked={!!state.utilities[l.id]} onCheckedChange={() => toggleUtility(l.id)} className="mt-0.5" />
+              <span className="flex flex-col">
+                <span className="flex items-center gap-2">
+                  <Dot color={l.color} />
+                  {l.label}
+                </span>
+                <span className="text-xs text-muted-foreground">{l.hint}</span>
               </span>
-              <span className="text-xs text-muted-foreground">{l.hint}</span>
-            </span>
-          </label>
+            </label>
+          </Fragment>
         ))}
         <label className="flex cursor-pointer items-start gap-2" title={EASEMENT_LAYER.hint}>
           <Checkbox

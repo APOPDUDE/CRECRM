@@ -8,6 +8,12 @@ import {
   GAS_COLOR,
   RAIL_COLOR,
   ROW_COLOR,
+  FLOOD_COLOR,
+  FLOOD_02_COLOR,
+  FLOODWAY_COLOR,
+  COASTAL_COLOR,
+  WETLAND_COLOR,
+  WETLAND_WATER_COLOR,
   SEWER_COLOR,
   WATER_COLOR,
   utilityKindsForZoom,
@@ -28,8 +34,12 @@ import { useMapLayerFeatures, type LayerFC, type LayerFeatureProps, type LayerVi
  */
 const UTILITY_PANE = 'utilityLines'
 const EASEMENT_PANE = 'easements'
+/** flood zones + wetlands: ground truth to read through, under the zoning districts (330)
+ * and everything else — the same slot the 2026-08 lowlands overlay used */
+const GROUND_PANE = 'groundLayers'
 
 function ensurePanes(map: L.Map) {
+  if (!map.getPane(GROUND_PANE)) map.createPane(GROUND_PANE).style.zIndex = '325'
   if (!map.getPane(EASEMENT_PANE)) map.createPane(EASEMENT_PANE).style.zIndex = '355'
   if (!map.getPane(UTILITY_PANE)) map.createPane(UTILITY_PANE).style.zIndex = '360'
 }
@@ -74,6 +84,8 @@ const KIND_LABEL: Record<string, string> = {
   gas_transmission: 'Gas transmission',
   rail_line: 'Railroad',
   rail_crossing: 'Grade crossing',
+  flood_zone: 'FEMA flood zone',
+  wetland: 'Wetland (NWI)',
   easement: 'Easement',
 }
 
@@ -92,7 +104,11 @@ function layerTooltipHtml(p: LayerFeatureProps): string {
       : KIND_LABEL[p.k] ?? p.k
   const rows: [string, string | undefined][] = [
     ['Type', p.k === 'easement' && p.label && p.label !== title ? p.label : undefined],
+    ['Zone', p.zone],
     ['Name', p.name],
+    ['BFE', p.bfe != null ? `${NUM.format(p.bfe)} ft` : undefined],
+    ['NWI code', p.code],
+    ['Acres', p.acres != null ? NUM.format(Math.round(p.acres * 10) / 10) : undefined],
     ['Street', p.street],
     ['Tracks', p.tracks != null ? String(p.tracks) : undefined],
     ['Passenger', p.pass],
@@ -152,6 +168,22 @@ function styleFor(p: LayerFeatureProps): L.PathOptions {
         dashArray: dead ? '6 6' : undefined,
       }
     }
+    case 'flood_zone': {
+      // FEMA's own palette, translucent: SFHA blue, coastal high hazard purple, floodway
+      // navy, the 0.2% (shaded X) amber
+      const c =
+        p.sub === 'floodway' ? FLOODWAY_COLOR
+        : p.sub === '0.2%' ? FLOOD_02_COLOR
+        : p.zone?.startsWith('V') ? COASTAL_COLOR
+        : FLOOD_COLOR
+      return { color: c, weight: 1, opacity: 0.7, fill: true, fillColor: c, fillOpacity: p.sub === 'floodway' ? 0.35 : 0.22 }
+    }
+    case 'wetland': {
+      // open water (ponds, lakes, estuarine) teal; vegetated wetlands green
+      const water = /pond|lake|estuarine|marine|riverine/i.test(p.name ?? '')
+      const c = water ? WETLAND_WATER_COLOR : WETLAND_COLOR
+      return { color: c, weight: 1, opacity: 0.8, fill: true, fillColor: c, fillOpacity: water ? 0.25 : 0.32 }
+    }
     case 'easement':
       if (p.sub === 'row') return { color: ROW_COLOR, weight: 1, opacity: 0.8, dashArray: '3 3', fill: true, fillColor: ROW_COLOR, fillOpacity: 0.08 }
       if (p.sub === 'vacated') return { color: ROW_COLOR, weight: 1, opacity: 0.6, dashArray: '2 4', fill: false }
@@ -185,6 +217,7 @@ export function MapLayers({
   ensurePanes(map)
   const [utilityRenderer] = useState(() => L.canvas({ pane: UTILITY_PANE }))
   const [easementRenderer] = useState(() => L.canvas({ pane: EASEMENT_PANE }))
+  const [groundRenderer] = useState(() => L.canvas({ pane: GROUND_PANE }))
   const view = useSettledView()
 
   const { kinds, waiting } = useMemo(
@@ -199,11 +232,12 @@ export function MapLayers({
     const fc = kinds.length > 0 ? data : undefined
     const feats = fc?.features ?? []
     const ez = feats.filter((f) => f.properties.k === 'easement')
-    const ut = feats.filter((f) => f.properties.k !== 'easement')
+    const ground = feats.filter((f) => f.properties.k === 'flood_zone' || f.properties.k === 'wetland')
+    const ut = feats.filter((f) => f.properties.k !== 'easement' && f.properties.k !== 'flood_zone' && f.properties.k !== 'wetland')
     const ties = feats.filter(
       (f) => f.properties.k === 'rail_line' && !['Abandoned', 'Out of service', 'Trail'].includes(f.properties.st ?? ''),
     )
-    return { ez, ut, ties, truncated: !!fc?.truncated, count: feats.length }
+    return { ez, ut, ground, ties, truncated: !!fc?.truncated, count: feats.length }
   }, [data, kinds.length])
 
   useEffect(() => {
@@ -221,6 +255,14 @@ export function MapLayers({
   if (kinds.length === 0) return null
   return (
     <>
+      {split.ground.length > 0 && (
+        <GeoJSON
+          key={`ground-${dataKey}`}
+          data={{ type: 'FeatureCollection', features: split.ground } as LayerFC}
+          style={(f) => ({ pane: GROUND_PANE, renderer: groundRenderer, ...styleFor((f as Feature<Geometry, LayerFeatureProps>).properties) })}
+          onEachFeature={bindHover}
+        />
+      )}
       {split.ez.length > 0 && (
         <GeoJSON
           key={`ez-${dataKey}`}
