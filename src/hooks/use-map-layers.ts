@@ -20,6 +20,15 @@ export type LayerFeatureProps = {
   own?: string
   /** recorded instrument reference (OR book/page, plat book/page) */
   ref?: string
+  /** rail: tracks on the segment; passenger service; trains per day (day / night) and max
+   * timetable speed at a crossing; the street a crossing sits on */
+  tracks?: number
+  pass?: string
+  tpd?: number
+  tpd_day?: number
+  tpd_night?: number
+  spd?: number
+  street?: string
   link?: string
   /** install year */
   yr?: number

@@ -10,7 +10,7 @@
  * Wayback, county aerials, SWFWMD), because tiles are what those servers exist for.
  */
 
-export type UtilityLayerId = 'water' | 'sewer' | 'electric' | 'gas'
+export type UtilityLayerId = 'water' | 'sewer' | 'electric' | 'gas' | 'rail'
 
 export type UtilityLayer = {
   id: UtilityLayerId
@@ -22,6 +22,8 @@ export type UtilityLayer = {
    * km² (valve to valve), so mains wait for zoom 16 (a few blocks, ~500 segments) or the
    * answer is megabytes of noise */
   minZoom: number
+  /** a kind inside the layer that needs a closer camera than the layer itself (crossings) */
+  kindMinZoom?: Record<string, number>
   /** who publishes it — the honest coverage note next to the checkbox */
   hint: string
 }
@@ -30,6 +32,7 @@ export const WATER_COLOR = '#2563eb'
 export const SEWER_COLOR = '#db2777'
 export const ELECTRIC_COLOR = '#f59e0b'
 export const GAS_COLOR = '#7c3aed'
+export const RAIL_COLOR = '#1f2937'
 export const EASEMENT_COLOR = '#ea580c'
 /** public right-of-way strips in the same inventory as the easements — context, not encumbrance */
 export const ROW_COLOR = '#64748b'
@@ -70,6 +73,15 @@ export const UTILITY_LAYERS: UtilityLayer[] = [
     minZoom: 9,
     hint: 'EIA/HIFLD interstate + intrastate lines',
   },
+  {
+    id: 'rail',
+    label: 'Railroads',
+    color: RAIL_COLOR,
+    kinds: ['rail_line', 'rail_crossing'],
+    minZoom: 9,
+    kindMinZoom: { rail_crossing: 13 },
+    hint: 'FRA network: owner, subdivision, main/branch/yard/abandoned, tracks · crossings carry trains per day',
+  },
 ]
 
 export const EASEMENT_LAYER = {
@@ -89,8 +101,13 @@ export function utilityKindsForZoom(
   const waiting: string[] = []
   for (const l of UTILITY_LAYERS) {
     if (!utilities[l.id]) continue
-    if (zoom >= l.minZoom) kinds.push(...l.kinds)
-    else waiting.push(l.label)
+    if (zoom < l.minZoom) {
+      waiting.push(l.label)
+      continue
+    }
+    for (const k of l.kinds) {
+      if (zoom >= (l.kindMinZoom?.[k] ?? l.minZoom)) kinds.push(k)
+    }
   }
   if (easements) {
     if (zoom >= EASEMENT_LAYER.minZoom) kinds.push(...EASEMENT_LAYER.kinds)
