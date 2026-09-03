@@ -76,7 +76,7 @@ export const EASEMENT_LAYER = {
   color: EASEMENT_COLOR,
   kinds: ['easement'],
   minZoom: 15,
-  hint: 'Pasco (book/page), Pinellas, St. Petersburg, Manatee conservation',
+  hint: 'Hillsborough PA, Pasco PA, Pinellas, St. Pete, Lakeland, Manatee + FDEP conservation easements',
 }
 
 /** The lowest zoom at which every requested kind is allowed — the RPC is not asked below it. */

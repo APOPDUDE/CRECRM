@@ -34,6 +34,12 @@ function mi(v: number | null, cap?: number, capLabel?: string) {
 
 type EasementItem = { label?: string; ref?: string; own?: string; sub?: string; j?: string }
 
+/** Who plotted easements for this parcel's county — "none plotted" is only as good as that list. */
+function easementCoverage(status: unknown): string | undefined {
+  const cov = (status as { easements?: { coverage?: unknown } } | null)?.easements?.coverage
+  return typeof cov === 'string' && cov ? `by ${cov}` : undefined
+}
+
 /** The instruments on the parcel, easements first, then right-of-way and vacated context. */
 function easementRows(v: unknown): { label: string; value: string; note?: string }[] {
   if (!Array.isArray(v)) return []
@@ -214,9 +220,11 @@ export function SiteIntelligence({ propertyId }: { propertyId: string }) {
                   : `${data.easement_count}`
             }
             note={
-              data.easement_pct != null && Number(data.easement_pct) > 0
-                ? `${Number(data.easement_pct).toFixed(0)}% of area`
-                : undefined
+              data.easement_count === 0
+                ? easementCoverage(data.source_status)
+                : data.easement_pct != null && Number(data.easement_pct) > 0
+                  ? `${Number(data.easement_pct).toFixed(0)}% of area`
+                  : undefined
             }
           />
           {easementRows(data.easements).map((e, i) => (

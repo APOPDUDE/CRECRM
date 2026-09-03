@@ -337,6 +337,31 @@ const LAYERS: Record<string, Layer> = {
     county: "Manatee", where: "1=1",
     outFields: "OBJECTID,GIS_LABEL,SOURCE", clip: false, page: 1000, oid: "OBJECTID", keyset: true,
   },
+  // v11 (2026-09-02, "look a little harder"): the county servers hide nothing more,
+  // but ArcGIS Online does. The Hillsborough County Property Appraiser publishes its
+  // parcel-fabric easements county-wide (54k polygons classified Utility / Drainage /
+  // Conservation / Ingress-Egress / prescriptive ROW; instrument refs only where the
+  // mapper typed them into Name), the City of Lakeland publishes one master easement
+  // layer with book/page, width and a flag per type, and FDEP's CLEAR inventory carries
+  // every recorded conservation easement in the state (county: null = applies to every
+  // county — the enrichers treat those as statewide coverage).
+  ez_hillsborough_pa: {
+    url: "https://services.arcgis.com/apTfC6SUmnNfnxuF/arcgis/rest/services/HCPA_Property_Easements/FeatureServer/0",
+    county: "Hillsborough", where: "1=1",
+    outFields: "FID,Name,Encumbranc,StatedArea,Historical", clip: false, page: 2000, oid: "FID", keyset: true,
+  },
+  ez_lakeland: {
+    url: "https://services1.arcgis.com/mcbQY5xNGGGM1vBX/arcgis/rest/services/Easements/FeatureServer/3",
+    county: "Polk", where: "1=1",
+    outFields: "OBJECTID,RECORDED,REC_TYPE,BOOK,PAGE,LABEL,WIDTH,WIDTH_TYPE,WIDTHVARIES,BLANKET,SUBORDINATION,VACATED,PRELIMARY,UTILITY,ELECTRIC,DRAINAGE,WATER,WASTEWATER,GAS,INGRESS_EGRESS,SIDEWALK,PEDESTRIAN,LANDSCAPE,COMMUNICATION,LIFTSTATION,TRAFFICSIGNALIZATION,RDWY_DRWY_ALLEY,WALLFENCE,LINEOFSITE,ENVIRONMENTALTYPE,PRIVATE_ESMT,PUBLIC_ESMT,OWNER,ONBASE_URL",
+    clip: false, page: 2000, oid: "OBJECTID", keyset: true,
+  },
+  ez_fdep_clear_conservation: {
+    url: "https://ca.dep.state.fl.us/arcgis/rest/services/OpenData/STATE_OWNED_LANDS/MapServer/1",
+    county: null, where: "1=1",
+    outFields: "OBJECTID,FL_SOLARIS_LAND_ID,LOCATION_NAME,GRANTEE_TYPE_NAME,AGENCY_NAME,INVENTORY_ACRES_NBR",
+    clip: true, page: 1000, oid: "OBJECTID", keyset: true,
+  },
 };
 
 // Parcel polygon sources — the same layers the land import reads, asked for
