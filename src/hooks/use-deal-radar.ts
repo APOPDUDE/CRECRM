@@ -202,3 +202,20 @@ export function useReviewDealRadar() {
     onSuccess: () => invalidate(qc),
   })
 }
+
+/** "Clear all" for one tab — stamp reviewed_at on every un-reviewed 'new' row of an intent. */
+export function useClearFacebookIntent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (intent: DealRadarIntent) => {
+      const { error } = await supabase
+        .from('deal_radar')
+        .update({ reviewed_at: new Date().toISOString() })
+        .eq('status', 'new')
+        .is('reviewed_at', null)
+        .eq('listing_intent', intent)
+      if (error) throw error
+    },
+    onSuccess: () => invalidate(qc),
+  })
+}
