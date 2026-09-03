@@ -52,6 +52,10 @@ function centroid(geom: any): { lat: number | null; lng: number | null } {
 type Adapter = {
   service: string;
   idField: string;
+  /** the county's situs address attribute -- the house-number tie-break for point hits */
+  situs: (a: Attrs) => string | null;
+  /** rough county bounds [minLat, minLng, maxLat, maxLng]: which neighbours to try when the label is wrong */
+  box: [number, number, number, number];
   normalize: (parcel: string) => string | { field: string; value: string };
   map: (a: Attrs) => Mapped;
 };
@@ -60,6 +64,8 @@ const COUNTIES: Record<string, Adapter> = {
   Polk: {
     service: "https://gis.polk-county.net/server/rest/services/Map_Property_Appraiser/MapServer/1",
     idField: "PARCELID",
+    situs: (a) => [str(a.PROP_ADRNO), str(a.PROP_ADRSTR), str(a.PROP_ADRSUF)].filter(Boolean).join(" ") || null,
+    box: [27.6, -82.11, 28.35, -81.1],
     normalize: (p) => p.replace(/[^0-9]/g, ""),
     map: (a) => ({
       owner_name: str(a.NAME),
@@ -75,6 +81,8 @@ const COUNTIES: Record<string, Adapter> = {
   Pinellas: {
     service: "https://egis.pinellas.gov/pcpagis/rest/services/Pcpao_gov/PropertyPopup_A/MapServer/0",
     idField: "DISPLAY_STRAP",
+    situs: (a) => str(a.SITE_ADDR),
+    box: [27.6, -82.9, 28.2, -82.55],
     normalize: (p) => p.trim(),
     map: (a) => ({
       owner_name: str(a.OWNER1),
@@ -93,6 +101,8 @@ const COUNTIES: Record<string, Adapter> = {
   Sarasota: {
     service: "https://services3.arcgis.com/icrWMv7eBkctFu1f/arcgis/rest/services/ParcelHosted/FeatureServer/0",
     idField: "ID",
+    situs: (a) => str(a.FULLADDRESS),
+    box: [26.9, -82.75, 27.4, -82.05],
     normalize: (p) => p.replace(/[^0-9]/g, ""),
     map: (a) => ({
       owner_name: str(a.NAME1),
@@ -110,6 +120,8 @@ const COUNTIES: Record<string, Adapter> = {
   Pasco: {
     service: "https://pascogis.pascocountyfl.net/gisweb/rest/services/PascoView/PascoMapper_R_OP/MapServer/7",
     idField: "VPARCEL",
+    situs: (a) => str(a.SITE_ADDRESS),
+    box: [28.15, -82.9, 28.5, -82.05],
     normalize: (p) => p.trim().replace(/-/g, " ").replace(/\s+/g, " "),
     map: (a) => ({
       owner_name: str(a.OWNER_NAME_1),
@@ -127,6 +139,8 @@ const COUNTIES: Record<string, Adapter> = {
   Manatee: {
     service: "https://gis.manateepao.com/arcgis/rest/services/Website/WebLayers/MapServer/0",
     idField: "PARID",
+    situs: (a) => str(a.SITUS_ADDRESS),
+    box: [27.35, -82.75, 27.65, -82.05],
     normalize: (p) => p.replace(/[^0-9]/g, ""),
     map: (a) => ({
       owner_name: str(a.PAR_OWNER_NAME1),
@@ -144,6 +158,8 @@ const COUNTIES: Record<string, Adapter> = {
   Hillsborough: {
     service: "https://maps.hillsboroughcounty.org/arcgis/rest/services/InfoLayers/HC_Parcels/FeatureServer/0",
     idField: "PIN",
+    situs: (a) => str(a.SITE_ADDR),
+    box: [27.57, -82.65, 28.2, -82.05],
     // PIN carries a letter prefix (A-/U-...); otherwise treat the value as a folio.
     normalize: (p) =>
       /[A-Za-z]/.test(p)
@@ -194,12 +210,16 @@ async function arcgisQuery(service: string, field: string, value: string) {
 // Point lane (2026-09-03, parcel-first identity): the parcel whose polygon contains the
 // listing's lat/lng. Scraped rows almost never carry a parcel any more (978 of 987 new rows
 // in Aug 2026) but always carry a point, so this is how they get one.
-async function arcgisPointQuery(service: string, lat: number, lng: number) {
+async function arcgisPointQuery(service: string, lat: number, lng: number, distanceM = 0) {
   const url = new URL(service + "/query");
   url.searchParams.set("geometry", `${lng},${lat}`);
   url.searchParams.set("geometryType", "esriGeometryPoint");
   url.searchParams.set("inSR", "4326");
   url.searchParams.set("spatialRel", "esriSpatialRelIntersects");
+  if (distanceM > 0) {
+    url.searchParams.set("distance", String(distanceM));
+    url.searchParams.set("units", "esriSRUnit_Meter");
+  }
   url.searchParams.set("outFields", "*");
   url.searchParams.set("returnGeometry", "true");
   url.searchParams.set("outSR", "4326");
@@ -229,8 +249,73 @@ function esriRingsToGeoJson(geom: any): unknown {
     : { type: "MultiPolygon", coordinates: rings.map((r: unknown) => [r]) };
 }
 
+/** House number of a street address ("3916-3924 Trump Pl" -> "3916"); null when there is none. */
+function houseNo(addr: unknown): string | null {
+  const m = String(addr ?? "").match(/^\s*(\d+)/);
+  return m ? m[1] : null;
+}
+
+type PointHit = {
+  parcel?: string; county?: string; feature?: { attributes: Attrs; geometry: unknown };
+  error?: string; reason?: string; tried?: string[];
+};
+
+/**
+ * Which parcel does this listing's point belong to?
+ *   1. a polygon we already hold (gis.parcels, via parcel_at_point) -- free, and already the property
+ *   2. the labelled county's service: the point itself, then a 30 m buffer (LoopNet pins the
+ *      street centreline as often as the building)
+ *   3. every other county whose bounds contain the point -- Lakewood Ranch and 21st St E sit
+ *      on the Manatee/Sarasota line and the city-derived county label is wrong there
+ * A buffered/multi hit is accepted only when it is unique or its situs house number equals
+ * the listing's; otherwise it is "ambiguous", never a guess.
+ */
+async function resolveParcelAtPoint(supa: any, p: any): Promise<PointHit> {
+  const { data: held } = await supa.rpc("parcel_at_point", { p_lat: p.lat, p_lng: p.lng });
+  if (held?.parcel_number && held?.county && COUNTIES[held.county]) {
+    return { parcel: String(held.parcel_number), county: String(held.county) };
+  }
+  const order: string[] = [];
+  if (COUNTIES[p.county]) order.push(p.county);
+  for (const [name, a] of Object.entries(COUNTIES)) {
+    const [s, w, n, e] = a.box;
+    if (name !== p.county && p.lat >= s && p.lat <= n && p.lng >= w && p.lng <= e) order.push(name);
+  }
+  const want = houseNo(p.address);
+  const tried: string[] = [];
+  let lastErr: string | null = null;
+  let ambiguous = false;
+  for (const name of order) {
+    const a = COUNTIES[name];
+    tried.push(name);
+    // 0 m: the pin is inside a parcel. 30 m: the pin is on the street outside it. 80 m: the
+    // pin drifted (1440 George Jenkins Blvd sat 80 m off) -- accepted on a house-number match only.
+    for (const dist of [0, 30, 80]) {
+      let feats: Array<{ attributes: Attrs; geometry: unknown }>;
+      try {
+        feats = await arcgisPointQuery(a.service, p.lat, p.lng, dist);
+      } catch (e) {
+        lastErr = String(e);
+        break; // this county is down or unhappy; try the next one
+      }
+      const withId = feats.filter((f) => String((f.attributes || {})[a.idField] ?? "").trim());
+      if (!withId.length) continue;
+      const exact = want ? withId.filter((f) => houseNo(a.situs(f.attributes || {})) === want) : [];
+      const pick = exact.length === 1 ? exact[0]
+        : (dist < 80 && withId.length === 1 ? withId[0] : null);
+      if (pick) {
+        return { parcel: String((pick.attributes || {})[a.idField]).trim(), county: name, feature: pick };
+      }
+      if (withId.length > 1 && dist === 0) { ambiguous = true; break; } // overlapping (condo) parcels under the pin
+      if (dist === 80) ambiguous = true; // several parcels nearby, none owning the house number
+    }
+  }
+  if (lastErr && !ambiguous) return { error: lastErr, tried };
+  return { reason: ambiguous ? "ambiguous" : "no_parcel_at_point", tried };
+}
+
 async function enrichOne(supa: any, p: any) {
-  const adapter = COUNTIES[p.county];
+  let adapter = COUNTIES[p.county];
   if (!adapter) return { id: p.id, status: "unsupported_county" };
   let firstParcel = String(p.parcel_number || "").split(",")[0].trim();
   const stamp = new Date().toISOString();
@@ -238,27 +323,29 @@ async function enrichOne(supa: any, p: any) {
   let byPoint = false;
   let feats: Array<{ attributes: Attrs; geometry: unknown }> = [];
 
+  let county: string = p.county;
   if (!firstParcel) {
     if (!hasPoint) return { id: p.id, status: "no_parcel" };
-    try {
-      feats = await arcgisPointQuery(adapter.service, p.lat, p.lng);
-    } catch (e) {
+    const found = await resolveParcelAtPoint(supa, p);
+    if (found.error) {
       await supa.from("properties").update({
-        appraiser_data: { status: "error", error: String(e), tried: { point: [p.lat, p.lng] } },
+        appraiser_data: { status: "error", error: found.error, tried: { point: [p.lat, p.lng] } },
         appraiser_updated_at: stamp,
       }).eq("id", p.id);
-      return { id: p.id, status: "error", error: String(e) };
+      return { id: p.id, status: "error", error: found.error };
     }
-    const hit = String((feats[0]?.attributes || {})[adapter.idField] ?? "").trim();
-    if (!feats.length || !hit) {
+    if (!found.parcel) {
       await supa.from("properties").update({
-        appraiser_data: { status: "not_found", tried: { county: p.county, point: [p.lat, p.lng] } },
+        appraiser_data: { status: "not_found", reason: found.reason, tried: { county: p.county, point: [p.lat, p.lng], counties: found.tried } },
         appraiser_updated_at: stamp,
       }).eq("id", p.id);
-      return { id: p.id, status: "not_found", tried: `point=${p.lat},${p.lng}` };
+      return { id: p.id, status: "not_found", reason: found.reason, tried: `point=${p.lat},${p.lng}` };
     }
-    firstParcel = hit;
+    firstParcel = found.parcel;
+    county = found.county;
+    adapter = COUNTIES[county];
     byPoint = true;
+    if (found.feature) feats = [found.feature];
   }
 
   const norm = adapter.normalize(firstParcel);
@@ -266,7 +353,7 @@ async function enrichOne(supa: any, p: any) {
   const value = typeof norm === "string" ? norm : norm.value;
 
   try {
-    if (!byPoint) feats = await arcgisQuery(adapter.service, field, value);
+    if (!byPoint || !feats.length) feats = await arcgisQuery(adapter.service, field, value);
   } catch (e) {
     await supa.from("properties").update({
       appraiser_data: { status: "error", error: String(e), tried: { field, value } },
@@ -297,13 +384,15 @@ async function enrichOne(supa: any, p: any) {
     assessed_value: m.assessed_value ?? null,
     dor_use_code: m.dor_use_code ?? null,
     appraiser_data: {
-      status: "ok", county: p.county, field, value, source: adapter.service,
+      status: "ok", county, field, value, source: adapter.service,
       ...(byPoint ? { matched_by: "point", point: [p.lat, p.lng] } : {}),
     },
     appraiser_updated_at: stamp,
   };
-  // the point lane's whole purpose: the parcel becomes the row's identity
+  // the point lane's whole purpose: the parcel becomes the row's identity (and the county
+  // the parcel actually sits in beats the city-derived label)
   if (byPoint) upd.parcel_number = firstParcel;
+  if (byPoint && county !== p.county) upd.county = county;
   if (p.lat == null && m.lat != null) upd.lat = m.lat;
   if (p.lng == null && m.lng != null) upd.lng = m.lng;
   if (p.gross_sf == null && m.gross_sf != null) upd.gross_sf = m.gross_sf;
@@ -332,7 +421,7 @@ async function enrichOne(supa: any, p: any) {
     // keep the polygon so the NEXT source lands here by point-in-parcel at import time
     const gj = esriRingsToGeoJson(feats[0].geometry);
     if (gj) {
-      await supa.rpc("import_parcel_geoms", { p: { county: p.county, rows: [{ parcel: firstParcel, geom: gj }] } });
+      await supa.rpc("import_parcel_geoms", { p: { county, rows: [{ parcel: firstParcel, geom: gj }] } });
     }
     // and fold into the property that already holds this parcel (same house number only)
     const { data: absorbed } = await supa.rpc("absorb_parcel_twin", { p_property: p.id });
