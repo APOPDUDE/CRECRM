@@ -93,7 +93,7 @@ export const UTILITY_LAYERS: UtilityLayer[] = [
     kinds: ['rail_line', 'rail_crossing'],
     minZoom: 9,
     kindMinZoom: { rail_crossing: 13 },
-    hint: 'FRA network: owner, subdivision, main/branch/yard/abandoned, tracks · crossings carry trains per day',
+    hint: 'FRA network: owner, subdivision, main / industrial lead / yard / abandoned, tracks · crossings carry trains per day · click any of it for what the terms mean',
   },
   // ---- the ground itself. Both were already in the cache for the property-page numbers
   // (fema_flood_zone / pct_sfha, wetlands_pct), so the map paints the SAME polygons the

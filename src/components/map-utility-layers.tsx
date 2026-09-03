@@ -20,6 +20,7 @@ import {
 } from '@/lib/map-layers'
 import type { OverlayState } from '@/lib/overlays'
 import { useMapLayerFeatures, type LayerFC, type LayerFeatureProps, type LayerView } from '@/hooks/use-map-layers'
+import { layerDefinitions } from '@/lib/layer-glossary'
 
 /**
  * Utilities and easements on the map, Paxiv-style: water blue, sewer pink (force
@@ -92,9 +93,8 @@ const KIND_LABEL: Record<string, string> = {
 const esc = (s: unknown) =>
   String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
 
-/** The hover card: what Paxiv shows on a click — status, diameter, material, ownership. */
-function layerTooltipHtml(p: LayerFeatureProps): string {
-  const title =
+function layerTitle(p: LayerFeatureProps): string {
+  return (
     p.k === 'easement'
       ? p.sub === 'row'
         ? 'Right of way'
@@ -102,6 +102,10 @@ function layerTooltipHtml(p: LayerFeatureProps): string {
           ? 'Vacated / released'
           : p.label || 'Easement'
       : KIND_LABEL[p.k] ?? p.k
+  )
+}
+
+function layerRows(p: LayerFeatureProps, title: string): [string, string][] {
   const rows: [string, string | undefined][] = [
     ['Type', p.k === 'easement' && p.label && p.label !== title ? p.label : undefined],
     ['Zone', p.zone],
@@ -128,14 +132,31 @@ function layerTooltipHtml(p: LayerFeatureProps): string {
     ['Recorded', p.ref],
     ['Source', p.j],
   ]
-  const body = rows
-    .filter(([, v]) => v)
+  return rows.filter((r): r is [string, string] => !!r[1])
+}
+
+const rowsHtml = (rows: [string, string][]) =>
+  rows
     .map(
       ([k, v]) =>
-        `<div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#64748b">${k}</span><span>${esc(v)}</span></div>`,
+        `<div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#64748b">${k}</span><span style="text-align:right">${esc(v)}</span></div>`,
     )
     .join('')
-  return `<div style="min-width:180px;font-size:12px;line-height:1.35"><div style="font-weight:600;margin-bottom:3px">${esc(title)}</div>${body}</div>`
+
+/** The hover card: what Paxiv shows on a click — status, diameter, material, ownership. */
+function layerTooltipHtml(p: LayerFeatureProps): string {
+  const title = layerTitle(p)
+  return `<div style="min-width:180px;font-size:12px;line-height:1.35"><div style="font-weight:600;margin-bottom:3px">${esc(title)}</div>${rowsHtml(layerRows(p, title))}<div style="margin-top:4px;color:#94a3b8;font-size:11px">Click for details</div></div>`
+}
+
+/** The click card: the same facts plus what the codes mean and where they come from. */
+function layerPopupHtml(p: LayerFeatureProps): string {
+  const title = layerTitle(p)
+  const defs = layerDefinitions(p)
+    .map((d) => `<p style="margin:6px 0 0;color:#334155">${esc(d)}</p>`)
+    .join('')
+  const link = p.link ? `<p style="margin:6px 0 0"><a href="${esc(p.link)}" target="_blank" rel="noopener" style="color:#2563eb">Open the source record</a></p>` : ''
+  return `<div style="min-width:220px;max-width:320px;font-size:12px;line-height:1.4"><div style="font-weight:600;font-size:13px;margin-bottom:4px">${esc(title)}</div>${rowsHtml(layerRows(p, title))}${defs}${link}</div>`
 }
 
 function styleFor(p: LayerFeatureProps): L.PathOptions {
@@ -248,8 +269,10 @@ export function MapLayers({
   // GeoJSON only reads `data` on mount, so a fresh answer needs a fresh key
   const dataKey = useMemo(() => `${kinds.join('|')}:${split.count}:${split.ez.length}:${data ? 1 : 0}`, [kinds, split, data])
 
+  // hover = the facts; click = the facts, the definitions and the source record
   const bindHover = (feature: Feature<Geometry, LayerFeatureProps>, layer: L.Layer) => {
     layer.bindTooltip(() => layerTooltipHtml(feature.properties), { sticky: true, opacity: 1 })
+    layer.bindPopup(() => layerPopupHtml(feature.properties), { maxWidth: 340, autoPanPadding: [24, 24] })
   }
 
   if (kinds.length === 0) return null
