@@ -7,7 +7,8 @@
 -- dorBucket in src/lib/zoning.ts). 4,290 properties typed industrial by the 08-16 flip go
 -- back to retail; their ids are kept in _rollback_dor027_retype_20260903.
 --
--- Same edit of warroom_predicate also teaches it the new RADIUS filter
+-- Same edit of warroom_predicate also teaches it the new RADIUS filter (PostGIS lives in the
+-- extensions schema and warroom_* set search_path=public, so every st_* is schema-qualified)
 -- (p_filters->'radius' = {lat, lng, miles}) beside the polygon, so the server-side
 -- predicate can answer the same question the map's client filter does.
 
@@ -87,8 +88,8 @@ begin
         v_where := v_where || format(
           ' and p.lat is not null and p.lng is not null'
           || ' and p.lat between %s and %s and p.lng between %s and %s'
-          || ' and st_dwithin(st_setsrid(st_makepoint(p.lng, p.lat), 4326)::geography,'
-          || ' st_setsrid(st_makepoint(%s, %s), 4326)::geography, %s)',
+          || ' and extensions.st_dwithin(extensions.st_setsrid(extensions.st_makepoint(p.lng, p.lat), 4326)::extensions.geography,'
+          || ' extensions.st_setsrid(extensions.st_makepoint(%s, %s), 4326)::extensions.geography, %s)',
           rl - rm / 69.0, rl + rm / 69.0, rg - dlng, rg + dlng, rg, rl, rm * 1609.344);
       end if;
     end;

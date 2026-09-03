@@ -98,6 +98,17 @@ begin
     using p_survivor, v_dupes;
   end loop;
 
+  -- a placeholder address on the survivor ("0 Pine Rd", "Parcel 1234", "Address unavailable")
+  -- gives way to a duplicate's real one -- the county's no-situs row often IS the survivor
+  update properties s
+     set address = d.address
+    from (select address from properties
+           where id = any(v_dupes) and address is not null
+             and address !~* '^\s*0\s' and address !~* '^parcel\M' and lower(btrim(address)) <> 'address unavailable'
+           order by array_position(v_dupes, id) limit 1) d
+   where s.id = p_survivor
+     and (s.address is null or s.address ~* '^\s*0\s' or s.address ~* '^parcel\M' or lower(btrim(s.address)) = 'address unavailable');
+
   -- tags: union (fires properties_push_tags once if anything new arrives)
   select array(select distinct t from properties d, unnest(d.tags) t where d.id = any(v_dupes))
     into v_tags;

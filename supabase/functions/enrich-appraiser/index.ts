@@ -1,7 +1,11 @@
 // Enrich properties from the 6 Tampa-area counties' PUBLIC ArcGIS REST services,
 // keyed by parcel ID. Free, no API key. Appraiser-authoritative columns (owner,
-// values, DOR code) are always written; shared scraped columns (lat/lng, building_sf,
-// year_built, land_acres, zoning) are filled ONLY when currently null.
+// values, DOR code) are always written; shared scraped columns (lat/lng, gross_sf,
+// heated_sf, year_built, land_acres, zoning) are filled ONLY when currently null.
+//
+// SF semantics (2026-08-11 rename): gross_sf = under-roof total (garages/porches in),
+// heated_sf = living/finished area. County GIS popup layers mostly expose the LIVING
+// figure (-> heated_sf); only Pinellas exposes a true gross (-> gross_sf).
 //
 // Invoke: POST { limit?: number }            -> backfill that many pending properties
 //         POST { property_ids?: string[] }   -> (re)enrich specific properties
@@ -80,7 +84,7 @@ const COUNTIES: Record<string, Adapter> = {
       just_value: num(a.TOTAL_JST_VALUE),
       assessed_value: num(a.TOTAL_ASD_VALUE),
       land_acres: num(a.ACREAGE),
-      building_sf: num(a.TOTAL_GROSS_SQFT),
+      gross_sf: num(a.TOTAL_GROSS_SQFT),
       year_built: num(a.YEAR_BUILT),
       lat: num(a.LATITUDE),
       lng: num(a.LONGITUDE),
@@ -98,7 +102,7 @@ const COUNTIES: Record<string, Adapter> = {
       just_value: num(a.JUST),
       assessed_value: num(a.ASSD),
       land_acres: num(a.MeasuredAcreage),
-      building_sf: num(a.GRND_AREA ?? a.LIVING),
+      heated_sf: num(a.LIVING),
       year_built: num(a.YRBL),
       zoning_description: str(a.ZONING),
     }),
@@ -115,7 +119,7 @@ const COUNTIES: Record<string, Adapter> = {
       just_value: num(a.JUST_VALUE),
       assessed_value: num(a.ASSD_VAL_COUNTY),
       land_acres: num(a.SITE_ACRES),
-      building_sf: num(a.LIVING_AREA),
+      heated_sf: num(a.LIVING_AREA),
       year_built: num(a.ACTUAL_YEAR_BUILT),
       zoning_description: str(a.ZONING),
     }),
@@ -132,7 +136,7 @@ const COUNTIES: Record<string, Adapter> = {
       just_value: num(a.CAD_JUST_VALUE),
       assessed_value: num(a.CAD_ASSESSED_CTY),
       land_acres: num(a.LAND_ACREAGE_CAMA),
-      building_sf: num(a.BLDGS_SQFT_LIVING),
+      heated_sf: num(a.BLDGS_SQFT_LIVING),
       year_built: num(a.BLDG_C1_YRBUILT ?? a.BLDG_R1_YRBUILT),
       zoning_description: str(a.PAR_ZONING),
     }),
@@ -156,7 +160,7 @@ const COUNTIES: Record<string, Adapter> = {
       just_value: num(a.JUST),
       assessed_value: num(a.ASD_VAL),
       land_acres: num(a.ACREAGE),
-      building_sf: num(a.HEAT_AR),
+      heated_sf: num(a.HEAT_AR),
       year_built: num(a.ACT),
     }),
   },
@@ -187,20 +191,82 @@ async function arcgisQuery(service: string, field: string, value: string) {
   }
 }
 
+// Point lane (2026-09-03, parcel-first identity): the parcel whose polygon contains the
+// listing's lat/lng. Scraped rows almost never carry a parcel any more (978 of 987 new rows
+// in Aug 2026) but always carry a point, so this is how they get one.
+async function arcgisPointQuery(service: string, lat: number, lng: number) {
+  const url = new URL(service + "/query");
+  url.searchParams.set("geometry", `${lng},${lat}`);
+  url.searchParams.set("geometryType", "esriGeometryPoint");
+  url.searchParams.set("inSR", "4326");
+  url.searchParams.set("spatialRel", "esriSpatialRelIntersects");
+  url.searchParams.set("outFields", "*");
+  url.searchParams.set("returnGeometry", "true");
+  url.searchParams.set("outSR", "4326");
+  url.searchParams.set("f", "json");
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { "User-Agent": "CRE-CRM enrichment" },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error(`http ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(`arcgis ${JSON.stringify(data.error).slice(0, 140)}`);
+    return (data.features || []) as Array<{ attributes: Attrs; geometry: unknown }>;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Esri rings -> GeoJSON Polygon/MultiPolygon for import_parcel_geoms (holes are rare on parcels; every ring kept). */
+function esriRingsToGeoJson(geom: any): unknown {
+  const rings = geom?.rings;
+  if (!Array.isArray(rings) || !rings.length) return null;
+  return rings.length === 1
+    ? { type: "Polygon", coordinates: rings }
+    : { type: "MultiPolygon", coordinates: rings.map((r: unknown) => [r]) };
+}
+
 async function enrichOne(supa: any, p: any) {
   const adapter = COUNTIES[p.county];
   if (!adapter) return { id: p.id, status: "unsupported_county" };
-  const firstParcel = String(p.parcel_number || "").split(",")[0].trim();
-  if (!firstParcel) return { id: p.id, status: "no_parcel" };
+  let firstParcel = String(p.parcel_number || "").split(",")[0].trim();
+  const stamp = new Date().toISOString();
+  const hasPoint = typeof p.lat === "number" && typeof p.lng === "number";
+  let byPoint = false;
+  let feats: Array<{ attributes: Attrs; geometry: unknown }> = [];
+
+  if (!firstParcel) {
+    if (!hasPoint) return { id: p.id, status: "no_parcel" };
+    try {
+      feats = await arcgisPointQuery(adapter.service, p.lat, p.lng);
+    } catch (e) {
+      await supa.from("properties").update({
+        appraiser_data: { status: "error", error: String(e), tried: { point: [p.lat, p.lng] } },
+        appraiser_updated_at: stamp,
+      }).eq("id", p.id);
+      return { id: p.id, status: "error", error: String(e) };
+    }
+    const hit = String((feats[0]?.attributes || {})[adapter.idField] ?? "").trim();
+    if (!feats.length || !hit) {
+      await supa.from("properties").update({
+        appraiser_data: { status: "not_found", tried: { county: p.county, point: [p.lat, p.lng] } },
+        appraiser_updated_at: stamp,
+      }).eq("id", p.id);
+      return { id: p.id, status: "not_found", tried: `point=${p.lat},${p.lng}` };
+    }
+    firstParcel = hit;
+    byPoint = true;
+  }
 
   const norm = adapter.normalize(firstParcel);
   const field = typeof norm === "string" ? adapter.idField : norm.field;
   const value = typeof norm === "string" ? norm : norm.value;
-  const stamp = new Date().toISOString();
 
-  let feats: Array<{ attributes: Attrs; geometry: unknown }>;
   try {
-    feats = await arcgisQuery(adapter.service, field, value);
+    if (!byPoint) feats = await arcgisQuery(adapter.service, field, value);
   } catch (e) {
     await supa.from("properties").update({
       appraiser_data: { status: "error", error: String(e), tried: { field, value } },
@@ -230,12 +296,18 @@ async function enrichOne(supa: any, p: any) {
     just_value: m.just_value ?? null,
     assessed_value: m.assessed_value ?? null,
     dor_use_code: m.dor_use_code ?? null,
-    appraiser_data: { status: "ok", county: p.county, field, value, source: adapter.service },
+    appraiser_data: {
+      status: "ok", county: p.county, field, value, source: adapter.service,
+      ...(byPoint ? { matched_by: "point", point: [p.lat, p.lng] } : {}),
+    },
     appraiser_updated_at: stamp,
   };
+  // the point lane's whole purpose: the parcel becomes the row's identity
+  if (byPoint) upd.parcel_number = firstParcel;
   if (p.lat == null && m.lat != null) upd.lat = m.lat;
   if (p.lng == null && m.lng != null) upd.lng = m.lng;
-  if (p.building_sf == null && m.building_sf != null) upd.building_sf = m.building_sf;
+  if (p.gross_sf == null && m.gross_sf != null) upd.gross_sf = m.gross_sf;
+  if (p.heated_sf == null && m.heated_sf != null) upd.heated_sf = m.heated_sf;
   if (p.year_built == null && m.year_built != null) upd.year_built = m.year_built;
   if (p.land_acres == null && m.land_acres != null) upd.land_acres = m.land_acres;
   // The county situs address is authoritative, so always keep it — properties.address may
@@ -255,6 +327,17 @@ async function enrichOne(supa: any, p: any) {
 
   const { error } = await supa.from("properties").update(upd).eq("id", p.id);
   if (error) return { id: p.id, status: "db_error", error: error.message };
+
+  if (byPoint) {
+    // keep the polygon so the NEXT source lands here by point-in-parcel at import time
+    const gj = esriRingsToGeoJson(feats[0].geometry);
+    if (gj) {
+      await supa.rpc("import_parcel_geoms", { p: { county: p.county, rows: [{ parcel: firstParcel, geom: gj }] } });
+    }
+    // and fold into the property that already holds this parcel (same house number only)
+    const { data: absorbed } = await supa.rpc("absorb_parcel_twin", { p_property: p.id });
+    return { id: p.id, status: "ok", owner: m.owner_name ?? null, by: "point", parcel: firstParcel, absorb: absorbed?.action ?? null };
+  }
   return { id: p.id, status: "ok", owner: m.owner_name ?? null };
 }
 
@@ -267,15 +350,31 @@ Deno.serve(async (req) => {
     const counties = Object.keys(COUNTIES);
 
     let q = supa.from("properties")
-      .select("id, address, county, parcel_number, lat, lng, building_sf, year_built, land_acres, zoning_description");
+      .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description");
+    let props: any[] | null = null;
     if (ids) {
-      q = q.in("id", ids);
+      const { data, error } = await q.in("id", ids);
+      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+      props = data;
     } else {
-      q = q.is("appraiser_updated_at", null).in("county", counties).not("parcel_number", "is", null).limit(limit);
+      // parcel lane first (cheap, exact), then the point lane for parcel-less rows with a pin
+      const { data: a, error: ea } = await q.is("appraiser_updated_at", null).in("county", counties)
+        .not("parcel_number", "is", null).limit(limit);
+      if (ea) return new Response(JSON.stringify({ error: ea.message }), { status: 500 });
+      props = a || [];
+      // one county round-trip per row (~1s): cap the lane so a 100-row drain stays inside
+      // the caller's 120s timeout (WF4 every 10 min)
+      const POINT_LANE_CAP = 40;
+      if (props.length < limit) {
+        const { data: b, error: eb } = await supa.from("properties")
+          .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description")
+          .is("appraiser_updated_at", null).in("county", counties).is("parcel_number", null)
+          .not("lat", "is", null).not("lng", "is", null).eq("is_condo_unit", false)
+          .order("created_at", { ascending: false }).limit(Math.min(limit - props.length, POINT_LANE_CAP));
+        if (eb) return new Response(JSON.stringify({ error: eb.message }), { status: 500 });
+        props = props.concat(b || []);
+      }
     }
-
-    const { data: props, error } = await q;
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
 
     const results: any[] = [];
     for (const p of props || []) {
@@ -285,10 +384,14 @@ Deno.serve(async (req) => {
 
     let remaining: number | null = null;
     if (!ids) {
-      const { count } = await supa.from("properties")
+      const { count: c1 } = await supa.from("properties")
         .select("id", { count: "exact", head: true })
         .is("appraiser_updated_at", null).in("county", counties).not("parcel_number", "is", null);
-      remaining = count ?? null;
+      const { count: c2 } = await supa.from("properties")
+        .select("id", { count: "exact", head: true })
+        .is("appraiser_updated_at", null).in("county", counties).is("parcel_number", null)
+        .not("lat", "is", null).not("lng", "is", null).eq("is_condo_unit", false);
+      remaining = (c1 ?? 0) + (c2 ?? 0);
     }
 
     const tally = results.reduce((m: any, r: any) => {
