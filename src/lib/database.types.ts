@@ -3135,6 +3135,42 @@ export type Database = {
           },
         ]
       }
+      property_brokers: {
+        Row: {
+          contact_id: string
+          created_at: string
+          property_id: string
+          role: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          property_id: string
+          role?: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          property_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_brokers_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_brokers_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_owner_rollup: {
         Row: {
           best_contact_confidence: string | null
