@@ -5,8 +5,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import {
   EASEMENT_LAYER,
   IMAGERY_YEARS,
+  REFERENCE_LAYERS,
   UTILITY_LAYERS,
   imageryCoverage,
+  type ReferenceLayerId,
   type UtilityLayerId,
 } from '@/lib/map-layers'
 import type { OverlayState } from '@/lib/overlays'
@@ -14,7 +16,7 @@ import type { OverlayState } from '@/lib/overlays'
 function Dot({ color }: { color: string }) {
   return (
     <span
-      className="inline-block size-2.5 shrink-0 rounded-full ring-1 ring-white"
+      className="inline-block size-2.5 shrink-0 rounded-full ring-1 ring-border"
       style={{ backgroundColor: color }}
     />
   )
@@ -43,9 +45,10 @@ function Section({
 }
 
 /**
- * The rail's Utilities / Easements / Historical imagery entries — the Paxiv Overlays
- * and Basemap panels, in the same expandable shape as the zoning layers above them.
- * State lives in the parent's OverlayState so it persists with the rest of the map.
+ * The rail's Reference / Utilities + easements / Historical imagery entries — the
+ * Paxiv Overlays and Basemap panels, in the same expandable shape as the zoning
+ * layers above them. State lives in the parent's OverlayState so it persists with
+ * the rest of the map.
  */
 export function MapLayerControls({
   state,
@@ -54,9 +57,14 @@ export function MapLayerControls({
   state: OverlayState
   onChange: (next: OverlayState) => void
 }) {
+  const anyReference = REFERENCE_LAYERS.some((l) => state.reference[l.id])
+  const [refOpen, setRefOpen] = useState(anyReference)
   const anyUtility = UTILITY_LAYERS.some((l) => state.utilities[l.id])
   const [utilOpen, setUtilOpen] = useState(anyUtility || state.easements)
   const [imgOpen, setImgOpen] = useState(state.imageryYear != null)
+
+  const toggleReference = (id: ReferenceLayerId) =>
+    onChange({ ...state, reference: { ...state.reference, [id]: !state.reference[id] } })
 
   const toggleUtility = (id: UtilityLayerId) =>
     onChange({ ...state, utilities: { ...state.utilities, [id]: !state.utilities[id] } })
@@ -75,7 +83,24 @@ export function MapLayerControls({
 
   return (
     <div className="space-y-3">
-      <Section title="Utilities + easements" open={utilOpen} onToggle={() => setUtilOpen((v) => !v)}>
+      {/* Streets, city limits, county lines — the names and edges an aerial basemap
+          lacks (Alex 2026-09-03). */}
+      <Section title="Streets + boundaries" open={refOpen} onToggle={() => setRefOpen((v) => !v)}>
+        {REFERENCE_LAYERS.map((l) => (
+          <label key={l.id} className="flex cursor-pointer items-start gap-2" title={l.hint}>
+            <Checkbox checked={!!state.reference[l.id]} onCheckedChange={() => toggleReference(l.id)} className="mt-0.5" />
+            <span className="flex flex-col">
+              <span className="flex items-center gap-2">
+                <Dot color={l.color} />
+                {l.label}
+              </span>
+              <span className="text-xs text-muted-foreground">{l.hint}</span>
+            </span>
+          </label>
+        ))}
+      </Section>
+
+      <Section title="Utilities, railroads + easements" open={utilOpen} onToggle={() => setUtilOpen((v) => !v)}>
         <div className="flex gap-1">
           <Button size="sm" variant="outline" className="h-6 px-2 text-xs" disabled={allOn} onClick={() => setAllLayers(true)}>
             Select all

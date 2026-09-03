@@ -15,6 +15,7 @@ import type { Geometry } from 'geojson'
 import { MapOverlays } from '@/components/map-overlays'
 import type { OverlayState } from '@/lib/overlays'
 import { HistoricalImagery } from '@/components/historical-imagery'
+import { MapReferenceLayers } from '@/components/map-reference-layers'
 import { MapLayers, type LayerStatus } from '@/components/map-utility-layers'
 import { EASEMENT_LAYER, UTILITY_LAYERS, imageryCoverage } from '@/lib/map-layers'
 
@@ -1027,6 +1028,8 @@ export function PropertiesMap({
           <SizeWatcher />
           <ViewportKeeper />
           {overlays && <MapOverlays state={overlays} />}
+          {/* streets, city limits, county lines — over the zoning fills, under the parcels */}
+          {overlays && <MapReferenceLayers state={overlays} />}
           {/* utilities + easements from our cache — panes between the parcels and the pins */}
           {overlays && <MapLayers state={overlays} onStatus={setLayerStatus} />}
           <ParcelLines

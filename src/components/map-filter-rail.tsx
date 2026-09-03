@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { CircleDashed, Crosshair, MessageSquare, Send } from 'lucide-react'
+import { CircleDashed, Crosshair, Layers, MessageSquare, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -342,19 +342,9 @@ export function MapFilterRail(props: {
       </div>
 
       {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
-          — on the map the zoning question is the layers below, with Include (union) and
-          Only (restrict) per layer. The table's Filters popover keeps the select. */}
-
-      {/* Zoning district overlays (Phase 1) */}
-      <div className="border-t pt-3">
-        <OverlayControls state={p.overlays} onChange={p.onOverlays} onIncludeOn={p.onOverlayIncludeOn} />
-      </div>
-
-      {/* Utilities, recorded easements, historical imagery (2026-09-02) — the Paxiv
-          Overlays + Basemap panels, sharing the persisted OverlayState. */}
-      <div className="border-t pt-3">
-        <MapLayerControls state={p.overlays} onChange={p.onOverlays} />
-      </div>
+          — on the map the zoning question is the Zoning overlay at the bottom of the
+          rail, with Include (union) and Only (restrict) per layer. The table's Filters
+          popover keeps the select. */}
 
       {/* Owner operators — buildings whose occupant IS the owner (the 'owner occupier'
           tag, populated from county owner-mails-at-property evidence). A canvass may want
@@ -636,6 +626,29 @@ export function MapFilterRail(props: {
             </Select>
           </div>
         )}
+      </div>
+
+      {/* Overlays (Alex 2026-09-03): everything that PAINTS the map lives together at
+          the bottom, in its own box, so it reads apart from the filters above that
+          narrow the pins. Zoning leads because it is the one overlay that can also
+          filter (Include / Only). Overlays apply as they are ticked — no Apply step. */}
+      <div className="mt-2 space-y-3 rounded-md border bg-background/70 p-2.5">
+        <div className="flex items-center gap-1.5">
+          <Layers className="size-4 text-muted-foreground" />
+          <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Overlays</span>
+        </div>
+        <p className="-mt-1 text-xs text-muted-foreground">
+          Painted on the map as you tick them. Zoning can also filter the pins.
+        </p>
+
+        {/* Zoning district overlays (Phase 1) */}
+        <OverlayControls state={p.overlays} onChange={p.onOverlays} onIncludeOn={p.onOverlayIncludeOn} />
+
+        {/* Streets + boundaries, utilities, recorded easements, historical imagery — the
+            Paxiv Overlays + Basemap panels, sharing the persisted OverlayState. */}
+        <div className="border-t pt-3">
+          <MapLayerControls state={p.overlays} onChange={p.onOverlays} />
+        </div>
       </div>
 
       {/* Sticky so it's reachable from anywhere in a long rail. Rendered only when

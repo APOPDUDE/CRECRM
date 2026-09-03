@@ -91,6 +91,44 @@ export const EASEMENT_LAYER = {
   hint: 'Hillsborough PA, Pasco PA, Pinellas, St. Pete, Lakeland, Manatee + FDEP conservation easements',
 }
 
+// ---------------------------------------------------------------------------
+// Reference overlays (2026-09-03, Alex: "street names, city outlines, county
+// outlines and stuff"): the labels a satellite basemap lacks. Streets are Esri's
+// World Transportation reference tiles — the layer Esri itself draws over World
+// Imagery, so roads, street names and highway shields register with the aerials
+// tile for tile. City limits and county lines are Census TIGERweb polygons (the
+// legal boundaries, generalized to ~50 m) drawn by us, so they can carry their own
+// names and a style that reads through the zoning fills.
+
+export type ReferenceLayerId = 'streets' | 'cities' | 'counties'
+
+export type ReferenceLayer = {
+  id: ReferenceLayerId
+  label: string
+  color: string
+  hint: string
+}
+
+export const CITY_LINE_COLOR = '#f8fafc'
+export const COUNTY_LINE_COLOR = '#facc15'
+
+export const REFERENCE_LAYERS: ReferenceLayer[] = [
+  { id: 'streets', label: 'Streets + road names', color: '#e2e8f0', hint: 'Esri reference tiles · names from about zoom 14' },
+  { id: 'cities', label: 'City limits', color: CITY_LINE_COLOR, hint: 'Census TIGER municipal boundaries · names from zoom 10' },
+  { id: 'counties', label: 'County lines', color: COUNTY_LINE_COLOR, hint: 'Census TIGER county boundaries, all of Florida' },
+]
+
+export const STREETS_TILE_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}'
+
+const TIGERWEB = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb'
+/** Florida's 67 counties — small enough to take whole; the book's neighbours matter at county zoom. */
+export const COUNTY_LINES_URL =
+  `${TIGERWEB}/State_County/MapServer/1/query?where=STATE%3D%2712%27&outFields=NAME,GEOID&f=geojson&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.002`
+/** Incorporated places touching the six-county book (SWFWMD's district box) — ~100 cities, ~0.5 MB. */
+export const CITY_LIMITS_URL =
+  `${TIGERWEB}/Places_CouSub_ConCity_SubMCD/MapServer/4/query?where=STATE%3D%2712%27&geometry=-83.05,26.9,-81.05,28.55&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=NAME,GEOID&f=geojson&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.0005`
+
 /** The lowest zoom at which every requested kind is allowed — the RPC is not asked below it. */
 export function utilityKindsForZoom(
   utilities: Partial<Record<UtilityLayerId, boolean>>,

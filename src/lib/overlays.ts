@@ -1,5 +1,5 @@
 import { isZonedIndustrial } from '@/hooks/use-zoning-map'
-import type { UtilityLayerId } from '@/lib/map-layers'
+import type { ReferenceLayerId, UtilityLayerId } from '@/lib/map-layers'
 
 /**
  * The map overlays (War Room overhaul Phase 1): whole zoning districts painted as
@@ -64,6 +64,8 @@ export type OverlayState = {
   utilities: Partial<Record<UtilityLayerId, boolean>>
   /** Recorded easements on the parcels. */
   easements: boolean
+  /** Reference overlays (2026-09-03): streets + road names, city limits, county lines. */
+  reference: Partial<Record<ReferenceLayerId, boolean>>
   /** Historical imagery year (Esri Wayback + county flights); null = today's imagery. */
   imageryYear: number | null
 }
@@ -77,6 +79,7 @@ export const OVERLAY_DEFAULT: OverlayState = {
   only: {},
   utilities: {},
   easements: false,
+  reference: {},
   imageryYear: null,
 }
 
@@ -90,6 +93,8 @@ export function safeOverlayState(v: unknown): OverlayState {
     typeof f === 'object' && f != null ? (f as Partial<Record<OverlayType, boolean>>) : {}
   const util = (u: unknown): Partial<Record<UtilityLayerId, boolean>> =>
     typeof u === 'object' && u != null ? (u as Partial<Record<UtilityLayerId, boolean>>) : {}
+  const ref = (r: unknown): Partial<Record<ReferenceLayerId, boolean>> =>
+    typeof r === 'object' && r != null ? (r as Partial<Record<ReferenceLayerId, boolean>>) : {}
   return {
     industrial: sel(o.industrial),
     retail: sel(o.retail),
@@ -99,6 +104,7 @@ export function safeOverlayState(v: unknown): OverlayState {
     only: flags(o.only),
     utilities: util(o.utilities),
     easements: o.easements === true,
+    reference: ref(o.reference),
     imageryYear: typeof o.imageryYear === 'number' && Number.isFinite(o.imageryYear) ? o.imageryYear : null,
   }
 }
