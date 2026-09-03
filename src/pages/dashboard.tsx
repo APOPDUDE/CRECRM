@@ -1,7 +1,6 @@
 import { useDashboardMatches } from '@/hooks/use-dashboard'
 import { MarketAlertsWidget } from '@/components/market-alerts-widget'
 import { DashboardActivity, TasksDueWidget } from '@/components/dashboard-activity'
-import { SuggestionsWidget } from '@/components/suggestions-widget'
 import { DealFlagsWidget } from '@/components/deal-flags-widget'
 import { NewListingsWidget } from '@/components/new-listings-widget'
 import { FacebookListingsWidget } from '@/components/facebook-listings-widget'
@@ -17,8 +16,6 @@ export function DashboardPage() {
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
       <MarketAlertsWidget />
-
-      <SuggestionsWidget />
 
       <DealFlagsWidget />
 
