@@ -679,7 +679,14 @@ const RADIUS_MAX_MI = 25
  */
 function RadiusMiles({ miles, onChange }: { miles: number; onChange: (m: number) => void }) {
   const [draft, setDraft] = useState(miles)
-  useEffect(() => setDraft(miles), [miles])
+  // Reset the draft when the parent hands us a new value (circle re-dropped, undo, etc.).
+  // Done during render — the "adjusting state on prop change" pattern — rather than in an
+  // effect, which react-hooks/set-state-in-effect rejects.
+  const [lastMiles, setLastMiles] = useState(miles)
+  if (miles !== lastMiles) {
+    setLastMiles(miles)
+    setDraft(miles)
+  }
   useEffect(() => {
     if (draft === miles) return
     const t = window.setTimeout(() => onChange(draft), 200)
