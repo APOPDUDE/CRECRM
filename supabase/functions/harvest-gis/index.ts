@@ -355,7 +355,8 @@ const LAYERS: Record<string, Layer> = {
     url: "https://services1.arcgis.com/mcbQY5xNGGGM1vBX/arcgis/rest/services/Easements/FeatureServer/3",
     county: "Polk", where: "1=1",
     outFields: "OBJECTID,RECORDED,REC_TYPE,BOOK,PAGE,LABEL,WIDTH,WIDTH_TYPE,WIDTHVARIES,BLANKET,SUBORDINATION,VACATED,PRELIMARY,UTILITY,ELECTRIC,DRAINAGE,WATER,WASTEWATER,GAS,INGRESS_EGRESS,SIDEWALK,PEDESTRIAN,LANDSCAPE,COMMUNICATION,LIFTSTATION,TRAFFICSIGNALIZATION,RDWY_DRWY_ALLEY,WALLFENCE,LINEOFSITE,ENVIRONMENTALTYPE,PRIVATE_ESMT,PUBLIC_ESMT,OWNER,ONBASE_URL",
-    clip: false, page: 500, oid: "OBJECTID", keyset: true,
+    // blanket easements over whole subdivisions: 500 a page still timed out the import
+    clip: false, page: 100, oid: "OBJECTID", keyset: true,
   },
   ez_fdep_clear_conservation: {
     url: "https://ca.dep.state.fl.us/arcgis/rest/services/OpenData/STATE_OWNED_LANDS/MapServer/1",
