@@ -2515,6 +2515,9 @@ export type Database = {
           created_at: string
           csx_mainline_mi: number | null
           drainage_class: string | null
+          easement_count: number | null
+          easement_pct: number | null
+          easements: Json | null
           electric_provider: string | null
           fema_flood_zone: string | null
           flu_code: string | null
@@ -2563,6 +2566,9 @@ export type Database = {
           created_at?: string
           csx_mainline_mi?: number | null
           drainage_class?: string | null
+          easement_count?: number | null
+          easement_pct?: number | null
+          easements?: Json | null
           electric_provider?: string | null
           fema_flood_zone?: string | null
           flu_code?: string | null
@@ -2611,6 +2617,9 @@ export type Database = {
           created_at?: string
           csx_mainline_mi?: number | null
           drainage_class?: string | null
+          easement_count?: number | null
+          easement_pct?: number | null
+          easements?: Json | null
           electric_provider?: string | null
           fema_flood_zone?: string | null
           flu_code?: string | null
@@ -4784,6 +4793,27 @@ export type Database = {
       }
       apply_smartlead_event: { Args: { p: Json }; Returns: Json }
       apply_zoning_map: { Args: never; Returns: Json }
+      enrich_easements: {
+        Args: { p_county?: string | null; p_limit?: number }
+        Returns: Json
+      }
+      enrich_water_sewer: {
+        Args: { p_county?: string | null; p_limit?: number }
+        Returns: Json
+      }
+      gis_harvest_drive_tick: { Args: { p_key: string }; Returns: Json }
+      kick_enrich_sweep: { Args: never; Returns: string }
+      map_layer_features: {
+        Args: {
+          p_kinds: string[]
+          p_west: number
+          p_south: number
+          p_east: number
+          p_north: number
+          p_zoom?: number
+        }
+        Returns: Json
+      }
       approve_buyer_intake: {
         Args: { p_client_id: string; p_intake_id: string }
         Returns: Json

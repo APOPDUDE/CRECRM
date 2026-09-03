@@ -14,6 +14,20 @@
 //
 // Every configured layer here was confirmed live: reachable, paginated, and
 // serving native geoJSON (so no esriJSON ring conversion is needed).
+//
+// v8 (2026-09-02): water/sewer mains, service areas and recorded easements per
+// county — the layers behind the map's Utilities and Easements overlays and the
+// water/sewer columns of parcel_enrichment. Body extras: {max_pages, budget_ms}
+// let a driver shorten a drain to fit its own timeout.
+// v9 (same day): keyset paging. Pasco's ArcGIS Server answers "Failed to execute
+// query" once resultOffset passes ~6,000 rows (an ORDER BY sort it will not plan),
+// so a `keyset` layer pages by `OID > last` instead — the cursor a driver stores is
+// then the last OID seen, not a row offset. Every 2026-09-02 source uses it.
+// v10 (same day): esriJSON fallback. Pasco's easement layers hold a few features
+// (OBJECTID 8800-8850 general, 6800-6850 hydrology) that the server's GeoJSON
+// exporter cannot serialise ("Failed to execute query") while f=json for the same
+// rows works — so a page that fails under f=geojson is re-fetched as esriJSON and
+// converted here (rings by orientation: Esri outer rings are clockwise).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -41,7 +55,16 @@ type Layer = {
    *  are 18 KB, which is far finer than a point-in-polygon "who serves this
    *  parcel" test needs. Omit for layers whose exact shape matters. */
   offsetDeg?: number;
+  /** page by `oid > cursor` (needs oid) rather than resultOffset — for servers that
+   *  refuse large offsets. The cursor handed back as next_offset is the last OID. */
+  keyset?: boolean;
 };
+
+// GIS roots that host several of the sources below.
+const HCX = "https://gisdextweb1.hillsboroughcounty.org/arcgis/rest/services/";
+const SRQ = "https://services3.arcgis.com/icrWMv7eBkctFu1f/arcgis/rest/services/";
+const MAN = "https://www.mymanatee.org/gisits/rest/services/";
+const PAS = "https://mapping.pascopa.com/arcgis/rest/services/";
 
 const LAYERS: Record<string, Layer> = {
   fema_flood: {
@@ -170,6 +193,150 @@ const LAYERS: Record<string, Layer> = {
     page: 1000,
     oid: "OBJECTID",
   },
+
+  // ---- water + sewer mains, service areas (2026-09-02). The 08-24 run concluded
+  // "no usable public water/sewer geometry" after Polk's service areas came back
+  // ringless; that was Polk, not the region. Hillsborough County, the City of Tampa,
+  // Sarasota and Manatee all publish their mains WITH geometry, diameter and material;
+  // Pinellas County withholds every line layer except force mains (its cities run
+  // separate servers, unharvested); Polk and Pasco publish none. Source ids follow
+  // <kind>_<jurisdiction> and are catalogued in gis.map_layers, which is what tells
+  // the enrichers which counties are actually covered — a parcel in a county with no
+  // mains layer must stay null, never read "none within a mile".
+  wm_hillsborough: {
+    url: HCX + "Hosted/HC_water/FeatureServer/7",
+    county: "Hillsborough", where: "1=1",
+    outFields: "objectid,diameter,material,lifecyclestatus,enabled,watertype,assettype,installdate,asbuiltlink,administrativearea,name",
+    clip: false, page: 2000, oid: "objectid", keyset: true,
+  },
+  sg_hillsborough: {
+    url: HCX + "Hosted/HC_Wastewater/FeatureServer/7",
+    county: "Hillsborough", where: "1=1",
+    outFields: "objectid,diameter,material,lifecyclestatus,enabled,watertype,installdate,asbuiltlink,administrativearea,name",
+    clip: false, page: 2000, oid: "objectid", keyset: true,
+  },
+  sf_hillsborough: {
+    url: HCX + "Hosted/HC_Wastewater/FeatureServer/9",
+    county: "Hillsborough", where: "1=1",
+    outFields: "objectid,diameter,material,lifecyclestatus,enabled,watertype,installdate,asbuiltlink,administrativearea,name",
+    clip: false, page: 2000, oid: "objectid", keyset: true,
+  },
+  // service areas: county + Tampa + Temple Terrace + Plant City + private utilities,
+  // one polygon each — the "who would serve this parcel" answer for water and sewer
+  wsa_hillsborough: {
+    url: HCX + "Hosted/Utility_Service_Area/FeatureServer/0",
+    county: "Hillsborough", where: "1=1", outFields: "objectid,id,serviceby",
+    clip: false, page: 100, oid: "objectid", keyset: true,
+  },
+  ssa_hillsborough: {
+    url: HCX + "Hosted/Utility_Service_Area/FeatureServer/1",
+    county: "Hillsborough", where: "1=1", outFields: "objectid,id,serviceby",
+    clip: false, page: 100, oid: "objectid", keyset: true,
+  },
+  wm_tampa: {
+    url: HCX + "Hosted/City_of_Tampa_Water/FeatureServer/10",
+    county: "Hillsborough", where: "1=1",
+    outFields: "objectid,diameter,material,lifecyclestatus,watertype,description,subtypename,ownedby,installdate,asbuiltlink,fileno",
+    clip: false, page: 2000, oid: "objectid", keyset: true,
+  },
+  sg_tampa: {
+    url: HCX + "Hosted/City_of_Tampa_Wastewater/FeatureServer/8",
+    county: "Hillsborough", where: "1=1",
+    outFields: "objectid,diameter,material,enabled,activeflag,ownedby,installdate,asbuilt_link,pipetype,linertype,filenumber",
+    clip: false, page: 2000, oid: "objectid", keyset: true,
+  },
+  sf_tampa: {
+    url: HCX + "Hosted/City_of_Tampa_Wastewater/FeatureServer/9",
+    county: "Hillsborough", where: "1=1",
+    outFields: "objectid,diameter,material,enabled,activeflag,ownedby,installdate,asbuilt_link,pipetype,filenumber",
+    clip: false, page: 2000, oid: "objectid", keyset: true,
+  },
+  wm_sarasota: {
+    url: SRQ + "WaterDistributionLineCollection/FeatureServer/510022",
+    county: "Sarasota", where: "1=1",
+    outFields: "OBJECTID,diameter,material,lifecyclestatus,ownedby,installdate,assetid,ASSETTYPE",
+    clip: false, page: 2000, oid: "OBJECTID", keyset: true,
+  },
+  sg_sarasota: {
+    url: SRQ + "SewerNetworkLineCollection/FeatureServer/315001",
+    county: "Sarasota", where: "1=1",
+    outFields: "OBJECTID,diameter,material,lifecyclestatus,ownedby,installdate,assetid,ASSETTYPE",
+    clip: false, page: 2000, oid: "OBJECTID", keyset: true,
+  },
+  sf_sarasota: {
+    url: SRQ + "SewerNetworkLineCollection/FeatureServer/315002",
+    county: "Sarasota", where: "1=1",
+    outFields: "OBJECTID,diameter,material,lifecyclestatus,ownedby,installdate,assetid,ASSETTYPE",
+    clip: false, page: 2000, oid: "OBJECTID", keyset: true,
+  },
+  wm_manatee: {
+    url: MAN + "opendata/utilities/FeatureServer/44",
+    county: "Manatee", where: "1=1",
+    outFields: "OBJECTID,DIAMETER,MATERIAL,LIFECYCLESTATUS,ENABLED,OWNER,INSTALL_DATE,RECORD_NO,SUBTYPE,RECORD_DRAWING_ONBASE_LINK",
+    clip: false, page: 2000, oid: "OBJECTID", keyset: true,
+  },
+  sg_manatee: {
+    url: MAN + "opendata/utilities/FeatureServer/71",
+    county: "Manatee", where: "1=1",
+    outFields: "OBJECTID,DIAMETER,MATERIAL,OWNER,INSTALL_DATE,RECORD_NO,SUBTYPE,RECORD_DRAWING_ONBASE_LINK",
+    clip: false, page: 2000, oid: "OBJECTID", keyset: true,
+  },
+  sf_manatee: {
+    url: MAN + "opendata/utilities/FeatureServer/70",
+    county: "Manatee", where: "1=1",
+    outFields: "OBJECTID,DIAMETER,MATERIAL,LIFECYCLESTATUS,ENABLED,OWNER,INSTALLDATE,RECORD_NO,SUBTYPE,RECORD_DRAWING_ONBASE_LINK",
+    clip: false, page: 2000, oid: "OBJECTID", keyset: true,
+  },
+  // Pinellas County publishes its force mains with geometry and nothing else — its
+  // water distribution and gravity sewer layers answer counts but serve no rings.
+  sf_pinellas: {
+    url: "https://egis.pinellas.gov/gis/rest/services/UtilitiesValves/SanitarySewerNetwork/MapServer/320",
+    county: "Pinellas", where: "1=1",
+    outFields: "OBJECTID,DIAMETER,MATERIAL,LIFECYCLESTATUS,ENABLED,ACTIVEFLAG,OWNEDBY,INSTALLDATE,STATUS",
+    clip: false, page: 1000, oid: "OBJECTID", keyset: true,
+  },
+
+  // ---- recorded easements (2026-09-02). What the recorder's office has plotted:
+  // (Pasco's general + hydrology families carry the heaviest polygons and page at
+  // 500 — at 1,000 the server gave up mid-walk even before the offset problem.)
+  // Pasco's Property Appraiser (four families, each with the instrument's book and
+  // page — OR/PB/CB), Pinellas County's easement + right-of-way inventory (OR
+  // book-page in ROWID_), St. Petersburg's encumbrance lines, Manatee's conservation
+  // easements. Hillsborough, Polk and Sarasota publish no parcel-level easement
+  // geometry — the recorder's instruments there are searchable, not plotted.
+  ez_pasco_general: {
+    url: PAS + "Easements/MapServer/1", county: "Pasco", where: "1=1",
+    outFields: "OBJECTID,ETYPE,TYPE,BOOK,PAGE,ASOB,BENEFICIARY", clip: false, page: 500, oid: "OBJECTID", keyset: true,
+  },
+  ez_pasco_hydrology: {
+    url: PAS + "Easements/MapServer/2", county: "Pasco", where: "1=1",
+    outFields: "OBJECTID,ETYPE,TYPE,BOOK,PAGE,ASOB,BENEFICIARY", clip: false, page: 500, oid: "OBJECTID", keyset: true,
+  },
+  ez_pasco_utility: {
+    url: PAS + "Easements/MapServer/3", county: "Pasco", where: "1=1",
+    outFields: "OBJECTID,ETYPE,TYPE,BOOK,PAGE,ASOB,BENEFICIARY", clip: false, page: 1000, oid: "OBJECTID", keyset: true,
+  },
+  ez_pasco_buffer: {
+    url: PAS + "Easements/MapServer/0", county: "Pasco", where: "1=1",
+    outFields: "OBJECTID,ETYPE,TYPE,BOOK,PAGE,ASOB", clip: false, page: 1000, oid: "OBJECTID", keyset: true,
+  },
+  ez_pinellas: {
+    url: "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/RightOfWay/MapServer/100",
+    county: "Pinellas", where: "1=1",
+    outFields: "OBJECTID,ROWID_,SRCREF,ROWTYPE,DOCUMENTTYPE,OWNERNAME,ACQUIREDATE,PUBLICROW,VACROW,UTILITYROW,DRAINROW,SIDEWALKROW,ESMTRIGHTS",
+    clip: false, page: 1000, oid: "OBJECTID", keyset: true,
+  },
+  ez_stpete: {
+    url: "https://egis.stpete.org/arcgis/rest/services/ServicesDOTS/Easements/MapServer/0",
+    county: "Pinellas", where: "1=1",
+    outFields: "OBJECTID,ENCUMID,SRCREF,ENCUMTYPE,ESMTWIDTH,ESMTLENGTH,CREATESOURCE,VACATESOURCE,VACATEDATE,PRIVATE,LABELTXT",
+    clip: false, page: 1000, oid: "OBJECTID", keyset: true,
+  },
+  ez_manatee_conservation: {
+    url: MAN + "NaturalResources/conservationeasements/MapServer/0",
+    county: "Manatee", where: "1=1",
+    outFields: "OBJECTID,GIS_LABEL,SOURCE", clip: false, page: 1000, oid: "OBJECTID", keyset: true,
+  },
 };
 
 // Parcel polygon sources — the same layers the land import reads, asked for
@@ -202,6 +369,61 @@ async function fetchPage(url: string, params: Record<string, string>) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ---- esriJSON -> GeoJSON, for the pages a server will not serve as GeoJSON.
+type Pos = [number, number];
+function ringArea(r: Pos[]): number {
+  let a = 0;
+  for (let i = 0, n = r.length; i < n; i++) {
+    const [x1, y1] = r[i], [x2, y2] = r[(i + 1) % n];
+    a += x1 * y2 - x2 * y1;
+  }
+  return a / 2;
+}
+function pointInRing(p: Pos, r: Pos[]): boolean {
+  let inside = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [xi, yi] = r[i], [xj, yj] = r[j];
+    if ((yi > p[1]) !== (yj > p[1]) && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function esriToGeoJson(g: Record<string, unknown> | null | undefined): unknown {
+  if (!g) return null;
+  if (typeof g.x === "number" && typeof g.y === "number") return { type: "Point", coordinates: [g.x, g.y] };
+  if (Array.isArray(g.paths)) {
+    const paths = g.paths as Pos[][];
+    return paths.length === 1 ? { type: "LineString", coordinates: paths[0] } : { type: "MultiLineString", coordinates: paths };
+  }
+  if (Array.isArray(g.rings)) {
+    // Esri: outer rings clockwise (negative shoelace area), holes counter-clockwise.
+    // A hole belongs to the outer ring that contains its first vertex.
+    const rings = g.rings as Pos[][];
+    const outers: Pos[][][] = [];
+    const holes: Pos[][] = [];
+    for (const r of rings) (ringArea(r) < 0 ? outers : holes).push(ringArea(r) < 0 ? [r] : r);
+    for (const h of holes) {
+      const host = outers.find((poly) => pointInRing(h[0], poly[0])) ?? outers[0];
+      if (host) host.push(h); else outers.push([h]);
+    }
+    if (outers.length === 0) return null;
+    return outers.length === 1 ? { type: "Polygon", coordinates: outers[0] } : { type: "MultiPolygon", coordinates: outers };
+  }
+  return null; // true curves etc. — dropped, never faked
+}
+
+/** A page as GeoJSON; when the server's GeoJSON exporter fails on it, the same page as esriJSON, converted. */
+async function fetchPageResilient(url: string, params: Record<string, string>) {
+  const data = await fetchPage(url, params);
+  if (!data.error) return data;
+  const esri = await fetchPage(url, { ...params, f: "json" });
+  if (esri.error) return data; // report the original failure
+  const feats = (esri.features ?? []) as { attributes?: Record<string, unknown>; geometry?: Record<string, unknown> }[];
+  return {
+    features: feats.map((f) => ({ type: "Feature", properties: f.attributes ?? {}, geometry: esriToGeoJson(f.geometry) })),
+    fallback: "esrijson",
+  };
 }
 
 Deno.serve(async (req) => {
@@ -283,14 +505,24 @@ Deno.serve(async (req) => {
   // Exists so pg_cron + pg_net can drive a harvest with no external runner at
   // all — one POST per tile, no offset bookkeeping outside this function.
   const drain = body.drain === true;
+  // a driver with its own clock (pg_net's timeout) can ask for less than the default
+  const maxPages = Math.min(40, Math.max(1, Number(body.max_pages ?? 40) || 40));
+  const budgetMs = Math.min(110_000, Math.max(10_000, Number(body.budget_ms ?? 110_000) || 110_000));
   const started = Date.now();
   let cursor = offset;
   let pages = 0;
   let sentTotal = 0;
   let tally: unknown = null;
+  const keyset = cfg.keyset === true && !!cfg.oid;
   for (;;) {
-    params.resultOffset = String(cursor);
-    const data = await fetchPage(cfg.url, params);
+    if (keyset) {
+      // cursor is the last OID already cached; ask for what follows it
+      params.where = cursor > 0 ? `(${cfg.where}) AND ${cfg.oid} > ${cursor}` : cfg.where;
+      delete params.resultOffset;
+    } else {
+      params.resultOffset = String(cursor);
+    }
+    const data = await fetchPageResilient(cfg.url, params);
     if (data.error) {
       return new Response(JSON.stringify({ error: "arcgis error", detail: data.error, at: cursor }), { status: 502 });
     }
@@ -318,9 +550,15 @@ Deno.serve(async (req) => {
     pages += 1;
     sentTotal += features.length;
     const more = feats.length === page;
-    cursor = more && feats.length > 0 ? cursor + feats.length : -1;
+    if (keyset) {
+      // the walk is ordered by OID, so the page's last OID is the next cursor
+      const oids = feats.map((f) => Number((f.properties ?? {})[cfg.oid!])).filter((n) => Number.isFinite(n));
+      cursor = more && oids.length > 0 ? Math.max(...oids) : -1;
+    } else {
+      cursor = more && feats.length > 0 ? cursor + feats.length : -1;
+    }
     // single-page mode, exhausted, or out of budget (edge wall clock is 150s)
-    if (!drain || cursor < 0 || pages >= 40 || Date.now() - started > 110_000) {
+    if (!drain || cursor < 0 || pages >= maxPages || Date.now() - started > budgetMs) {
       return new Response(JSON.stringify({
         mode, source, offset, pages, sent: sentTotal,
         next_offset: cursor >= 0 ? cursor : null, complete: cursor < 0, tally,

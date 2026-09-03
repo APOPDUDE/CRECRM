@@ -12,6 +12,10 @@ import {
   parcelKeys,
   ringsBbox,
 } from '@/components/properties-map'
+import { MapLayers } from '@/components/map-utility-layers'
+
+/** What the property page's map always shows around the parcel: mains and easements. */
+const MINI_LAYERS = { utilities: { water: true, sewer: true }, easements: true } as const
 
 interface PropertyMiniMapProps {
   lat?: number | null
@@ -204,6 +208,8 @@ export function PropertyMiniMap({ lat, lng, address, city, state, zip, parcelNum
           radius={7}
           pathOptions={{ color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 0.95 }}
         />
+        {/* the utilities and recorded easements around the parcel, same cache as the War Room */}
+        <MapLayers state={MINI_LAYERS} />
         <FitToOutline features={outline} />
       </MapContainer>
     </div>

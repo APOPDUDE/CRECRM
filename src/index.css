@@ -132,6 +132,8 @@
    marks each path pointer-events:visiblePainted inline, so a pane-level override is
    not enough; a vertex dropped on a held parcel was opening the property instead.
    (properties-map.tsx toggles .map-drawing on the map wrapper.) */
-.map-drawing .leaflet-parcelOutlines-pane path {
+.map-drawing .leaflet-parcelOutlines-pane path,
+.map-drawing .leaflet-utilityLines-pane,
+.map-drawing .leaflet-easements-pane {
   pointer-events: none !important;
 }

@@ -14,6 +14,9 @@ import { isZonedIndustrial } from '@/hooks/use-zoning-map'
 import type { Geometry } from 'geojson'
 import { MapOverlays } from '@/components/map-overlays'
 import type { OverlayState } from '@/lib/overlays'
+import { HistoricalImagery } from '@/components/historical-imagery'
+import { MapLayers, type LayerStatus } from '@/components/map-utility-layers'
+import { EASEMENT_LAYER, UTILITY_LAYERS, imageryCoverage } from '@/lib/map-layers'
 
 // CircleMarkers are cheap (SVG), but each mounts a hover Tooltip, so a few hundred is
 // the comfortable ceiling on a phone. Desktop has the headroom for the whole book, so
@@ -868,6 +871,8 @@ export function PropertiesMap({
   // Properties whose parcel outline is currently drawn — their dot is suppressed so the
   // shape stands alone, and comes back the moment you zoom out past PARCEL_ZOOM.
   const [outlinedIds, setOutlinedIds] = useState<Set<string>>(() => new Set())
+  // What the utility/easement layers are doing right now, for the legend in the corner.
+  const [layerStatus, setLayerStatus] = useState<LayerStatus | null>(null)
   // Parcels reload on every pan/zoom, but panning within one block usually yields the
   // same set. Swap state only on a real change, or each pan would re-render every marker.
   const applyOutlined = useCallback((next: Set<string>) => {
@@ -1001,9 +1006,13 @@ export function PropertiesMap({
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
           />
+          {/* a past year's flight, over the live tiles and under every overlay */}
+          <HistoricalImagery year={overlays?.imageryYear ?? null} />
           <SizeWatcher />
           <ViewportKeeper />
           {overlays && <MapOverlays state={overlays} />}
+          {/* utilities + easements from our cache — panes between the parcels and the pins */}
+          {overlays && <MapLayers state={overlays} onStatus={setLayerStatus} />}
           <ParcelLines
             parcelIndex={parcelIndex}
             colorById={pinColorById}
@@ -1102,7 +1111,54 @@ export function PropertiesMap({
             )
           })}
         </MapContainer>
+        {overlays && <MapLayerLegend state={overlays} status={layerStatus} />}
       </div>
+    </div>
+  )
+}
+
+/**
+ * The corner legend Paxiv puts on its Utilities overlay — which layers are painting,
+ * in their colours, plus the honest state: "zoom in for mains", "first 4,000 shown".
+ * Pointer-transparent so it never steals a pan.
+ */
+function MapLayerLegend({ state, status }: { state: OverlayState; status: LayerStatus | null }) {
+  const active = UTILITY_LAYERS.filter((l) => state.utilities[l.id])
+  const anything = active.length > 0 || state.easements || state.imageryYear != null
+  if (!anything) return null
+  return (
+    <div className="pointer-events-none absolute bottom-2 left-2 z-[500] max-w-64 rounded-md border bg-background/90 px-2.5 py-2 text-xs shadow-sm backdrop-blur">
+      {(active.length > 0 || state.easements) && (
+        <div className="space-y-0.5">
+          {active.map((l) => (
+            <div key={l.id} className="flex items-center gap-1.5">
+              <span className="inline-block h-0.5 w-4 rounded" style={{ backgroundColor: l.color }} />
+              {l.label}
+            </div>
+          ))}
+          {state.easements && (
+            <div className="flex items-center gap-1.5">
+              <span
+                className="inline-block h-2.5 w-4 rounded-sm border border-dashed"
+                style={{ borderColor: EASEMENT_LAYER.color, backgroundColor: `${EASEMENT_LAYER.color}33` }}
+              />
+              Recorded easements
+            </div>
+          )}
+          {status?.waiting.length ? (
+            <p className="text-muted-foreground">Zoom in for {status.waiting.join(', ').toLowerCase()}</p>
+          ) : status?.loading ? (
+            <p className="text-muted-foreground">Loading…</p>
+          ) : status?.truncated ? (
+            <p className="text-amber-700">First 4,000 shown — zoom in for the rest</p>
+          ) : null}
+        </div>
+      )}
+      {state.imageryYear != null && (
+        <p className={active.length > 0 || state.easements ? 'mt-1 border-t pt-1 text-muted-foreground' : 'text-muted-foreground'}>
+          Imagery <span className="font-medium text-foreground">{state.imageryYear}</span> · {imageryCoverage(state.imageryYear)}
+        </p>
+      )}
     </div>
   )
 }

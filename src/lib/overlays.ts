@@ -1,4 +1,5 @@
 import { isZonedIndustrial } from '@/hooks/use-zoning-map'
+import type { UtilityLayerId } from '@/lib/map-layers'
 
 /**
  * The map overlays (War Room overhaul Phase 1): whole zoning districts painted as
@@ -59,6 +60,12 @@ export type OverlayState = {
    * (Alex 2026-08-16). Mutually exclusive with include per layer; several only-layers
    * union their memberships before restricting. */
   only: Partial<Record<OverlayType, boolean>>
+  /** Utility overlays (2026-09-02): water, sewer, service areas, electric, gas — see lib/map-layers. */
+  utilities: Partial<Record<UtilityLayerId, boolean>>
+  /** Recorded easements on the parcels. */
+  easements: boolean
+  /** Historical imagery year (Esri Wayback + county flights); null = today's imagery. */
+  imageryYear: number | null
 }
 
 export const OVERLAY_DEFAULT: OverlayState = {
@@ -68,6 +75,9 @@ export const OVERLAY_DEFAULT: OverlayState = {
   multifamily: 'off',
   include: {},
   only: {},
+  utilities: {},
+  easements: false,
+  imageryYear: null,
 }
 
 /** A persisted value predating a shape change (or hand-edited) must not crash the map —
@@ -78,6 +88,8 @@ export function safeOverlayState(v: unknown): OverlayState {
     s === 'all' || s === 'off' ? s : Array.isArray(s) ? s.filter((k): k is string => typeof k === 'string') : 'off'
   const flags = (f: unknown): Partial<Record<OverlayType, boolean>> =>
     typeof f === 'object' && f != null ? (f as Partial<Record<OverlayType, boolean>>) : {}
+  const util = (u: unknown): Partial<Record<UtilityLayerId, boolean>> =>
+    typeof u === 'object' && u != null ? (u as Partial<Record<UtilityLayerId, boolean>>) : {}
   return {
     industrial: sel(o.industrial),
     retail: sel(o.retail),
@@ -85,6 +97,9 @@ export function safeOverlayState(v: unknown): OverlayState {
     multifamily: sel(o.multifamily),
     include: flags(o.include),
     only: flags(o.only),
+    utilities: util(o.utilities),
+    easements: o.easements === true,
+    imageryYear: typeof o.imageryYear === 'number' && Number.isFinite(o.imageryYear) ? o.imageryYear : null,
   }
 }
 

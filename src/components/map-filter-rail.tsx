@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { OverlayControls } from '@/components/overlay-controls'
+import { MapLayerControls } from '@/components/map-layer-controls'
 import { DorCodePicker } from '@/components/dor-code-picker'
 import { PROPERTY_TAG_OPTIONS, type PropertyTagKey } from '@/hooks/use-property-tag-filter'
 import { type DorSelection } from '@/lib/zoning'
@@ -320,6 +321,12 @@ export function MapFilterRail(props: {
       {/* Zoning district overlays (Phase 1) */}
       <div className="border-t pt-3">
         <OverlayControls state={p.overlays} onChange={p.onOverlays} onIncludeOn={p.onOverlayIncludeOn} />
+      </div>
+
+      {/* Utilities, recorded easements, historical imagery (2026-09-02) — the Paxiv
+          Overlays + Basemap panels, sharing the persisted OverlayState. */}
+      <div className="border-t pt-3">
+        <MapLayerControls state={p.overlays} onChange={p.onOverlays} />
       </div>
 
       {/* Owner operators — buildings whose occupant IS the owner (the 'owner occupier'

@@ -32,6 +32,23 @@ function mi(v: number | null, cap?: number, capLabel?: string) {
   return `${Number(v).toFixed(2)} mi`
 }
 
+type EasementItem = { label?: string; ref?: string; own?: string; sub?: string; j?: string }
+
+/** The instruments on the parcel, easements first, then right-of-way and vacated context. */
+function easementRows(v: unknown): { label: string; value: string; note?: string }[] {
+  if (!Array.isArray(v)) return []
+  const rank = (e: EasementItem) => (e.sub === 'easement' ? 0 : e.sub === 'row' ? 1 : 2)
+  return (v as EasementItem[])
+    .slice()
+    .sort((a, b) => rank(a) - rank(b))
+    .slice(0, 6)
+    .map((e) => ({
+      label: e.sub === 'row' ? 'Right of way' : e.sub === 'vacated' ? 'Vacated' : e.label || 'Easement',
+      value: e.ref || e.own || e.j || '—',
+      note: e.ref && e.own ? e.own : undefined,
+    }))
+}
+
 function Row({ label, value, note }: { label: string; value: string | null; note?: string }) {
   if (!value) return null
   return (
@@ -134,9 +151,15 @@ export function SiteIntelligence({ propertyId }: { propertyId: string }) {
         </Group>
 
         <Group title="Water and sewer">
-          <Row label="Water main" value={ft(data.water_main_dist_ft)} />
-          <Row label="Gravity sewer" value={ft(data.sewer_gravity_dist_ft)} />
-          <Row label="Force main" value={ft(data.sewer_force_dist_ft)} />
+          <Row
+            label="Water main"
+            value={ft(data.water_main_dist_ft, CAP_FT_1MI, 'none within 1 mi')}
+            note={data.water_main_diameter_in ? `${Number(data.water_main_diameter_in)}"` : undefined}
+          />
+          <Row label="Gravity sewer" value={ft(data.sewer_gravity_dist_ft, CAP_FT_1MI, 'none within 1 mi')} />
+          <Row label="Force main" value={ft(data.sewer_force_dist_ft, CAP_FT_1MI, 'none within 1 mi')} />
+          <Row label="Water provider" value={data.water_provider} />
+          <Row label="Sewer provider" value={data.sewer_provider} />
           <Row
             label="Service area"
             value={
@@ -180,6 +203,27 @@ export function SiteIntelligence({ propertyId }: { propertyId: string }) {
           />
         </Group>
 
+        <Group title="Recorded easements">
+          <Row
+            label="On this parcel"
+            value={
+              data.easement_count === null
+                ? null
+                : data.easement_count === 0
+                  ? 'none plotted'
+                  : `${data.easement_count}`
+            }
+            note={
+              data.easement_pct != null && Number(data.easement_pct) > 0
+                ? `${Number(data.easement_pct).toFixed(0)}% of area`
+                : undefined
+            }
+          />
+          {easementRows(data.easements).map((e, i) => (
+            <Row key={i} label={e.label} value={e.value} note={e.note} />
+          ))}
+        </Group>
+
         <Group title="Constraints">
           <Row label="FEMA zone" value={data.fema_flood_zone} />
           <Row
@@ -208,8 +252,9 @@ export function SiteIntelligence({ propertyId }: { propertyId: string }) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Proximity from public GIS (HIFLD, EIA, FDOT, FEMA, NWI). A short distance to a substation
-        or a gas transmission line is a reason to make the call, never a will-serve.
+        Proximity from public GIS (HIFLD, EIA, FDOT, FEMA, NWI, county utility and recorder maps).
+        A short distance to a main or a substation is a reason to make the call, never a
+        will-serve; a plotted easement is a reason to pull the instrument, never a title opinion.
       </p>
     </section>
   )
