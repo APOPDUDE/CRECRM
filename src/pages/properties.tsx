@@ -73,7 +73,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import type { Property, PropertyWithCounts } from '@/hooks/use-properties'
 import type { OwnerContext } from '@/hooks/use-owners'
 import { useGoodDealIds, useExecutedPropertyIds } from '@/hooks/use-market'
-import { useOwnerContext } from '@/hooks/use-owners'
+import { useOwnerContext, usePortfolioCompanyIds } from '@/hooks/use-owners'
 import { useCurrentAsking, type CurrentAsking } from '@/hooks/use-comps'
 import { useLeaseComps, withinMonths, signedWithinMonths, type LeaseComp } from '@/hooks/use-lease-comps'
 import { useAvailableUnitSizes } from '@/hooks/use-units'
@@ -959,9 +959,16 @@ export function PropertiesPage() {
       (leaseMatchIds != null && LEASE_COLUMNS.includes(c.id)),
   )
 
+  // One principal can hold several deed entities (companies.portfolio_id); the owner's
+  // portfolio is every property under any of them, not just the LLC on this deed.
+  const portfolioIds = usePortfolioCompanyIds(portfolioOwnerId)
+  const portfolioIdSet = useMemo(() => new Set(portfolioIds), [portfolioIds])
   const portfolioAll = useMemo(
-    () => (portfolioOwnerId ? book.filter((p) => p.owner_company_id === portfolioOwnerId) : []),
-    [book, portfolioOwnerId],
+    () =>
+      portfolioOwnerId
+        ? book.filter((p) => !!p.owner_company_id && portfolioIdSet.has(p.owner_company_id))
+        : [],
+    [book, portfolioOwnerId, portfolioIdSet],
   )
   // The COMPANY's name, not the first row's county deed string — a portfolio's
   // parcels can carry different deed names (assemblage quirks), and the banner
@@ -993,7 +1000,7 @@ export function PropertiesPage() {
     if (portfolioOwnerId) {
       // Condo units stay too: an owner's 30 garage units ARE their portfolio.
       return {
-        baseFiltered: book.filter((p) => p.owner_company_id === portfolioOwnerId),
+        baseFiltered: portfolioAll,
         includeCandidates: [] as typeof book,
         condoHidden: 0,
       }

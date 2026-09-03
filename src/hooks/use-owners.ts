@@ -95,16 +95,51 @@ export function useOwnerRecord(ownerCompanyId: string | null | undefined) {
   })
 }
 
-/** Every property an owning company holds — the portfolio view behind a map pin. */
-export function useOwnerProperties(ownerCompanyId: string | null | undefined) {
+/**
+ * The portfolio an owning company belongs to: one principal behind several deed
+ * entities (`companies.portfolio_id`, 2026-09-02). `ids` always includes the company
+ * itself, so a lone company is a one-member portfolio; `members` carries the names
+ * for the "via Bre II LLC" label. People seated at ANY member count for all of them —
+ * that is the whole point (Brad Bartholomew verified Bre II LLC, and 5849 Dean Dairy
+ * under Bartholomew Real Estate LLC is the same man).
+ */
+export type OwnerPortfolio = { ids: string[]; members: { id: string; name: string }[] }
+
+export function useOwnerPortfolio(ownerCompanyId: string | null | undefined) {
   return useQuery({
-    queryKey: ['owner-properties', ownerCompanyId],
+    queryKey: ['owner-portfolio', ownerCompanyId],
+    enabled: !!ownerCompanyId,
+    queryFn: async (): Promise<OwnerPortfolio> => {
+      const { data, error } = await supabase.rpc('portfolio_company_ids', {
+        p_company: ownerCompanyId!,
+      })
+      if (error) throw error
+      const ids = (data ?? []) as string[]
+      if (ids.length === 0) return { ids: [ownerCompanyId!], members: [] }
+      const m = await supabase.from('companies').select('id, name').in('id', ids).order('name')
+      if (m.error) throw m.error
+      return { ids, members: (m.data ?? []) as { id: string; name: string }[] }
+    },
+  })
+}
+
+/** Just the ids, for callers that filter a list in memory (the `?owner=` deep link). */
+export function usePortfolioCompanyIds(ownerCompanyId: string | null | undefined) {
+  const q = useOwnerPortfolio(ownerCompanyId)
+  return q.data?.ids ?? (ownerCompanyId ? [ownerCompanyId] : [])
+}
+
+/** Every property an owner's portfolio holds — the portfolio view behind a map pin. */
+export function useOwnerProperties(ownerCompanyId: string | null | undefined) {
+  const ids = usePortfolioCompanyIds(ownerCompanyId)
+  return useQuery({
+    queryKey: ['owner-properties', ownerCompanyId, ids.join(',')],
     enabled: !!ownerCompanyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('properties')
         .select('id, address, city, county, property_type, gross_sf, land_acres, listing_status, lat, lng')
-        .eq('owner_company_id', ownerCompanyId!)
+        .in('owner_company_id', ids)
         .order('address')
       if (error) throw error
       return data ?? []
@@ -167,10 +202,14 @@ export type OwnerPersonRow = Pick<
   | 'ghl_contact_id'
 >
 
-/** The humans seated at an owning company, verified first. */
+/**
+ * The humans seated anywhere in an owner's portfolio, verified first, this entity's
+ * own people ahead of a sibling entity's. `company_id` on each row says which.
+ */
 export function useOwnerContacts(ownerCompanyId: string | null | undefined) {
+  const ids = usePortfolioCompanyIds(ownerCompanyId)
   return useQuery({
-    queryKey: ['owner-contacts', ownerCompanyId],
+    queryKey: ['owner-contacts', ownerCompanyId, ids.join(',')],
     enabled: !!ownerCompanyId,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -178,13 +217,14 @@ export function useOwnerContacts(ownerCompanyId: string | null | undefined) {
         .select(
           'id, first_name, last_name, phone, email, title, do_not_call, campaign_lists, email_verified_at, verified_at, verified_by, company_id, ghl_contact_id',
         )
-        .eq('company_id', ownerCompanyId!)
+        .in('company_id', ids)
       if (error) throw error
       const rows = (data ?? []) as OwnerPersonRow[]
       // verified people first, then whoever is most reachable
       return rows.sort(
         (a, b) =>
           Number(!!b.verified_at) - Number(!!a.verified_at) ||
+          Number(a.company_id !== ownerCompanyId) - Number(b.company_id !== ownerCompanyId) ||
           Number(!!b.email_verified_at) - Number(!!a.email_verified_at) ||
           Number(!!b.phone) - Number(!!a.phone),
       )
@@ -218,15 +258,29 @@ export function useOwnerConversations(ownerCompanyId: string | null | undefined,
 
 
 function invalidateOwnerViews(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['owner-portfolio'] })
   qc.invalidateQueries({ queryKey: ['owner-contacts'] })
+  qc.invalidateQueries({ queryKey: ['owner-properties'] })
   qc.invalidateQueries({ queryKey: ['owner-context'] })
   qc.invalidateQueries({ queryKey: ['owner-conversations'] })
+}
+
+export type AddVerifiedContactResult = {
+  ok?: boolean
+  error?: string
+  contact_id?: string
+  portfolio_id?: string | null
+  /** Set when the person already had a home company: the two entities are now one portfolio. */
+  linked_company_id?: string | null
+  linked_company_name?: string | null
 }
 
 /**
  * Add a VERIFIED contact to a property's owner from the property page. Reuses the same DB
  * routine as the GHL webhook: upserts the contact by phone, stamps contacts.verified_at,
- * and seats the person at the owning company.
+ * and seats the person at the owning company. A person already seated at ANOTHER entity
+ * is not moved — the routine links the two entities into one portfolio instead (it used
+ * to return ok and change nothing, which read as "I added him and nothing happened").
  */
 export function useAddVerifiedContact() {
   const qc = useQueryClient()
@@ -237,7 +291,7 @@ export function useAddVerifiedContact() {
       last?: string | null
       phone: string
       email?: string | null
-    }) => {
+    }): Promise<AddVerifiedContactResult> => {
       const { data, error } = await supabase.rpc('ghl_verify_owner', {
         p: {
           status: 'verified',
@@ -253,8 +307,25 @@ export function useAddVerifiedContact() {
         },
       })
       if (error) throw error
-      const res = data as { ok?: boolean; error?: string } | null
+      const res = data as AddVerifiedContactResult | null
       if (!res?.ok) throw new Error(res?.error ?? 'could not verify contact')
+      return res
+    },
+    onSuccess: () => invalidateOwnerViews(qc),
+  })
+}
+
+/**
+ * "Not the same owner": take this entity out of its portfolio. The people stay where they
+ * are seated; this entity simply stops borrowing them. A group left with one member
+ * dissolves.
+ */
+export function useUnlinkOwnerPortfolio() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ownerCompanyId: string) => {
+      const { error } = await supabase.rpc('unlink_owner_portfolio', { p_company: ownerCompanyId })
+      if (error) throw error
     },
     onSuccess: () => invalidateOwnerViews(qc),
   })

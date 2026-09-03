@@ -11,9 +11,11 @@ import {
   useSetEmailVerified,
   useSetPhoneVerified,
   useOwnerConversations,
+  useOwnerPortfolio,
   useOwnerProperties,
   useOwnerRecord,
   useRemoveOwnerContact,
+  useUnlinkOwnerPortfolio,
   useUpdateOwnerTags,
 } from '@/hooks/use-owners'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
@@ -60,10 +62,26 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
   const contactIds = (contacts ?? []).map((c) => c.id)
   const { data: comms } = useOwnerConversations(companyId, contactIds)
   const { data: ownerRec } = useOwnerRecord(companyId)
+  const { data: portfolioRec } = useOwnerPortfolio(companyId)
   const removeLink = useRemoveOwnerContact()
+  const unlinkPortfolio = useUnlinkOwnerPortfolio()
   const updateTags = useUpdateOwnerTags()
   const [addingTag, setAddingTag] = useState(false)
   const [tagDraft, setTagDraft] = useState('')
+
+  // The other deed entities this owner holds; their people show here too.
+  const siblings = (portfolioRec?.members ?? []).filter((m) => m.id !== companyId)
+  const entityName = (id: string | null) => siblings.find((m) => m.id === id)?.name ?? null
+
+  const unlink = () => {
+    if (!companyId) return
+    const names = siblings.map((m) => m.name).join(', ')
+    if (!window.confirm(`Separate this owner from ${names}? Their contacts will no longer show here.`)) return
+    unlinkPortfolio.mutate(companyId, {
+      onSuccess: () => toast.success('Owner separated from the portfolio'),
+      onError: (e) => toast.error(`Could not separate: ${e.message}`),
+    })
+  }
 
   const saveTags = (tags: string[]) => {
     if (!companyId) return
@@ -79,11 +97,14 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
   const shown = verified.length > 0 ? verified : others
   const portfolioCount = portfolio?.length ?? 0
 
-  const remove = (contactId: string, name: string) => {
-    if (!companyId) return
+  // `seat` is the entity the person is actually seated at — a sibling's, when the row
+  // came in through the portfolio — because the unseat is scoped to that company.
+  const remove = (contactId: string, name: string, seat: string | null) => {
+    const at = seat ?? companyId
+    if (!at) return
     if (!window.confirm(`Remove ${name} from this owner? The contact and its history stay in the CRM.`)) return
     removeLink.mutate(
-      { contactId, ownerCompanyId: companyId },
+      { contactId, ownerCompanyId: at },
       {
         onSuccess: () => toast.success(`${name} removed from owner`),
         onError: (e) => toast.error(`Could not remove: ${e.message}`),
@@ -178,6 +199,22 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
             Mailing: {property.owner_mailing_address}
           </p>
         )}
+        {siblings.length > 0 && (
+          // Same principal, other deed entities. A verified person at any of them is a
+          // verified owner here — and if that is wrong, one click undoes it.
+          <p className="text-xs text-muted-foreground">
+            Same owner as {siblings.map((m) => m.name).join(', ')}
+            {' · '}
+            <button
+              type="button"
+              onClick={unlink}
+              disabled={unlinkPortfolio.isPending}
+              className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+            >
+              not the same owner?
+            </button>
+          </p>
+        )}
 
         {shown.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -193,6 +230,9 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                   <Link to={`/contacts/${ct.id}`} className="font-medium hover:underline">
                     {name}
                   </Link>
+                  {ct.company_id && ct.company_id !== companyId && entityName(ct.company_id) && (
+                    <span className="text-xs text-muted-foreground">via {entityName(ct.company_id)}</span>
+                  )}
                   {/* Verification belongs to the CHANNEL, not the person: a confirmed number
                       and a proven email are different facts. Each badge is the control that
                       sets it — click to flip, because the person who just made the call is
@@ -282,7 +322,7 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
                   <button
                     type="button"
                     title="Remove from this owner"
-                    onClick={() => remove(ct.id, name)}
+                    onClick={() => remove(ct.id, name, ct.company_id)}
                     className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
                   >
                     <X className="size-3.5" />
@@ -345,8 +385,12 @@ function AddContactForm({ property }: { property: Property }) {
         email: email.trim() || null,
       },
       {
-        onSuccess: () => {
-          toast.success('Verified owner added')
+        onSuccess: (res) => {
+          toast.success(
+            res.linked_company_name
+              ? `Verified owner added — linked with ${res.linked_company_name} as one portfolio`
+              : 'Verified owner added',
+          )
           setOpen(false)
           setFirst('')
           setLast('')

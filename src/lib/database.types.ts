@@ -436,6 +436,7 @@ export type Database = {
           normalized_name: string | null
           notes: string | null
           phone: string | null
+          portfolio_id: string | null
           sic: string | null
           source: string | null
           tags: string[] | null
@@ -460,6 +461,7 @@ export type Database = {
           normalized_name?: string | null
           notes?: string | null
           phone?: string | null
+          portfolio_id?: string | null
           sic?: string | null
           source?: string | null
           tags?: string[] | null
@@ -484,6 +486,7 @@ export type Database = {
           normalized_name?: string | null
           notes?: string | null
           phone?: string | null
+          portfolio_id?: string | null
           sic?: string | null
           source?: string | null
           tags?: string[] | null
@@ -4620,6 +4623,7 @@ export type Database = {
           owner_mailing_address: string | null
           owner_name: string | null
           owner_portfolio_acres: number | null
+          owner_portfolio_id: string | null
           owner_portfolio_sf: number | null
           owner_property_count: number | null
           owner_reachable: boolean | null
@@ -5069,6 +5073,12 @@ export type Database = {
           url: string
         }[]
       }
+      link_owner_portfolio: {
+        Args: { p_company_a: string; p_company_b: string }
+        Returns: string
+      }
+      portfolio_company_ids: { Args: { p_company: string }; Returns: string[] }
+      unlink_owner_portfolio: { Args: { p_company: string }; Returns: undefined }
       map_properties: {
         Args: {
           p_book?: string
