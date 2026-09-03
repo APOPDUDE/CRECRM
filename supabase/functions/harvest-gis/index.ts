@@ -364,6 +364,27 @@ const LAYERS: Record<string, Layer> = {
     outFields: "OBJECTID,FL_SOLARIS_LAND_ID,LOCATION_NAME,GRANTEE_TYPE_NAME,AGENCY_NAME,INVENTORY_ACRES_NBR",
     clip: true, page: 100, oid: "OBJECTID", keyset: true,
   },
+
+  // ---- railroads (2026-09-03, Alex: "highlight where the railroad is, active or
+  // not, and if possible the schedule"). USDOT/BTS NTAD publishes the FRA North
+  // American Rail Network: owner + trackage rights, subdivision, NET status (main,
+  // industrial lead, siding, yard, out of service, abandoned, trail), tracks,
+  // passenger service. Freight railroads publish no timetables; the FRA grade-crossing
+  // inventory is the public proxy — trains per day (day/night) and max timetable speed
+  // at every crossing, plus warning devices and the FRA crossing report. Both are
+  // ArcGIS Online hosted (7,200 request units a minute — one drain each is fine).
+  rail_lines_narn: {
+    url: "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_North_American_Rail_Network_Lines/FeatureServer/0",
+    county: null, where: "1=1",
+    outFields: "OBJECTID,FRAARCID,RROWNER1,RROWNER2,TRKRGHTS1,TRKRGHTS2,DIVISION,SUBDIV,BRANCH,YARDNAME,PASSNGR,STRACNET,TRACKS,NET,MILES",
+    clip: true, page: 1000, oid: "OBJECTID", keyset: true,
+  },
+  rail_crossings_ntad: {
+    url: "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Railroad_Grade_Crossings/FeatureServer/0",
+    county: null, where: "1=1",
+    outFields: "OBJECTID,CrossingID,RailroadCode,ParentRailroadCode,RailroadSubdivision,HighwayName,STREET,CrossingType,CrossingPosition,CrossingPurpose,WDCODE,WhistleBan,MaximumTimetableSpeed,TotalDaylightThruTrains,TotalNighttimeThruTrains,NumberOfMainTracks,AnnualAverageDailyTrafficCount,URL",
+    clip: true, page: 1000, oid: "OBJECTID", keyset: true,
+  },
 };
 
 // Parcel polygon sources — the same layers the land import reads, asked for

@@ -6,6 +6,7 @@ import {
   EASEMENT_COLOR,
   ELECTRIC_COLOR,
   GAS_COLOR,
+  RAIL_COLOR,
   ROW_COLOR,
   SEWER_COLOR,
   WATER_COLOR,
@@ -71,6 +72,8 @@ const KIND_LABEL: Record<string, string> = {
   electric_transmission: 'Transmission line',
   electric_substation: 'Substation',
   gas_transmission: 'Gas transmission',
+  rail_line: 'Railroad',
+  rail_crossing: 'Grade crossing',
   easement: 'Easement',
 }
 
@@ -90,6 +93,16 @@ function layerTooltipHtml(p: LayerFeatureProps): string {
   const rows: [string, string | undefined][] = [
     ['Type', p.k === 'easement' && p.label && p.label !== title ? p.label : undefined],
     ['Name', p.name],
+    ['Street', p.street],
+    ['Tracks', p.tracks != null ? String(p.tracks) : undefined],
+    ['Passenger', p.pass],
+    [
+      'Trains / day',
+      p.tpd != null
+        ? `${NUM.format(p.tpd)}${p.tpd_day != null || p.tpd_night != null ? ` (${p.tpd_day ?? 0} day / ${p.tpd_night ?? 0} night)` : ''}`
+        : undefined,
+    ],
+    ['Max speed', p.spd != null ? `${NUM.format(p.spd)} mph` : undefined],
     ['Diameter', p.dia != null ? `${NUM.format(p.dia)}"` : undefined],
     ['Voltage', p.kv != null ? `${NUM.format(p.kv)} kV` : undefined],
     ['Material', p.mat],
@@ -127,6 +140,18 @@ function styleFor(p: LayerFeatureProps): L.PathOptions {
       return { color: ELECTRIC_COLOR, weight: p.kv != null ? 1.5 + Math.min(p.kv, 500) / 125 : 2, opacity: 0.95 }
     case 'gas_transmission':
       return { color: GAS_COLOR, weight: 2.5, opacity: 0.95, dashArray: '2 6' }
+    case 'rail_line': {
+      // main lines heavy, branches / industrial leads lighter, abandoned + out of service
+      // faded and dashed — the white tie pattern is painted by a second pass below
+      const dead = p.st === 'Abandoned' || p.st === 'Out of service' || p.st === 'Trail'
+      const main = p.st === 'Main line'
+      return {
+        color: RAIL_COLOR,
+        weight: main ? 4 : 3,
+        opacity: dead ? 0.45 : 0.95,
+        dashArray: dead ? '6 6' : undefined,
+      }
+    }
     case 'easement':
       if (p.sub === 'row') return { color: ROW_COLOR, weight: 1, opacity: 0.8, dashArray: '3 3', fill: true, fillColor: ROW_COLOR, fillOpacity: 0.08 }
       if (p.sub === 'vacated') return { color: ROW_COLOR, weight: 1, opacity: 0.6, dashArray: '2 4', fill: false }
@@ -168,13 +193,17 @@ export function MapLayers({
   )
   const { data, isFetching } = useMapLayerFeatures(kinds, view, kinds.length > 0)
 
-  // split once per answer: easements and utilities live in different panes
+  // split once per answer: easements and utilities live in different panes; live rail
+  // lines get a second pass (white ties over the dark rail) so they read as railroad
   const split = useMemo(() => {
     const fc = kinds.length > 0 ? data : undefined
     const feats = fc?.features ?? []
     const ez = feats.filter((f) => f.properties.k === 'easement')
     const ut = feats.filter((f) => f.properties.k !== 'easement')
-    return { ez, ut, truncated: !!fc?.truncated, count: feats.length }
+    const ties = feats.filter(
+      (f) => f.properties.k === 'rail_line' && !['Abandoned', 'Out of service', 'Trail'].includes(f.properties.st ?? ''),
+    )
+    return { ez, ut, ties, truncated: !!fc?.truncated, count: feats.length }
   }, [data, kinds.length])
 
   useEffect(() => {
@@ -209,15 +238,26 @@ export function MapLayers({
             L.circleMarker(latlng, {
               pane: UTILITY_PANE,
               renderer: utilityRenderer,
-              radius: 5,
+              radius: f.properties.k === 'rail_crossing' ? 4 : 5,
               color: '#fff',
               weight: 1.5,
-              fillColor: ELECTRIC_COLOR,
+              fillColor:
+                f.properties.k === 'electric_substation'
+                  ? ELECTRIC_COLOR
+                  : f.properties.k === 'rail_crossing'
+                    ? RAIL_COLOR
+                    : '#94a3b8',
               fillOpacity: 0.95,
-              ...(f.properties.k === 'electric_substation' ? {} : { fillColor: '#94a3b8' }),
             })
           }
           onEachFeature={bindHover}
+        />
+      )}
+      {split.ties.length > 0 && (
+        <GeoJSON
+          key={`ties-${dataKey}`}
+          data={{ type: 'FeatureCollection', features: split.ties } as LayerFC}
+          style={() => ({ pane: UTILITY_PANE, renderer: utilityRenderer, color: '#ffffff', weight: 1.5, opacity: 0.9, dashArray: '6 6', interactive: false })}
         />
       )}
     </>

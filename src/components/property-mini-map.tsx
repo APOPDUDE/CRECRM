@@ -15,7 +15,7 @@ import {
 import { MapLayers } from '@/components/map-utility-layers'
 
 /** What the property page's map always shows around the parcel: mains and easements. */
-const MINI_LAYERS = { utilities: { water: true, sewer: true }, easements: true } as const
+const MINI_LAYERS = { utilities: { water: true, sewer: true, rail: true }, easements: true } as const
 
 interface PropertyMiniMapProps {
   lat?: number | null

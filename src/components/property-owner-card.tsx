@@ -19,6 +19,7 @@ import {
   useUpdateOwnerTags,
 } from '@/hooks/use-owners'
 import { AddNoteBox, ConversationLog } from '@/components/conversation-log'
+import { usePropertyBrokers, useRemovePropertyBroker } from '@/hooks/use-property-brokers'
 import type { Property } from '@/hooks/use-properties'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/dates'
@@ -66,6 +67,8 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
   const removeLink = useRemoveOwnerContact()
   const unlinkPortfolio = useUnlinkOwnerPortfolio()
   const updateTags = useUpdateOwnerTags()
+  const { data: brokers = [] } = usePropertyBrokers(property.id)
+  const removeBroker = useRemovePropertyBroker()
   const [addingTag, setAddingTag] = useState(false)
   const [tagDraft, setTagDraft] = useState('')
 
@@ -214,6 +217,58 @@ export function PropertyOwnerCard({ property }: { property: Property }) {
               not the same owner?
             </button>
           </p>
+        )}
+
+        {/* The owner's realtor, filed by the call form's Broker section ("owner said
+            call my realtor"). Lives with the owner because that's whose broker they
+            are — the conversation detail stays in the property notes below. */}
+        {brokers.length > 0 && (
+          <ul className="space-y-1">
+            {brokers.map((b) => {
+              const ct = b.contact
+              if (!ct) return null
+              const name = [ct.first_name, ct.last_name].filter(Boolean).join(' ') || 'Broker'
+              return (
+                <li
+                  key={ct.id}
+                  className="flex flex-wrap items-center gap-x-2 text-sm"
+                >
+                  <span className="text-xs text-muted-foreground">Owner&apos;s broker:</span>
+                  <Link to={`/contacts/${ct.id}`} className="font-medium hover:underline">
+                    {name}
+                  </Link>
+                  {ct.company?.name && (
+                    <span className="text-xs text-muted-foreground">{ct.company.name}</span>
+                  )}
+                  {ct.phone && (
+                    <a
+                      href={ct.ghl_contact_id ? ghlContactUrl(ct.ghl_contact_id) : `tel:${ct.phone}`}
+                      {...(ct.ghl_contact_id
+                        ? { target: '_blank', rel: 'noopener noreferrer', title: 'Call via GHL' }
+                        : {})}
+                      className="text-blue-700 hover:underline"
+                    >
+                      {formatPhone(ct.phone) ?? ct.phone}
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    title="Remove broker from this property"
+                    onClick={() => {
+                      if (!window.confirm(`Remove ${name} as this property's broker? The contact stays in the CRM.`)) return
+                      removeBroker.mutate(
+                        { propertyId: property.id, contactId: ct.id },
+                        { onError: (e) => toast.error(`Could not remove: ${e.message}`) },
+                      )
+                    }}
+                    className="opacity-40 hover:opacity-100"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
         )}
 
         {shown.length === 0 ? (

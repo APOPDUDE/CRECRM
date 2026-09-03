@@ -429,6 +429,7 @@ export type Database = {
           industry: string | null
           mailing_address: string | null
           mailing_city: string | null
+          mailing_key: string | null
           mailing_state: string | null
           mailing_zip: string | null
           naics: string | null
@@ -3131,6 +3132,42 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_property_owner_context"
             referencedColumns: ["property_id"]
+          },
+        ]
+      }
+      property_brokers: {
+        Row: {
+          contact_id: string
+          created_at: string
+          property_id: string
+          role: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          property_id: string
+          role?: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          property_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_brokers_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_brokers_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
           },
         ]
       }
