@@ -4526,6 +4526,27 @@ export type Database = {
           },
         ]
       }
+      v_market_event_feed: {
+        Row: {
+          address: string | null
+          best_contact_name: string | null
+          best_contact_phone: string | null
+          city: string | null
+          county: string | null
+          event_date: string | null
+          event_type: Database["public"]["Enums"]["market_event_type"] | null
+          first_seen_at: string | null
+          id: string | null
+          owner_contact_verified: boolean | null
+          owner_name: string | null
+          property_id: string | null
+          source: string | null
+          status: Database["public"]["Enums"]["market_event_status"] | null
+          title: string | null
+          url: string | null
+        }
+        Relationships: []
+      }
       v_outreach_lists: {
         Row: {
           held: number | null
