@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useResetOn } from '@/hooks/use-reset-on'
 import { Loader2, Send } from 'lucide-react'
 import { toast } from 'sonner'
@@ -81,7 +81,10 @@ function nextAt(hour: number): string {
  * same conversation. Both go out over the same Blooio line — there is no carrier lane
  * on this account — so the difference has to live in what the message says.
  */
-export const OWNER_TEMPLATES: { id: string; label: string; hint: string; body: string }[] = [
+/** ISO string for a send time still ahead of the real clock; null means "start now". */
+const futureIso = (d: Date) => (d.getTime() > Date.now() ? d.toISOString() : null)
+
+const OWNER_TEMPLATES: { id: string; label: string; hint: string; body: string }[] = [
   {
     id: 'cold',
     label: 'Cold — never spoken',
@@ -149,7 +152,11 @@ export function OwnerOutreachDialog({
   const [busy, setBusy] = useState(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
 
+  // "Now" as of opening: recent-contact and schedule checks compare against this, not a
+  // clock that ticks between renders (react-hooks/purity).
+  const [openedAt, setOpenedAt] = useState(() => Date.now())
   useResetOn([open], () => {
+    setOpenedAt(Date.now())
     if (!open) return
     setSegment('')
     setTemplateId(OWNER_TEMPLATES[0].id)
@@ -187,16 +194,19 @@ export function OwnerOutreachDialog({
   // want depends on the message: a market-news touch suits people you have spoken to,
   // a cold opener is wasted on someone you rang last week.
   const DAYS = 30
-  const cutoff = useMemo(() => Date.now() - DAYS * 86400000, [])
-  const isRecent = (r: OwnerRecipient) =>
-    r.lastContactedAt != null && new Date(r.lastContactedAt).getTime() >= cutoff
+  const cutoff = openedAt - DAYS * 86400000
+  const isRecent = useCallback(
+    (r: OwnerRecipient) =>
+      r.lastContactedAt != null && new Date(r.lastContactedAt).getTime() >= cutoff,
+    [cutoff],
+  )
 
   const inScope = useMemo(
     () =>
       recipients.filter((r) =>
         activity === 'all' ? true : activity === 'recent' ? isRecent(r) : !isRecent(r),
       ),
-    [recipients, activity, cutoff],
+    [recipients, activity, isRecent],
   )
   const toggleRecipient = (id: string) =>
     setDeselected((prev) => {
@@ -239,11 +249,14 @@ export function OwnerOutreachDialog({
       return next
     })
   const pace = PACE_OPTIONS.find((p) => p.id === paceId) ?? PACE_OPTIONS[1]
-  /** Parsed schedule, or null for "start now". A time already past counts as now. */
+  /**
+   * Parsed schedule, or null for "start now". A time already past (as of opening the
+   * dialog) counts as now; the send itself re-checks against the real clock.
+   */
   const scheduledAt = (() => {
     if (!sendAt) return null
     const d = new Date(sendAt)
-    return Number.isNaN(d.getTime()) || d.getTime() <= Date.now() ? null : d
+    return Number.isNaN(d.getTime()) || d.getTime() <= openedAt ? null : d
   })()
   /** Rough wall-clock for the whole run, using the midpoint of the chosen gap. */
   const runEstimate = (() => {
@@ -273,7 +286,7 @@ export function OwnerOutreachDialog({
           paceMaxMinutes: pace.max,
           // Absolute ISO, so the workflow is not guessing at the browser's timezone.
           // Null = start as soon as the GHL prep is done.
-          sendAt: scheduledAt ? scheduledAt.toISOString() : null,
+          sendAt: scheduledAt ? futureIso(scheduledAt) : null,
           recipients: sending.map((r) => ({
             ...r,
             ctx: { ...r.ctx, ...campaignCtx },

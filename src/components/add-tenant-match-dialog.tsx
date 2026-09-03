@@ -26,7 +26,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
-import { leadSourceLabels } from '@/components/source-badge'
+import { leadSourceLabels } from '@/lib/labels'
 import { useUnits, useSetPursuitUnits, unitSizeLabel } from '@/hooks/use-units'
 import { asPursuitInsert, resolvePursuitSide } from '@/hooks/use-matches'
 import { formatPsf } from '@/lib/format'

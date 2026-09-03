@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { PropertyPreview } from '@/components/property-preview'
 import { AddToClientDialog, type AddToClientProperty } from '@/components/add-to-client-dialog'
-import { propertyKindLabels } from '@/components/property-form-dialog'
+import { propertyKindLabels } from '@/lib/labels'
 import {
   bestDiscount,
   landUse,

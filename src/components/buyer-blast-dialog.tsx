@@ -63,7 +63,7 @@ export type BlastDeal = {
  * not the finished message. The `|| "…"` fallback is GHL's own syntax and is what keeps
  * a contact with no first name from getting "Hi ,".
  */
-export const MERGE_FIELDS: { label: string; token: string }[] = [
+const MERGE_FIELDS: { label: string; token: string }[] = [
   { label: 'First name', token: '{{contact.first_name || "there"}}' },
   { label: 'Company', token: '{{contact.company_name}}' },
   { label: 'What they buy', token: '{{buyer.product}}' },
@@ -73,12 +73,12 @@ export const MERGE_FIELDS: { label: string; token: string }[] = [
 ]
 
 /** Render exactly the way the workflow will, so a preview is proof rather than a guess. */
-export function renderMerge(template: string, b: BlastBuyer | undefined): string {
+function renderMerge(template: string, b: BlastBuyer | undefined): string {
   if (!b) return template
   return renderFor(template, b.clientId || b.phone, contactValues(b))
 }
 
-export function composeMessage(deal: BlastDeal | null, dealUrl: string): string {
+function composeMessage(deal: BlastDeal | null, dealUrl: string): string {
   if (!deal) return ''
   const where = [deal.address, deal.city].filter(Boolean).join(', ')
   const size = [

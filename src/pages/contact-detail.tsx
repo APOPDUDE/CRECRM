@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
-import { contactName } from '@/pages/contacts'
+import { contactName } from '@/lib/contact-name'
 import { useContact } from '@/hooks/use-contacts'
 import {
   useBuyerContactIds,

@@ -39,13 +39,13 @@ export function compactUsd(value: number | null | undefined): string | null {
  * so "12." and "12.5" survive the keystroke they are typed in.
  */
 export function groupDigits(raw: string | number | null | undefined): string {
-  let s = String(raw ?? '').replace(/,/g, '').replace(/[^0-9.\-]/g, '')
+  let s = String(raw ?? '').replace(/,/g, '').replace(/[^0-9.-]/g, '')
   const neg = s.startsWith('-')
   s = s.replace(/-/g, '')
   const dot = s.indexOf('.')
   if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '')
-  let [intPart = '', decPart] = s.split('.')
-  intPart = intPart.replace(/^0+(?=\d)/, '')
+  const [rawInt = '', decPart] = s.split('.')
+  const intPart = rawInt.replace(/^0+(?=\d)/, '')
   let out = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   if (s.includes('.')) out += '.' + (decPart ?? '')
   return (neg ? '-' : '') + out

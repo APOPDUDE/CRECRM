@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useResetOn } from '@/hooks/use-reset-on'
+import { useNow } from '@/hooks/use-now'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { BadgeCheck, ChevronLeft, ChevronRight, Columns3, Download, List, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
@@ -36,7 +37,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PropertyFormDialog, propertyKindLabels } from '@/components/property-form-dialog'
+import { PropertyFormDialog } from '@/components/property-form-dialog'
+import { propertyKindLabels } from '@/lib/labels'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { PARCEL_ZOOM, PropertiesMap } from '@/components/properties-map'
@@ -487,7 +489,8 @@ export function PropertiesPage() {
   const activity = ['all', 'recent', 'quiet'].includes(activityRaw) ? activityRaw : 'all'
   const ACTIVITY_DAYS = 30
   // Frozen per mount so the filter can't reshuffle rows under you as the clock ticks.
-  const activityCutoff = useMemo(() => Date.now() - ACTIVITY_DAYS * 86400000, [])
+  const nowMs = useNow()
+  const activityCutoff = nowMs - ACTIVITY_DAYS * 86400000
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
   // Which book the War Room shows (Alex 2026-08-21): Industrial is the normal book
   // (just-land rows excluded so it never slows or clutters), Land is the developer-land
@@ -1092,7 +1095,7 @@ export function PropertiesPage() {
       if (soldFilterOn && lastSales) {
         const last = lastSales.get(p.id)
         if (last) {
-          const cutoff = Date.now() - soldYearsNum * 365.25 * 24 * 3600 * 1000
+          const cutoff = nowMs - soldYearsNum * 365.25 * 24 * 3600 * 1000
           if (new Date(last).getTime() >= cutoff) continue
         } else if (!includeNoSale) continue
       }
@@ -1155,7 +1158,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon, radius])
+  }, [book, portfolioAll, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, nowMs, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon, radius])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,

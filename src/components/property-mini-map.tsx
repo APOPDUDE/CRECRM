@@ -5,13 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { geocodeAddress } from '@/lib/geocode'
 import { pointInPolygon } from '@/lib/geo'
-import {
-  PARCEL_SERVICES,
-  outerRings,
-  parcelKey,
-  parcelKeys,
-  ringsBbox,
-} from '@/components/properties-map'
+import { PARCEL_SERVICES, outerRings, parcelKey, parcelKeys, ringsBbox } from '@/lib/parcel-services'
 import { MapLayers } from '@/components/map-utility-layers'
 
 /** What the property page's map always shows around the parcel: mains and easements. */

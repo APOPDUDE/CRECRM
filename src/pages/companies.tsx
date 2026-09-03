@@ -20,7 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CompanyFormDialog, companyTypeLabels } from '@/components/company-form-dialog'
+import { CompanyFormDialog } from '@/components/company-form-dialog'
+import { companyTypeLabels } from '@/lib/labels'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import {

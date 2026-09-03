@@ -33,6 +33,31 @@ const TYPE_OPTS = [
 const s = (v: number | null | undefined) => (v == null ? '' : String(v))
 const n = (v: string) => (v.trim() ? Number(v) : undefined)
 
+type NumFieldProps = {
+  k: string
+  label: string
+  step?: string
+  grouped?: boolean
+  value: string
+  onChange: (e: { target: { value: string } }) => void
+}
+
+/** One numeric criterion. Module-level so its input keeps focus across re-renders. */
+function NumField({ k, label, step, grouped, value, onChange }: NumFieldProps) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={`fl-${k}`} className="text-xs">
+        {label}
+      </Label>
+      {grouped ? (
+        <CurrencyInput id={`fl-${k}`} value={value} onValueChange={(v) => onChange({ target: { value: v } })} />
+      ) : (
+        <Input id={`fl-${k}`} type="number" step={step} value={value} onChange={onChange} />
+      )}
+    </div>
+  )
+}
+
 /** Confirm/adjust a tenant's search criteria, then kick off the LoopNet+Crexi search. */
 export function FindListingsDialog({
   open,
@@ -106,19 +131,6 @@ export function FindListingsDialog({
     )
   }
 
-  const Num = ({ k, label, step , grouped }: { k: string; label: string; step?: string ; grouped?: boolean }) => (
-    <div className="space-y-1.5">
-      <Label htmlFor={`fl-${k}`} className="text-xs">
-        {label}
-      </Label>
-      {grouped ? (
-        <CurrencyInput id={`fl-${k}`} value={f[k] ?? ''} onValueChange={(v) => setk(k)({ target: { value: v } })} />
-      ) : (
-        <Input id={`fl-${k}`} type="number" step={step} value={f[k] ?? ''} onChange={setk(k)} />
-      )}
-    </div>
-  )
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -169,14 +181,14 @@ export function FindListingsDialog({
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Num grouped k="sf_min" label="Min SF" />
-            <Num grouped k="sf_max" label="Max SF" />
-            <Num k="ac_min" label="Min acres" step="0.1" />
-            <Num k="ac_max" label="Max acres" step="0.1" />
-            <Num k="cap_min" label="Min cap %" step="0.1" />
-            <Num k="cap_max" label="Max cap %" step="0.1" />
-            <Num grouped k="price_min" label="Min price $" />
-            <Num grouped k="price_max" label="Max price $" />
+            <NumField grouped k="sf_min" label="Min SF" value={f.sf_min ?? ''} onChange={setk('sf_min')} />
+            <NumField grouped k="sf_max" label="Max SF" value={f.sf_max ?? ''} onChange={setk('sf_max')} />
+            <NumField k="ac_min" label="Min acres" step="0.1" value={f.ac_min ?? ''} onChange={setk('ac_min')} />
+            <NumField k="ac_max" label="Max acres" step="0.1" value={f.ac_max ?? ''} onChange={setk('ac_max')} />
+            <NumField k="cap_min" label="Min cap %" step="0.1" value={f.cap_min ?? ''} onChange={setk('cap_min')} />
+            <NumField k="cap_max" label="Max cap %" step="0.1" value={f.cap_max ?? ''} onChange={setk('cap_max')} />
+            <NumField grouped k="price_min" label="Min price $" value={f.price_min ?? ''} onChange={setk('price_min')} />
+            <NumField grouped k="price_max" label="Max price $" value={f.price_max ?? ''} onChange={setk('price_max')} />
           </div>
           <DialogFooter>
             <Button

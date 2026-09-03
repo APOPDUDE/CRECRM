@@ -99,7 +99,7 @@ const OFF_MARKET_CLEARED_KEY = 'off-market:cleared-at'
 /** Feed floor: 7 days back, or the last "clear" if more recent (same as new-listings). */
 function offMarketFloorIso(): string {
   const weekAgo = sevenDaysAgoIso()
-  let cleared: string | null = null
+  let cleared: string | null
   try {
     cleared = window.localStorage.getItem(OFF_MARKET_CLEARED_KEY)
   } catch {
@@ -193,7 +193,7 @@ const NEW_LISTINGS_CLEARED_KEY = 'new-listings:cleared-at'
  */
 function newListingsFloorIso(): string {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  let cleared: string | null = null
+  let cleared: string | null
   try {
     cleared = window.localStorage.getItem(NEW_LISTINGS_CLEARED_KEY)
   } catch {

@@ -23,13 +23,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { CompanySelect } from '@/components/company-select'
 import { ContactSelect } from '@/components/contact-select'
 import { ConversationLog } from '@/components/conversation-log'
-import { leadSourceLabels } from '@/components/source-badge'
-import {
-  BuyerCriteriaFields,
-  buyerCriteriaToRow,
-  emptyBuyerCriteria,
-} from '@/components/buyer-criteria-fields'
-import type { BuyerCriteria } from '@/components/buyer-criteria-fields'
+import { leadSourceLabels } from '@/lib/labels'
+import { BuyerCriteriaFields } from '@/components/buyer-criteria-fields'
+import { buyerCriteriaToRow, emptyBuyerCriteria, type BuyerCriteria } from '@/lib/buyer-criteria'
 import { Building2, Plus, X } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { useContactConversations } from '@/hooks/use-communications'

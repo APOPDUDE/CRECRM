@@ -1,19 +1,12 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import { createContext, useContext, useEffect } from 'react'
 
-interface BreadcrumbContextValue {
+export interface BreadcrumbContextValue {
   crumb: string | null
   setCrumb: (crumb: string | null) => void
 }
 
-const BreadcrumbContext = createContext<BreadcrumbContextValue | undefined>(undefined)
-
-export function BreadcrumbProvider({ children }: { children: ReactNode }) {
-  const [crumb, setCrumb] = useState<string | null>(null)
-  return (
-    <BreadcrumbContext.Provider value={{ crumb, setCrumb }}>{children}</BreadcrumbContext.Provider>
-  )
-}
+/** Shared with BreadcrumbProvider (a component, so it lives in components/ for Fast Refresh). */
+export const BreadcrumbContext = createContext<BreadcrumbContextValue | undefined>(undefined)
 
 export function useBreadcrumbValue() {
   const ctx = useContext(BreadcrumbContext)

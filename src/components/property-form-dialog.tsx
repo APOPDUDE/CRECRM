@@ -25,22 +25,7 @@ import { useCreateProperty, useUpdateProperty, useEnrichProperty } from '@/hooks
 import type { Property } from '@/hooks/use-properties'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
-
-export const propertyKindLabels: Record<Enums<'property_kind'>, string> = {
-  industrial: 'Industrial',
-  office: 'Office',
-  retail: 'Retail',
-  land: 'Land',
-  other: 'Other',
-}
-
-/** Property types offered for tenant requirements (a focused subset). */
-export const tenantPropertyTypeOptions: Enums<'property_kind'>[] = [
-  'office',
-  'retail',
-  'industrial',
-  'land',
-]
+import { propertyKindLabels } from '@/lib/labels'
 
 /** Radix Select cannot use an empty string for an item value, so null maps to this sentinel. */
 const NO_TYPE = '__none__'

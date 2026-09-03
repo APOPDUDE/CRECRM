@@ -17,7 +17,7 @@ import {
   Tag,
   X,
 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistance, formatDistanceToNow } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -148,7 +148,7 @@ export function MarketEventsPage() {
             return (
               <span key={src} className={stale ? 'text-amber-600' : undefined}>
                 {stale && <AlertTriangle className="mr-1 inline size-3" />}
-                {marketSourceLabel(src)}: {formatDistanceToNow(Date.now() - seconds * 1000)} ago
+                {marketSourceLabel(src)}: {formatDistance(0, seconds * 1000)} ago
               </span>
             )
           })

@@ -24,15 +24,7 @@ import { useCreateCompany, useUpdateCompany } from '@/hooks/use-companies'
 import type { Company } from '@/hooks/use-companies'
 import type { Enums } from '@/lib/database.types'
 import { friendlyDbError } from '@/lib/db-errors'
-
-export const companyTypeLabels: Record<Enums<'company_type'>, string> = {
-  landlord: 'Landlord',
-  owning_entity: 'Owning entity',
-  tenant: 'Tenant',
-  broker: 'Broker',
-  vendor: 'Vendor',
-  other: 'Other',
-}
+import { companyTypeLabels } from '@/lib/labels'
 
 interface CompanyFormDialogProps {
   open: boolean

@@ -310,7 +310,7 @@ export function BuyersPage() {
     })
   const textable = useMemo(() => filtered.filter((b) => b.contact?.phone), [filtered])
   const selectedCount = useMemo(
-    () => textable.filter((b) => isSelected(b.id)).length,
+    () => textable.filter((b) => !deselected.has(b.id)).length,
     [textable, deselected],
   )
   const allSelected = textable.length > 0 && selectedCount === textable.length

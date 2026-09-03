@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { PanelLeftClose, PanelLeftOpen, StickyNote, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,30 +9,6 @@ import { useFiles } from '@/hooks/use-files'
 import { useNotes, type ParentType } from '@/hooks/use-notes'
 import { cn } from '@/lib/utils'
 import type { Enums } from '@/lib/database.types'
-
-const COLLAPSE_KEY = 'board-info-collapsed'
-
-/** Collapse state for the board info panel, persisted across boards in localStorage. */
-export function useInfoPanelCollapsed() {
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem(COLLAPSE_KEY) === '1'
-    } catch {
-      return false
-    }
-  })
-  const toggle = () =>
-    setCollapsed((v) => {
-      const next = !v
-      try {
-        localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
-      return next
-    })
-  return [collapsed, toggle] as const
-}
 
 /** Shared section wrapper used across both board info panels. */
 export function SidebarSection({ title, children }: { title: string; children: ReactNode }) {
