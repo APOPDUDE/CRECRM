@@ -80,7 +80,7 @@ import { useAvailableUnitSizes } from '@/hooks/use-units'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { friendlyDbError } from '@/lib/db-errors'
 import { formatCurrency, formatPhone, formatPsf, formatSf } from '@/lib/format'
-import { pointInPolygon, type LatLng } from '@/lib/geo'
+import { pointInPolygon, withinRadius, type LatLng, type RadiusFilter } from '@/lib/geo'
 import { buildHaystack, matchesTokens, searchTokens } from '@/lib/address-search'
 import { downloadCsv, toCsv, todayStamp } from '@/lib/export-csv'
 import { PushToGhlDialog, type PushContact } from '@/components/push-to-ghl-dialog'
@@ -534,7 +534,12 @@ export function PropertiesPage() {
   // ephemeral on purpose — a half-drawn shape should not survive navigation.
   const [polygon, setPolygon] = usePersistentState<LatLng[] | null>('properties:shape', null)
   const [draft, setDraft] = useState<LatLng[] | null>(null)
-  const drawMode = draft !== null
+  // Radius search: a circle dropped on the map and grown from the rail. Persisted like the
+  // shape (it filters table + export the same way); exclusive with it — one area at a time.
+  const [radius, setRadius] = usePersistentState<RadiusFilter | null>('properties:radius', null)
+  const [placingRadius, setPlacingRadius] = useState(false)
+  // Both modes turn map clicks into geometry instead of navigation.
+  const drawMode = draft !== null || placingRadius
   // Where the map camera is pointed. Null until the map mounts and reports its bounds.
   const [viewport, setViewport] = useState<MapViewport | null>(null)
   // The map overlays: zoning districts (per type, per code) + lowlands, plus which
@@ -608,7 +613,8 @@ export function PropertiesPage() {
     hasText ||
     activeFilterCount > 0 ||
     portfolioOwnerId != null ||
-    (polygon != null && polygon.length >= 3)
+    (polygon != null && polygon.length >= 3) ||
+    radius != null
   const viewportOnly = view === 'map' && !hasQuery
   /**
    * A typed search is answered by Postgres, not by the book — in BOTH views.
@@ -656,7 +662,7 @@ export function PropertiesPage() {
    */
   const tableFastPath =
     view === 'table' && bookMode === 'land' && !searchOnly &&
-    activeFilterCount === 0 && !polygon && !wantsBook && overlayIncludes.length === 0
+    activeFilterCount === 0 && !polygon && !radius && !wantsBook && overlayIncludes.length === 0
   const needsBook = ((!viewportOnly && !searchOnly) && !tableFastPath) || wantsBook || overlayIncludes.length > 0
 
   const { data: properties, isLoading, isError, refetch } = useProperties(needsBook, bookMode)
@@ -766,6 +772,7 @@ export function PropertiesPage() {
       setOwnerFilter('all')
       setActivity('all')
       setPolygon(null)
+      setRadius(null)
       // Lease windows are sticky too, and a stale one would cut the very set being
       // linked to. The lease branch below re-applies whatever the link asked for.
       setLeaseMin('')
@@ -804,7 +811,7 @@ export function PropertiesPage() {
     // cleared too: it would suspend the fit-to-portfolio zoom (shapes suspend
     // refits by design), and "show me this owner's holdings" outranks a saved
     // shape exactly like the other deep links outrank saved filters.
-    if (owner) setPolygon(null)
+    if (owner) { setPolygon(null); setRadius(null) }
     setSearchParams(owner ? { owner } : {}, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -1106,6 +1113,7 @@ export function PropertiesPage() {
       // Shape before the use axes: expensive, but it must bind on BOTH buckets — the
       // overlay union is only allowed to forgive what-the-property-is, never where-it-is.
       if (polygon && polygon.length >= 3 && !pointInPolygon(polygon, p.lat, p.lng)) continue
+      if (radius && !withinRadius(radius, p.lat, p.lng)) continue
 
       // ---- The use axes: what the property IS (type / zoning / DOR). A row failing
       // ONLY these is an include-candidate — the overlay union may forgive them.
@@ -1142,7 +1150,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
-  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon])
+  }, [book, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon, radius])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1226,7 +1234,7 @@ export function PropertiesPage() {
   // Reset to the first page whenever a filter/search edit changes the result set.
   useEffect(() => {
     setPage(0)
-  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, leaseMatchIds])
+  }, [search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, radius, leaseMatchIds])
 
   /**
    * Skip-trace hand-off: the current filtered set as CSV. Parcel ID leads because it is the
@@ -1384,6 +1392,8 @@ export function PropertiesPage() {
         : `${filtered.length.toLocaleString()} matching incl. overlay properties${condoSuffix}`
       : polygon
         ? `${filtered.length.toLocaleString()} in shape${condoSuffix}`
+        : radius
+          ? `${filtered.length.toLocaleString()} within ${radius.miles} mi${condoSuffix}`
         : searchOnly
           ? searching
             ? 'Searching…'
@@ -1412,6 +1422,8 @@ export function PropertiesPage() {
   const clearAllFilters = () => {
     setPolygon(null)
     setDraft(null)
+    setRadius(null)
+    setPlacingRadius(false)
     setSfMin(''); setSfMax(''); setAcMin(''); setAcMax(''); setScoreMin('')
     setStatus('all'); setDealType('all')
     setPsfMin(''); setPsfMax(''); setPriceMin(''); setPriceMax('')
@@ -1470,11 +1482,17 @@ export function PropertiesPage() {
       book={bookMode}
       polygon={polygon}
       draft={draft}
-      onStartDraw={() => { setPolygon(null); setDraft([]) }}
+      onStartDraw={() => { setPolygon(null); setRadius(null); setPlacingRadius(false); setDraft([]) }}
       onFinishDraw={() => { setPolygon(draft); setDraft(null) }}
       onUndoVertex={() => setDraft((d) => (d && d.length > 0 ? d.slice(0, -1) : d))}
       onCancelDraw={() => setDraft(null)}
       onClearShape={() => setPolygon(null)}
+      radius={radius}
+      placingRadius={placingRadius}
+      onStartRadius={() => { setPolygon(null); setDraft(null); setPlacingRadius(true) }}
+      onRadiusMiles={(miles) => setRadius((r) => (r ? { ...r, miles } : r))}
+      onCancelRadius={() => setPlacingRadius(false)}
+      onClearRadius={() => { setRadius(null); setPlacingRadius(false) }}
       onClearAll={() => { setPendingFilters({}); clearAllFilters() }}
       dirty={filtersDirty}
       onApply={applyFilters}
@@ -2276,6 +2294,14 @@ export function PropertiesPage() {
                 setPolygon(draft)
                 setDraft(null)
               }
+            }}
+            radius={radius}
+            placingRadius={placingRadius}
+            // Dropping the center keeps the last radius (Alex grows it from the rail);
+            // a first circle starts at a mile.
+            onPlaceRadius={(lat, lng) => {
+              setRadius((r) => ({ lat, lng, miles: r?.miles ?? 1 }))
+              setPlacingRadius(false)
             }}
           />
           </div>

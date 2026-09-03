@@ -54,7 +54,7 @@ function Dot({ color }: { color: string }) {
 
 /**
  * The DOR-code picker, shaped like the zoning layers (Alex, 2026-08-16): four major
- * categories — Industrial (which files 027 with it, per the seeded dor_codes table),
+ * categories — Industrial (040-049 per the seeded dor_codes table; 027 is retail again),
  * Retail, Office, Multifamily — each a tri-state checkbox whose code list can be
  * edited underneath, plus search that finds ANY code: standard 'other' codes (001…)
  * and county customs (county in faint italics, matching verbatim) check into `extra`.

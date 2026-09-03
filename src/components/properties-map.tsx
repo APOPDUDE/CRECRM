@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
-import { CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { propertyKindLabels } from '@/components/property-form-dialog'
 import type { Property } from '@/hooks/use-properties'
@@ -9,7 +9,7 @@ import type { OwnerContext } from '@/hooks/use-owners'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import type { CurrentAsking } from '@/hooks/use-comps'
 import type { LeaseComp } from '@/hooks/use-lease-comps'
-import { pointInPolygon, type LatLng } from '@/lib/geo'
+import { pointInPolygon, type LatLng, type RadiusFilter } from '@/lib/geo'
 import { isZonedIndustrial } from '@/hooks/use-zoning-map'
 import type { Geometry } from 'geojson'
 import { MapOverlays } from '@/components/map-overlays'
@@ -259,6 +259,14 @@ function ShapeDrawer({
   })
   return null
 }
+
+/** One click drops the circle's center; the rail then grows/shrinks it. */
+function RadiusPlacer({ onPlace }: { onPlace: (lat: number, lng: number) => void }) {
+  useMapEvents({ click: (e) => onPlace(e.latlng.lat, e.latlng.lng) })
+  return null
+}
+
+const METERS_PER_MILE = 1609.344
 
 // ---------------------------------------------------------------------------
 // Parcel outlines, straight from the county appraiser GIS services (same endpoints the
@@ -741,6 +749,9 @@ export function PropertiesMap({
   drawMode = false,
   onAddVertex,
   onFinishShape,
+  radius,
+  placingRadius = false,
+  onPlaceRadius,
   asking,
   industrialCrossovers,
   onViewportChange,
@@ -776,6 +787,11 @@ export function PropertiesMap({
   onAddVertex?: (lat: number, lng: number) => void
   /** Fired when the drawer clicks back on the first vertex of a closable draft. */
   onFinishShape?: () => void
+  /** The dropped search circle; the parent owns it (it filters the table + export too). */
+  radius?: RadiusFilter | null
+  /** True while the next map click should become the circle's center. */
+  placingRadius?: boolean
+  onPlaceRadius?: (lat: number, lng: number) => void
   /** Current asking per property, so a listed pin can show its rate/price on hover. */
   asking?: Map<string, CurrentAsking>
   /** Crossover zoning codes (jurisdiction|code) that allow industrial without being it. */
@@ -1026,16 +1042,35 @@ export function PropertiesMap({
               driving the data, so the data must not drive the camera back. */}
           <FitToPoints
             points={points}
-            suspended={drawMode || !!polygon || totalInView != null}
+            suspended={drawMode || !!polygon || !!radius || totalInView != null}
             skipInitial={!!initialView}
             forceKey={fitKey}
           />
-          {drawMode && onAddVertex && (
+          {placingRadius && onPlaceRadius ? (
+            <RadiusPlacer onPlace={onPlaceRadius} />
+          ) : drawMode && onAddVertex ? (
             <ShapeDrawer
               onVertex={onAddVertex}
               closeTarget={draft && draft.length >= 3 ? draft[0] : null}
               onClose={() => onFinishShape?.()}
             />
+          ) : null}
+          {/* the search circle: filled disc plus a center dot, same blue as the shape */}
+          {radius && (
+            <>
+              <Circle
+                center={[radius.lat, radius.lng]}
+                radius={radius.miles * METERS_PER_MILE}
+                pathOptions={{ color: '#2563eb', weight: 2, fillColor: '#2563eb', fillOpacity: 0.08 }}
+                interactive={false}
+              />
+              <CircleMarker
+                center={[radius.lat, radius.lng]}
+                radius={5}
+                pathOptions={{ color: '#2563eb', weight: 2, fillColor: '#fff', fillOpacity: 1 }}
+                interactive={false}
+              />
+            </>
           )}
           {/* the completed search shape */}
           {polygon && polygon.length >= 3 && (

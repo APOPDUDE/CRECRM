@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Crosshair, MessageSquare, Send } from 'lucide-react'
+import { CircleDashed, Crosshair, MessageSquare, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -18,7 +19,7 @@ import { DorCodePicker } from '@/components/dor-code-picker'
 import { PROPERTY_TAG_OPTIONS, type PropertyTagKey } from '@/hooks/use-property-tag-filter'
 import { type DorSelection } from '@/lib/zoning'
 import type { OverlayState } from '@/lib/overlays'
-import type { LatLng } from '@/lib/geo'
+import type { LatLng, RadiusFilter } from '@/lib/geo'
 import { cn } from '@/lib/utils'
 
 /** Which owner channels count as "verified" while the toggle is on. */
@@ -97,6 +98,15 @@ export function MapFilterRail(props: {
   onUndoVertex: () => void
   onCancelDraw: () => void
   onClearShape: () => void
+  // radius — a circle you drop on the map and grow/shrink; same job as the shape
+  // (filters table + export), so the two are exclusive: starting one clears the other.
+  radius: RadiusFilter | null
+  /** True between tapping Radius and the click that drops the center. */
+  placingRadius: boolean
+  onStartRadius: () => void
+  onRadiusMiles: (miles: number) => void
+  onCancelRadius: () => void
+  onClearRadius: () => void
   /** Reset EVERY rail filter (and the shape) to defaults — one tap back to the whole book. */
   onClearAll: () => void
   /** Staged edits waiting to run. The rail's controls edit a pending overlay in the
@@ -190,6 +200,7 @@ export function MapFilterRail(props: {
 }) {
   const p = props
   const drawing = p.draft !== null
+  const placing = p.placingRadius
 
   // Unchecking the last channel would mean "verified via nothing", which filters
   // everyone out while looking like a narrower search — flip to the other channel
@@ -214,16 +225,29 @@ export function MapFilterRail(props: {
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Draw shape */}
+      {/* Draw shape / radius */}
       <div className="space-y-1.5">
-        {!drawing ? (
+        {placing ? (
+          <>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button size="sm" variant="ghost" onClick={p.onCancelRadius}>
+                Cancel
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Click the map to drop the center of the circle</p>
+          </>
+        ) : !drawing ? (
           <div className="flex flex-wrap items-center gap-1.5">
             <Button size="sm" variant="outline" onClick={p.onStartDraw}>
               <Crosshair className="size-4" />
               {p.polygon ? 'Redraw shape' : 'Draw shape'}
             </Button>
-            {p.polygon && (
-              <Button size="sm" variant="ghost" onClick={p.onClearShape}>
+            <Button size="sm" variant="outline" onClick={p.onStartRadius}>
+              <CircleDashed className="size-4" />
+              {p.radius ? 'Move radius' : 'Radius'}
+            </Button>
+            {(p.polygon || p.radius) && (
+              <Button size="sm" variant="ghost" onClick={p.polygon ? p.onClearShape : p.onClearRadius}>
                 Clear
               </Button>
             )}
@@ -256,6 +280,9 @@ export function MapFilterRail(props: {
                 : `${p.draft!.length} points — click the first point to close the shape`}
             </p>
           </>
+        )}
+        {p.radius && !placing && !drawing && (
+          <RadiusMiles miles={p.radius.miles} onChange={p.onRadiusMiles} />
         )}
       </div>
 
@@ -620,6 +647,68 @@ export function MapFilterRail(props: {
           </Button>
         </div>
       )}
+    </div>
+  )
+}
+
+/** The radius grows in sensible steps: quarter miles under 1, halves under 5, whole miles after. */
+function stepMiles(miles: number, dir: 1 | -1): number {
+  const step = miles < 1 || (dir < 0 && miles <= 1) ? 0.25 : miles < 5 || (dir < 0 && miles <= 5) ? 0.5 : 1
+  return Math.min(RADIUS_MAX_MI, Math.max(RADIUS_MIN_MI, Math.round((miles + dir * step) * 4) / 4))
+}
+const RADIUS_MIN_MI = 0.25
+const RADIUS_MAX_MI = 25
+
+/**
+ * Miles control for the dropped circle. Edits land in local state and commit after a
+ * short pause — the slider fires on every pixel, and each commit re-filters the book
+ * (per-change recompute over the land book is what made the rail slow, Alex 2026-08-24).
+ */
+function RadiusMiles({ miles, onChange }: { miles: number; onChange: (m: number) => void }) {
+  const [draft, setDraft] = useState(miles)
+  useEffect(() => setDraft(miles), [miles])
+  useEffect(() => {
+    if (draft === miles) return
+    const t = window.setTimeout(() => onChange(draft), 200)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft])
+  const fmt = (m: number) => (Number.isInteger(m) ? String(m) : m.toFixed(2).replace(/0$/, ''))
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        <Button size="sm" variant="outline" className="h-7 w-7 p-0" aria-label="Smaller radius" onClick={() => setDraft((m) => stepMiles(m, -1))}>
+          −
+        </Button>
+        <Input
+          type="number"
+          inputMode="decimal"
+          min={RADIUS_MIN_MI}
+          max={RADIUS_MAX_MI}
+          step={0.25}
+          value={fmt(draft)}
+          onChange={(e) => {
+            const v = parseFloat(e.target.value)
+            if (Number.isFinite(v) && v > 0) setDraft(Math.min(RADIUS_MAX_MI, Math.max(RADIUS_MIN_MI, v)))
+          }}
+          className="h-7 w-20 text-center"
+          aria-label="Radius in miles"
+        />
+        <span className="text-xs text-muted-foreground">mi</span>
+        <Button size="sm" variant="outline" className="h-7 w-7 p-0" aria-label="Larger radius" onClick={() => setDraft((m) => stepMiles(m, 1))}>
+          +
+        </Button>
+      </div>
+      <input
+        type="range"
+        min={RADIUS_MIN_MI}
+        max={10}
+        step={0.25}
+        value={Math.min(10, draft)}
+        onChange={(e) => setDraft(parseFloat(e.target.value))}
+        className="w-full accent-blue-600"
+        aria-label="Radius in miles"
+      />
     </div>
   )
 }

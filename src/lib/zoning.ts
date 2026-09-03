@@ -67,13 +67,15 @@ export function dorInt(code: string | null | undefined): number | null {
 }
 
 /**
- * Industrial USE, the county's word: the DOR industrial range plus vehicle
- * sales/repair/garages (027) — Alex's niche rides with industrial whatever the
- * classifier's standard bucket says. Vacant industrial (040) counts too.
+ * Industrial USE, the county's word: the DOR industrial range 040-049, vacant
+ * industrial (040) included. 027 (auto sales/repair/garages) rode with industrial from
+ * 2026-08-16 to 2026-09-03; Alex pulled it back out ("remove 027 auto sales and repair
+ * from the dor code for industrial"), so it files as retail/commercial again, FDOR's own
+ * grouping. Twins: property_kind_from_dor, warroom_predicate, the dor_codes seed.
  */
 export function isIndustrialUse(code: string | null | undefined): boolean {
   const v = dorInt(code)
-  return v != null && ((v >= 40 && v <= 49) || v === 27)
+  return v != null && v >= 40 && v <= 49
 }
 
 /**
@@ -146,8 +148,8 @@ export function dorSelectionActive(sel: DorSelection): boolean {
 
 /**
  * Does a row answer the picker? A category on 'all' matches every code the dor_codes
- * table files under it (`categoryOf`, from the seeded list — 027 rides with
- * industrial there, per Alex); a subset matches its checked codes; `extra` matches
+ * table files under it (`categoryOf`, from the seeded list — 027 is retail there
+ * again since 2026-09-03, per Alex); a subset matches its checked codes; `extra` matches
  * standard codes by normalization and county customs verbatim.
  */
 export function matchesDorSelection(
@@ -187,12 +189,11 @@ export function dorBucket(code: string | null | undefined): DorBucket | null {
   // vacant of any flavour reads as land: residential (0), commercial (10), industrial (40)
   if (v === 0 || v === 10 || v === 40) return 'vacant'
   if (v >= 17 && v <= 19) return 'office'
-  // 027 (auto sales/repair/garages) is Alex's niche and files as INDUSTRIAL on every
-  // axis — property_kind_from_dor, the dor_codes picker seed, isIndustrialUse and here —
-  // whatever FDOR's standard commercial grouping says (Alex, 2026-08-16: "2703 … should
-  // be industrial").
-  if ((v >= 11 && v <= 16) || (v >= 20 && v <= 39 && v !== 27)) return 'retail_commercial'
-  if ((v >= 41 && v <= 49) || v === 27) return 'industrial'
+  // 027 (auto sales/repair/garages) is retail/commercial again (Alex 2026-09-03); it
+  // rode with industrial on every axis from 2026-08-16. Keep this, isIndustrialUse,
+  // property_kind_from_dor and warroom_predicate's c_bucket in lockstep.
+  if ((v >= 11 && v <= 16) || (v >= 20 && v <= 39)) return 'retail_commercial'
+  if (v >= 41 && v <= 49) return 'industrial'
   if (v >= 50 && v <= 69) return 'agricultural'
   if (v >= 70 && v <= 98) return 'institutional_gov'
   return 'other'
