@@ -24,9 +24,12 @@ const ExportTiles = L.TileLayer.extend({
     const minx = -HALF + coords.x * size
     const maxy = HALF - coords.y * size
     const bbox = `${minx},${maxy - size},${minx + size},${maxy}`
-    return `${this.options.base}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=256,256&format=jpgpng&f=image`
+    // ImageServer exportImage takes jpgpng; a MapServer export (SWFWMD) answers that
+    // with an HTML error page and wants plain jpg
+    const fmt = this.options.base.endsWith('/exportImage') ? 'jpgpng' : 'jpg'
+    return `${this.options.base}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=256,256&format=${fmt}&f=image`
   },
-}) as unknown as new (opts: L.TileLayerOptions & { base: string }) => L.TileLayer
+}) as unknown as new (url: string, opts: L.TileLayerOptions & { base: string }) => L.TileLayer
 
 function layerFor(src: ImagerySource): L.TileLayer {
   const common: L.TileLayerOptions = {
@@ -38,9 +41,13 @@ function layerFor(src: ImagerySource): L.TileLayer {
     // a tile the flight never covered stays blank rather than a broken-image icon
     errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
   }
+  // L.TileLayer's constructor is (urlTemplate, options): the export class ignores the
+  // template and builds its own URL from options.base — but the options MUST travel in
+  // the second slot, or pane, bounds and base are silently lost (2026-09-02: "the 1938
+  // layer doesn't do anything")
   return src.kind === 'xyz'
     ? L.tileLayer(src.url, common)
-    : new ExportTiles({ ...common, base: src.url })
+    : new ExportTiles('', { ...common, base: src.url })
 }
 
 /** Mount inside a MapContainer; `year` null = live imagery only. */

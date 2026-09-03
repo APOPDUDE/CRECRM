@@ -10,7 +10,7 @@
  * Wayback, county aerials, SWFWMD), because tiles are what those servers exist for.
  */
 
-export type UtilityLayerId = 'water' | 'sewer' | 'service_area' | 'electric' | 'gas'
+export type UtilityLayerId = 'water' | 'sewer' | 'electric' | 'gas'
 
 export type UtilityLayer = {
   id: UtilityLayerId
@@ -28,13 +28,15 @@ export type UtilityLayer = {
 
 export const WATER_COLOR = '#2563eb'
 export const SEWER_COLOR = '#db2777'
-export const SERVICE_AREA_COLOR = '#16a34a'
 export const ELECTRIC_COLOR = '#f59e0b'
 export const GAS_COLOR = '#7c3aed'
 export const EASEMENT_COLOR = '#ea580c'
 /** public right-of-way strips in the same inventory as the easements — context, not encumbrance */
 export const ROW_COLOR = '#64748b'
 
+// The water/sewer SERVICE-AREA polygons are deliberately not a rail toggle (Alex
+// 2026-09-02: redundant next to the mains themselves). They still feed the property
+// page — in_water_service_area / provider — and the RPC still serves the kinds.
 export const UTILITY_LAYERS: UtilityLayer[] = [
   {
     id: 'water',
@@ -51,14 +53,6 @@ export const UTILITY_LAYERS: UtilityLayer[] = [
     kinds: ['sewer_gravity', 'sewer_force'],
     minZoom: 16,
     hint: 'gravity solid, force main dashed · + Pinellas force mains',
-  },
-  {
-    id: 'service_area',
-    label: 'Water / sewer service areas',
-    color: SERVICE_AREA_COLOR,
-    kinds: ['water_service_area', 'sewer_service_area'],
-    minZoom: 9,
-    hint: 'Hillsborough County, Tampa, Temple Terrace, Plant City',
   },
   {
     id: 'electric',

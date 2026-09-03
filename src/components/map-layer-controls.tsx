@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   EASEMENT_LAYER,
@@ -59,6 +60,14 @@ export function MapLayerControls({
 
   const toggleUtility = (id: UtilityLayerId) =>
     onChange({ ...state, utilities: { ...state.utilities, [id]: !state.utilities[id] } })
+  const setAllLayers = (on: boolean) =>
+    onChange({
+      ...state,
+      utilities: Object.fromEntries(UTILITY_LAYERS.map((l) => [l.id, on])) as Partial<Record<UtilityLayerId, boolean>>,
+      easements: on,
+    })
+  const allOn = UTILITY_LAYERS.every((l) => state.utilities[l.id]) && state.easements
+  const noneOn = !anyUtility && !state.easements
 
   const years = [...IMAGERY_YEARS].reverse()
   const yearIdx = state.imageryYear == null ? -1 : IMAGERY_YEARS.indexOf(state.imageryYear)
@@ -67,6 +76,14 @@ export function MapLayerControls({
   return (
     <div className="space-y-3">
       <Section title="Utilities + easements" open={utilOpen} onToggle={() => setUtilOpen((v) => !v)}>
+        <div className="flex gap-1">
+          <Button size="sm" variant="outline" className="h-6 px-2 text-xs" disabled={allOn} onClick={() => setAllLayers(true)}>
+            Select all
+          </Button>
+          <Button size="sm" variant="outline" className="h-6 px-2 text-xs" disabled={noneOn} onClick={() => setAllLayers(false)}>
+            Clear
+          </Button>
+        </div>
         {UTILITY_LAYERS.map((l) => (
           <label key={l.id} className="flex cursor-pointer items-start gap-2" title={l.hint}>
             <Checkbox checked={!!state.utilities[l.id]} onCheckedChange={() => toggleUtility(l.id)} className="mt-0.5" />
@@ -107,7 +124,7 @@ export function MapLayerControls({
           <option value="">Current (Esri World Imagery)</option>
           {years.map((y) => (
             <option key={y} value={y}>
-              {y} · {imageryCoverage(y)}
+              {y}
             </option>
           ))}
         </select>
