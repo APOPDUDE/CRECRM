@@ -9,14 +9,16 @@
   ],
   "keywords": [
     "warehouse",
-    "industrial",
+    "industrial building",
+    "industrial warehouse",
     "flex space",
+    "flex warehouse",
     "commercial building",
     "building for sale",
     "commercial property",
-    "land",
-    "acreage",
-    "commercial lot"
+    "commercial lot",
+    "land for sale",
+    "acreage"
   ],
   "min_price": 5000,
   "limit_per_search": 20,
