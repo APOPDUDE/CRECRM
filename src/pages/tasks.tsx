@@ -61,6 +61,7 @@ const kindBadgeClass: Record<string, string> = {
   renewal: 'bg-purple-50 text-purple-700 border-purple-200',
   follow_up: 'bg-blue-50 text-blue-700 border-blue-200',
   tour: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  meeting: 'bg-amber-50 text-amber-700 border-amber-200',
   general: 'bg-gray-50 text-gray-600 border-gray-200',
 }
 
@@ -71,6 +72,7 @@ const KIND_FILTERS: { value: KindFilter; label: string }[] = [
   { value: 'follow_up', label: 'Follow-ups' },
   { value: 'renewal', label: 'Renewals' },
   { value: 'tour', label: 'Tours' },
+  { value: 'meeting', label: 'Meetings' },
   { value: 'general', label: 'Tasks' },
 ]
 

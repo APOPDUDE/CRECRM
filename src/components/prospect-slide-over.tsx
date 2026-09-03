@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { ArrowUpRight, Building2, Plus, X, XCircle } from 'lucide-react'
+import { ArrowUpRight, Building2, CalendarCheck, Plus, X, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -34,7 +34,8 @@ import {
 } from '@/hooks/use-prospects'
 import { usePropertySearch } from '@/hooks/use-listing-parcels'
 import { useCreateTask, useTasks, useToggleTask } from '@/hooks/use-tasks'
-import { formatDate, isOverdue } from '@/lib/dates'
+import { formatDate, formatTimeOfDay, isOverdue } from '@/lib/dates'
+import { calendlyBookingOf, leadSourceOf } from '@/lib/lead-source'
 import type { Enums } from '@/lib/database.types'
 import { cn } from '@/lib/utils'
 
@@ -67,6 +68,8 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
 
   const who = p.contact ? contactNameOf(p.contact) : (p.company?.name ?? 'Prospect')
   const tasks = allTasks.filter((t) => t.prospect_id === p.id && t.status === 'open')
+  const src = leadSourceOf(p)
+  const booking = calendlyBookingOf(p)
   const attachedIds = new Set(p.properties.map((x) => x.property_id))
   const suggestions = propResults.filter((r) => !attachedIds.has(r.id)).slice(0, 5)
 
@@ -146,8 +149,31 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
           <SheetTitle>{who}</SheetTitle>
           <SheetDescription>
             {p.company?.name && p.contact ? `${p.company.name} · ` : ''}
-            Prospect since {formatDate(p.created_at)}
+            Lead since {formatDate(p.created_at)}
           </SheetDescription>
+          {(src || booking) && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {src && (
+                <Badge variant="outline" className={cn('font-normal', src.className)}>
+                  {src.label}
+                </Badge>
+              )}
+              {booking && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'gap-1 font-normal',
+                    booking.canceled
+                      ? 'border-gray-200 bg-gray-50 text-gray-600'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                  )}
+                >
+                  <CalendarCheck className="size-3" />
+                  {booking.label}
+                </Badge>
+              )}
+            </div>
+          )}
         </SheetHeader>
 
         <div className="space-y-4 p-4">
@@ -251,6 +277,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
                       )}
                     >
                       {formatDate(t.due_date)}
+                      {t.due_at ? ` · ${formatTimeOfDay(t.due_at)}` : ''}
                     </span>
                   )}
                 </div>

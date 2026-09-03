@@ -24,12 +24,13 @@ export const taskKindLabels: Record<Enums<'task_kind'>, string> = {
   follow_up: 'Follow-up',
   general: 'Task',
   tour: 'Tour',
+  meeting: 'Meeting',
 }
 
 /** Anything a task can be routed to, so a task row never dead-ends. */
 export type TaskTarget = { href: string; label: string }
 
-type RoutableTask = Pick<Tables<'tasks'>, 'client_id' | 'listing_id' | 'pursuit_id' | 'contact_id'> & {
+type RoutableTask = Pick<Tables<'tasks'>, 'client_id' | 'listing_id' | 'pursuit_id' | 'contact_id' | 'prospect_id'> & {
   pursuit?: { client_id: string } | null
 }
 
@@ -44,6 +45,8 @@ export function taskTarget(task: RoutableTask): TaskTarget | null {
   if (task.listing_id) return { href: `/landlord-rep/${task.listing_id}`, label: 'Open listing' }
   if (task.pursuit?.client_id)
     return { href: `/tenant-rep/${task.pursuit.client_id}`, label: 'Open deal' }
+  // A lead's task (a Calendly booking, a follow-up) opens that lead on the Leads page.
+  if (task.prospect_id) return { href: `/prospecting?prospect=${task.prospect_id}`, label: 'Open lead' }
   if (task.contact_id) return { href: `/contacts/${task.contact_id}`, label: 'Open contact' }
   return null
 }
@@ -55,7 +58,7 @@ export function taskTarget(task: RoutableTask): TaskTarget | null {
  */
 export function taskHref(task: RoutableTask & Pick<Tables<'tasks'>, 'id'>): string | null {
   const target = taskTarget(task)
-  return target ? `${target.href}?task=${task.id}` : null
+  return target ? `${target.href}${target.href.includes('?') ? '&' : '?'}task=${task.id}` : null
 }
 
 /** One task with its contact, for the focus banner on a record page. */

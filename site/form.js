@@ -57,7 +57,7 @@
     }).then(function (j) {
       if (j && j.ok === false) { fail(j.message || ''); return; }
       // Name + email ride along in sessionStorage (never the URL) so /thanks can prefill the calendar.
-      try { sessionStorage.setItem('lead', JSON.stringify({ name: fd.get('name') || '', email: fd.get('email') || '' })); } catch (e) {}
+      try { sessionStorage.setItem('lead', JSON.stringify({ name: fd.get('name') || '', email: fd.get('email') || '', phone: fd.get('phone') || '' })); } catch (e) {}
       location.href = '/thanks';
     }).catch(function () { fail(); });
   });

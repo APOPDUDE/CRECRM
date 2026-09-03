@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Building2, ListTodo, Plus } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Building2, CalendarCheck, ListTodo, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -11,6 +12,7 @@ import { contactNameOf } from '@/hooks/use-contacts'
 import { useProspects, type ProspectWithRelations } from '@/hooks/use-prospects'
 import { useTasks } from '@/hooks/use-tasks'
 import { formatDate, isOverdue } from '@/lib/dates'
+import { calendlyBookingOf, leadSourceOf } from '@/lib/lead-source'
 import { cn } from '@/lib/utils'
 
 const statusBadge: Record<string, string> = {
@@ -19,7 +21,8 @@ const statusBadge: Record<string, string> = {
 }
 
 /**
- * Prospecting — raw leads before they're deals. Each card is a contact plus the
+ * Leads — raw inquiries before they're deals (website, VA, GHL).
+ * Deep link: `/prospecting?prospect=<id>` opens that lead (task rows and the #deals Slack post use it). Each card is a contact plus the
  * properties in play; open one to work it, then push it to landlord or tenant rep.
  */
 export function ProspectingPage() {
@@ -27,7 +30,8 @@ export function ProspectingPage() {
   const { data: prospects = [], isLoading, isError, refetch } = useProspects(showAll)
   const { data: allTasks = [] } = useTasks()
   const [addOpen, setAddOpen] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [params] = useSearchParams()
+  const [selectedId, setSelectedId] = useState<string | null>(params.get('prospect'))
 
   const taskCounts = useMemo(() => {
     const m = new Map<string, { open: number; overdue: boolean }>()
@@ -47,7 +51,7 @@ export function ProspectingPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Prospecting</h1>
+        <h1 className="text-xl font-semibold">Leads</h1>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Checkbox checked={showAll} onCheckedChange={(v) => setShowAll(v === true)} />
@@ -71,7 +75,7 @@ export function ProspectingPage() {
       ) : prospects.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
           <p className="max-w-sm text-sm text-muted-foreground">
-            No prospects yet. Capture a lead here — a person, the properties in play, and your
+            No leads yet. Capture a lead here — a person, the properties in play, and your
             notes — then push it to landlord or tenant rep when it's real.
           </p>
           <Button onClick={() => setAddOpen(true)}>
@@ -84,6 +88,8 @@ export function ProspectingPage() {
           {prospects.map((p) => {
             const who = p.contact ? contactNameOf(p.contact) : (p.company?.name ?? 'Prospect')
             const t = taskCounts.get(p.id)
+            const src = leadSourceOf(p)
+            const booking = calendlyBookingOf(p)
             return (
               <button
                 key={p.id}
@@ -115,6 +121,25 @@ export function ProspectingPage() {
                 )}
 
                 <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {src && (
+                    <Badge variant="outline" className={cn('font-normal', src.className)}>
+                      {src.label}
+                    </Badge>
+                  )}
+                  {booking && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'gap-1 font-normal',
+                        booking.canceled
+                          ? 'border-gray-200 bg-gray-50 text-gray-600'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                      )}
+                    >
+                      <CalendarCheck className="size-3" />
+                      {booking.label}
+                    </Badge>
+                  )}
                   {p.properties.length > 0 && (
                     <Badge variant="secondary" className="gap-1 font-normal">
                       <Building2 className="size-3" />

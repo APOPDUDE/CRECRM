@@ -3768,6 +3768,7 @@ export type Database = {
           details: string | null
           due_at: string | null
           due_date: string | null
+          external_id: string | null
           hubspot_id: string | null
           id: string
           kind: Database["public"]["Enums"]["task_kind"]
@@ -3790,6 +3791,7 @@ export type Database = {
           details?: string | null
           due_at?: string | null
           due_date?: string | null
+          external_id?: string | null
           hubspot_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
@@ -3812,6 +3814,7 @@ export type Database = {
           details?: string | null
           due_at?: string | null
           due_date?: string | null
+          external_id?: string | null
           hubspot_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["task_kind"]
@@ -5114,6 +5117,7 @@ export type Database = {
       ingest_scrub_result: { Args: { p: Json }; Returns: Json }
       intake_broker: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_buyer_tag: { Args: { p: Json }; Returns: Json }
+      intake_calendly_booking: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_client: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_landlord_listing: {
         Args: { p: Json; p_owner: string }
@@ -5596,7 +5600,7 @@ export type Database = {
         | "carrier_block"
         | "said_no"
         | "manual"
-      task_kind: "renewal" | "follow_up" | "general" | "tour"
+      task_kind: "renewal" | "follow_up" | "general" | "tour" | "meeting"
       task_status: "open" | "done"
       text_send_status:
         | "draft"
@@ -5913,7 +5917,7 @@ export const Constants = {
         "said_no",
         "manual",
       ],
-      task_kind: ["renewal", "follow_up", "general", "tour"],
+      task_kind: ["renewal", "follow_up", "general", "tour", "meeting"],
       task_status: ["open", "done"],
       text_send_status: [
         "draft",

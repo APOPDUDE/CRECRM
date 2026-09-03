@@ -57,6 +57,17 @@
     });
   };
   document.head.appendChild(s);
+  // A booking in the embed -> the CRM (n8n makes it a task on the lead). Best effort; nothing shown.
+  window.addEventListener('message', function (e) {
+    if (!e.origin || e.origin.indexOf('calendly.com') === -1) return;
+    var d = e.data; if (!d || d.event !== 'calendly.event_scheduled') return;
+    var p = d.payload || {};
+    var body = new URLSearchParams({
+      invitee_uri: (p.invitee && p.invitee.uri) || '', event_uri: (p.event && p.event.uri) || '',
+      name: lead.name || '', email: lead.email || '', phone: lead.phone || ''
+    });
+    try { fetch('https://n8n.ayxco.com/webhook/alexpoplawski-booked', { method: 'POST', body: body, keepalive: true }); } catch (err) {}
+  });
 })();
 </script>
 </body>

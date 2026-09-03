@@ -40,24 +40,25 @@ const topItems = [
   { to: '/properties', label: 'War Room', icon: Map },
 ]
 
-// The three books of business. Landlord and Tenant are deal boards; Buyers is a roster
-// you search when a deal hits the market.
+// The books of business, in the order a deal moves: Leads (unverified inquiries - website,
+// VA, GHL - Alex, 2026-09-03) graduate into Landlord / Tenant; Buyers is a roster you search
+// when a deal hits the market.
 const pipelineItems = [
+  { to: '/prospecting', label: 'Leads', icon: Target },
   { to: '/pipelines/landlord', label: 'Landlord', icon: Warehouse },
   { to: '/pipelines/tenant', label: 'Tenant', icon: Users },
   { to: '/pipelines/buyers', label: 'Buyers', icon: Wallet },
 ]
 
 // Detail boards live outside /pipelines but belong to it as far as the rail is concerned.
-const pipelinePrefixes = ['/pipelines', '/landlord-rep', '/tenant-rep']
+const pipelinePrefixes = ['/pipelines', '/prospecting', '/landlord-rep', '/tenant-rep']
 
 // Prospecting is a drawer like Pipelines (Alex, 2026-08-17): the outreach channels belong
 // together, because they are the same people worked in sequence — a Terrakotta list gets
-// called, then emailed, then mailed. Leads is the board those conversations graduate into.
+// called, then emailed, then mailed. Leads moved to the top of Pipelines (2026-09-03).
 // All three channels now sit on the outreach spine (outreach_calls / outreach_email /
 // outreach_mail), so each page shows the same people through its own channel's reach.
 const prospectingItems = [
-  { to: '/prospecting', label: 'Leads', icon: Target },
   { to: '/deal-radar', label: 'Deal Radar', icon: Radar },
   { to: '/market-monitor', label: 'Market Monitor', icon: RadioTower },
   { to: '/outreach/import', label: 'Import list', icon: Upload },
@@ -66,7 +67,7 @@ const prospectingItems = [
   { to: '/email', label: 'Email', icon: Mail },
   { to: '/outreach/postcards', label: 'Postcards', icon: Mailbox },
 ]
-const prospectingPrefixes = ['/prospecting', '/deal-radar', '/market-monitor', '/outreach', '/email', '/texting']
+const prospectingPrefixes = ['/deal-radar', '/market-monitor', '/outreach', '/email', '/texting']
 
 const moreItems = [
   { to: '/tasks', label: 'Tasks', icon: ListTodo },
@@ -79,7 +80,7 @@ const sectionLabels: Record<string, string> = {
   '': 'Dashboard',
   email: 'Email campaigns',
   pipelines: 'Pipelines',
-  prospecting: 'Prospecting',
+  prospecting: 'Leads',
   'deal-radar': 'Deal Radar',
   'market-monitor': 'Market Monitor',
   // Detail/match boards still live under these path prefixes — keep their breadcrumb labels.
