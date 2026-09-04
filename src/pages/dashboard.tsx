@@ -1,5 +1,4 @@
 import { useDashboardMatches } from '@/hooks/use-dashboard'
-import { MarketAlertsWidget } from '@/components/market-alerts-widget'
 import { MarketMonitorWidget } from '@/components/market-monitor-widget'
 import { DashboardActivity, TasksDueWidget } from '@/components/dashboard-activity'
 import { DealFlagsWidget } from '@/components/deal-flags-widget'
@@ -15,8 +14,6 @@ export function DashboardPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Dashboard</h1>
-
-      <MarketAlertsWidget />
 
       <MarketMonitorWidget />
 
