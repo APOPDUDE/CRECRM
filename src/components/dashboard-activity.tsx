@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { TaskCompleteDialog } from '@/components/task-complete-dialog'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
-import { matchFee, type DashMatch } from '@/hooks/use-dashboard'
+import { matchFee, useActivityCounts, type DashMatch } from '@/hooks/use-dashboard'
 import { daysAgoLabel, formatDate } from '@/lib/dates'
 import { contactNameOf } from '@/hooks/use-contacts'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -20,7 +20,14 @@ import {
   useToggleTask,
   type TaskWithContact,
 } from '@/hooks/use-tasks'
-import { activityRows, recentPeriods, METRIC_LABELS, type Gran } from '@/lib/activity'
+import {
+  activityRows,
+  recentPeriods,
+  GRAN_LABELS,
+  METRIC_HINTS,
+  METRIC_LABELS,
+  type Gran,
+} from '@/lib/activity'
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -55,7 +62,12 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
   }, [matches])
 
   const navigate = useNavigate()
-  const data = useMemo(() => activityRows(matches, recentPeriods(gran, 5), gran), [matches, gran])
+  const { data: daily = [] } = useActivityCounts()
+  // a week of days, else the last five weeks/months
+  const data = useMemo(
+    () => activityRows(matches, daily, recentPeriods(gran, gran === 'day' ? 7 : 5), gran),
+    [matches, daily, gran],
+  )
 
   return (
     <div className="space-y-4">
@@ -72,7 +84,7 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
         onClick={() => navigate('/activity')}
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/activity')}
         className="cursor-pointer rounded-lg border bg-card transition-colors hover:border-primary/40"
-        title="See all activity, week by week"
+        title="See all activity, day by day"
       >
         <div className="flex items-center justify-between border-b p-3">
           <h2 className="text-sm font-medium">Activity</h2>
@@ -81,7 +93,7 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
               className="flex gap-1 rounded-md bg-muted p-0.5 text-xs"
               onClick={(e) => e.stopPropagation()}
             >
-              {(['week', 'month'] as Gran[]).map((g) => (
+              {(['day', 'week', 'month'] as Gran[]).map((g) => (
                 <button
                   key={g}
                   type="button"
@@ -91,7 +103,7 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
                     gran === g ? 'bg-background shadow-sm' : 'text-muted-foreground',
                   )}
                 >
-                  {g === 'week' ? 'Weekly' : 'Monthly'}
+                  {GRAN_LABELS[g]}
                 </button>
               ))}
             </div>
@@ -102,9 +114,11 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
-                <th className="px-3 py-2 text-left font-medium">{gran === 'week' ? 'Week of' : 'Month'}</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {gran === 'day' ? 'Day' : gran === 'week' ? 'Week of' : 'Month'}
+                </th>
                 {METRIC_LABELS.map((m) => (
-                  <th key={m} className="px-3 py-2 text-right font-medium">
+                  <th key={m} className="px-3 py-2 text-right font-medium" title={METRIC_HINTS[m]}>
                     {m}
                   </th>
                 ))}
@@ -116,7 +130,7 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
                 <tr
                   key={i}
                   className={cn('border-b last:border-0', row.isCurrent && 'bg-emerald-50/70')}
-                  style={{ opacity: 1 - i * 0.15 }}
+                  style={{ opacity: Math.max(0.4, 1 - i * 0.1) }}
                 >
                   <td
                     className={cn(
@@ -132,6 +146,7 @@ export function DashboardActivity({ matches }: { matches: DashMatch[] }) {
                   {row.metrics.map((c, mi) => (
                     <td
                       key={mi}
+                      title={row.hints[mi]}
                       className={cn(
                         'px-3 py-2 text-right tabular-nums',
                         c === 0 && !row.isCurrent && 'text-muted-foreground/40',

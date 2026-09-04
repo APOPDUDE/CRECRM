@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Tables, TablesInsert } from '@/lib/database.types'
+import { ACTIVITY_COUNTS_KEY } from '@/hooks/use-dashboard'
 
 export type Communication = Tables<'communications'>
 
@@ -83,6 +84,7 @@ export function useAddCommNote() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       queryClient.invalidateQueries({ queryKey: ['owner-conversations'] })
       queryClient.invalidateQueries({ queryKey: ['owner-context'] })
+      queryClient.invalidateQueries({ queryKey: ACTIVITY_COUNTS_KEY })
     },
   })
 }
@@ -119,6 +121,7 @@ export function useDeleteComm() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       queryClient.invalidateQueries({ queryKey: ['owner-conversations'] })
       queryClient.invalidateQueries({ queryKey: ['owner-context'] })
+      queryClient.invalidateQueries({ queryKey: ACTIVITY_COUNTS_KEY })
     },
   })
 }

@@ -65,6 +65,36 @@ export function useDashboardMatches() {
   })
 }
 
+export type DailyCounts = {
+  /** yyyy-MM-dd, the broker's calendar day (America/New_York) */
+  day: string
+  verified_owners: number
+  buyers: number
+  conversations: number
+  calls: number
+  texts: number
+  emails: number
+  notes: number
+}
+
+export const ACTIVITY_COUNTS_KEY = ['activity-daily-counts'] as const
+
+/**
+ * Per-day activity counters (verified owners reached, new buyers, people talked to) from
+ * `activity_daily_counts()` — counted in Postgres because the communications log is far
+ * past the 1000-row cap. Days with nothing to count are absent.
+ */
+export function useActivityCounts() {
+  return useQuery({
+    queryKey: ACTIVITY_COUNTS_KEY,
+    queryFn: async (): Promise<DailyCounts[]> => {
+      const { data, error } = await supabase.rpc('activity_daily_counts')
+      if (error) throw error
+      return (data ?? []) as DailyCounts[]
+    },
+  })
+}
+
 /** Commission booked on an executed pursuit. */
 export function matchFee(m: DashMatch): number {
   return m.actual_fee ?? 0

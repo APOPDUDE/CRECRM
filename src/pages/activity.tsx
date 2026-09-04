@@ -5,18 +5,31 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
-import { useDashboardMatches } from '@/hooks/use-dashboard'
-import { activityRows, periodsSince, METRIC_LABELS, type Gran } from '@/lib/activity'
+import { useActivityCounts, useDashboardMatches } from '@/hooks/use-dashboard'
+import {
+  activityRows,
+  periodsSince,
+  DAILY_HISTORY_DAYS,
+  GRAN_LABELS,
+  METRIC_HINTS,
+  METRIC_LABELS,
+  type Gran,
+} from '@/lib/activity'
 import { useSetBreadcrumb } from '@/hooks/use-breadcrumb'
 
-/** Full activity history — every week (or month) back to the earliest dated deal. */
+/** Full activity history — every week (or month) back to the earliest dated deal; days for the last 90. */
 export function ActivityPage() {
   const navigate = useNavigate()
-  const { data: matches = [], isLoading } = useDashboardMatches()
+  const { data: matches = [], isLoading: matchesLoading } = useDashboardMatches()
+  const { data: daily = [], isLoading: dailyLoading } = useActivityCounts()
+  const isLoading = matchesLoading || dailyLoading
   const [gran, setGran] = useState<Gran>('week')
   useSetBreadcrumb('Activity')
 
-  const data = useMemo(() => activityRows(matches, periodsSince(matches, gran), gran), [matches, gran])
+  const data = useMemo(
+    () => activityRows(matches, daily, periodsSince(matches, daily, gran), gran),
+    [matches, daily, gran],
+  )
 
   return (
     <div className="space-y-4">
@@ -29,7 +42,7 @@ export function ActivityPage() {
           <h1 className="text-xl font-semibold">Activity</h1>
         </div>
         <div className="flex gap-1 rounded-md bg-muted p-0.5 text-xs">
-          {(['week', 'month'] as Gran[]).map((g) => (
+          {(['day', 'week', 'month'] as Gran[]).map((g) => (
             <button
               key={g}
               onClick={() => setGran(g)}
@@ -37,8 +50,9 @@ export function ActivityPage() {
                 'rounded px-2 py-1 font-medium capitalize transition-colors',
                 gran === g ? 'bg-background shadow-sm' : 'text-muted-foreground',
               )}
+              title={g === 'day' ? `Last ${DAILY_HISTORY_DAYS} days` : undefined}
             >
-              {g === 'week' ? 'Weekly' : 'Monthly'}
+              {GRAN_LABELS[g]}
             </button>
           ))}
         </div>
@@ -51,9 +65,11 @@ export function ActivityPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
-                <th className="px-3 py-2 text-left font-medium">{gran === 'week' ? 'Week of' : 'Month'}</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {gran === 'day' ? 'Day' : gran === 'week' ? 'Week of' : 'Month'}
+                </th>
                 {METRIC_LABELS.map((m) => (
-                  <th key={m} className="px-3 py-2 text-right font-medium">
+                  <th key={m} className="px-3 py-2 text-right font-medium" title={METRIC_HINTS[m]}>
                     {m}
                   </th>
                 ))}
@@ -80,6 +96,7 @@ export function ActivityPage() {
                   {row.metrics.map((c, mi) => (
                     <td
                       key={mi}
+                      title={row.hints[mi]}
                       className={cn(
                         'px-3 py-2 text-right tabular-nums',
                         c === 0 && !row.isCurrent && 'text-muted-foreground/40',
