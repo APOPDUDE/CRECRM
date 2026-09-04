@@ -5,11 +5,90 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/insta",
+      "destination": "/?utm_source=instagram",
+      "permanent": false
+    },
+    {
+      "source": "/ig",
+      "destination": "/?utm_source=instagram",
+      "permanent": false
+    },
+    {
+      "source": "/instagram",
+      "destination": "/?utm_source=instagram",
+      "permanent": false
+    },
+    {
+      "source": "/yt",
+      "destination": "/?utm_source=youtube",
+      "permanent": false
+    },
+    {
+      "source": "/youtube",
+      "destination": "/?utm_source=youtube",
+      "permanent": false
+    },
+    {
+      "source": "/tiktok",
+      "destination": "/?utm_source=tiktok",
+      "permanent": false
+    },
+    {
+      "source": "/tt",
+      "destination": "/?utm_source=tiktok",
+      "permanent": false
+    },
+    {
+      "source": "/linkedin",
+      "destination": "/?utm_source=linkedin",
+      "permanent": false
+    },
+    {
+      "source": "/li",
+      "destination": "/?utm_source=linkedin",
+      "permanent": false
+    },
+    {
+      "source": "/fb",
+      "destination": "/?utm_source=facebook",
+      "permanent": false
+    },
+    {
+      "source": "/facebook",
+      "destination": "/?utm_source=facebook",
+      "permanent": false
+    },
+    {
+      "source": "/x",
+      "destination": "/?utm_source=x",
+      "permanent": false
+    },
+    {
+      "source": "/twitter",
+      "destination": "/?utm_source=x",
+      "permanent": false
     }
   ]
 }

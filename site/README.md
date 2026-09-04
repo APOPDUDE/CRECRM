@@ -47,3 +47,7 @@ Every later push to `main` that touches `site/` redeploys the site automatically
 ## Local preview
 `python3 -m http.server 4173 -d site` then open http://localhost:4173 (the `site` entry in
 `.claude/launch.json` does the same).
+
+## Short links (Vercel redirects in vercel.json)
+`/insta` `/ig` -> Instagram, `/yt` -> YouTube, `/tiktok` `/tt` -> TikTok, `/linkedin` `/li` -> LinkedIn, `/fb` -> Facebook, `/x` -> X.
+Each 307s to `/?utm_source=<channel>`, so the lead is labeled by platform without asking.
