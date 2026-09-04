@@ -41,6 +41,7 @@
     var fd = new FormData(form);
     fd.append('page', location.href);
     fd.append('ua', navigator.userAgent);
+    fd.append('ref', document.referrer || '');
 
     btn.disabled = true;
     btn.textContent = 'Sending...';

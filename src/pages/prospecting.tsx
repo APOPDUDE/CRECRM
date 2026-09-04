@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Building2, CalendarCheck, ListTodo, Plus } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Building2, CalendarCheck, ListTodo, PhoneCall, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -12,7 +12,7 @@ import { contactNameOf } from '@/hooks/use-contacts'
 import { useProspects, type ProspectWithRelations } from '@/hooks/use-prospects'
 import { useTasks } from '@/hooks/use-tasks'
 import { formatDate, isOverdue } from '@/lib/dates'
-import { calendlyBookingOf, leadSourceOf } from '@/lib/lead-source'
+import { calendlyBookingOf, calledOf, leadSourceOf } from '@/lib/lead-source'
 import { cn } from '@/lib/utils'
 
 const statusBadge: Record<string, string> = {
@@ -90,12 +90,20 @@ export function ProspectingPage() {
             const t = taskCounts.get(p.id)
             const src = leadSourceOf(p)
             const booking = calendlyBookingOf(p)
+            const called = calledOf(p)
             return (
-              <button
+              <div
                 key={p.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedId(p.id)}
-                className="rounded-lg border bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setSelectedId(p.id)
+                  }
+                }}
+                className="cursor-pointer rounded-lg border bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -103,7 +111,18 @@ export function ProspectingPage() {
                       {t?.overdue && (
                         <span className="size-2 shrink-0 rounded-full bg-red-500" title="Task overdue" />
                       )}
-                      <span className="truncate text-sm font-medium">{who}</span>
+                      {p.contact ? (
+                        <Link
+                          to={`/contacts/${p.contact.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="truncate text-sm font-medium hover:underline"
+                          title="Open contact"
+                        >
+                          {who}
+                        </Link>
+                      ) : (
+                        <span className="truncate text-sm font-medium">{who}</span>
+                      )}
                     </div>
                     {p.company?.name && p.contact && (
                       <div className="truncate text-xs text-muted-foreground">{p.company.name}</div>
@@ -140,6 +159,12 @@ export function ProspectingPage() {
                       {booking.label}
                     </Badge>
                   )}
+                  {called && (
+                    <Badge variant="outline" className="gap-1 font-normal border-violet-200 bg-violet-50 text-violet-700">
+                      <PhoneCall className="size-3" />
+                      {called.label}
+                    </Badge>
+                  )}
                   {p.properties.length > 0 && (
                     <Badge variant="secondary" className="gap-1 font-normal">
                       <Building2 className="size-3" />
@@ -158,7 +183,7 @@ export function ProspectingPage() {
                     {formatDate(p.created_at)}
                   </span>
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>

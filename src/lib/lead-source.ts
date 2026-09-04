@@ -3,12 +3,19 @@ import type { Tables } from '@/lib/database.types'
 
 type ProspectLike = Pick<Tables<'prospects'>, 'sourced_by' | 'description' | 'details'>
 
-const UTM_LABEL: Record<string, string> = {
+const CHANNEL_LABEL: Record<string, string> = {
   ig: 'Instagram',
   instagram: 'Instagram',
+  yt: 'YouTube',
+  youtube: 'YouTube',
+  tt: 'TikTok',
+  tiktok: 'TikTok',
+  li: 'LinkedIn',
+  linkedin: 'LinkedIn',
   fb: 'Facebook',
   facebook: 'Facebook',
-  linkedin: 'LinkedIn',
+  x: 'X',
+  twitter: 'X',
   google: 'Google',
 }
 
@@ -25,8 +32,9 @@ function detailsOf(p: ProspectLike): Record<string, unknown> {
 export function leadSourceOf(p: ProspectLike): { label: string; className: string } | null {
   const d = detailsOf(p)
   if (p.sourced_by === 'website' || d.website === true) {
-    const raw = typeof d.utm_source === 'string' ? d.utm_source : ''
-    const via = raw ? ` · ${UTM_LABEL[raw.toLowerCase()] ?? raw}` : ''
+    // `channel` is the normalized platform (utm_source, else the referrer host); utm_source is the raw fallback.
+    const raw = typeof d.channel === 'string' ? d.channel : typeof d.utm_source === 'string' ? d.utm_source : ''
+    const via = raw ? ` · ${CHANNEL_LABEL[raw.toLowerCase()] ?? raw}` : ''
     return { label: `Website${via}`, className: 'border-blue-200 bg-blue-50 text-blue-700' }
   }
   const first = (p.description ?? '').split('\n')[0] ?? ''
@@ -34,6 +42,16 @@ export function leadSourceOf(p: ProspectLike): { label: string; className: strin
   if (/facebook|deal radar/i.test(first)) return { label: 'Facebook', className: 'border-sky-200 bg-sky-50 text-sky-700' }
   if (p.sourced_by === 'va') return { label: 'VA', className: 'border-amber-200 bg-amber-50 text-amber-700' }
   return null
+}
+
+/** "Called Sep 4" - stamped by the mark_lead_called trigger when a GHL call lands in communications. */
+export function calledOf(p: ProspectLike): { label: string; calls: number; last: Date } | null {
+  const d = detailsOf(p)
+  if (typeof d.last_called_at !== 'string') return null
+  const last = new Date(d.last_called_at)
+  if (Number.isNaN(last.getTime())) return null
+  const calls = typeof d.calls === 'number' ? d.calls : 1
+  return { last, calls, label: `Called ${format(last, 'MMM d')}${calls > 1 ? ` ×${calls}` : ''}` }
 }
 
 /** The Calendly booking intake_calendly_booking stamped on a lead, if any. */

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { ArrowUpRight, Building2, CalendarCheck, Plus, X, XCircle } from 'lucide-react'
+import { ArrowUpRight, Building2, CalendarCheck, PhoneCall, Plus, X, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -35,7 +35,7 @@ import {
 import { usePropertySearch } from '@/hooks/use-listing-parcels'
 import { useCreateTask, useTasks, useToggleTask } from '@/hooks/use-tasks'
 import { formatDate, formatTimeOfDay, isOverdue } from '@/lib/dates'
-import { calendlyBookingOf, leadSourceOf } from '@/lib/lead-source'
+import { calendlyBookingOf, calledOf, leadSourceOf } from '@/lib/lead-source'
 import type { Enums } from '@/lib/database.types'
 import { cn } from '@/lib/utils'
 
@@ -70,6 +70,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
   const tasks = allTasks.filter((t) => t.prospect_id === p.id && t.status === 'open')
   const src = leadSourceOf(p)
   const booking = calendlyBookingOf(p)
+  const called = calledOf(p)
   const attachedIds = new Set(p.properties.map((x) => x.property_id))
   const suggestions = propResults.filter((r) => !attachedIds.has(r.id)).slice(0, 5)
 
@@ -151,7 +152,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
             {p.company?.name && p.contact ? `${p.company.name} · ` : ''}
             Lead since {formatDate(p.created_at)}
           </SheetDescription>
-          {(src || booking) && (
+          {(src || booking || called) && (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {src && (
                 <Badge variant="outline" className={cn('font-normal', src.className)}>
@@ -172,14 +173,34 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
                   {booking.label}
                 </Badge>
               )}
+              {called && (
+                <Badge variant="outline" className="gap-1 font-normal border-violet-200 bg-violet-50 text-violet-700">
+                  <PhoneCall className="size-3" />
+                  {called.label}
+                </Badge>
+              )}
             </div>
           )}
         </SheetHeader>
 
         <div className="space-y-4 p-4">
-          {p.contact && (p.contact.phone || p.contact.email) && (
-            <div className="-mt-1">
-              <ContactActions phone={p.contact.phone} email={p.contact.email} ghlContactId={p.contact.ghl_contact_id} />
+          {p.contact && (
+            <div className="-mt-1 flex flex-wrap items-center gap-2">
+              {(p.contact.phone || p.contact.email) && (
+                <ContactActions phone={p.contact.phone} email={p.contact.email} ghlContactId={p.contact.ghl_contact_id} />
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  onOpenChange(false)
+                  navigate(`/contacts/${p.contact!.id}`)
+                }}
+              >
+                Open contact
+                <ArrowUpRight className="size-3.5" />
+              </Button>
             </div>
           )}
 
