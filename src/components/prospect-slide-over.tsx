@@ -22,11 +22,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { AddBuyerDialog } from '@/components/add-buyer-dialog'
 import { ContactActions } from '@/components/contact-actions'
 import { InlineEditField } from '@/components/inline-edit-field'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
   useAddProspectProperty,
+  useAttachProspectToClient,
   useConvertProspect,
   useRemoveProspectProperty,
   useUpdateProspect,
@@ -52,6 +54,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
   const addProperty = useAddProspectProperty()
   const removeProperty = useRemoveProspectProperty()
   const convert = useConvertProspect()
+  const attachToClient = useAttachProspectToClient()
   const createTask = useCreateTask()
   const toggleTask = useToggleTask()
   const { data: allTasks = [] } = useTasks()
@@ -60,6 +63,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
   const [taskTitle, setTaskTitle] = useState('')
   const [taskDue, setTaskDue] = useState('')
   const [pendingPush, setPendingPush] = useState<'listing' | 'client' | null>(null)
+  const [buyerOpen, setBuyerOpen] = useState(false)
   const [dealType, setDealType] = useState<Enums<'deal_type'>>('lease')
   const { data: propResults = [] } = usePropertySearch(propSearch)
 
@@ -126,6 +130,23 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
         },
         onError: (err) =>
           toast.error(err instanceof Error ? err.message : 'Could not push the prospect'),
+      },
+    )
+  }
+
+  // Buyer rep: the Add buyer dialog creates the client (criteria and all); then the lead's
+  // properties and open tasks follow it and the lead is marked converted.
+  const handleBuyerCreated = (clientId: string) => {
+    attachToClient.mutate(
+      { prospectId: p.id, clientId },
+      {
+        onSuccess: () => {
+          toast.success('Pushed to buyer rep')
+          onOpenChange(false)
+          navigate(`/tenant-rep/${clientId}`)
+        },
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : 'Buyer saved, but the lead could not be closed'),
       },
     )
   }
@@ -357,13 +378,17 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
             ) : (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Push to a pipeline</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button variant="outline" onClick={() => setPendingPush('listing')}>
                     Landlord rep
                     <ArrowUpRight className="size-4" />
                   </Button>
                   <Button variant="outline" onClick={() => setPendingPush('client')} disabled={!p.contact_id}>
                     Tenant rep
+                    <ArrowUpRight className="size-4" />
+                  </Button>
+                  <Button variant="outline" onClick={() => setBuyerOpen(true)} disabled={!p.contact_id}>
+                    Buyer rep
                     <ArrowUpRight className="size-4" />
                   </Button>
                 </div>
@@ -398,6 +423,18 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
           )}
         </div>
       </SheetContent>
+      <AddBuyerDialog
+        open={buyerOpen}
+        onOpenChange={setBuyerOpen}
+        prefill={{
+          contactId: p.contact_id,
+          companyId: p.company_id,
+          contactLabel: who,
+          notes: p.description,
+          source: p.sourced_by === 'website' ? 'website' : null,
+        }}
+        onCreated={(clientId) => handleBuyerCreated(clientId)}
+      />
     </Sheet>
   )
 }

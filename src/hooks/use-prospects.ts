@@ -112,6 +112,30 @@ export type ConvertResult = {
  * a searching tenant-rep client plus one inquiring pursuit per property. Open prospect
  * tasks follow the deal.
  */
+/**
+ * The Buyer rep push: the Add buyer dialog creates the client itself, then this re-homes the
+ * lead's properties (pursuits) and open tasks onto that client and marks the lead converted.
+ */
+export function useAttachProspectToClient() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: { prospectId: string; clientId: string }) => {
+      const { data, error } = await supabase.rpc('attach_prospect_to_client', {
+        p_prospect_id: args.prospectId,
+        p_client_id: args.clientId,
+      })
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prospects'] })
+      queryClient.invalidateQueries({ queryKey: ['tenant_reps'] })
+      queryClient.invalidateQueries({ queryKey: ['matches'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+  })
+}
+
 export function useConvertProspect() {
   const queryClient = useQueryClient()
   return useMutation({

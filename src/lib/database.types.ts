@@ -5117,6 +5117,7 @@ export type Database = {
       ingest_scrub_result: { Args: { p: Json }; Returns: Json }
       intake_broker: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_buyer_tag: { Args: { p: Json }; Returns: Json }
+      attach_prospect_to_client: { Args: { p_prospect_id: string; p_client_id: string }; Returns: Json }
       intake_calendly_booking: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_client: { Args: { p: Json; p_owner: string }; Returns: Json }
       intake_landlord_listing: {

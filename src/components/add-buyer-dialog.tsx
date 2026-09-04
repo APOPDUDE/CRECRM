@@ -71,6 +71,9 @@ export function AddBuyerDialog({
       phone: string | null
       email: string | null
     } | null
+    /** What the lead already told us (the Buyer rep push from a lead seeds these). */
+    notes?: string | null
+    source?: Enums<'lead_source'> | null
   } | null
   /** The client + the contact it hangs on, so a caller can link its queue entry to both. */
   onCreated?: (clientId: string, contactId: string) => void
@@ -101,9 +104,9 @@ export function AddBuyerDialog({
     if (!open) return
     setContactId(prefill?.contactId ?? null)
     setCompanyId(prefill?.companyId ?? null)
-    setSource(NONE)
+    setSource(prefill?.source ?? NONE)
     setCapRate('')
-    setNotes('')
+    setNotes(prefill?.notes ?? '')
     setCriteria(emptyBuyerCriteria())
     setPropSearch('')
     setInquiredProp(null)
