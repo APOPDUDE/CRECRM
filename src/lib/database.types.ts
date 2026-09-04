@@ -4715,14 +4715,19 @@ export type Database = {
           best_contact_phone: string | null
           city: string | null
           county: string | null
+          detail: Json | null
+          dor_use_code: string | null
           event_date: string | null
           event_type: Database["public"]["Enums"]["market_event_type"] | null
           first_seen_at: string | null
           id: string | null
           owner_contact_verified: boolean | null
           owner_name: string | null
+          parcel_number: string | null
           property_id: string | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
           source: string | null
+          source_key: string | null
           status: Database["public"]["Enums"]["market_event_status"] | null
           title: string | null
           url: string | null

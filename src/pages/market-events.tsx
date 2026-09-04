@@ -31,14 +31,24 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ListErrorState } from '@/components/list-error-state'
 import {
   marketSourceLabel,
-  useMarketEvents,
   useMarketEventCounts,
+  useMarketEventFeedRows,
   useMarketMonitorHealth,
   useUpdateMarketEventStatus,
-  type MarketEventRow,
+  type MarketEventFeedRow,
   type MarketEventStatus,
   type MarketEventType,
 } from '@/hooks/use-market-events'
+import {
+  EVENT_TYPE_CHIP,
+  EVENT_TYPE_LABELS,
+  USE_LABELS,
+  USE_ORDER,
+  kindBucket,
+  usageTag,
+  type UseBucket,
+} from '@/lib/market-events'
+import { cn } from '@/lib/utils'
 
 const STATUS_TABS: { value: MarketEventStatus | 'all'; label: string }[] = [
   { value: 'new', label: 'New' },
@@ -47,15 +57,15 @@ const STATUS_TABS: { value: MarketEventStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
 ]
 
-const TYPE_META: Record<MarketEventType, { label: string; icon: typeof HardHat }> = {
-  permit: { label: 'Permit', icon: HardHat },
-  sale: { label: 'Sale', icon: Tag },
-  zoning_change: { label: 'Zoning', icon: Landmark },
-  code_enforcement: { label: 'Code enforcement', icon: AlertTriangle },
-  foreclosure: { label: 'Pre-foreclosure', icon: Gavel },
-  life_event: { label: 'Life event', icon: ScrollText },
-  bankruptcy: { label: 'Bankruptcy', icon: Scale },
-  tax_delinquent: { label: 'Tax delinquent', icon: Receipt },
+const TYPE_ICON: Record<MarketEventType, typeof HardHat> = {
+  permit: HardHat,
+  sale: Tag,
+  zoning_change: Landmark,
+  code_enforcement: AlertTriangle,
+  foreclosure: Gavel,
+  life_event: ScrollText,
+  bankruptcy: Scale,
+  tax_delinquent: Receipt,
 }
 
 /** Staleness thresholds (days) mirrored from the n8n watchdog. */
@@ -69,7 +79,7 @@ function staleDaysFor(src: string): number {
   return 7
 }
 
-function detailField(row: MarketEventRow, key: string): string | null {
+function detailField(row: MarketEventFeedRow, key: string): string | null {
   const d = row.detail
   if (d && typeof d === 'object' && !Array.isArray(d)) {
     const v = (d as Record<string, unknown>)[key]
@@ -90,6 +100,7 @@ export function MarketEventsPage() {
   const [type, setType] = useState<MarketEventType | 'all'>('all')
   const [source, setSource] = useState<string>('all')
   const [bookOnly, setBookOnly] = useState(false)
+  const [use, setUse] = useState<UseBucket | 'all'>('all')
 
   const filters = {
     status,
@@ -98,22 +109,27 @@ export function MarketEventsPage() {
     matchedOnly: bookOnly,
   }
 
-  const { data: rows = [], isLoading, isError, refetch } = useMarketEvents(filters)
+  const { data: allRows = [], isLoading, isError, refetch } = useMarketEventFeedRows(filters)
+  // Use filter is client-side: property kind rides the view, so no extra query.
+  const rows = useMemo(
+    () => (use === 'all' ? allRows : allRows.filter((r) => kindBucket(r.property_type) === use)),
+    [allRows, use],
+  )
   const { data: counts } = useMarketEventCounts()
   const { data: health } = useMarketMonitorHealth()
   const updateStatus = useUpdateMarketEventStatus()
 
   const sources = useMemo(() => {
     const set = new Set<string>(Object.keys(health ?? {}))
-    for (const r of rows) set.add(r.source)
+    for (const r of allRows) if (r.source) set.add(r.source)
     return [...set].sort()
-  }, [rows, health])
+  }, [allRows, health])
 
   const setOne = (id: string, next: MarketEventStatus) =>
     updateStatus.mutate({ ids: [id], status: next })
 
   const markAllSeen = () =>
-    updateStatus.mutate({ ids: rows.filter((r) => r.status === 'new').map((r) => r.id), status: 'seen' })
+    updateStatus.mutate({ ids: rows.filter((r) => r.status === 'new').map((r) => r.id!), status: 'seen' })
 
   return (
     <div className="space-y-4">
@@ -182,9 +198,23 @@ export function MarketEventsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All types</SelectItem>
-            {(Object.keys(TYPE_META) as MarketEventType[]).map((t) => (
+            {(Object.keys(TYPE_ICON) as MarketEventType[]).map((t) => (
               <SelectItem key={t} value={t}>
-                {TYPE_META[t].label}
+                {EVENT_TYPE_LABELS[t]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={use} onValueChange={(v) => setUse(v as UseBucket | 'all')}>
+          <SelectTrigger className="h-9 w-[150px]">
+            <SelectValue placeholder="Use" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All uses</SelectItem>
+            {USE_ORDER.map((u) => (
+              <SelectItem key={u} value={u}>
+                {USE_LABELS[u]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -232,7 +262,7 @@ export function MarketEventsPage() {
       ) : (
         <div className="space-y-2">
           {rows.map((row) => (
-            <MarketEventRowItem key={row.id} row={row} onSetStatus={setOne} />
+            <MarketEventRowItem key={row.id!} row={row} onSetStatus={setOne} />
           ))}
         </div>
       )}
@@ -244,19 +274,36 @@ function MarketEventRowItem({
   row,
   onSetStatus,
 }: {
-  row: MarketEventRow
+  row: MarketEventFeedRow
   onSetStatus: (id: string, next: MarketEventStatus) => void
 }) {
-  const TypeIcon = TYPE_META[row.event_type].icon
+  const type = row.event_type ?? 'permit'
+  const TypeIcon = TYPE_ICON[type]
   const description = detailField(row, 'description')
   const permitStatus = detailField(row, 'status')
   const matched = row.property_id != null
+  const use = usageTag(row.dor_use_code, row.property_type)
+  const id = row.id!
+  const status = row.status ?? 'new'
 
   return (
     <div className="flex flex-wrap items-start gap-3 rounded-lg border bg-card p-3">
       <TypeIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className={cn(
+              'rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4',
+              EVENT_TYPE_CHIP[type],
+            )}
+          >
+            {EVENT_TYPE_LABELS[type]}
+          </span>
+          {use && (
+            <span className="rounded-full border bg-muted px-2 py-0.5 text-[11px] leading-4 text-muted-foreground">
+              {use}
+            </span>
+          )}
           {matched && (
             <Badge className="bg-blue-600 text-white" title="Matched to a book property">
               📌 On book
@@ -268,10 +315,10 @@ function MarketEventRowItem({
           <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{description}</p>
         )}
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-          <span>{marketSourceLabel(row.source)}</span>
+          <span>{marketSourceLabel(row.source ?? '')}</span>
           {row.event_date && <span>· {row.event_date}</span>}
           {permitStatus && <span>· {permitStatus}</span>}
-          <span>· spotted {formatDistanceToNow(new Date(row.first_seen_at))} ago</span>
+          {row.first_seen_at && <span>· spotted {formatDistanceToNow(new Date(row.first_seen_at))} ago</span>}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -291,17 +338,17 @@ function MarketEventRowItem({
             </a>
           </Button>
         )}
-        {row.status === 'new' && (
-          <Button size="sm" variant="ghost" title="Mark seen" onClick={() => onSetStatus(row.id, 'seen')}>
+        {status === 'new' && (
+          <Button size="sm" variant="ghost" title="Mark seen" onClick={() => onSetStatus(id, 'seen')}>
             <Check className="size-4" />
           </Button>
         )}
-        {row.status !== 'dismissed' ? (
-          <Button size="sm" variant="ghost" title="Dismiss" onClick={() => onSetStatus(row.id, 'dismissed')}>
+        {status !== 'dismissed' ? (
+          <Button size="sm" variant="ghost" title="Dismiss" onClick={() => onSetStatus(id, 'dismissed')}>
             <X className="size-4" />
           </Button>
         ) : (
-          <Button size="sm" variant="ghost" title="Restore to New" onClick={() => onSetStatus(row.id, 'new')}>
+          <Button size="sm" variant="ghost" title="Restore to New" onClick={() => onSetStatus(id, 'new')}>
             <RotateCcw className="size-4" />
           </Button>
         )}

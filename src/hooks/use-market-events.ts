@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Enums, Tables } from '@/lib/database.types'
+import { kindBucket, type UseBucket } from '@/lib/market-events'
 
 export type MarketEventType = Enums<'market_event_type'>
 export type MarketEventStatus = Enums<'market_event_status'>
@@ -130,31 +131,64 @@ export function useMarketEventAlerts() {
 
 export type MarketEventFeedRow = Tables<'v_market_event_feed'>
 
+/** Dashboard widget tabs: a property whose owner you've reached, or any book property. */
+export type MarketEventFeedView = 'verified' | 'book'
+
 /**
- * Dashboard Market Monitor feed: NEW events joined to owner-verification, so the
- * widget can toggle "verified contacts only" vs "all" and slice by category.
- * Returns the rows plus a per-category tally for the picker. v_market_event_feed
- * is security_invoker, so the VA silo still applies.
+ * Dashboard Market Monitor feed: NEW events on BOOK properties, joined to
+ * owner-verification and the property's use, so the widget can tab between
+ * "Verified contact" and "In the book" and slice by category and by use.
+ * Unmatched county rows (no property_id) never reach the dashboard — the
+ * Market Monitor page shows them. v_market_event_feed is security_invoker, so
+ * the VA silo still applies.
  */
-export function useMarketEventFeed(verifiedOnly: boolean) {
+export function useMarketEventFeed(view: MarketEventFeedView) {
   return useQuery({
-    queryKey: ['market_events', 'feed', verifiedOnly],
+    queryKey: ['market_events', 'feed', view],
     queryFn: async () => {
       let q = supabase
         .from('v_market_event_feed')
         .select('*')
         .eq('status', 'new')
+        .not('property_id', 'is', null)
         .order('first_seen_at', { ascending: false })
         .limit(500)
-      if (verifiedOnly) q = q.eq('owner_contact_verified', true)
+      if (view === 'verified') q = q.eq('owner_contact_verified', true)
       const { data, error } = await q
       if (error) throw error
       const rows = (data ?? []) as MarketEventFeedRow[]
       const byType: Partial<Record<MarketEventType, number>> = {}
+      const byUse: Partial<Record<UseBucket, number>> = {}
       for (const r of rows) {
         if (r.event_type) byType[r.event_type] = (byType[r.event_type] ?? 0) + 1
+        const u = kindBucket(r.property_type)
+        byUse[u] = (byUse[u] ?? 0) + 1
       }
-      return { rows, byType, total: rows.length }
+      return { rows, byType, byUse, total: rows.length }
+    },
+  })
+}
+
+/**
+ * Market Monitor page rows: the same view (so each row carries its property's
+ * use for the tag + use filter), with the page's status/type/source/on-book filters.
+ */
+export function useMarketEventFeedRows(filters: MarketEventFilters = { status: 'new' }) {
+  return useQuery({
+    queryKey: ['market_events', 'feed-rows', filters],
+    queryFn: async (): Promise<MarketEventFeedRow[]> => {
+      let q = supabase
+        .from('v_market_event_feed')
+        .select('*')
+        .order('first_seen_at', { ascending: false })
+        .limit(500)
+      if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status)
+      if (filters.type) q = q.eq('event_type', filters.type)
+      if (filters.source) q = q.eq('source', filters.source)
+      if (filters.matchedOnly) q = q.not('property_id', 'is', null)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as MarketEventFeedRow[]
     },
   })
 }
