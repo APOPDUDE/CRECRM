@@ -23,6 +23,8 @@
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { dwell, humanMouse, humanScroll, rand, sleepBetween } from './human.mjs'
+import { launchOptions } from './market-watch.mjs'
 
 /** facebook.com/groups/<id-or-slug>/... -> the id-or-slug */
 export function groupIdFromUrl(url) {
@@ -37,12 +39,12 @@ const PROFILE_DIR =
  * Scrape one group's recent posts. Returns raw post objects for normalizeGroupPost:
  * { id, text, permalink, author, image_url, created_ms }.
  */
-async function scrapeGroup(context, group, { scrolls, delayMs }) {
-  const page = await context.newPage()
-  try {
+async function scrapeGroup(page, group, { scrolls }) {
+  {
     // ?sorting_setting=CHRONOLOGICAL surfaces newest first when FB honors it.
     const url = `https://www.facebook.com/groups/${group.id}/?sorting_setting=CHRONOLOGICAL`
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 })
+    await dwell()
 
     // Detect a logged-out / checkpoint wall early so the error is meaningful.
     const loggedOut = await page.evaluate(() =>
@@ -51,11 +53,15 @@ async function scrapeGroup(context, group, { scrolls, delayMs }) {
     if (loggedOut) {
       throw new Error('group profile is not logged into Facebook — see README (log the deal-radar Chrome profile in once)')
     }
+    const checkpoint = await page.evaluate(() =>
+      /suspicious activity|confirm your identity|we suspect automated|temporarily (?:blocked|restricted)/i.test(
+        document.body?.innerText?.slice(0, 1200) || '',
+      ),
+    )
+    if (checkpoint) throw new Error('CHECKPOINT: Facebook is showing a verification/automation notice — stop and log in by hand')
 
-    for (let i = 0; i < scrolls; i++) {
-      await page.evaluate(() => window.scrollBy(0, document.body.scrollHeight))
-      await page.waitForTimeout(delayMs)
-    }
+    await humanMouse(page)
+    await humanScroll(page, scrolls)
 
     // Heuristic extraction: every anchor whose href points at a post is one post.
     // Climb to a reasonable container, take its text, first author link and image.
@@ -95,8 +101,6 @@ async function scrapeGroup(context, group, { scrolls, delayMs }) {
     }, group.id)
 
     return posts
-  } finally {
-    await page.close().catch(() => {})
   }
 }
 
@@ -106,8 +110,10 @@ async function scrapeGroup(context, group, { scrolls, delayMs }) {
  * empty result with a clear error if Playwright isn't installed.
  */
 export async function watchGroups(groups, opts = {}) {
-  const scrolls = opts.scrolls ?? 6
-  const delayMs = opts.delayMs ?? 1500
+  const scrollsMin = opts.scrollsMin ?? 3
+  const scrollsMax = opts.scrollsMax ?? 7
+  const paceMinMs = opts.paceMinMs ?? 90_000
+  const paceMaxMs = opts.paceMaxMs ?? Math.max(paceMinMs, 240_000)
 
   let chromium
   try {
@@ -119,25 +125,31 @@ export async function watchGroups(groups, opts = {}) {
     }
   }
 
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
-    headless: true,
-    channel: 'chrome',
-    viewport: { width: 1280, height: 1600 },
-  })
+  // Same hardened, headed options as the Marketplace pass — the two used to differ
+  // (groups ran headless with no stealth args at all), which is its own tell.
+  const context = await chromium.launchPersistentContext(PROFILE_DIR, launchOptions())
 
   const posts = []
   const errors = []
+  let checkpoint = null
+  const page = context.pages()[0] ?? (await context.newPage())
   try {
     for (const group of groups) {
       try {
-        const got = await scrapeGroup(context, group, { scrolls, delayMs })
+        const got = await scrapeGroup(page, group, { scrolls: rand(scrollsMin, scrollsMax) })
         posts.push(...got.map((p) => ({ post: p, group })))
       } catch (err) {
-        errors.push({ group: group.name || group.id, error: (err?.message ?? String(err)).slice(0, 400) })
+        const msg = (err?.message ?? String(err)).slice(0, 400)
+        errors.push({ group: group.name || group.id, error: msg })
+        if (/^CHECKPOINT/.test(msg)) {
+          checkpoint = msg
+          break // stop the session cold
+        }
       }
+      await sleepBetween(paceMinMs, paceMaxMs)
     }
   } finally {
     await context.close().catch(() => {})
   }
-  return { posts, errors }
+  return { posts, errors, checkpoint }
 }

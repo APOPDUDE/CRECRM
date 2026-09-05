@@ -17,18 +17,37 @@
  * - READS only. It never messages anyone.
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import { normalizeGroupPost, normalizeListing } from './normalize.mjs'
 import { groupIdFromUrl, watchGroups } from './group-watch.mjs'
 import { watchMarket } from './market-watch.mjs'
+import { isActiveHours, rand, rotate, shuffle, sleep, sleepBetween } from './human.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const config = JSON.parse(readFileSync(join(HERE, 'config.json'), 'utf8'))
 
-const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ALERT_WEBHOOK_URL, SLACK_WEBHOOK_URL } = process.env
+// Rotation cursors persist between runs so every keyword/group still gets covered
+// across sessions without running all of them every time.
+const STATE_PATH = join(HERE, '.state.json')
+function readState() {
+  try {
+    return JSON.parse(readFileSync(STATE_PATH, 'utf8'))
+  } catch {
+    return { keywordCursor: 0, groupCursor: 0 }
+  }
+}
+function writeState(s) {
+  try {
+    writeFileSync(STATE_PATH, JSON.stringify(s, null, 2))
+  } catch (err) {
+    console.error('[deal-radar] could not persist rotation state:', err?.message)
+  }
+}
+
+const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ALERT_WEBHOOK_URL } = process.env
 
 for (const [name, v] of Object.entries({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY })) {
   if (!v) {
@@ -41,8 +60,16 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 })
 
-const PACE_MIN_MS = config.pace_min_ms ?? 300_000 // min gap between searches (default 5 min)
-const PACE_MAX_MS = config.pace_max_ms ?? 600_000 // max gap between searches (default 10 min)
+const PACE_MIN_MS = config.pace_min_ms ?? 180_000 // min gap between searches (default 3 min)
+const PACE_MAX_MS = config.pace_max_ms ?? 480_000 // max gap between searches (default 8 min)
+
+// Volume caps — the whole point of the 2026-09-05 rework. The old worker ran all
+// 13 keywords + every group, 8x/day (104 searches/day, 24/7). A person doesn't.
+const KEYWORDS_PER_SESSION = config.keywords_per_session ?? 5
+const GROUPS_PER_SESSION = config.groups_per_session ?? 2
+const ACTIVE_START = config.active_hours?.[0] ?? 8 // local hour, inclusive
+const ACTIVE_END = config.active_hours?.[1] ?? 22 // local hour, exclusive
+const START_JITTER_MAX_MS = config.start_jitter_max_ms ?? 40 * 60_000 // up to 40 min
 
 const log = (...args) => console.log(new Date().toISOString(), '[deal-radar]', ...args)
 
@@ -84,9 +111,14 @@ function isInMarket(row) {
   return IN_MARKET.test(`${row.title || ''} ${row.location_text || ''} ${row.market || ''}`)
 }
 
-/** One Slack ping per run listing the brand-new in-market listings (capped). */
+/**
+ * One Slack ping per run listing the brand-new in-market listings (capped).
+ * Goes through the SAME n8n webhook as the health alerts ({source, message}); n8n
+ * forwards it to Slack. source 'deal-radar-listings' lets n8n route/format these
+ * differently from the 'deal-radar' health alerts if you want.
+ */
 async function notifySlack(rows) {
-  if (!SLACK_WEBHOOK_URL || rows.length === 0) return
+  if (!ALERT_WEBHOOK_URL || rows.length === 0) return
   const CAP = 12
   const line = (r) => {
     const price = r.price ? ` — $${Number(r.price).toLocaleString()}` : ''
@@ -95,12 +127,12 @@ async function notifySlack(rows) {
   }
   const shown = rows.slice(0, CAP).map(line).join('\n\n')
   const more = rows.length > CAP ? `\n\n…and ${rows.length - CAP} more` : ''
-  const text = `🏢 ${rows.length} new in-market listing${rows.length > 1 ? 's' : ''} on Deal Radar:\n\n${shown}${more}`
+  const message = `🏢 ${rows.length} new in-market listing${rows.length > 1 ? 's' : ''} on Deal Radar:\n\n${shown}${more}`
   try {
-    await fetch(SLACK_WEBHOOK_URL, {
+    await fetch(ALERT_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ source: 'deal-radar-listings', message, count: rows.length }),
     })
     log(`slack: pinged ${rows.length} in-market listing(s)`)
   } catch (err) {
@@ -109,6 +141,23 @@ async function notifySlack(rows) {
 }
 
 async function main() {
+  // Humans don't browse Marketplace at 3am. Outside the active window, do nothing —
+  // launchd can fire whenever; the worker decides whether this is a plausible hour.
+  if (!isActiveHours(new Date(), ACTIVE_START, ACTIVE_END)) {
+    log(`outside active hours (${ACTIVE_START}:00-${ACTIVE_END}:00) — skipping this run`)
+    return
+  }
+  // Break the perfectly-periodic cadence: start somewhere inside a wide window so
+  // session times drift day to day instead of landing on the same clock minute.
+  const jitter = rand(0, START_JITTER_MAX_MS)
+  log(`starting in ${Math.round(jitter / 60_000)} min (schedule jitter)`)
+  await sleep(jitter)
+  if (!isActiveHours(new Date(), ACTIVE_START, ACTIVE_END)) {
+    log('jitter pushed us out of active hours — skipping')
+    return
+  }
+
+  const state = readState()
   const run = {
     started_at: new Date().toISOString(),
     searches: 0,
@@ -120,11 +169,22 @@ async function main() {
   let aborted = false
   const newInMarket = [] // brand-new listings in the target metros — one Slack ping at the end
 
+  // Rotate a SUBSET of keywords this session, then shuffle so the order varies too.
+  const { picked: kwPicked, nextCursor: kwNext } = rotate(
+    config.keywords ?? [],
+    KEYWORDS_PER_SESSION,
+    state.keywordCursor ?? 0,
+  )
+  const sessionKeywords = shuffle(kwPicked)
+  state.keywordCursor = kwNext
+  log(`session keywords (${sessionKeywords.length}/${config.keywords?.length ?? 0}): ${sessionKeywords.join(', ')}`)
+
   // Marketplace pass — browser scrape of the rendered search results page.
   try {
-    const totalSearches = (config.markets?.length ?? 0) * (config.keywords?.length ?? 0)
-    const { errors } = await watchMarket(config.markets, config.keywords, {
-      scrolls: config.market_scrolls ?? 5,
+    const totalSearches = (config.markets?.length ?? 0) * sessionKeywords.length
+    const { errors, checkpoint } = await watchMarket(config.markets, sessionKeywords, {
+      scrollsMin: config.market_scrolls_min ?? 3,
+      scrollsMax: config.market_scrolls_max ?? 7,
       paceMinMs: PACE_MIN_MS,
       paceMaxMs: PACE_MAX_MS,
       daysSinceListed: config.days_since_listed ?? 7,
@@ -149,6 +209,18 @@ async function main() {
       run.error_detail.push(e)
       log(`market ERROR ${e.keyword ?? ''}: ${e.error}`)
     }
+    // Facebook asked for verification. Stop everything, tell a human, and do NOT
+    // start the group pass — continuing through a checkpoint is how accounts die.
+    if (checkpoint) {
+      await alert(
+        `deal-radar STOPPED: Facebook showed a verification / automated-behavior notice. Log into the ~/.deal-radar-chrome profile by hand, clear it, and leave the scraper paused for at least 24h before re-enabling.`,
+      )
+      writeState(state)
+      run.ok = false
+      await supabase.from('deal_radar_runs').insert({ ...run, finished_at: new Date().toISOString() })
+      log('CHECKPOINT — aborting the whole session')
+      return
+    }
     // Every search failed (logged out / all pages error) and nothing landed => alert.
     if (totalSearches > 0 && errors.length >= totalSearches && run.inserted === 0) {
       await alert(
@@ -165,18 +237,41 @@ async function main() {
 
   // Group pass — same dedicated profile, runs after the marketplace pass releases it.
   // A group failure never aborts the marketplace results already banked.
-  const groups = (config.groups ?? []).map((g) => ({
-    id: groupIdFromUrl(g.url),
-    name: g.name,
-    market: g.market,
-  }))
+  // enabled:false skips a group we haven't joined yet — scraping a group the account
+  // isn't a member of just errors and looks like probing.
+  const allGroups = (config.groups ?? [])
+    .filter((g) => g.enabled !== false)
+    .map((g) => ({
+      id: groupIdFromUrl(g.url),
+      name: g.name,
+      market: g.market,
+    }))
+  // Only a couple of groups per session, rotated — not all of them every time.
+  const { picked: groups, nextCursor: grpNext } = rotate(
+    allGroups,
+    GROUPS_PER_SESSION,
+    state.groupCursor ?? 0,
+  )
+  state.groupCursor = grpNext
   if (groups.length > 0) {
+    // Step away before the second pass — back-to-back passes read as one long
+    // machine session rather than two separate visits.
+    const gap = rand(4 * 60_000, 12 * 60_000)
+    log(`marketplace pass done — pausing ${Math.round(gap / 60_000)} min before groups`)
+    await sleep(gap)
+    log(`session groups (${groups.length}/${allGroups.length}): ${groups.map((g) => g.name).join(', ')}`)
     run.searches += groups.length
     try {
-      const { posts, errors } = await watchGroups(groups, {
-        scrolls: config.group_scrolls ?? 6,
-        delayMs: 1500,
+      const { posts, errors, checkpoint: gCheckpoint } = await watchGroups(groups, {
+        scrollsMin: config.group_scrolls_min ?? 3,
+        scrollsMax: config.group_scrolls_max ?? 7,
       })
+      if (gCheckpoint) {
+        await alert(
+          `deal-radar STOPPED during the group pass: Facebook showed a verification / automated-behavior notice. Log into the ~/.deal-radar-chrome profile by hand and leave the scraper paused for at least 24h.`,
+        )
+        aborted = true
+      }
       for (const e of errors) {
         run.errors += 1
         run.error_detail.push({ source: 'group', ...e })
@@ -204,6 +299,7 @@ async function main() {
   // Ping Slack once about brand-new listings in the target metros.
   await notifySlack(newInMarket)
 
+  writeState(state) // advance the rotation only after a session that actually ran
   run.ok = !aborted
   const { error } = await supabase
     .from('deal_radar_runs')

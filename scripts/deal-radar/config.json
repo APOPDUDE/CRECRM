@@ -25,8 +25,16 @@
   "days_since_listed": 7,
   "min_price": 5000,
   "limit_per_search": 20,
-  "pace_min_ms": 300000,
-  "pace_max_ms": 600000,
+  "keywords_per_session": 5,
+  "groups_per_session": 2,
+  "active_hours": [8, 22],
+  "start_jitter_max_ms": 2400000,
+  "market_scrolls_min": 3,
+  "market_scrolls_max": 7,
+  "group_scrolls_min": 3,
+  "group_scrolls_max": 7,
+  "pace_min_ms": 180000,
+  "pace_max_ms": 480000,
   "abort_after_consecutive_failures": 3,
   "groups": [
     {
@@ -57,7 +65,9 @@
     {
       "name": "Subject-To Owner Financing All Real Estate",
       "url": "https://www.facebook.com/groups/OWNERFINANCEACADEMY",
-      "market": "Florida (group)"
+      "market": "Florida (group)",
+      "enabled": false,
+      "note": "Not joined yet — account too new. Flip enabled to true once the membership is approved."
     }
   ],
   "group_posts_per_scroll": 40,

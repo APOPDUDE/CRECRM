@@ -65,9 +65,10 @@ Open `.env` and set:
 - `SUPABASE_SERVICE_ROLE_KEY=` → paste the service_role key.
 - `FB_MCP_PATH=` → make sure the username matches this Mac, e.g.
   `/Users/<youruser>/facebook-marketplace-mcp/dist/index.js`.
-- `SLACK_WEBHOOK_URL=` (optional) → a Slack **incoming webhook** URL. When set, each
-  run pings Slack with brand-new listings in the target metros (Tampa, Pinellas,
-  Pasco, Sarasota, Manatee). Leave blank to turn the pings off.
+- `ALERT_WEBHOOK_URL=` (optional) → the existing n8n webhook that forwards to Slack.
+  It now carries two kinds of message, distinguished by `source`:
+  `deal-radar` (health alerts) and `deal-radar-listings` (new in-market listings in
+  Tampa, Pinellas, Pasco, Sarasota, Manatee). Leave blank for log-only.
 
 > The `.env` file is git-ignored — never commit it, and never paste the
 > service_role key into any file that gets pushed. The repo is public.
@@ -108,7 +109,7 @@ watched groups are already set in `config.json`:
 > than crashing. If groups read 0 posts on the first real run, send the log line
 > and the selectors get a quick tune. Marketplace is unaffected.
 
-## 6. Schedule it (runs every 45 minutes on its own)
+## 6. Schedule it (3 sessions a day, at human hours)
 
 **Edit the paths first.** Open `com.crecrm.dealradar.plist` and change the clone
 path and log path from `/Users/apop/CRE CRM/scripts/deal-radar` to *this* Mac's
@@ -124,8 +125,39 @@ Watch the log:
 tail -f ~/Library/Logs/deal-radar.log
 ```
 
-(You already keep this Mac awake 24/7, so the every-45-min schedule will fire
-reliably. If you ever change that, note that a sleeping Mac skips scheduled runs.)
+(You already keep this Mac awake 24/7, so the schedule fires reliably. If you ever
+change that, note that a sleeping Mac skips scheduled runs.)
+
+### How it paces itself (do not "speed this up")
+
+On 2026-09-05 Facebook warned the burner account for *"suspected automated
+behavior."* The cause was the old design: **104 Marketplace searches a day, 24/7
+including 3am, on an exact 3-hour timer, in headless Chrome** — whose User-Agent
+literally reads `HeadlessChrome/152.0.0.0`. The scraper now behaves like a person:
+
+| | before | now |
+|---|---|---|
+| Searches/day | 104 | **15** |
+| Schedule | every 3h exactly | 09:00 / 14:00 / 19:00 **+0-40 min random** |
+| Hours | 24/7 (incl. 3am) | **08:00-22:00 only** |
+| Browser | headless (`HeadlessChrome` UA) | **headed** (normal `Chrome` UA) |
+| Scrolling | one jump to page bottom, every 1500ms | partial smooth scrolls, variable pauses, occasional scroll-back |
+| Mouse | none, ever | real pointer movement each page |
+| Keywords | all 13 every run | **5 per session, rotated** (all 13 covered in ~1.3 days) |
+| Groups | all, back-to-back | **2 per session, rotated**, after a 4-12 min break |
+
+It also enters through the Marketplace home page (rather than cold-loading
+deep-linked search URLs), sometimes opens a listing like a real shopper, and
+**aborts the whole session** if Facebook shows a verification/automation notice —
+alerting you instead of pushing through it.
+
+**Headed means a Chrome window actually opens on this Mac** during a session. That
+is intentional and is the single biggest anti-detection win; leave it alone. It
+requires this Mac to be logged into its desktop session.
+
+Knobs live in `config.json` (`keywords_per_session`, `groups_per_session`,
+`active_hours`, `pace_min_ms` / `pace_max_ms`). Turning the volume back up is what
+got the account flagged the first time.
 
 ---
 

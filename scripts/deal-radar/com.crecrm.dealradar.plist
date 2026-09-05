@@ -11,12 +11,42 @@
     <string>-lc</string>
     <string>cd '/Users/alexanderpoplawski/CRECRM/scripts/deal-radar' &amp;&amp; npm start</string>
   </array>
-  <!-- every 3h; a cycle is now 1 wide search center x 9 keywords = 9 searches at
-       5-10 min spacing (~45-90 min) plus the group pass, so 3h leaves headroom -->
-  <key>StartInterval</key>
-  <integer>10800</integer>
+
+  <!--
+    THREE sessions a day at plausible human hours, NOT a fixed interval.
+
+    Why (2026-09-05): the old schedule was StartInterval 10800 — every 3h on the
+    dot, 8 runs/day, 24/7 including 3am, running all 13 keywords each time = 104
+    Marketplace searches/day on a perfectly periodic clock. Facebook warned the
+    account for "suspected automated behavior".
+
+    Now: the worker itself adds 0-40 min of random start jitter, refuses to run
+    outside 08:00-22:00, and takes only 5 rotated keywords + 2 rotated groups per
+    session. Net ~15 searches/day at times that drift daily.
+
+    Do not put this back on StartInterval.
+  -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict>
+      <key>Hour</key><integer>9</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key><integer>14</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key><integer>19</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+  </array>
+
+  <!-- Deliberately false: loading the job should not kick off a scrape at whatever
+       hour you happen to run launchctl load. -->
   <key>RunAtLoad</key>
-  <true/>
+  <false/>
+
   <key>StandardOutPath</key>
   <string>/Users/alexanderpoplawski/Library/Logs/deal-radar.log</string>
   <key>StandardErrorPath</key>
