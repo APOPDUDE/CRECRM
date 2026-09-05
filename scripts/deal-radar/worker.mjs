@@ -28,7 +28,7 @@ import { watchMarket } from './market-watch.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const config = JSON.parse(readFileSync(join(HERE, 'config.json'), 'utf8'))
 
-const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ALERT_WEBHOOK_URL } = process.env
+const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ALERT_WEBHOOK_URL, SLACK_WEBHOOK_URL } = process.env
 
 for (const [name, v] of Object.entries({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY })) {
   if (!v) {
@@ -60,17 +60,52 @@ async function alert(message) {
   }
 }
 
-/** Insert only-new industrial/land rows (dedupe within the batch + on external_id). */
+/** Insert only-new industrial/land rows (dedupe within the batch + on external_id).
+ *  Returns the rows that were actually inserted (ignoreDuplicates drops re-sends),
+ *  so the caller can Slack-notify on brand-new hits. */
 async function upsertRows(rows) {
-  if (rows.length === 0) return 0
+  if (rows.length === 0) return []
   const seen = new Set()
   const unique = rows.filter((r) => !seen.has(r.external_id) && seen.add(r.external_id))
   const { data, error } = await supabase
     .from('deal_radar')
     .upsert(unique, { onConflict: 'external_id', ignoreDuplicates: true })
-    .select('external_id')
+    .select()
   if (error) throw new Error(`supabase insert: ${error.message}`)
-  return data?.length ?? 0
+  return data ?? []
+}
+
+// The metros to ping Slack about — Hillsborough (Tampa), Pinellas, Pasco, Sarasota,
+// Manatee. Tested against the listing's title + location + inferred market.
+const IN_MARKET =
+  /\btampa\b|ybor|\bbrandon\b|riverview|\bruskin\b|apollo beach|plant city|\blutz\b|seffner|valrico|\bpinellas\b|st\.?\s*pete|petersburg|clearwater|\blargo\b|dunedin|palm harbor|pinellas park|\bpasco\b|new port richey|port richey|land o.?lakes|wesley chapel|zephyrhills|dade city|\bhudson\b|\bsarasota\b|\bvenice\b|north port|nokomis|\bosprey\b|\bmanatee\b|bradenton|\bpalmetto\b|ellenton|lakewood ranch|\bparrish\b/i
+
+function isInMarket(row) {
+  return IN_MARKET.test(`${row.title || ''} ${row.location_text || ''} ${row.market || ''}`)
+}
+
+/** One Slack ping per run listing the brand-new in-market listings (capped). */
+async function notifySlack(rows) {
+  if (!SLACK_WEBHOOK_URL || rows.length === 0) return
+  const CAP = 12
+  const line = (r) => {
+    const price = r.price ? ` — $${Number(r.price).toLocaleString()}` : ''
+    const where = r.location_text || r.market
+    return `• ${r.title}${price}${where ? ` (${where})` : ''}\n${r.listing_url}`
+  }
+  const shown = rows.slice(0, CAP).map(line).join('\n\n')
+  const more = rows.length > CAP ? `\n\n…and ${rows.length - CAP} more` : ''
+  const text = `🏢 ${rows.length} new in-market listing${rows.length > 1 ? 's' : ''} on Deal Radar:\n\n${shown}${more}`
+  try {
+    await fetch(SLACK_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+    log(`slack: pinged ${rows.length} in-market listing(s)`)
+  } catch (err) {
+    console.error('[deal-radar] slack notify failed:', err?.message)
+  }
 }
 
 async function main() {
@@ -83,6 +118,7 @@ async function main() {
     error_detail: [],
   }
   let aborted = false
+  const newInMarket = [] // brand-new listings in the target metros — one Slack ping at the end
 
   // Marketplace pass — browser scrape of the rendered search results page.
   try {
@@ -97,9 +133,10 @@ async function main() {
         const rows = items.map((it) => normalizeListing(it, { market, keyword })).filter(Boolean)
         run.hits += rows.length
         try {
-          const inserted = await upsertRows(rows)
-          run.inserted += inserted
-          if (inserted) log(`${market} × "${keyword}": ${inserted} new (${items.length} cards)`)
+          const insertedRows = await upsertRows(rows)
+          run.inserted += insertedRows.length
+          newInMarket.push(...insertedRows.filter(isInMarket))
+          if (insertedRows.length) log(`${market} × "${keyword}": ${insertedRows.length} new (${items.length} cards)`)
         } catch (err) {
           run.errors += 1
           run.error_detail.push({ market, keyword, error: (err?.message ?? String(err)).slice(0, 500) })
@@ -148,9 +185,10 @@ async function main() {
       const groupRows = posts.map(({ post, group }) => normalizeGroupPost(post, group)).filter(Boolean)
       run.hits += groupRows.length
       try {
-        const inserted = await upsertRows(groupRows)
-        run.inserted += inserted
-        if (inserted) log(`groups: ${inserted} new (${posts.length} posts scraped)`)
+        const insertedRows = await upsertRows(groupRows)
+        run.inserted += insertedRows.length
+        newInMarket.push(...insertedRows.filter(isInMarket))
+        if (insertedRows.length) log(`groups: ${insertedRows.length} new (${posts.length} posts scraped)`)
       } catch (err) {
         run.errors += 1
         run.error_detail.push({ source: 'group', error: (err?.message ?? String(err)).slice(0, 500) })
@@ -162,6 +200,9 @@ async function main() {
       log(`group pass ERROR: ${err?.message ?? err}`)
     }
   }
+
+  // Ping Slack once about brand-new listings in the target metros.
+  await notifySlack(newInMarket)
 
   run.ok = !aborted
   const { error } = await supabase

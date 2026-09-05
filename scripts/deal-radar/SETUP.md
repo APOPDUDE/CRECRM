@@ -65,6 +65,9 @@ Open `.env` and set:
 - `SUPABASE_SERVICE_ROLE_KEY=` → paste the service_role key.
 - `FB_MCP_PATH=` → make sure the username matches this Mac, e.g.
   `/Users/<youruser>/facebook-marketplace-mcp/dist/index.js`.
+- `SLACK_WEBHOOK_URL=` (optional) → a Slack **incoming webhook** URL. When set, each
+  run pings Slack with brand-new listings in the target metros (Tampa, Pinellas,
+  Pasco, Sarasota, Manatee). Leave blank to turn the pings off.
 
 > The `.env` file is git-ignored — never commit it, and never paste the
 > service_role key into any file that gets pushed. The repo is public.
