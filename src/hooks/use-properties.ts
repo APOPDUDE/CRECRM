@@ -345,10 +345,36 @@ export function useEnrichProperty() {
         body: { property_ids: [propertyId] },
       })
       if (error) throw error
-      return data as { tally?: Record<string, number>; results?: { status: string }[] }
+      return data as EnrichResponse
     },
     onSuccess: () => invalidatePropertyViews(queryClient),
   })
+}
+
+export type EnrichResponse = {
+  error?: string
+  tally?: Record<string, number>
+  results?: { status: string; error?: string; reason?: string; tried?: string }[]
+}
+
+/**
+ * One line the toast can show for a failed enrich — the county's own error, not a
+ * generic "Could not enrich" (Alex 2026-09-05: every click read the same way, and the
+ * real cause was a CORS preflight the browser never got past).
+ */
+export function enrichFailureMessage(d: EnrichResponse | undefined, err?: unknown): string {
+  const r = d?.results?.[0]
+  if (r?.status === 'not_found') return `No matching parcel at the appraiser${r.tried ? ` (${r.tried})` : ''}`
+  if (r?.status === 'error' || r?.status === 'db_error') {
+    const e = r.error ?? ''
+    if (/arcgis .*500|Error performing query/i.test(e)) return 'The county appraiser service returned an error — try again in a minute'
+    if (/abort|timeout/i.test(e)) return 'The county appraiser service timed out — try again in a minute'
+    return `Could not enrich: ${e.slice(0, 120) || 'county error'}`
+  }
+  if (d?.error) return `Could not enrich: ${d.error.slice(0, 120)}`
+  const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  if (/Failed to send a request|Failed to fetch|NetworkError/i.test(msg)) return 'Could not reach the enrichment service (network or CORS) — refresh and try again'
+  return msg ? `Could not enrich: ${msg.slice(0, 120)}` : 'Could not enrich'
 }
 
 export function useCreateProperty() {

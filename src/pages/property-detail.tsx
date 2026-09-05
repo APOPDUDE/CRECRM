@@ -30,6 +30,7 @@ import {
   useUpdateProperty,
   usePropertyDeals,
   useEnrichProperty,
+  enrichFailureMessage,
   useDeleteProperty,
   type PropertyListing,
   type PropertyMatch,
@@ -526,11 +527,10 @@ export function PropertyDetailPage() {
                 onSuccess: (d) => {
                   const s = d?.results?.[0]?.status
                   if (s === 'ok') toast.success('Enriched from county appraiser')
-                  else if (s === 'not_found') toast.error('No matching parcel at the appraiser')
                   else if (s === 'no_parcel' || s === 'unsupported_county') setEnrichAskOpen(true)
-                  else toast.error('Could not enrich')
+                  else toast.error(enrichFailureMessage(d))
                 },
-                onError: () => toast.error('Could not enrich'),
+                onError: (e) => toast.error(enrichFailureMessage(undefined, e)),
               })
             }}
           >

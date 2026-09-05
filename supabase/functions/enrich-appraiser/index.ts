@@ -15,6 +15,18 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+
+// The app calls this from the browser (Enrich / Refresh on a property). A cross-origin
+// call preflights with OPTIONS, and without these headers the browser never sends the
+// POST at all — the logs showed OPTIONS 200 and no POST for every click, and the UI read
+// that as "Could not enrich" (2026-09-05). The n8n callers are unaffected either way.
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 type Attrs = Record<string, unknown>;
@@ -33,6 +45,19 @@ const str = (v: unknown): string | null => {
 const joinAddr = (...parts: unknown[]): string | null => {
   const s = parts.map(str).filter(Boolean).join(", ");
   return s || null;
+};
+
+/** County sale epochs are local-midnight timestamps (ms); the UTC date is the sale date. */
+const epochDate = (v: unknown): string | null => {
+  const n = num(v);
+  if (n == null || n <= 0) return null;
+  const d = new Date(n);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+};
+/** A recorded consideration; $0 / $100 deeds (quitclaims, family transfers) carry a date but no price. */
+const salePrice = (v: unknown): number | null => {
+  const n = num(v);
+  return n != null && n >= 1000 ? n : null;
 };
 
 // Rough centroid (first ring average) — fine for a map dot. Handles point geom too.
@@ -62,6 +87,19 @@ type Adapter = {
   normalize: (parcel: string) => string | { field: string; value: string };
   map: (a: Attrs) => Mapped;
 };
+
+/** Pinellas: "MM/YY |      $465,000(<span ...>Q</span>)" -> first of that month + price. */
+function pinellasSale(v: unknown): { last_sale_date?: string | null; last_sale_price?: number | null } {
+  const text = String(v ?? "").replace(/<[^>]+>/g, "");
+  const m = text.match(/^\s*(\d{1,2})\/(\d{2,4})\s*\|\s*\$?([\d,]+)/);
+  if (!m) return {};
+  const mm = Number(m[1]);
+  // Two-digit years pivot on today: "07/89" is 1989, "06/10" is 2010.
+  const pivot = new Date().getUTCFullYear() % 100;
+  const yy = m[2].length === 2 ? (Number(m[2]) <= pivot ? 2000 : 1900) + Number(m[2]) : Number(m[2]);
+  if (!(mm >= 1 && mm <= 12) || !(yy >= 1900 && yy <= 2100)) return {};
+  return { last_sale_date: `${yy}-${String(mm).padStart(2, "0")}-01`, last_sale_price: salePrice(m[3]) };
+}
 
 const COUNTIES: Record<string, Adapter> = {
   Polk: {
@@ -99,6 +137,9 @@ const COUNTIES: Record<string, Adapter> = {
       year_built: num(a.YEAR_BUILT),
       lat: num(a.LATITUDE),
       lng: num(a.LONGITUDE),
+      // The popup layer exposes the latest sale only as a display string
+      // ("09/17 |      $465,000(<span ...>Q</span>)"): month/year + price.
+      ...pinellasSale(a.LATEST_SALE_DSP),
     }),
   },
   Sarasota: {
@@ -118,6 +159,8 @@ const COUNTIES: Record<string, Adapter> = {
       heated_sf: num(a.LIVING),
       year_built: num(a.YRBL),
       zoning_description: str(a.ZONING),
+      last_sale_date: epochDate(a.SALE_DATE),
+      last_sale_price: salePrice(a.SALE_AMT),
     }),
   },
   Pasco: {
@@ -137,6 +180,8 @@ const COUNTIES: Record<string, Adapter> = {
       heated_sf: num(a.LIVING_AREA),
       year_built: num(a.ACTUAL_YEAR_BUILT),
       zoning_description: str(a.ZONING),
+      last_sale_date: epochDate(a.SALE_DATE),
+      last_sale_price: salePrice(a.SALE_AMOUNT),
     }),
   },
   Manatee: {
@@ -156,6 +201,8 @@ const COUNTIES: Record<string, Adapter> = {
       heated_sf: num(a.BLDGS_SQFT_LIVING),
       year_built: num(a.BLDG_C1_YRBUILT ?? a.BLDG_R1_YRBUILT),
       zoning_description: str(a.PAR_ZONING),
+      last_sale_date: epochDate(a.SALE_DATE_LAST),
+      last_sale_price: salePrice(a.SALE_PRICE_LAST),
     }),
   },
   Hillsborough: {
@@ -268,6 +315,7 @@ type PropertyRow = {
   lng: number | null;
   gross_sf: number | null;
   heated_sf: number | null;
+  last_sale_date?: string | null;
   year_built: number | null;
   land_acres: number | null;
   zoning_description: string | null;
@@ -427,6 +475,13 @@ async function enrichOne(supa: SupabaseClient, p: PropertyRow) {
   // caller and every skip trace say "4456 Eagle Falls Pl". Discarding it used to make such a
   // property unfindable by its real address; the app now displays site_address when present.
   if (m.site_address) upd.site_address = m.site_address;
+  // The appraiser's last sale is authoritative: take it whenever it is newer than ours
+  // (or we have none). A listing that quietly went off market usually means exactly
+  // this — Refresh is how the property learns it sold (Alex 2026-09-05).
+  if (typeof m.last_sale_date === "string" && (p.last_sale_date == null || m.last_sale_date > p.last_sale_date)) {
+    upd.last_sale_date = m.last_sale_date;
+    upd.last_sale_price = m.last_sale_price ?? null;
+  }
   if (m.folio) upd.folio = String(m.folio).replace(/[^0-9]/g, "") || null;
   // properties.address still only gets filled when ours is blank or a parcel-only placeholder
   // ("Parcel <id>" / "Address unavailable") — never clobber what the source gave us.
@@ -454,36 +509,39 @@ async function enrichOne(supa: SupabaseClient, p: PropertyRow) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  // Anything but a POST used to fall through to a 25-row backfill (an empty body).
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
   try {
     const supa = createClient(SUPABASE_URL, SERVICE_KEY);
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const body = await req.json().catch(() => ({}));
     const limit = Math.min(Number(body.limit) || 25, 100);
     const ids: string[] | undefined = Array.isArray(body.property_ids) ? body.property_ids : undefined;
     const counties = Object.keys(COUNTIES);
 
     const q = supa.from("properties")
-      .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description");
+      .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description, last_sale_date");
     let props: PropertyRow[] | null = null;
     if (ids) {
       const { data, error } = await q.in("id", ids);
-      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+      if (error) return json({ error: error.message }, 500);
       props = data as PropertyRow[];
     } else {
       // parcel lane first (cheap, exact), then the point lane for parcel-less rows with a pin
       const { data: a, error: ea } = await q.is("appraiser_updated_at", null).in("county", counties)
         .not("parcel_number", "is", null).limit(limit);
-      if (ea) return new Response(JSON.stringify({ error: ea.message }), { status: 500 });
+      if (ea) return json({ error: ea.message }, 500);
       props = (a || []) as PropertyRow[];
       // one county round-trip per row (~1s): cap the lane so a 100-row drain stays inside
       // the caller's 120s timeout (WF4 every 10 min)
       const POINT_LANE_CAP = 40;
       if (props.length < limit) {
         const { data: b, error: eb } = await supa.from("properties")
-          .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description")
+          .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description, last_sale_date")
           .is("appraiser_updated_at", null).in("county", counties).is("parcel_number", null)
           .not("lat", "is", null).not("lng", "is", null).eq("is_condo_unit", false)
           .order("created_at", { ascending: false }).limit(Math.min(limit - props.length, POINT_LANE_CAP));
-        if (eb) return new Response(JSON.stringify({ error: eb.message }), { status: 500 });
+        if (eb) return json({ error: eb.message }, 500);
         props = props.concat((b || []) as PropertyRow[]);
       }
     }
@@ -510,10 +568,8 @@ Deno.serve(async (req) => {
       m[r.status] = (m[r.status] || 0) + 1;
       return m;
     }, {});
-    return new Response(JSON.stringify({ processed: results.length, tally, remaining, results }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return json({ processed: results.length, tally, remaining, results });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500 });
+    return json({ error: String(e) }, 500);
   }
 });

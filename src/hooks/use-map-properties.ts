@@ -71,11 +71,11 @@ const EMPTY: MapPropertiesResult = {
 }
 
 /** Both map RPCs return the same three columns, so they unpack the same way. */
-type MapRow = { property: unknown; owner_ctx: unknown; total_in_view: number }
+export type MapRow = { property: unknown; owner_ctx: unknown; total_in_view: number }
 
 type RpcProperty = PropertyWithCounts & { listing_count?: number; pursuit_count?: number }
 
-function unpack(rows: MapRow[]): MapPropertiesResult {
+export function unpackMapRows(rows: MapRow[]): MapPropertiesResult {
   const properties: PropertyWithCounts[] = []
   const ownerContext = new Map<string, OwnerContext>()
   for (const row of rows) {
@@ -133,7 +133,7 @@ export function useMapProperties(
         p_book: book === 'all' ? undefined : book,
       })
       if (error) throw error
-      return unpack((data ?? []) as MapRow[])
+      return unpackMapRows((data ?? []) as MapRow[])
     },
   })
 
@@ -178,7 +178,7 @@ export function useMapSearch(query: string, enabled = true, book: PropertyBook =
         p_book: book === 'all' ? undefined : book,
       })
       if (error) throw error
-      return unpack((data ?? []) as MapRow[])
+      return unpackMapRows((data ?? []) as MapRow[])
     },
   })
   const data = result.data ?? EMPTY

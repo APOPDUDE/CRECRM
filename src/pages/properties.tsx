@@ -43,6 +43,9 @@ import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { ListErrorState } from '@/components/list-error-state'
 import { PARCEL_ZOOM, PropertiesMap } from '@/components/properties-map'
 import { MapFilterRail, type OwnerChannels } from '@/components/map-filter-rail'
+import { WAR_ROOM_MODES, type WarRoomMode } from '@/lib/war-room-mode'
+import { summarizeSignals, useSignalEvents, useSignalProperties, type SignalSummary } from '@/hooks/use-signals'
+import { EVENT_TYPE_CHIP, EVENT_TYPE_LABELS, EVENT_TYPE_ORDER, type MarketEventType } from '@/lib/market-events'
 import { PropertyReview } from '@/components/property-review'
 import {
   PROPERTY_TAG_OPTIONS,
@@ -122,10 +125,12 @@ type ColumnId =
   | 'year_built' | 'zoning' | 'occupancy'
   | 'owner' | 'owner_contact' | 'portfolio' | 'last_contacted' | 'off_market_days'
   | 'tenant' | 'decision_maker' | 'leased_sf' | 'lease_signed' | 'lease_rate' | 'lease_expiry'
-  | 'suitability'
+  | 'suitability' | 'signals'
 
 /** Columns that only mean anything while a lease window is filtering the list. */
 const LEASE_COLUMNS: ColumnId[] = ['tenant', 'decision_maker', 'leased_sf', 'lease_signed', 'lease_rate', 'lease_expiry']
+/** Columns a MODE appends (Signals) — driven by the mode, never chosen from the menu. */
+const MODE_COLUMNS: ColumnId[] = ['signals']
 
 type ColumnDef = {
   id: ColumnId
@@ -136,6 +141,7 @@ type ColumnDef = {
     asking: CurrentAsking | undefined,
     owner: OwnerContext | undefined,
     lease: LeaseComp | undefined,
+    signal?: SignalSummary,
   ) => ReactNode
 }
 
@@ -159,6 +165,27 @@ const COLUMN_DEFS: ColumnDef[] = [
     cell: (p) => (p.suitability_score == null ? '' : Math.round(p.suitability_score)),
   },
   { id: 'asking', label: 'Asking', className: MUTED, cell: (_p, asking) => askingLabel(asking) ?? '' },
+  {
+    // Signals mode: one chip per event type on the property, most serious first, and
+    // the newest event's date — the same chips the Market Monitor uses.
+    id: 'signals',
+    label: 'Signals',
+    cell: (_p, _a, _o, _l, signal) =>
+      signal ? (
+        <span className="flex flex-wrap items-center gap-1">
+          {signal.types.map((t) => (
+            <Badge key={t} variant="outline" className={`font-normal ${EVENT_TYPE_CHIP[t]}`}>
+              {EVENT_TYPE_LABELS[t]}
+            </Badge>
+          ))}
+          {signal.latest && (
+            <span className="text-xs text-muted-foreground">{signal.latest}</span>
+          )}
+        </span>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      ),
+  },
   {
     id: 'deals',
     label: 'Deals',
@@ -404,6 +431,19 @@ export function PropertiesPage() {
   const dorSel = useMemo(() => safeDorSelection(dorSelRaw), [dorSelRaw])
   const [bookModeRaw, setBookMode] = usePersistentState<'industrial' | 'land'>('properties:book', 'industrial')
   const bookMode = bookModeRaw === 'land' ? 'land' : 'industrial'
+  // Properties / Leases / Signals (Alex 2026-09-05): what the War Room is looking at.
+  // Signals plots the Market Monitor's events on the book; Leases leads the rail with
+  // the lease windows. Sticky like everything else here.
+  const [modeRaw, setMode] = usePersistentState<WarRoomMode>('properties:mode', 'properties')
+  const mode: WarRoomMode = modeRaw === 'leases' || modeRaw === 'signals' ? modeRaw : 'properties'
+  const signalsOn = mode === 'signals'
+  const [signalTypesRaw, setSignalTypes] = usePersistentState<MarketEventType[]>('properties:signalTypes', [...EVENT_TYPE_ORDER])
+  const signalTypes = useMemo(
+    () => (Array.isArray(signalTypesRaw) ? signalTypesRaw.filter((t) => EVENT_TYPE_ORDER.includes(t)) : [...EVENT_TYPE_ORDER]),
+    [signalTypesRaw],
+  )
+  const [signalDaysRaw, setSignalDays] = usePersistentState<string>('properties:signalDays', '180')
+  const signalDays = ['30', '90', '180', '365', 'all'].includes(signalDaysRaw) ? signalDaysRaw : '180'
   // Crossing INTO the land book with no DOR selection seeds the baseline
   // (all land codes on). Transition-only, so the picker's Clear stays cleared —
   // an effect keyed on inactivity alone would snap Clear right back.
@@ -491,6 +531,31 @@ export function PropertiesPage() {
   // Frozen per mount so the filter can't reshuffle rows under you as the clock ticks.
   const nowMs = useNow()
   const activityCutoff = nowMs - ACTIVITY_DAYS * 86400000
+  // Signals lens data: every matched market event (a few hundred rows, no book), folded
+  // per property inside the chosen window; then the rows behind those ids in the map
+  // RPC's shape. Both are small, so the lens never pays for the book.
+  const signalEvents = useSignalEvents(signalsOn)
+  const signalSince = useMemo(() => {
+    if (signalDays === 'all') return null
+    const d = new Date(nowMs - Number(signalDays) * 86400000)
+    return d.toISOString().slice(0, 10)
+  }, [signalDays, nowMs])
+  const signalTypeSet = useMemo(() => new Set<MarketEventType>(signalTypes), [signalTypes])
+  const signalSummary = useMemo(
+    () => (signalsOn ? summarizeSignals(signalEvents.data, signalTypeSet, signalSince) : new Map<string, SignalSummary>()),
+    [signalsOn, signalEvents.data, signalTypeSet, signalSince],
+  )
+  // Chip badges: how many properties carry each type inside the window, whatever is ticked.
+  const signalCounts = useMemo(() => {
+    const all = signalsOn ? summarizeSignals(signalEvents.data, new Set(EVENT_TYPE_ORDER), signalSince) : new Map<string, SignalSummary>()
+    const counts: Partial<Record<MarketEventType, number>> = {}
+    for (const s of all.values()) for (const t of s.types) counts[t] = (counts[t] ?? 0) + 1
+    return counts
+  }, [signalsOn, signalEvents.data, signalSince])
+  const signalIds = useMemo(() => [...signalSummary.keys()], [signalSummary])
+  const signalRows = useSignalProperties(signalIds, signalsOn)
+  const signalLoading =
+    signalsOn && (signalEvents.isPending || (signalIds.length > 0 && signalRows.isPending))
   const [view, setView] = usePersistentState<'table' | 'map'>('properties:view', 'table')
   // Which book the War Room shows (Alex 2026-08-21): Industrial is the normal book
   // (just-land rows excluded so it never slows or clutters), Land is the developer-land
@@ -501,7 +566,9 @@ export function PropertiesPage() {
   // toggle — new listing lands, draw the area, flip this on, and every tenant close to
   // expiry nearby is on screen with their DM. On the map the windows only APPLY while
   // it's on; the table's popover shows them unconditionally, so there they always apply.
-  const [searchLeases, setSearchLeases] = usePersistentState('properties:searchLeases', false)
+  const [searchLeasesRaw, setSearchLeases] = usePersistentState('properties:searchLeases', false)
+  // Leases mode implies the toggle: the windows lead the rail and apply on the map.
+  const searchLeases = mode === 'leases' || searchLeasesRaw
   // Lease run-off window, in whole months from today. Kept as a filter rather than as
   // part of the lease lens so it narrows the table too — the lens only paints pins.
   const [leaseMin, setLeaseMin] = usePersistentState('properties:leaseMin', '')
@@ -617,6 +684,7 @@ export function PropertiesPage() {
   const hasText = searchTokens(search).length > 0
   const hasQuery =
     hasText ||
+    signalsOn ||
     activeFilterCount > 0 ||
     portfolioOwnerId != null ||
     (polygon != null && polygon.length >= 3) ||
@@ -634,7 +702,9 @@ export function PropertiesPage() {
    * is cheap. A portfolio is the exception: it asks about an owner, not about text, and it
    * wants every holding rather than the ones whose name happens to match.
    */
-  const searchOnly = hasText && portfolioOwnerId == null
+  // Under the Signals lens the set is small and already in hand, so typed text narrows
+  // it in the browser instead of asking Postgres for whole-book matches.
+  const searchOnly = hasText && portfolioOwnerId == null && !signalsOn
 
   /**
    * Which of the lease questions are being asked, in one place.
@@ -667,9 +737,10 @@ export function PropertiesPage() {
    * include-in-search overlay) flips wantsBook and the full fetch takes over.
    */
   const tableFastPath =
-    view === 'table' && bookMode === 'land' && !searchOnly &&
+    view === 'table' && bookMode === 'land' && !searchOnly && !signalsOn &&
     activeFilterCount === 0 && !polygon && !radius && !wantsBook && overlayIncludes.length === 0
-  const needsBook = ((!viewportOnly && !searchOnly) && !tableFastPath) || wantsBook || overlayIncludes.length > 0
+  // The Signals lens never needs the book: its rows come by id from the RPC.
+  const needsBook = !signalsOn && (((!viewportOnly && !searchOnly) && !tableFastPath) || wantsBook || overlayIncludes.length > 0)
 
   const { data: properties, isLoading, isError, refetch } = useProperties(needsBook, bookMode)
   const landPage = usePagedLandBook(page, tableFastPath)
@@ -721,19 +792,23 @@ export function PropertiesPage() {
     // fresh empty array on every render while the book is still loading, and everything
     // downstream keys its useMemo off this.
     () =>
-      viewportOnly
-        ? mapView.data.properties
-        : searchOnly
-          ? mapSearch.data.properties
-          : (properties ?? []),
-    [viewportOnly, searchOnly, mapView.data.properties, mapSearch.data.properties, properties],
+      signalsOn
+        ? signalRows.data.properties
+        : viewportOnly
+          ? mapView.data.properties
+          : searchOnly
+            ? mapSearch.data.properties
+            : (properties ?? []),
+    [signalsOn, signalRows.data.properties, viewportOnly, searchOnly, mapView.data.properties, mapSearch.data.properties, properties],
   )
   const ownerCtx = useMemo(() => {
-    const base = viewportOnly
-      ? mapView.data.ownerContext
-      : searchOnly
-        ? mapSearch.data.ownerContext
-        : ownerCtxBook
+    const base = signalsOn
+      ? signalRows.data.ownerContext
+      : viewportOnly
+        ? mapView.data.ownerContext
+        : searchOnly
+          ? mapSearch.data.ownerContext
+          : ownerCtxBook
     // Overlay-included rows come from the book, so their owner context must too —
     // otherwise the union's rows export with blank owner columns. Base wins on
     // collision: it is what the rest of the page is filtering on.
@@ -741,7 +816,7 @@ export function PropertiesPage() {
     const merged = new Map(ownerCtxBook)
     for (const [id, ctx] of base ?? []) merged.set(id, ctx)
     return merged
-  }, [viewportOnly, searchOnly, mapView.data.ownerContext, mapSearch.data.ownerContext, ownerCtxBook, overlayIncludes])
+  }, [signalsOn, signalRows.data.ownerContext, viewportOnly, searchOnly, mapView.data.ownerContext, mapSearch.data.ownerContext, ownerCtxBook, overlayIncludes])
 
   // Deep link from a property's mini-map: /properties?view=map&q=<address>.
   // Every filter here is sticky, so a saved county/type/shape from an earlier session
@@ -807,6 +882,7 @@ export function PropertiesPage() {
       // comes on so the window actually applies on the map.
       setSearch('')
       resetFilters()
+      setMode('leases')
       setSearchLeases(true)
       setLeaseMin(searchParams.get('expMin') ?? '')
       setLeaseMax(searchParams.get('expMax') ?? '')
@@ -970,8 +1046,9 @@ export function PropertiesPage() {
   // here because it reads leaseMatchIds above.)
   const visibleColumns = COLUMN_DEFS.filter(
     (c) =>
-      (safeColumns.includes(c.id) && !LEASE_COLUMNS.includes(c.id)) ||
-      (leaseMatchIds != null && LEASE_COLUMNS.includes(c.id)),
+      (safeColumns.includes(c.id) && !LEASE_COLUMNS.includes(c.id) && !MODE_COLUMNS.includes(c.id)) ||
+      (leaseMatchIds != null && LEASE_COLUMNS.includes(c.id)) ||
+      (signalsOn && MODE_COLUMNS.includes(c.id)),
   )
 
   // One principal can hold several deed entities (companies.portfolio_id); the owner's
@@ -1394,7 +1471,11 @@ export function PropertiesPage() {
 
   /** The top bar's map count — same honesty rules the old toolbar line followed. */
   const mapStatusText =
-    overlayIncludes.length > 0
+    signalsOn
+      ? signalLoading
+        ? 'Loading signals…'
+        : `${filtered.length.toLocaleString()} with signals${condoSuffix}`
+      : overlayIncludes.length > 0
       ? isLoading
         ? 'Loading the book to include the overlay…'
         : `${filtered.length.toLocaleString()} matching incl. overlay properties${condoSuffix}`
@@ -1449,6 +1530,8 @@ export function PropertiesPage() {
     setIncludeCondos(false)
     setOwnerOccMode('all')
     setSoldYears(''); setIncludeNoSale(true)
+    // the Signals lens's own questions go back to "everything, six months"
+    setSignalTypes([...EVENT_TYPE_ORDER]); setSignalDays('180')
   }
 
   /**
@@ -1488,6 +1571,13 @@ export function PropertiesPage() {
   const railContent = (
     <MapFilterRail
       book={bookMode}
+      mode={mode}
+      signalTypes={signalTypes}
+      onSignalTypes={setSignalTypes}
+      signalDays={signalDays}
+      onSignalDays={setSignalDays}
+      signalCounts={signalCounts}
+      signalLoading={signalLoading}
       polygon={polygon}
       draft={draft}
       onStartDraw={() => { setPolygon(null); setRadius(null); setPlacingRadius(false); setDraft([]) }}
@@ -1615,6 +1705,34 @@ export function PropertiesPage() {
             >
               Land
             </Button>
+          </div>
+          {/* Properties / Leases / Signals (Alex 2026-09-05): what the map is looking at.
+              Same anatomy as the book toggle. Leases implies "Search leases"; Signals
+              plots the Market Monitor's events on the book. */}
+          <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
+            {WAR_ROOM_MODES.map((m, i) => (
+              <Button
+                key={m.v}
+                variant={mode === m.v ? 'secondary' : 'ghost'}
+                size="sm"
+                className={i > 0 ? 'rounded-none border-l' : 'rounded-none'}
+                onClick={() => {
+                  setMode(m.v)
+                  // Leaving Leases mode shouldn't leave the windows silently filtering.
+                  if (m.v !== 'leases') setSearchLeases(false)
+                  setPage(0)
+                }}
+                title={
+                  m.v === 'signals'
+                    ? 'Book properties with a Market Monitor event — permits, sales, code enforcement, pre-foreclosure, probate, bankruptcy'
+                    : m.v === 'leases'
+                      ? 'Lease run-off: the lease windows lead the rail'
+                      : 'The book as it is'
+                }
+              >
+                {m.label}
+              </Button>
+            ))}
           </div>
         </div>
         {/* The search stretches the whole top (Alex) — everything else keeps its size. */}
@@ -2161,7 +2279,7 @@ export function PropertiesPage() {
               <DropdownMenuSeparator />
               {/* Lease columns are driven by the lease window, not chosen here — offering
                   a checkbox that the filter overrides would just be a lie. */}
-              {COLUMN_DEFS.filter((c) => !LEASE_COLUMNS.includes(c.id)).map((c) => {
+              {COLUMN_DEFS.filter((c) => !LEASE_COLUMNS.includes(c.id) && !MODE_COLUMNS.includes(c.id)).map((c) => {
                 const checked = safeColumns.includes(c.id)
                 return (
                   <DropdownMenuCheckboxItem
@@ -2189,7 +2307,7 @@ export function PropertiesPage() {
       {/* "of the book" only means something when the book is loaded. On the map the
           top bar's count answers this, and under a search the book was never fetched —
           there is no denominator to quote. */}
-      {view === 'table' && !isLoading && !isError && !viewportOnly && !searchOnly && (properties ?? []).length > 0 && (
+      {view === 'table' && !isLoading && !isError && !viewportOnly && !searchOnly && !signalsOn && (properties ?? []).length > 0 && (
         <p className="text-xs text-muted-foreground">
           Showing {tableFastPath ? paged.length : filtered.length} of {(tableFastPath ? tableTotal : (properties ?? []).length).toLocaleString()} properties
           {condoSuffix}
@@ -2257,7 +2375,17 @@ export function PropertiesPage() {
             }
             onViewportChange={setViewport}
             emptyHint={
-              searchOnly
+              signalsOn
+                ? signalLoading
+                  ? 'Loading signals…'
+                  : signalEvents.isError || signalRows.isError
+                    ? 'Could not load the signals — try again.'
+                    : filtered.length === 0
+                      ? signalIds.length === 0
+                        ? 'No signals in this window — widen "Seen within" or tick more event types.'
+                        : 'Nothing with a signal matches the current search/filters.'
+                      : undefined
+                : searchOnly
                 ? searching
                   ? 'Searching…'
                   : mapSearch.isError
@@ -2290,6 +2418,7 @@ export function PropertiesPage() {
             // The tenant hover-card follows the lease QUESTION, not a lens: only while
             // a lease window narrows the set does the pin name who is leaving.
             leaseInfo={leaseMatchIds ? leaseSoonest : undefined}
+            signalInfo={signalsOn ? signalSummary : undefined}
             polygon={polygon}
             draft={draft}
             drawMode={drawMode}
@@ -2314,18 +2443,18 @@ export function PropertiesPage() {
           />
           </div>
         </div>
-      ) : isLoading || searching || (tableFastPath && landPage.isLoading) ? (
+      ) : isLoading || searching || signalLoading || (tableFastPath && landPage.isLoading) ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
-      ) : isError || (searchOnly && mapSearch.isError) || (tableFastPath && landPage.isError) ? (
+      ) : isError || (searchOnly && mapSearch.isError) || (signalsOn && (signalEvents.isError || signalRows.isError)) || (tableFastPath && landPage.isError) ? (
         <ListErrorState message="Could not load properties." onRetry={() => (tableFastPath ? landPage.refetch() : refetch())} />
       ) : /* Under a search the book is never fetched, so its emptiness says nothing about
             whether Alex has any properties — only that he hasn't loaded them. The paged
             fast path likewise never fetches the book — its own page speaks for it. */
-        !searchOnly && !tableFastPath && (properties ?? []).length === 0 ? (
+        !searchOnly && !tableFastPath && !signalsOn && (properties ?? []).length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
             No properties yet — use “Add property” above to add the buildings and land you're working.
@@ -2397,6 +2526,7 @@ export function PropertiesPage() {
                           askingMap?.get(property.id),
                           ownerCtx?.get(property.id),
                           leaseMatch?.top.get(property.id),
+                          signalSummary.get(property.id),
                         )}
                       </TableCell>
                     ))}

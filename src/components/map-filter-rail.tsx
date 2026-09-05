@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useResetOn } from '@/hooks/use-reset-on'
 import { format } from 'date-fns'
-import { CircleDashed, Crosshair, Layers, MessageSquare, Send } from 'lucide-react'
+import { CircleDashed, Crosshair, Layers, MessageSquare, Radar, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -19,12 +19,21 @@ import { MapLayerControls } from '@/components/map-layer-controls'
 import { DorCodePicker } from '@/components/dor-code-picker'
 import { PROPERTY_TAG_OPTIONS, type PropertyTagKey } from '@/hooks/use-property-tag-filter'
 import { type DorSelection } from '@/lib/zoning'
+import {
+  EVENT_TYPE_CHIP,
+  EVENT_TYPE_LABELS,
+  EVENT_TYPE_ORDER,
+  SIGNAL_WINDOWS,
+  type MarketEventType,
+} from '@/lib/market-events'
 import type { OverlayState } from '@/lib/overlays'
 import type { LatLng, RadiusFilter } from '@/lib/geo'
 import { cn } from '@/lib/utils'
+import type { WarRoomMode } from '@/lib/war-room-mode'
 
 /** Which owner channels count as "verified" while the toggle is on. */
 export type OwnerChannels = { phone: boolean; email: boolean }
+
 
 function Segmented({
   value,
@@ -90,7 +99,7 @@ function MinMax({
  * the toggles. The rail WRITES the same persisted state the table's Filters popover
  * reads — one source of truth, two surfaces.
  */
-export function MapFilterRail(props: {
+export type MapFilterRailProps = {
   // draw shape — the completed polygon lives in the parent (it filters table + export)
   polygon: LatLng[] | null
   draft: LatLng[] | null
@@ -178,6 +187,16 @@ export function MapFilterRail(props: {
   tagsLoading: boolean
   /** Which book is open — the land book asks different questions of the rail. */
   book?: 'industrial' | 'land'
+  /** Properties / Leases / Signals — decides which block sits at the top of the rail. */
+  mode: WarRoomMode
+  // Signals lens: which Market Monitor event types paint the map, and how far back.
+  signalTypes: MarketEventType[]
+  onSignalTypes: (next: MarketEventType[]) => void
+  signalDays: string
+  onSignalDays: (v: string) => void
+  /** Properties carrying each type inside the window — the chip badges. */
+  signalCounts: Partial<Record<MarketEventType, number>>
+  signalLoading: boolean
   // DOR use categories + the zoning axis
   dorSel: DorSelection
   onDorSel: (next: DorSelection) => void
@@ -198,7 +217,9 @@ export function MapFilterRail(props: {
   overlays: OverlayState
   onOverlays: (s: OverlayState) => void
   onOverlayIncludeOn: () => void
-}) {
+}
+
+export function MapFilterRail(props: MapFilterRailProps) {
   const p = props
   const drawing = p.draft !== null
   const placing = p.placingRadius
@@ -226,6 +247,30 @@ export function MapFilterRail(props: {
 
   return (
     <div className="space-y-4 text-sm">
+      {/* The mode's own questions lead the rail (Alex 2026-09-05: "above square feet and
+          acres"): Signals = the Market Monitor event types + window; Leases = the lease
+          windows. Properties mode adds nothing — the standard filters follow. */}
+      {p.mode === 'signals' && (
+        <div className="space-y-2 rounded-md border bg-background/70 p-2.5">
+          <div className="flex items-center gap-1.5">
+            <Radar className="size-4 text-muted-foreground" />
+            <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Signals</span>
+          </div>
+          <p className="-mt-1 text-xs text-muted-foreground">
+            Book properties with a Market Monitor event. Pins and outlines wear the event colour.
+          </p>
+          <SignalControls p={p} />
+        </div>
+      )}
+      {p.mode === 'leases' && (
+        <div className="space-y-2 rounded-md border bg-background/70 p-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Leases</span>
+          </div>
+          <LeaseWindows p={p} />
+        </div>
+      )}
+
       {/* Draw shape / radius */}
       <div className="space-y-1.5">
         {placing ? (
@@ -303,9 +348,8 @@ export function MapFilterRail(props: {
           mostly buildings the pipeline has nothing to say about. A minimum DROPS
           unscored parcels rather than ranking them last, because "not measured
           enough to publish a number" is not the same as "scores badly". */}
-      {isLand && (
-        <div className="space-y-1.5">
-          <Label>Site score at least</Label>
+      <div className="space-y-1.5">
+          <Label>Site score at least{!isLand && <span className="ml-1 font-normal text-muted-foreground">(land parcels)</span>}</Label>
           <Input
             type="number"
             inputMode="numeric"
@@ -316,8 +360,7 @@ export function MapFilterRail(props: {
             onChange={(e) => p.onScoreMin(e.target.value)}
             className="h-8"
           />
-        </div>
-      )}
+      </div>
 
       {/* Condo units — the Motor Enclave problem: one address, 236 separately-owned
           bays. Out of every search by default; this is the way back in. Absent from
@@ -566,67 +609,14 @@ export function MapFilterRail(props: {
 
       {/* Search leases — new listing lands, draw the area, flip this on: every tenant
           close to expiry nearby, with their decision maker on hover and in the export.
-          A building question: hidden in the land book. */}
-      <div className={`space-y-1.5 border-t pt-3${isLand ? ' hidden' : ''}`}>
+          A building question: hidden in the land book. In Leases mode the windows sit
+          at the top of the rail instead, and this toggle is implied on. */}
+      <div className={`space-y-1.5 border-t pt-3${isLand || p.mode === 'leases' ? ' hidden' : ''}`}>
         <label className="flex cursor-pointer items-center gap-2">
           <Checkbox checked={p.searchLeases} onCheckedChange={(v) => p.onSearchLeases(v === true)} />
           <span className="font-medium">Search leases</span>
         </label>
-        {p.searchLeases && (
-          <div className="space-y-2 pl-6">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Expires (months out)</Label>
-              {/^\d{4}-\d{2}$/.test(p.leaseMonth) ? (
-                <div className="flex items-center justify-between rounded-md border px-2 py-1">
-                  <span className="text-xs">
-                    Expiring {format(new Date(`${p.leaseMonth}-01T00:00:00`), 'MMMM yyyy')}
-                  </span>
-                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => p.onLeaseMonth('')}>
-                    Clear
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <MinMax min={p.leaseMin} max={p.leaseMax} onMin={p.onLeaseMin} onMax={p.onLeaseMax} />
-                  <div className="flex flex-wrap gap-1.5">
-                    {[3, 6, 12].map((n) => (
-                      <Button
-                        key={n}
-                        variant={p.leaseMin === '' && p.leaseMax === String(n) ? 'secondary' : 'outline'}
-                        size="sm"
-                        className="h-6 px-2 text-xs"
-                        onClick={() => {
-                          p.onLeaseMin('')
-                          p.onLeaseMax(String(n))
-                        }}
-                      >
-                        ≤ {n === 12 ? '1 yr' : `${n} mo`}
-                      </Button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Signed (months ago)</Label>
-              <MinMax min={p.signMin} max={p.signMax} onMin={p.onSignMin} onMax={p.onSignMax} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Leased SF (the unit, not the shell)</Label>
-              <MinMax currency min={p.leaseSfMin} max={p.leaseSfMax} onMin={p.onLeaseSfMin} onMax={p.onLeaseSfMax} />
-            </div>
-            <Select value={p.dmFilter} onValueChange={p.onDmFilter}>
-              <SelectTrigger className="h-8 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any decision maker</SelectItem>
-                <SelectItem value="verified">Verified decision maker</SelectItem>
-                <SelectItem value="unverified">No verified decision maker</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        {p.searchLeases && <LeaseWindows p={p} indent />}
       </div>
 
       {/* Overlays (Alex 2026-09-03): everything that PAINTS the map lives together at
@@ -724,6 +714,123 @@ function RadiusMiles({ miles, onChange }: { miles: number; onChange: (m: number)
         className="w-full accent-blue-600"
         aria-label="Radius in miles"
       />
+    </div>
+  )
+}
+
+/**
+ * The lease windows (expiring, signed, leased SF, decision maker). Rendered at the TOP
+ * of the rail in Leases mode and under the "Search leases" toggle otherwise — one
+ * definition so the two placements can never ask different questions.
+ */
+function LeaseWindows({ p, indent }: { p: MapFilterRailProps; indent?: boolean }) {
+  return (
+    <div className={cn('space-y-2', indent && 'pl-6')}>
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Expires (months out)</Label>
+        {/^\d{4}-\d{2}$/.test(p.leaseMonth) ? (
+          <div className="flex items-center justify-between rounded-md border px-2 py-1">
+            <span className="text-xs">
+              Expiring {format(new Date(`${p.leaseMonth}-01T00:00:00`), 'MMMM yyyy')}
+            </span>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => p.onLeaseMonth('')}>
+              Clear
+            </Button>
+          </div>
+        ) : (
+          <>
+            <MinMax min={p.leaseMin} max={p.leaseMax} onMin={p.onLeaseMin} onMax={p.onLeaseMax} />
+            <div className="flex flex-wrap gap-1.5">
+              {[3, 6, 12].map((n) => (
+                <Button
+                  key={n}
+                  variant={p.leaseMin === '' && p.leaseMax === String(n) ? 'secondary' : 'outline'}
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => {
+                    p.onLeaseMin('')
+                    p.onLeaseMax(String(n))
+                  }}
+                >
+                  ≤ {n === 12 ? '1 yr' : `${n} mo`}
+                </Button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Signed (months ago)</Label>
+        <MinMax min={p.signMin} max={p.signMax} onMin={p.onSignMin} onMax={p.onSignMax} />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Leased SF (the unit, not the shell)</Label>
+        <MinMax currency min={p.leaseSfMin} max={p.leaseSfMax} onMin={p.onLeaseSfMin} onMax={p.onLeaseSfMax} />
+      </div>
+      <Select value={p.dmFilter} onValueChange={p.onDmFilter}>
+        <SelectTrigger className="h-8 w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Any decision maker</SelectItem>
+          <SelectItem value="verified">Verified decision maker</SelectItem>
+          <SelectItem value="unverified">No verified decision maker</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+/** Signals mode: which event types paint the map, and the look-back window. */
+function SignalControls({ p }: { p: MapFilterRailProps }) {
+  const selected = new Set(p.signalTypes)
+  const toggle = (t: MarketEventType) => {
+    const next = new Set(selected)
+    if (next.has(t)) next.delete(t)
+    else next.add(t)
+    p.onSignalTypes(EVENT_TYPE_ORDER.filter((x) => next.has(x)))
+  }
+  const all = EVENT_TYPE_ORDER.every((t) => selected.has(t))
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs text-muted-foreground">Event types</Label>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 px-2 text-xs"
+          onClick={() => p.onSignalTypes(all ? [] : [...EVENT_TYPE_ORDER])}
+        >
+          {all ? 'None' : 'All'}
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {EVENT_TYPE_ORDER.map((t) => {
+          const on = selected.has(t)
+          const n = p.signalCounts[t] ?? 0
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => toggle(t)}
+              aria-pressed={on}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-opacity',
+                EVENT_TYPE_CHIP[t],
+                !on && 'opacity-35 grayscale',
+              )}
+              title={`${EVENT_TYPE_LABELS[t]} — ${n} propert${n === 1 ? 'y' : 'ies'} in the window`}
+            >
+              {EVENT_TYPE_LABELS[t]}
+              <span className="tabular-nums opacity-70">{p.signalLoading ? '…' : n}</span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Seen within</Label>
+        <Segmented value={p.signalDays} options={SIGNAL_WINDOWS} onChange={p.onSignalDays} />
+      </div>
     </div>
   )
 }

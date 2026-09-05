@@ -9,6 +9,8 @@ import type { OwnerContext } from '@/hooks/use-owners'
 import { formatCurrency, formatPsf, formatSf } from '@/lib/format'
 import type { CurrentAsking } from '@/hooks/use-comps'
 import type { LeaseComp } from '@/hooks/use-lease-comps'
+import type { SignalSummary } from '@/hooks/use-signals'
+import { EVENT_TYPE_HEX, EVENT_TYPE_LABELS, EVENT_TYPE_ORDER } from '@/lib/market-events'
 import { pointInPolygon, type LatLng, type RadiusFilter } from '@/lib/geo'
 import { isZonedIndustrial } from '@/hooks/use-zoning-map'
 import type { Feature, Geometry } from 'geojson'
@@ -513,9 +515,10 @@ function hoverCardHtml(
     executed?: boolean
     goodDeal?: boolean
     industrialCrossovers?: Set<string>
+    signal?: SignalSummary
   },
 ): string {
-  const { ctx, ask, lease, executed, goodDeal, industrialCrossovers } = opts
+  const { ctx, ask, lease, executed, goodDeal, industrialCrossovers, signal } = opts
   const off = p.listing_status === 'off_market'
   const loc = [p.city, p.state].filter(Boolean).join(', ')
   const askLabel = formatPsf(ask?.rate) ?? formatCurrency(ask?.price)
@@ -561,6 +564,18 @@ function hoverCardHtml(
       )
     }
     rows.push(`<div class="mt-1 border-t pt-1">${l.join('')}</div>`)
+  }
+  if (signal) {
+    // Signals lens: the events behind the colour, newest first, three at most — the
+    // property page has the full history.
+    const lines = signal.events.slice(0, 3).map((e) => {
+      const day = e.event_date ?? e.first_seen_at.slice(0, 10)
+      return `<div><span class="font-medium" style="color:${EVENT_TYPE_HEX[e.event_type]}">${esc(
+        EVENT_TYPE_LABELS[e.event_type],
+      )}</span> · ${esc(shortDate(day))}${e.title ? ` · <span class="opacity-70">${esc(e.title.slice(0, 60))}</span>` : ''}</div>`
+    })
+    if (signal.events.length > 3) lines.push(`<div class="opacity-70">+${signal.events.length - 3} more</div>`)
+    rows.push(`<div class="mt-1 border-t pt-1">${lines.join('')}</div>`)
   }
   if (ctx?.owner_name) {
     const portfolio = ctx.owner_property_count ?? 0
@@ -640,6 +655,7 @@ export function PropertiesMap({
   highlightIds,
   ownerContext,
   leaseInfo,
+  signalInfo,
   polygon,
   draft,
   drawMode = false,
@@ -675,6 +691,13 @@ export function PropertiesMap({
    * when" is the question being asked of the map.
    */
   leaseInfo?: Map<string, LeaseComp>
+  /**
+   * Signals lens (Alex 2026-09-05): property id -> its market events. Present only while
+   * the lens is on; a pin then wears its most serious event's colour and the hover card
+   * names the events, so code enforcement, a pre-foreclosure or a permit read off the
+   * map without a click.
+   */
+  signalInfo?: Map<string, SignalSummary>
   /** Completed search shape; the parent owns it because it also filters the table + export. */
   polygon?: LatLng[] | null
   /** Vertices of a shape mid-draw (draw mode active while non-null). */
@@ -728,18 +751,32 @@ export function PropertiesMap({
   // Searched wins outright — it answers "which one did I just type". Then executed
   // (a closed deal is usually off-market too), then verified-owner blue.
   const colorOf = useCallback(
-    (id: string, p: Property) =>
-      highlightIds?.has(id)
-        ? PIN.searched
-        : executedIds?.has(id)
-          ? PIN.executed
-          : ownerContext?.get(id)?.owner_reachable
-            ? PIN.verified
-            : p.listing_status === 'off_market'
-              ? PIN.off
-              : PIN.on,
-    [highlightIds, executedIds, ownerContext],
+    (id: string, p: Property) => {
+      if (highlightIds?.has(id)) return PIN.searched
+      // Signals lens: the event IS the message, so it outranks the deal/owner colours.
+      const sig = signalInfo?.get(id)
+      if (sig) return EVENT_TYPE_HEX[sig.top]
+      return executedIds?.has(id)
+        ? PIN.executed
+        : ownerContext?.get(id)?.owner_reachable
+          ? PIN.verified
+          : p.listing_status === 'off_market'
+            ? PIN.off
+            : PIN.on
+    },
+    [highlightIds, signalInfo, executedIds, ownerContext],
   )
+
+  // Legend for the Signals lens: only the event types actually on the map, in severity order.
+  const signalLegend = useMemo(() => {
+    if (!signalInfo) return null
+    const present = new Set<string>()
+    for (const p of properties) {
+      const s = signalInfo.get(p.id)
+      if (s) present.add(s.top)
+    }
+    return EVENT_TYPE_ORDER.filter((t) => present.has(t)).map((t) => ({ c: EVENT_TYPE_HEX[t], label: EVENT_TYPE_LABELS[t] }))
+  }, [signalInfo, properties])
 
   // Same colour the dot would have used, keyed by property, so the parcel outline can
   // inherit it at street level.
@@ -767,9 +804,10 @@ export function PropertiesMap({
         executed: executedIds?.has(id),
         goodDeal: goodDealIds?.has(id),
         industrialCrossovers,
+        signal: signalInfo?.get(id),
       })
     },
-    [parcelById, ownerContext, asking, leaseInfo, executedIds, goodDealIds, industrialCrossovers],
+    [parcelById, ownerContext, asking, leaseInfo, executedIds, goodDealIds, industrialCrossovers, signalInfo],
   )
   // Light coordinate list for the geometry-matching pass.
   const parcelPoints = useMemo(
@@ -886,7 +924,7 @@ export function PropertiesMap({
           {/* the red chip only exists while a search is painting something red */}
           {[
             ...((highlightIds?.size ?? 0) > 0 ? [{ c: PIN.searched, label: 'Searched' }] : []),
-            ...LEGEND,
+            ...(signalLegend ?? LEGEND),
           ].map(({ c, label }) => (
             <span key={label} className="inline-flex items-center gap-1.5">
               <span

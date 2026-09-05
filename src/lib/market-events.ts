@@ -69,3 +69,27 @@ export function usageTag(
 ): string | null {
   return dorLabel(dorUseCode) ?? (kind ? USE_LABELS[kind] : null)
 }
+
+/**
+ * The same eight hues as solid pin/outline colours for the War Room's Signals lens —
+ * the 600 step of each chip's family, so a pin and its table chip read as one thing.
+ */
+export const EVENT_TYPE_HEX: Record<MarketEventType, string> = {
+  foreclosure: '#dc2626',
+  bankruptcy: '#9333ea',
+  tax_delinquent: '#d97706',
+  code_enforcement: '#ea580c',
+  life_event: '#7c3aed',
+  permit: '#0284c7',
+  zoning_change: '#0d9488',
+  sale: '#059669',
+}
+
+/** How far back the Signals lens looks; 'all' = every event we hold. */
+export const SIGNAL_WINDOWS: { v: string; label: string }[] = [
+  { v: '30', label: '30d' },
+  { v: '90', label: '90d' },
+  { v: '180', label: '6mo' },
+  { v: '365', label: '1yr' },
+  { v: 'all', label: 'All' },
+]

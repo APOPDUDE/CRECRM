@@ -5404,6 +5404,14 @@ export type Database = {
           total_in_view: number
         }[]
       }
+      map_properties_by_ids: {
+        Args: { p_ids: string[] }
+        Returns: {
+          owner_ctx: Json
+          property: Json
+          total_in_view: number
+        }[]
+      }
       mark_contact_as_buyer: { Args: { p_contact_id: string }; Returns: Json }
       mark_owners_exported: {
         Args: { p_property_ids: string[] }

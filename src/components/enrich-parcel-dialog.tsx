@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useEnrichProperty, useUpdateProperty } from '@/hooks/use-properties'
+import { enrichFailureMessage, useEnrichProperty, useUpdateProperty } from '@/hooks/use-properties'
 import { formatParcelId, ENRICHABLE_COUNTIES } from '@/lib/parcel'
 
 interface EnrichParcelDialogProps {
@@ -76,11 +76,11 @@ export function EnrichParcelDialog({ property, open, onOpenChange }: EnrichParce
         } else if (s === 'not_found') {
           setNotFound(true)
         } else {
-          toast.error('Could not enrich')
+          toast.error(enrichFailureMessage(d))
           onOpenChange(false)
         }
       },
-      onError: () => toast.error('Could not enrich'),
+      onError: (e) => toast.error(enrichFailureMessage(undefined, e)),
     })
   }
 
