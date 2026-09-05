@@ -354,7 +354,14 @@ export function useEnrichProperty() {
 export type EnrichResponse = {
   error?: string
   tally?: Record<string, number>
-  results?: { status: string; error?: string; reason?: string; tried?: string }[]
+  results?: {
+    status: string
+    error?: string
+    reason?: string
+    tried?: string
+    /** column -> before/after, only what the county changed (v12) */
+    changes?: Record<string, { from: unknown; to: unknown }>
+  }[]
 }
 
 /**
@@ -421,18 +428,19 @@ export function useUpdateProperty() {
  * able to move a pin. Empty array is stored as null so "no tags" is one value, not two.
  */
 /**
- * ONE PAGE of the land book, straight from the server, in address order.
+ * ONE PAGE of the book, straight from the server, in address order.
  *
- * The plain land-book table (no search, no filters) was downloading the whole
- * 100k-row book to render 100 rows (Alex 2026-08-24: "taking forever again...
- * it should be the normal list"). This serves exactly the visible page plus an
- * exact count; the whole-book fetch now runs only when something genuinely
- * needs whole-book answers — a filter Apply, a search, Export, Review.
- * Ordered by properties_land_book_address_idx, so it stays an index scan.
+ * The plain table (no search, no filters) used to download the whole book to render
+ * 100 rows (Alex 2026-08-24: "taking forever again... it should be the normal list").
+ * This serves exactly the visible page plus an exact count (~1 s for all 127k rows
+ * through PostgREST, measured 2026-09-05); the whole-book fetch now runs only when
+ * something genuinely needs whole-book answers — a filter Apply, a search, Export,
+ * Review. Since 2026-09-05 there is ONE book (Buildings + Land combined — the split
+ * was hiding buildings whose land flags were stale or wrong), so no book filter here.
  */
-export function usePagedLandBook(page: number, enabled = true) {
+export function usePagedBook(page: number, enabled = true) {
   return useQuery({
-    queryKey: ['land-book-page', page],
+    queryKey: ['book-page', page],
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -451,7 +459,6 @@ export function usePagedLandBook(page: number, enabled = true) {
       const { data, error, count } = await supabase
         .from('properties')
         .select(SELECT, { count: 'exact' })
-        .eq('in_land_book', true)
         .not('address', 'ilike', '%unavailable%')
         .not('address', 'ilike', 'Portfolio of %')
         .order('address')

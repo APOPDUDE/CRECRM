@@ -27,6 +27,8 @@ interface EnrichParcelDialogProps {
   property: { id: string; parcel_number: string | null; county: string | null }
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Hands the county's changes to the parent's "what changed" popup. */
+  onChanges?: (changes: Record<string, { from: unknown; to: unknown }>) => void
 }
 
 /**
@@ -35,7 +37,7 @@ interface EnrichParcelDialogProps {
  * on the property, and runs the appraiser enrichment in one go. A parcel that the
  * appraiser can't find keeps the dialog open so a typo can be fixed on the spot.
  */
-export function EnrichParcelDialog({ property, open, onOpenChange }: EnrichParcelDialogProps) {
+export function EnrichParcelDialog({ property, open, onOpenChange, onChanges }: EnrichParcelDialogProps) {
   const updateProperty = useUpdateProperty()
   const enrich = useEnrichProperty()
 
@@ -71,7 +73,9 @@ export function EnrichParcelDialog({ property, open, onOpenChange }: EnrichParce
       onSuccess: (d) => {
         const s = d?.results?.[0]?.status
         if (s === 'ok') {
-          toast.success('Enriched from county appraiser')
+          const ch = d?.results?.[0]?.changes ?? {}
+          if (Object.keys(ch).length > 0 && onChanges) onChanges(ch)
+          else toast.success('Enriched from county appraiser')
           onOpenChange(false)
         } else if (s === 'not_found') {
           setNotFound(true)

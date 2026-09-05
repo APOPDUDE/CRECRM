@@ -23,6 +23,7 @@ import { PropertyTourNotes } from '@/components/property-tour-notes'
 import { PropertyHistory } from '@/components/property-history'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { EnrichParcelDialog } from '@/components/enrich-parcel-dialog'
+import { EnrichChangesDialog, type EnrichChanges } from '@/components/enrich-changes-dialog'
 import { PropertyTypeBadge } from '@/pages/properties'
 import { contactNameOf } from '@/hooks/use-contacts'
 import {
@@ -147,6 +148,7 @@ export function PropertyDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [enrichAskOpen, setEnrichAskOpen] = useState(false)
+  const [enrichChanges, setEnrichChanges] = useState<EnrichChanges | null>(null)
   const [addToDealOpen, setAddToDealOpen] = useState(false)
 
   const goBack = useBackTo('/properties')
@@ -526,8 +528,11 @@ export function PropertyDetailPage() {
               enrich.mutate(property.id, {
                 onSuccess: (d) => {
                   const s = d?.results?.[0]?.status
-                  if (s === 'ok') toast.success('Enriched from county appraiser')
-                  else if (s === 'no_parcel' || s === 'unsupported_county') setEnrichAskOpen(true)
+                  if (s === 'ok') {
+                    const ch = d?.results?.[0]?.changes ?? {}
+                    if (Object.keys(ch).length > 0) setEnrichChanges(ch)
+                    else toast.success('Refreshed from county appraiser — nothing changed')
+                  } else if (s === 'no_parcel' || s === 'unsupported_county') setEnrichAskOpen(true)
                   else toast.error(enrichFailureMessage(d))
                 },
                 onError: (e) => toast.error(enrichFailureMessage(undefined, e)),
@@ -584,7 +589,8 @@ export function PropertyDetailPage() {
       </section>
 
       <PropertyFormDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
-      <EnrichParcelDialog property={property} open={enrichAskOpen} onOpenChange={setEnrichAskOpen} />
+      <EnrichParcelDialog property={property} open={enrichAskOpen} onOpenChange={setEnrichAskOpen} onChanges={setEnrichChanges} />
+      <EnrichChangesDialog changes={enrichChanges} onOpenChange={(open) => { if (!open) setEnrichChanges(null) }} />
       <ConfirmDeleteDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}

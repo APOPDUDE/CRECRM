@@ -28,11 +28,14 @@ const LAND_DOT = '#ca8a04'
 /**
  * Which majors a book offers. The land book asks a different question — what the
  * county calls this dirt — so it shows Land alone rather than the four building
- * categories (Alex 2026-08-21). The industrial book is unchanged.
+ * categories (Alex 2026-08-21). 'all' (the ONE War Room book since 2026-09-05) offers
+ * every major: Land sits beside the four building categories, so "land vs buildings"
+ * is asked here instead of by a data partition.
  */
-const MAJORS_FOR_BOOK: Record<'industrial' | 'land', readonly DorMajor[]> = {
+const MAJORS_FOR_BOOK: Record<'industrial' | 'land' | 'all', readonly DorMajor[]> = {
   industrial: DOR_MAJORS.filter((m) => m !== 'land'),
   land: ['land'],
+  all: DOR_MAJORS,
 }
 
 const CATEGORY_LABELS: Record<DorCodeEntry['category'], string> = {
@@ -68,7 +71,7 @@ export function DorCodePicker({
   selection: DorSelection
   onChange: (next: DorSelection) => void
   /** Which book is open — decides which majors and codes the picker offers. */
-  book?: 'industrial' | 'land'
+  book?: 'industrial' | 'land' | 'all'
 }) {
   const [expanded, setExpanded] = useState(dorSelectionActive(selection))
   const [search, setSearch] = useState('')
@@ -84,6 +87,8 @@ export function DorCodePicker({
    */
   const majorOf = (e: DorCodeEntry): DorMajor | null => {
     if (book === 'land') return e.landClass ? 'land' : null
+    // one book: a land-class code files under Land, everything else under its category
+    if (book === 'all' && e.landClass && !e.county) return 'land'
     if (e.county || e.category === 'other') return null
     return e.category as DorMajor
   }
@@ -91,13 +96,14 @@ export function DorCodePicker({
   const keysByMajor = useMemo(() => {
     const m = new Map<DorMajor, string[]>()
     for (const e of entries) {
-      const major = book === 'land' ? (e.landClass ? 'land' : null) : (e.county || e.category === 'other' ? null : (e.category as DorMajor))
+      const major = majorOf(e)
       if (!major) continue
       const arr = m.get(major) ?? []
       arr.push(e.key)
       m.set(major, arr)
     }
     return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, book])
 
   const setMajor = (m: DorMajor, sel: DorLayerSelection) => onChange({ ...selection, [m]: sel })

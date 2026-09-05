@@ -162,9 +162,6 @@ export type MapFilterRailProps = {
   pushCount: number
   onPush: () => void
   onMessage: () => void
-  // Search leases — the windows apply on the map only while this is on
-  searchLeases: boolean
-  onSearchLeases: (on: boolean) => void
   leaseMin: string
   leaseMax: string
   onLeaseMin: (v: string) => void
@@ -185,8 +182,6 @@ export type MapFilterRailProps = {
   tagFilter: PropertyTagKey[]
   onTagFilter: (next: PropertyTagKey[]) => void
   tagsLoading: boolean
-  /** Which book is open — the land book asks different questions of the rail. */
-  book?: 'industrial' | 'land'
   /** Properties / Leases / Signals — decides which block sits at the top of the rail. */
   mode: WarRoomMode
   // Signals lens: which Market Monitor event types paint the map, and how far back.
@@ -235,15 +230,6 @@ export function MapFilterRail(props: MapFilterRailProps) {
     p.onChannels(next)
   }
 
-  /**
-   * The land book hides the questions that only make sense about a BUILDING —
-   * building SF, asking rate $/SF/yr, and the whole lease-search block (a lease
-   * expiring, a lease signed, leased SF, the tenant's decision maker). Vacant dirt
-   * has none of those, and a control that can only ever narrow to nothing is worse
-   * than no control (Alex 2026-08-21). Condo units are excluded from the land book
-   * by refresh_land_book() itself, so that toggle goes too.
-   */
-  const isLand = p.book === 'land'
 
   return (
     <div className="space-y-4 text-sm">
@@ -332,12 +318,10 @@ export function MapFilterRail(props: MapFilterRailProps) {
         )}
       </div>
 
-      {!isLand && (
-        <div className="space-y-1.5">
-          <Label>Sq ft</Label>
-          <MinMax currency min={p.sfMin} max={p.sfMax} onMin={p.onSfMin} onMax={p.onSfMax} />
-        </div>
-      )}
+      <div className="space-y-1.5">
+        <Label>Sq ft</Label>
+        <MinMax currency min={p.sfMin} max={p.sfMax} onMin={p.onSfMin} onMax={p.onSfMax} />
+      </div>
       <div className="space-y-1.5">
         <Label>Acres</Label>
         <MinMax min={p.acMin} max={p.acMax} onMin={p.onAcMin} onMax={p.onAcMax} />
@@ -349,7 +333,7 @@ export function MapFilterRail(props: MapFilterRailProps) {
           unscored parcels rather than ranking them last, because "not measured
           enough to publish a number" is not the same as "scores badly". */}
       <div className="space-y-1.5">
-          <Label>Site score at least{!isLand && <span className="ml-1 font-normal text-muted-foreground">(land parcels)</span>}</Label>
+          <Label>Site score at least <span className="ml-1 font-normal text-muted-foreground">(land parcels)</span></Label>
           <Input
             type="number"
             inputMode="numeric"
@@ -365,7 +349,7 @@ export function MapFilterRail(props: MapFilterRailProps) {
       {/* Condo units — the Motor Enclave problem: one address, 236 separately-owned
           bays. Out of every search by default; this is the way back in. Absent from
           the land book: refresh_land_book() never admits a condo unit. */}
-      <div className={`space-y-1 border-t pt-3${isLand ? ' hidden' : ''}`}>
+      <div className="space-y-1 border-t pt-3">
         <label className="flex cursor-pointer items-center gap-2 text-xs">
           <Checkbox
             checked={p.includeCondos}
@@ -382,7 +366,7 @@ export function MapFilterRail(props: MapFilterRailProps) {
 
       {/* County use codes — what the parcel IS today, per the appraiser */}
       <div className="border-t pt-3">
-        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} book={isLand ? 'land' : 'industrial'} />
+        <DorCodePicker selection={p.dorSel} onChange={p.onDorSel} book="all" />
       </div>
 
       {/* The Zoned select left the rail (Alex 2026-08-16, "we only need zoning layers")
@@ -605,18 +589,6 @@ export function MapFilterRail(props: MapFilterRailProps) {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Search leases — new listing lands, draw the area, flip this on: every tenant
-          close to expiry nearby, with their decision maker on hover and in the export.
-          A building question: hidden in the land book. In Leases mode the windows sit
-          at the top of the rail instead, and this toggle is implied on. */}
-      <div className={`space-y-1.5 border-t pt-3${isLand || p.mode === 'leases' ? ' hidden' : ''}`}>
-        <label className="flex cursor-pointer items-center gap-2">
-          <Checkbox checked={p.searchLeases} onCheckedChange={(v) => p.onSearchLeases(v === true)} />
-          <span className="font-medium">Search leases</span>
-        </label>
-        {p.searchLeases && <LeaseWindows p={p} indent />}
       </div>
 
       {/* Overlays (Alex 2026-09-03): everything that PAINTS the map lives together at

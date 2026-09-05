@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useResetOn } from '@/hooks/use-reset-on'
 import { useNow } from '@/hooks/use-now'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -55,7 +55,7 @@ import {
 } from '@/hooks/use-property-tag-filter'
 import { useLastSales } from '@/hooks/use-last-sales'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties, usePagedLandBook,
+import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties, usePagedBook,
 } from '@/hooks/use-properties'
 import {
   MAP_SEARCH_LIMIT,
@@ -429,8 +429,11 @@ export function PropertiesPage() {
   // (standard 'other' codes and county customs). ANDs with the bucketed use select.
   const [dorSelRaw, setDorSel] = usePersistentState<DorSelection>('properties:dorSel', DOR_SELECTION_DEFAULT)
   const dorSel = useMemo(() => safeDorSelection(dorSelRaw), [dorSelRaw])
-  const [bookModeRaw, setBookMode] = usePersistentState<'industrial' | 'land'>('properties:book', 'industrial')
-  const bookMode = bookModeRaw === 'land' ? 'land' : 'industrial'
+  // ONE book since 2026-09-05 (Alex): the Buildings/Land split was hiding real buildings —
+  // 5910 Breckenridge Pkwy (DOR 4860, 8 leases) sat in the Land book on a stale flag, and
+  // 116 "land only" rows carry lease comps. Land vs buildings is now a question for the
+  // DOR picker, not a partition of the data. The old 'properties:book' key is ignored.
+  const bookMode = 'all' as const
   // Properties / Leases / Signals (Alex 2026-09-05): what the War Room is looking at.
   // Signals plots the Market Monitor's events on the book; Leases leads the rail with
   // the lease windows. Sticky like everything else here.
@@ -444,31 +447,7 @@ export function PropertiesPage() {
   )
   const [signalDaysRaw, setSignalDays] = usePersistentState<string>('properties:signalDays', '180')
   const signalDays = ['30', '90', '180', '365', 'all'].includes(signalDaysRaw) ? signalDaysRaw : '180'
-  // Crossing INTO the land book with no DOR selection seeds the baseline
-  // (all land codes on). Transition-only, so the picker's Clear stays cleared —
-  // an effect keyed on inactivity alone would snap Clear right back.
-  const prevBookRef = useRef<string | null>(null)
-  useEffect(() => {
-    const prev = prevBookRef.current
-    prevBookRef.current = bookMode
-    if (prev !== 'land' && bookMode === 'land' && !dorSelectionActive(dorSel)) {
-      setDorSel({ ...DOR_SELECTION_DEFAULT, land: 'all' })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookMode])
-  /**
-   * The land book's BASELINE selection is land:'all' (Alex 2026-08-24: opening the
-   * picker there should show every land code checked, not ask him to build the set
-   * up from nothing). Exactly-that-selection therefore counts as INACTIVE for
-   * filtering: the land book already contains only land-book rows, so "all land
-   * codes" filters nothing — and treating it as active would force the 100k-row
-   * book fetch just for opening the book. Unchecking any code makes a real subset
-   * and the filter goes live.
-   */
-  const isLandBaseline = (sel: DorSelection) =>
-    sel.land === 'all' && sel.extra.length === 0 &&
-    sel.industrial === 'off' && sel.retail === 'off' && sel.office === 'off' && sel.multifamily === 'off'
-  const dorActive = dorSelectionActive(dorSel) && !(bookMode === 'land' && isLandBaseline(dorSel))
+  const dorActive = dorSelectionActive(dorSel)
   // A category on 'all' matches by the dor_codes table's filing — that mapping has to
   // be on hand for the filter, not just the picker.
   const { data: dorEntries } = useDorCodes(dorActive)
@@ -566,9 +545,9 @@ export function PropertiesPage() {
   // toggle — new listing lands, draw the area, flip this on, and every tenant close to
   // expiry nearby is on screen with their DM. On the map the windows only APPLY while
   // it's on; the table's popover shows them unconditionally, so there they always apply.
-  const [searchLeasesRaw, setSearchLeases] = usePersistentState('properties:searchLeases', false)
-  // Leases mode implies the toggle: the windows lead the rail and apply on the map.
-  const searchLeases = mode === 'leases' || searchLeasesRaw
+  // The "Search leases" checkbox is gone (Alex 2026-09-05): Leases MODE is the switch. The
+  // windows lead the rail there and apply on the map; in the table they always apply.
+  const searchLeases = mode === 'leases'
   // Lease run-off window, in whole months from today. Kept as a filter rather than as
   // part of the lease lens so it narrows the table too — the lens only paints pins.
   const [leaseMin, setLeaseMin] = usePersistentState('properties:leaseMin', '')
@@ -737,13 +716,13 @@ export function PropertiesPage() {
    * include-in-search overlay) flips wantsBook and the full fetch takes over.
    */
   const tableFastPath =
-    view === 'table' && bookMode === 'land' && !searchOnly && !signalsOn &&
+    view === 'table' && !searchOnly && !signalsOn &&
     activeFilterCount === 0 && !polygon && !radius && !wantsBook && overlayIncludes.length === 0
   // The Signals lens never needs the book: its rows come by id from the RPC.
   const needsBook = !signalsOn && (((!viewportOnly && !searchOnly) && !tableFastPath) || wantsBook || overlayIncludes.length > 0)
 
   const { data: properties, isLoading, isError, refetch } = useProperties(needsBook, bookMode)
-  const landPage = usePagedLandBook(page, tableFastPath)
+  const landPage = usePagedBook(page, tableFastPath)
   const { data: goodDealIds } = useGoodDealIds()
   const { data: executedIds } = useExecutedPropertyIds()
   const { data: askingMap } = useCurrentAsking()
@@ -883,7 +862,6 @@ export function PropertiesPage() {
       setSearch('')
       resetFilters()
       setMode('leases')
-      setSearchLeases(true)
       setLeaseMin(searchParams.get('expMin') ?? '')
       setLeaseMax(searchParams.get('expMax') ?? '')
       setLeaseMonth(searchParams.get('expMonth') ?? '')
@@ -1518,7 +1496,6 @@ export function PropertiesPage() {
     setPsfMin(''); setPsfMax(''); setPriceMin(''); setPriceMax('')
     setIncludeUnpriced(true)
     setOwnerFilter('all'); setChannels({ phone: true, email: true }); setActivity('all')
-    setSearchLeases(false)
     setLeaseMin(''); setLeaseMax(''); setLeaseMonth('')
     setSignMin(''); setSignMax(''); setLeaseSfMin(''); setLeaseSfMax(''); setDmFilter('all')
     setDorSel(DOR_SELECTION_DEFAULT)
@@ -1552,7 +1529,7 @@ export function PropertiesPage() {
     acMax: setAcMax, scoreMin: setScoreMin, status: setStatus, dealType: setDealType,
     psfMin: setPsfMin, psfMax: setPsfMax, priceMin: setPriceMin, priceMax: setPriceMax,
     includeUnpriced: setIncludeUnpriced, ownerFilter: setOwnerFilter,
-    channels: setChannels, activity: setActivity, searchLeases: setSearchLeases,
+    channels: setChannels, activity: setActivity,
     leaseMin: setLeaseMin, leaseMax: setLeaseMax, leaseMonth: setLeaseMonth,
     signMin: setSignMin, signMax: setSignMax, leaseSfMin: setLeaseSfMin,
     leaseSfMax: setLeaseSfMax, dmFilter: setDmFilter, dorSel: setDorSel,
@@ -1570,7 +1547,6 @@ export function PropertiesPage() {
   // same element, so they can never disagree about what a filter means.
   const railContent = (
     <MapFilterRail
-      book={bookMode}
       mode={mode}
       signalTypes={signalTypes}
       onSignalTypes={setSignalTypes}
@@ -1612,7 +1588,6 @@ export function PropertiesPage() {
       pushCount={pushable.length}
       onPush={() => setPushOpen(true)}
       onMessage={() => setOwnerMsgOpen(true)}
-      searchLeases={staged('searchLeases', searchLeases)} onSearchLeases={stage('searchLeases')}
       leaseMin={staged('leaseMin', leaseMin)} leaseMax={staged('leaseMax', leaseMax)} onLeaseMin={stage('leaseMin')} onLeaseMax={stage('leaseMax')}
       leaseMonth={staged('leaseMonth', leaseMonth)} onLeaseMonth={stage('leaseMonth')}
       signMin={staged('signMin', signMin)} signMax={staged('signMax', signMax)} onSignMin={stage('signMin')} onSignMax={stage('signMax')}
@@ -1684,28 +1659,6 @@ export function PropertiesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">War Room</h1>
-          {/* The book toggle: same anatomy as the view toggle so it reads as a mode,
-              not a filter. Land = developer-land book; crossovers show in both. */}
-          <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
-            <Button
-              variant={bookMode === 'industrial' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="rounded-none"
-              onClick={() => setBookMode('industrial')}
-              title="Buildings book — every parcel with a structure"
-            >
-              Buildings
-            </Button>
-            <Button
-              variant={bookMode === 'land' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="rounded-none border-l"
-              onClick={() => setBookMode('land')}
-              title="Land book — developer land (vacant, ag, and ≤5% building-to-land)"
-            >
-              Land
-            </Button>
-          </div>
           {/* Properties / Leases / Signals (Alex 2026-09-05): what the map is looking at.
               Same anatomy as the book toggle. Leases implies "Search leases"; Signals
               plots the Market Monitor's events on the book. */}
@@ -1718,8 +1671,6 @@ export function PropertiesPage() {
                 className={i > 0 ? 'rounded-none border-l' : 'rounded-none'}
                 onClick={() => {
                   setMode(m.v)
-                  // Leaving Leases mode shouldn't leave the windows silently filtering.
-                  if (m.v !== 'leases') setSearchLeases(false)
                   setPage(0)
                 }}
                 title={

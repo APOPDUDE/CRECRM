@@ -316,6 +316,14 @@ type PropertyRow = {
   gross_sf: number | null;
   heated_sf: number | null;
   last_sale_date?: string | null;
+  last_sale_price?: number | null;
+  owner_name?: string | null;
+  owner_mailing_address?: string | null;
+  just_value?: number | null;
+  assessed_value?: number | null;
+  dor_use_code?: string | null;
+  site_address?: string | null;
+  folio?: string | null;
   year_built: number | null;
   land_acres: number | null;
   zoning_description: string | null;
@@ -492,6 +500,23 @@ async function enrichOne(supa: SupabaseClient, p: PropertyRow) {
     upd.zoning_description = m.zoning_description;
   }
 
+  // What actually changed, for the app's "here's what's new" popup (Alex 2026-09-05).
+  // Compared as strings so 8450 vs "8450.00" and 1.38 vs "1.38" don't read as edits.
+  const asText = (v: unknown) => (v == null || v === "" ? null : typeof v === "number" ? String(v) : String(v).trim());
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  const before = p as unknown as Record<string, unknown>;
+  for (const k of ["owner_name", "owner_mailing_address", "just_value", "assessed_value", "dor_use_code", "site_address", "folio",
+    "last_sale_date", "last_sale_price", "gross_sf", "heated_sf", "year_built", "land_acres", "zoning_description", "lat", "lng", "address", "parcel_number", "county"]) {
+    if (!(k in upd)) continue;
+    const a = asText(before[k]), b = asText(upd[k]);
+    if (k === "lat" || k === "lng") {
+      // coordinates only count when they were missing — a 6th-decimal wobble is not news
+      if (a == null && b != null) changes[k] = { from: null, to: upd[k] };
+      continue;
+    }
+    if (a !== b) changes[k] = { from: before[k] ?? null, to: upd[k] ?? null };
+  }
+
   const { error } = await supa.from("properties").update(upd).eq("id", p.id);
   if (error) return { id: p.id, status: "db_error", error: error.message };
 
@@ -503,9 +528,9 @@ async function enrichOne(supa: SupabaseClient, p: PropertyRow) {
     }
     // and fold into the property that already holds this parcel (same house number only)
     const { data: absorbed } = await supa.rpc("absorb_parcel_twin", { p_property: p.id });
-    return { id: p.id, status: "ok", owner: m.owner_name ?? null, by: "point", parcel: firstParcel, absorb: absorbed?.action ?? null };
+    return { id: p.id, status: "ok", owner: m.owner_name ?? null, by: "point", parcel: firstParcel, absorb: absorbed?.action ?? null, changes };
   }
-  return { id: p.id, status: "ok", owner: m.owner_name ?? null };
+  return { id: p.id, status: "ok", owner: m.owner_name ?? null, changes };
 }
 
 Deno.serve(async (req) => {
@@ -520,7 +545,7 @@ Deno.serve(async (req) => {
     const counties = Object.keys(COUNTIES);
 
     const q = supa.from("properties")
-      .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description, last_sale_date");
+      .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description, last_sale_date, last_sale_price, owner_name, owner_mailing_address, just_value, assessed_value, dor_use_code, site_address, folio");
     let props: PropertyRow[] | null = null;
     if (ids) {
       const { data, error } = await q.in("id", ids);
@@ -537,7 +562,7 @@ Deno.serve(async (req) => {
       const POINT_LANE_CAP = 40;
       if (props.length < limit) {
         const { data: b, error: eb } = await supa.from("properties")
-          .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description, last_sale_date")
+          .select("id, address, county, parcel_number, lat, lng, gross_sf, heated_sf, year_built, land_acres, zoning_description, last_sale_date, last_sale_price, owner_name, owner_mailing_address, just_value, assessed_value, dor_use_code, site_address, folio")
           .is("appraiser_updated_at", null).in("county", counties).is("parcel_number", null)
           .not("lat", "is", null).not("lng", "is", null).eq("is_condo_unit", false)
           .order("created_at", { ascending: false }).limit(Math.min(limit - props.length, POINT_LANE_CAP));
