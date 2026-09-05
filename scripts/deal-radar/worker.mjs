@@ -91,6 +91,7 @@ async function main() {
       scrolls: config.market_scrolls ?? 5,
       paceMinMs: PACE_MIN_MS,
       paceMaxMs: PACE_MAX_MS,
+      daysSinceListed: config.days_since_listed ?? 7,
       onBatch: async (items, { market, keyword }) => {
         run.searches += 1
         const rows = items.map((it) => normalizeListing(it, { market, keyword })).filter(Boolean)

@@ -15,10 +15,16 @@ import { join } from 'node:path'
 const PROFILE_DIR =
   process.env.GROUP_CHROME_USER_DATA_DIR || join(homedir(), '.deal-radar-chrome')
 
-/** FB search URL uses a city slug; the account's saved radius applies. Override per market via fb_slug. */
-function searchUrl(market, keyword) {
+/**
+ * FB search URL uses a city slug; the account's saved radius applies. We also sort
+ * newest-first and (optionally) cap to listings posted in the last N days, so stale
+ * "listed 30 weeks ago" results stop surfacing. Override slug per market via fb_slug.
+ */
+function searchUrl(market, keyword, daysSinceListed) {
   const slug = market.fb_slug || 'tampa'
-  return `https://www.facebook.com/marketplace/${slug}/search/?query=${encodeURIComponent(keyword)}`
+  const parts = [`query=${encodeURIComponent(keyword)}`, 'sortBy=creation_time_descend']
+  if (daysSinceListed) parts.push(`daysSinceListed=${encodeURIComponent(String(daysSinceListed))}`)
+  return `https://www.facebook.com/marketplace/${slug}/search/?${parts.join('&')}`
 }
 
 /**
@@ -36,10 +42,10 @@ function parseCard(c) {
   return { id: c.id, title, price, location, url: c.url, image: c.image }
 }
 
-async function scrapeSearch(context, market, keyword, { scrolls, delayMs }) {
+async function scrapeSearch(context, market, keyword, { scrolls, delayMs, daysSinceListed }) {
   const page = await context.newPage()
   try {
-    await page.goto(searchUrl(market, keyword), { waitUntil: 'domcontentloaded', timeout: 45_000 })
+    await page.goto(searchUrl(market, keyword, daysSinceListed), { waitUntil: 'domcontentloaded', timeout: 45_000 })
     await page.waitForTimeout(3000)
     const loggedOut = await page.evaluate(() =>
       /log in|create new account|forgot account/i.test(document.body?.innerText?.slice(0, 300) || ''),
@@ -82,6 +88,7 @@ async function scrapeSearch(context, market, keyword, { scrolls, delayMs }) {
 export async function watchMarket(markets, keywords, opts = {}) {
   const scrolls = opts.scrolls ?? 5
   const delayMs = opts.delayMs ?? 1500
+  const daysSinceListed = opts.daysSinceListed ?? null
   const paceMinMs = opts.paceMinMs ?? opts.paceMs ?? 3000
   const paceMaxMs = opts.paceMaxMs ?? paceMinMs
   const onBatch = opts.onBatch ?? (() => {})

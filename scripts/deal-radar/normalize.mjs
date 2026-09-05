@@ -89,27 +89,37 @@ const INDUSTRIAL_STRONG = [
   /loading\s+dock|roll[- ]?up\s+door|grade[- ]?level/i,
 ]
 
-// "industrial" on its own is usually a zoning adjective, so it ranks BELOW land.
-// But bare /industrial/i also matched "industrial barstool" / "industrial chic
-// decor". Require it to sit next to a CRE noun, or the listing to state a
-// lease/sale/size, so consumer goods with the "industrial" style tag drop out.
+// "industrial" as a real-estate adjective needs company: a CRE noun beside it (this
+// list), or a lease/size signal somewhere in the listing (CRE_SIGNAL, checked in
+// classify). Bare /industrial/ alone matched "industrial barstool" — these don't.
 const INDUSTRIAL_WEAK = [
-  /\bindustrial\s+(?:building|unit|space|park|property|lot|land|zoned|zoning|condo|complex|bay|suite|warehouse|yard|flex|acreage)\b/i,
-  /\bindustrial\b.*\b(?:for\s+(?:lease|rent|sale)|\d[\d,.]*\s*(?:sf|sq\.?\s*ft|acres?))\b/i,
+  /\bindustrial\b(?:\s+\w+){0,2}\s+(?:building|unit|space|park|property|lot|land|complex|bay|suite|warehouse|yard|flex|acreage|zoned?)\b/i,
 ]
+
+// A listing that states real-estate intent: for-lease/for-rent, or a floor-area /
+// acreage figure. NOT "for sale" — on Marketplace everything is for sale, so it
+// carries no signal (and would wave through "industrial barstool for sale").
+const CRE_SIGNAL =
+  /\bfor\s+(?:lease|rent)\b|\b\d[\d,.]*\s*(?:sf|sq\.?\s*ft|sqft|square\s*f(?:ee|oo)t(?:age)?|acres?)\b|\bsquare\s*f(?:ee|oo)tage\b/i
 
 /**
  * industrial | land | null (null = don't persist). Precedence:
- * 1. a building/yard noun -> industrial (beats a land read)
- * 2. a land signal -> land ("vacant industrial land" lands here)
- * 3. bare "industrial" adjective with no land signal -> industrial
+ * 1. a building/yard noun + a real-estate signal (size or for-lease) -> industrial,
+ *    winning even over a junk word ("Industrial warehouse 26,000 SF ... furniture").
+ * 2. a junk term -> drop.
+ * 3. a building/yard noun -> industrial (beats a land read).
+ * 4. a land signal -> land ("vacant industrial land" lands here).
+ * 5. bare "industrial" only with a CRE noun beside it or a size/lease signal.
  */
 export function classify(text) {
   const t = String(text || '')
+  const strong = INDUSTRIAL_STRONG.some((re) => re.test(t))
+  const creSignal = CRE_SIGNAL.test(t)
+  if (strong && creSignal) return 'industrial'
   if (JUNK.some((re) => re.test(t))) return null
-  if (INDUSTRIAL_STRONG.some((re) => re.test(t))) return 'industrial'
+  if (strong) return 'industrial'
   if (LAND.some((re) => re.test(t))) return 'land'
-  if (INDUSTRIAL_WEAK.some((re) => re.test(t))) return 'industrial'
+  if (/\bindustrial\b/i.test(t) && (creSignal || INDUSTRIAL_WEAK.some((re) => re.test(t)))) return 'industrial'
   return null
 }
 

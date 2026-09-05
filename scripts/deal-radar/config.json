@@ -18,8 +18,11 @@
     "commercial property",
     "commercial lot",
     "land for sale",
-    "acreage"
+    "acreage",
+    "truck yard",
+    "outdoor storage"
   ],
+  "days_since_listed": 7,
   "min_price": 5000,
   "limit_per_search": 20,
   "pace_min_ms": 300000,
