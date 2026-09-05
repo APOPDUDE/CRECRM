@@ -137,19 +137,26 @@ literally reads `HeadlessChrome/152.0.0.0`. The scraper now behaves like a perso
 
 | | before | now |
 |---|---|---|
-| Searches/day | 104 | **15** |
+| Searches/day | 104 | **12** |
 | Schedule | every 3h exactly | 09:00 / 14:00 / 19:00 **+0-40 min random** |
 | Hours | 24/7 (incl. 3am) | **08:00-22:00 only** |
 | Browser | headless (`HeadlessChrome` UA) | **headed** (normal `Chrome` UA) |
-| Scrolling | one jump to page bottom, every 1500ms | partial smooth scrolls, variable pauses, occasional scroll-back |
-| Mouse | none, ever | real pointer movement each page |
-| Keywords | all 13 every run | **5 per session, rotated** (all 13 covered in ~1.3 days) |
+| Scrolling | one jump to page bottom, every 1500ms | **real wheel events** in bursts, long-tailed pauses, occasional scroll-back, often stops part-way |
+| Mouse | none, ever | curved paths with overshoot (path efficiency 0.16; bots score >0.94) |
+| Keywords | all 13 every run | **4 per session, rotated** (all 13 covered in ~1.5 days) |
 | Groups | all, back-to-back | **2 per session, rotated**, after a 4-12 min break |
 
 It also enters through the Marketplace home page (rather than cold-loading
-deep-linked search URLs), sometimes opens a listing like a real shopper, and
-**aborts the whole session** if Facebook shows a verification/automation notice —
-alerting you instead of pushing through it.
+deep-linked search URLs), opens a listing on ~20% of searches and navigates back,
+abandons ~12% of searches without scrolling, runs 60-70% volume on weekends (a
+weekend:weekday ratio of 1.0 is itself a flag), and **aborts the whole session** if
+Facebook shows a verification/automation notice — alerting you instead of pushing
+through it.
+
+Session shape is tuned to published human baselines: average Facebook session is
+~10 min and ~33 min/day total, so this does 4 searches over 6-14 minutes, three
+times a day. Delays are log-normal, not uniform — a flat delay distribution is
+itself detectable.
 
 **Headed means a Chrome window actually opens on this Mac** during a session. That
 is intentional and is the single biggest anti-detection win; leave it alone. It

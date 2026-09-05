@@ -25,16 +25,19 @@
   "days_since_listed": 7,
   "min_price": 5000,
   "limit_per_search": 20,
-  "keywords_per_session": 5,
+  "keywords_per_session": 4,
   "groups_per_session": 2,
-  "active_hours": [8, 22],
+  "active_hours": [
+    8,
+    22
+  ],
   "start_jitter_max_ms": 2400000,
   "market_scrolls_min": 3,
   "market_scrolls_max": 7,
   "group_scrolls_min": 3,
   "group_scrolls_max": 7,
-  "pace_min_ms": 180000,
-  "pace_max_ms": 480000,
+  "pace_min_ms": 60000,
+  "pace_max_ms": 180000,
   "abort_after_consecutive_failures": 3,
   "groups": [
     {
@@ -71,5 +74,7 @@
     }
   ],
   "group_posts_per_scroll": 40,
-  "group_scrolls": 6
+  "group_scrolls": 6,
+  "group_pace_min_ms": 45000,
+  "group_pace_max_ms": 120000
 }

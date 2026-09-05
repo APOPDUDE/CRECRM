@@ -23,7 +23,7 @@
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { dwell, humanMouse, humanScroll, rand, sleepBetween } from './human.mjs'
+import { dwell, humanMouse, humanScroll, pause, rand } from './human.mjs'
 import { launchOptions } from './market-watch.mjs'
 
 /** facebook.com/groups/<id-or-slug>/... -> the id-or-slug */
@@ -112,8 +112,8 @@ async function scrapeGroup(page, group, { scrolls }) {
 export async function watchGroups(groups, opts = {}) {
   const scrollsMin = opts.scrollsMin ?? 3
   const scrollsMax = opts.scrollsMax ?? 7
-  const paceMinMs = opts.paceMinMs ?? 90_000
-  const paceMaxMs = opts.paceMaxMs ?? Math.max(paceMinMs, 240_000)
+  const paceMinMs = opts.paceMinMs ?? 45_000
+  const paceMaxMs = opts.paceMaxMs ?? Math.max(paceMinMs, 120_000)
 
   let chromium
   try {
@@ -146,7 +146,7 @@ export async function watchGroups(groups, opts = {}) {
           break // stop the session cold
         }
       }
-      await sleepBetween(paceMinMs, paceMaxMs)
+      await pause(paceMinMs, paceMaxMs)
     }
   } finally {
     await context.close().catch(() => {})

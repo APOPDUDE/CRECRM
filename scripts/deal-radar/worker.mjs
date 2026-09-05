@@ -24,7 +24,7 @@ import { createClient } from '@supabase/supabase-js'
 import { normalizeGroupPost, normalizeListing } from './normalize.mjs'
 import { groupIdFromUrl, watchGroups } from './group-watch.mjs'
 import { watchMarket } from './market-watch.mjs'
-import { isActiveHours, rand, rotate, shuffle, sleep, sleepBetween } from './human.mjs'
+import { dayVolumeFactor, isActiveHours, rand, rotate, shuffle, sleep } from './human.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const config = JSON.parse(readFileSync(join(HERE, 'config.json'), 'utf8'))
@@ -170,9 +170,14 @@ async function main() {
   const newInMarket = [] // brand-new listings in the target metros — one Slack ping at the end
 
   // Rotate a SUBSET of keywords this session, then shuffle so the order varies too.
+  // Weekends get 60-70% of the weekday load: a weekend:weekday ratio near 1.0 is
+  // itself a bot signal, because humans have weekends.
+  const volume = dayVolumeFactor()
+  const kwCount = Math.max(1, Math.round(KEYWORDS_PER_SESSION * volume))
+  if (volume < 1) log(`weekend — trimming this session to ${kwCount} keywords`)
   const { picked: kwPicked, nextCursor: kwNext } = rotate(
     config.keywords ?? [],
-    KEYWORDS_PER_SESSION,
+    kwCount,
     state.keywordCursor ?? 0,
   )
   const sessionKeywords = shuffle(kwPicked)
@@ -265,6 +270,8 @@ async function main() {
       const { posts, errors, checkpoint: gCheckpoint } = await watchGroups(groups, {
         scrollsMin: config.group_scrolls_min ?? 3,
         scrollsMax: config.group_scrolls_max ?? 7,
+        paceMinMs: config.group_pace_min_ms ?? 45_000,
+        paceMaxMs: config.group_pace_max_ms ?? 120_000,
       })
       if (gCheckpoint) {
         await alert(
