@@ -33,10 +33,9 @@
     <!-- 0: intro -->
     <section class="step" data-step="intro">
       <p class="eyebrow">Consultation</p>
-      <h1>30 minutes with Alex. <span>Real answers.</span></h1>
-      <p class="lede">Pricing, terms, what the market will actually do on your deal. It's $100, paid when you pick your slot. A few quick questions first so the half hour goes to your situation, not the basics.</p>
+      <h1>Book a <span>consultation.</span></h1>
+      <p class="lede">30 minutes with Alex on your deal. Nine quick questions, then pick your time.</p>
       <button type="button" class="btn next">Start</button>
-      <p class="fine mono">Takes about a minute &middot; press Enter to move along</p>
     </section>
 
     <!-- 1: need -->
@@ -46,8 +45,8 @@
       <div class="choices" data-name="need">
         <button type="button" class="choice" data-value="buy">Buying a property</button>
         <button type="button" class="choice" data-value="sell">Selling a property</button>
-        <button type="button" class="choice" data-value="lease">Leasing space or a lease I've been offered</button>
-        <button type="button" class="choice" data-value="invest">An investment or a deal I want a second opinion on</button>
+        <button type="button" class="choice" data-value="lease">Leasing space</button>
+        <button type="button" class="choice" data-value="invest">Investment / deal review</button>
         <button type="button" class="choice" data-value="other">Something else</button>
       </div>
     </section>
@@ -55,8 +54,8 @@
     <!-- 2: details -->
     <section class="step" data-step="details" hidden>
       <p class="qnum mono"></p>
-      <h2>Give me the situation.</h2>
-      <p class="hint">Address, size, the numbers you've been quoted, what's bugging you. Rough is fine.</p>
+      <h2>The situation.</h2>
+      <p class="hint">Address, size, numbers, the question. Rough is fine.</p>
       <textarea name="details" rows="5" placeholder="Landlord wants $14 psf NNN on 8,000 SF in Plant City, 5-year term, no TI. Is that fair, and what would you push on?"></textarea>
       <div class="actions"><button type="button" class="btn next">Next</button><span class="mono kbd">Cmd/Ctrl + Enter</span></div>
       <p class="err" role="alert"></p>
@@ -82,7 +81,7 @@
     <section class="step" data-step="budget" hidden>
       <p class="qnum mono"></p>
       <h2>Rough numbers?</h2>
-      <p class="hint">Price, rent, size - whatever you have. Skip it if you don't.</p>
+      <p class="hint">Price, rent or size. Optional.</p>
       <input name="budget" placeholder="$1.2M purchase, or 8,000 SF at $14 psf">
       <div class="actions"><button type="button" class="btn next">Next</button><button type="button" class="link skip">Skip</button></div>
     </section>
@@ -120,7 +119,7 @@
     <section class="step" data-step="email" hidden>
       <p class="qnum mono"></p>
       <h2>Email?</h2>
-      <p class="hint">Where the calendar invite and Meet link go.</p>
+      <p class="hint">For the calendar invite.</p>
       <input type="email" name="email" autocomplete="email" inputmode="email" placeholder="you@company.com" required>
       <div class="actions"><button type="button" class="btn next">Next</button></div>
       <p class="err" role="alert"></p>
@@ -130,7 +129,7 @@
     <section class="step" data-step="phone" hidden>
       <p class="qnum mono"></p>
       <h2>Best number?</h2>
-      <p class="hint">In case the Meet link doesn't work, Alex calls you.</p>
+      <p class="hint">Backup if the Meet link fails.</p>
       <input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(813) 555-0100" required>
       <div class="actions"><button type="button" class="btn next">Pick a time</button></div>
       <p class="err" role="alert"></p>
@@ -140,7 +139,7 @@
     <section class="step" data-step="book" hidden>
       <p class="eyebrow">Last step</p>
       <h2>Pick your slot.</h2>
-      <p class="hint">Booking reserves 30 minutes with Alex. The $100 is collected on the calendar. Your answers are already on his desk.</p>
+      <p class="hint">The $100 is collected on the calendar.</p>
       <div id="calendly" class="calendly"></div>
       <p class="fine">Calendar not loading? <a id="cal-link" href="https://calendly.com/alex-axis/consultation" target="_blank" rel="noopener">Open it in a new tab</a>.</p>
       <p class="status" role="status" aria-live="polite"></p>
@@ -150,7 +149,7 @@
     <section class="step" data-step="done" hidden>
       <p class="eyebrow">Booked</p>
       <h2>You're on the calendar.</h2>
-      <p class="lede">Frances will email you the details shortly. If anything changes, reply to that email.</p>
+      <p class="lede">Frances will email the details.</p>
     </section>
   </main>
 
