@@ -44,7 +44,30 @@ export function leadSourceOf(p: ProspectLike): { label: string; className: strin
   return null
 }
 
-/** "Called Sep 4" - stamped by the mark_lead_called trigger when a GHL call lands in communications. */
+/**
+ * Outreach and replies on a lead, stamped by the mark_lead_contact_activity trigger as rows land in
+ * communications: confirmation email/text sent (by n8n as Frances), replies by text or email.
+ */
+export function activityOf(p: ProspectLike): { label: string; className: string; key: string }[] {
+  const d = detailsOf(p)
+  const when = (v: unknown) => {
+    if (typeof v !== 'string') return null
+    const t = new Date(v)
+    return Number.isNaN(t.getTime()) ? null : format(t, 'MMM d')
+  }
+  const out: { label: string; className: string; key: string }[] = []
+  const emailed = when(d.last_emailed_at)
+  const texted = when(d.last_texted_at)
+  const rEmail = when(d.replied_email_at)
+  const rText = when(d.replied_text_at)
+  if (rText) out.push({ key: 'rtext', label: `Replied by text ${rText}`, className: 'border-emerald-200 bg-emerald-50 text-emerald-700' })
+  if (rEmail) out.push({ key: 'remail', label: `Replied by email ${rEmail}`, className: 'border-emerald-200 bg-emerald-50 text-emerald-700' })
+  if (texted && !rText) out.push({ key: 'texted', label: `Texted ${texted}`, className: 'border-slate-200 bg-slate-50 text-slate-600' })
+  if (emailed && !rEmail) out.push({ key: 'emailed', label: `Emailed ${emailed}`, className: 'border-slate-200 bg-slate-50 text-slate-600' })
+  return out
+}
+
+/** "Called Sep 4" - stamped by the mark_lead_contact_activity trigger when a GHL call lands in communications. */
 export function calledOf(p: ProspectLike): { label: string; calls: number; last: Date } | null {
   const d = detailsOf(p)
   if (typeof d.last_called_at !== 'string') return null

@@ -1,0 +1,19 @@
+-- Meeting confirmations by Frances (n8n WF 0mCPQ4TMf4YJTNSt) + lead replies (WF i0k0aV6iNTiMmOpH).
+-- Applied live 2026-09-07 via Supabase MCP (migration name meeting_confirmations). Contents:
+--   1. intake_calendly_booking v3: details.calendly gains join_url / reschedule_url / cancel_url (+ returned)
+--   2. stamp_lead_confirmation(p_prospect_id, p_step, p_meta) -> prospects.details.confirmations[step] = meta + at
+--   3. due_confirmations() -> rows for the 5-min scheduler: step email1 (booked >= 15 min ago, 8:00-20:59 ET,
+--      no email1 yet) and step dayof (meeting today ET, at 08:00 ET when the meeting is 10:00 or later, else
+--      60 min before; requires email1 to exist so nobody gets a day-of note without the intro) with the merge
+--      fields pre-formatted (start_long "Tuesday, Sep 8 at 2:00 PM", start_short "Tue 9/8 at 2:00 PM", time_only)
+--   4. mark_lead_contact_activity() trigger (replaces mark_lead_called): call -> called_at/last_called_at/calls,
+--      sms in -> replied_text_at/text_replies, sms out -> last_texted_at, email in -> replied_email_at/
+--      email_replies, email out -> last_emailed_at - on the contact's OPEN prospects
+--   5. log_inbound_email(p) -> communications (email, inbound, source automation, external_id gmail:<message-id>,
+--      on conflict ignore) when the sender is a contact
+--   6. unannounced_lead_replies() / mark_reply_announced(comm_id) -> the #lead-form reply cards (raw.announced_at)
+--   7. launch backfill: open Calendly meetings on the books got confirmations.email1/text1 = {skipped:true} so only
+--      the day-of note reaches them (its text then carries the Meet link itself).
+-- All new functions: SECURITY DEFINER, EXECUTE only for service_role (n8n), revoked from anon/authenticated.
+-- The full statement text lives in the Supabase migration history (name: meeting_confirmations); it is the
+-- source of truth for the function bodies until the next clean regen of this file set.

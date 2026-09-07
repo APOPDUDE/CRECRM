@@ -12,7 +12,7 @@ import { contactNameOf } from '@/hooks/use-contacts'
 import { useProspects, type ProspectWithRelations } from '@/hooks/use-prospects'
 import { useTasks } from '@/hooks/use-tasks'
 import { formatDate, isOverdue } from '@/lib/dates'
-import { calendlyBookingOf, calledOf, leadSourceOf } from '@/lib/lead-source'
+import { activityOf, calendlyBookingOf, calledOf, leadSourceOf } from '@/lib/lead-source'
 import { cn } from '@/lib/utils'
 
 const statusBadge: Record<string, string> = {
@@ -91,6 +91,7 @@ export function ProspectingPage() {
             const src = leadSourceOf(p)
             const booking = calendlyBookingOf(p)
             const called = calledOf(p)
+            const activity = activityOf(p)
             return (
               <div
                 key={p.id}
@@ -165,6 +166,11 @@ export function ProspectingPage() {
                       {called.label}
                     </Badge>
                   )}
+                  {activity.map((a) => (
+                    <Badge key={a.key} variant="outline" className={cn('font-normal', a.className)}>
+                      {a.label}
+                    </Badge>
+                  ))}
                   {p.properties.length > 0 && (
                     <Badge variant="secondary" className="gap-1 font-normal">
                       <Building2 className="size-3" />

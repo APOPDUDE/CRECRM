@@ -37,7 +37,7 @@ import {
 import { usePropertySearch } from '@/hooks/use-listing-parcels'
 import { useCreateTask, useTasks, useToggleTask } from '@/hooks/use-tasks'
 import { formatDate, formatTimeOfDay, isOverdue } from '@/lib/dates'
-import { calendlyBookingOf, calledOf, leadSourceOf } from '@/lib/lead-source'
+import { activityOf, calendlyBookingOf, calledOf, leadSourceOf } from '@/lib/lead-source'
 import type { Enums } from '@/lib/database.types'
 import { cn } from '@/lib/utils'
 
@@ -75,6 +75,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
   const src = leadSourceOf(p)
   const booking = calendlyBookingOf(p)
   const called = calledOf(p)
+  const activity = activityOf(p)
   const attachedIds = new Set(p.properties.map((x) => x.property_id))
   const suggestions = propResults.filter((r) => !attachedIds.has(r.id)).slice(0, 5)
 
@@ -173,7 +174,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
             {p.company?.name && p.contact ? `${p.company.name} · ` : ''}
             Lead since {formatDate(p.created_at)}
           </SheetDescription>
-          {(src || booking || called) && (
+          {(src || booking || called || activity.length > 0) && (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {src && (
                 <Badge variant="outline" className={cn('font-normal', src.className)}>
@@ -200,6 +201,11 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
                   {called.label}
                 </Badge>
               )}
+              {activity.map((a) => (
+                <Badge key={a.key} variant="outline" className={cn('font-normal', a.className)}>
+                  {a.label}
+                </Badge>
+              ))}
             </div>
           )}
         </SheetHeader>
