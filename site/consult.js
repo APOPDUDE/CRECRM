@@ -1,5 +1,5 @@
 (function () {
-  var ORDER = ['intro', 'need', 'details', 'area', 'budget', 'timing', 'name', 'company', 'email', 'phone', 'book', 'done'];
+  var ORDER = ['intro', 'need', 'details', 'stage', 'question', 'found', 'name', 'company', 'email', 'phone', 'book', 'done'];
   var QUESTIONS = ORDER.slice(1, 10); // the numbered ones
   var WEBHOOK = 'https://n8n.ayxco.com/webhook/alexpoplawski-lead';
   var CALENDLY = 'https://calendly.com/alex-axis/consultation';
@@ -40,7 +40,8 @@
     var err = s.querySelector('.err');
     var v = value(key);
     var msg = '';
-    if (key === 'details' && v.length < 10) msg = 'A sentence or two is enough, but give Alex something to work with.';
+    if (key === 'details' && v.length < 10) msg = 'A sentence is enough.';
+    if (key === 'question' && v.length < 5) msg = 'What do you want answered?';
     if (key === 'name' && !v) msg = 'Your name, please.';
     if (key === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) msg = 'That email doesn\'t look right.';
     if (key === 'phone' && v.replace(/\D/g, '').replace(/^1/, '').length !== 10) msg = 'A 10-digit number, please.';

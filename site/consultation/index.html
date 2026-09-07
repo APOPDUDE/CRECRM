@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Book a consult with Alex - $100 for 30 minutes</title>
-<meta name="description" content="A 30-minute consult with Alex Poplawski on your Tampa Bay deal: pricing, terms, what the market will actually do. $100. A few quick questions first, then pick your slot.">
+<title>Book a consultation with Alex - $100 for 30 minutes</title>
+<meta name="description" content="30 minutes with Alex Poplawski on your business or brand. $100. Nine quick questions, then pick your time.">
 <link rel="canonical" href="https://alexpoplawski.com/consultation">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://alexpoplawski.com/consultation">
-<meta property="og:title" content="Book a consult with Alex - $100 for 30 minutes">
-<meta property="og:description" content="Real answers on your deal. A few quick questions, then pick your slot.">
+<meta property="og:title" content="Book a consultation with Alex - $100 for 30 minutes">
+<meta property="og:description" content="30 minutes on your business or brand. $100. Nine quick questions, then pick your time.">
 <meta property="og:image" content="https://alexpoplawski.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -34,67 +34,66 @@
     <section class="step" data-step="intro">
       <p class="eyebrow">Consultation</p>
       <h1>Book a <span>consultation.</span></h1>
-      <p class="lede">30 minutes with Alex on your deal. Nine quick questions, then pick your time.</p>
+      <p class="lede">30 minutes with Alex on your business or brand. $100. Nine quick questions, then pick your time.</p>
       <button type="button" class="btn next">Start</button>
     </section>
 
     <!-- 1: need -->
     <section class="step" data-step="need" hidden>
       <p class="qnum mono"></p>
-      <h2>What's this about?</h2>
+      <h2>What do you want help with?</h2>
       <div class="choices" data-name="need">
-        <button type="button" class="choice" data-value="buy">Buying a property</button>
-        <button type="button" class="choice" data-value="sell">Selling a property</button>
-        <button type="button" class="choice" data-value="lease">Leasing space</button>
-        <button type="button" class="choice" data-value="invest">Investment / deal review</button>
+        <button type="button" class="choice" data-value="brand">Brand and content</button>
+        <button type="button" class="choice" data-value="systems">Systems and automation</button>
+        <button type="button" class="choice" data-value="career">Getting into commercial real estate</button>
+        <button type="button" class="choice" data-value="growth">Growing the business</button>
         <button type="button" class="choice" data-value="other">Something else</button>
       </div>
     </section>
 
-    <!-- 2: details -->
+    <!-- 2: details (the business) -->
     <section class="step" data-step="details" hidden>
       <p class="qnum mono"></p>
-      <h2>The situation.</h2>
-      <p class="hint">Address, size, numbers, the question. Rough is fine.</p>
-      <textarea name="details" rows="5" placeholder="Landlord wants $14 psf NNN on 8,000 SF in Plant City, 5-year term, no TI. Is that fair, and what would you push on?"></textarea>
+      <h2>Tell me about your business.</h2>
+      <p class="hint">What you do, who you sell to, where.</p>
+      <textarea name="details" rows="4" placeholder="Boutique brokerage in Orlando, 3 agents, mostly retail leasing."></textarea>
       <div class="actions"><button type="button" class="btn next">Next</button><span class="mono kbd">Cmd/Ctrl + Enter</span></div>
       <p class="err" role="alert"></p>
     </section>
 
-    <!-- 3: area -->
-    <section class="step" data-step="area" hidden>
+    <!-- 3: stage -->
+    <section class="step" data-step="stage" hidden>
       <p class="qnum mono"></p>
-      <h2>Where is it?</h2>
-      <div class="choices" data-name="area">
-        <button type="button" class="choice" data-value="Tampa">Tampa</button>
-        <button type="button" class="choice" data-value="Plant City">Plant City</button>
-        <button type="button" class="choice" data-value="Lakeland / Polk">Lakeland / Polk</button>
-        <button type="button" class="choice" data-value="Pasco">Pasco</button>
-        <button type="button" class="choice" data-value="Pinellas">Clearwater / St. Pete</button>
-        <button type="button" class="choice" data-value="Sarasota / Bradenton">Sarasota / Bradenton</button>
-        <button type="button" class="choice" data-value="Elsewhere in Florida">Elsewhere in Florida</button>
-        <button type="button" class="choice" data-value="Outside Florida">Outside Florida</button>
+      <h2>How long have you been at it?</h2>
+      <div class="choices" data-name="stage">
+        <button type="button" class="choice" data-value="starting">Just starting</button>
+        <button type="button" class="choice" data-value="under_1">Under a year</button>
+        <button type="button" class="choice" data-value="1_5">1 to 5 years</button>
+        <button type="button" class="choice" data-value="5_plus">5+ years</button>
       </div>
     </section>
 
-    <!-- 4: budget -->
-    <section class="step" data-step="budget" hidden>
+    <!-- 4: the question -->
+    <section class="step" data-step="question" hidden>
       <p class="qnum mono"></p>
-      <h2>Rough numbers?</h2>
-      <p class="hint">Price, rent or size. Optional.</p>
-      <input name="budget" placeholder="$1.2M purchase, or 8,000 SF at $14 psf">
-      <div class="actions"><button type="button" class="btn next">Next</button><button type="button" class="link skip">Skip</button></div>
+      <h2>The one question you want answered.</h2>
+      <p class="hint">Be specific. That's where the 30 minutes goes.</p>
+      <textarea name="question" rows="4" placeholder="How do I find off-market deals without cold calling all day?"></textarea>
+      <div class="actions"><button type="button" class="btn next">Next</button><span class="mono kbd">Cmd/Ctrl + Enter</span></div>
+      <p class="err" role="alert"></p>
     </section>
 
-    <!-- 5: timing -->
-    <section class="step" data-step="timing" hidden>
+    <!-- 5: found -->
+    <section class="step" data-step="found" hidden>
       <p class="qnum mono"></p>
-      <h2>How soon do you need an answer?</h2>
-      <div class="choices" data-name="timing">
-        <button type="button" class="choice" data-value="this_week">This week</button>
-        <button type="button" class="choice" data-value="30_days">Next 30 days</button>
-        <button type="button" class="choice" data-value="few_months">Next few months</button>
-        <button type="button" class="choice" data-value="exploring">Just exploring</button>
+      <h2>Where did you find Alex?</h2>
+      <div class="choices" data-name="found">
+        <button type="button" class="choice" data-value="TikTok">TikTok</button>
+        <button type="button" class="choice" data-value="Instagram">Instagram</button>
+        <button type="button" class="choice" data-value="YouTube">YouTube</button>
+        <button type="button" class="choice" data-value="LinkedIn">LinkedIn</button>
+        <button type="button" class="choice" data-value="Referral">Referral</button>
+        <button type="button" class="choice" data-value="Other">Other</button>
       </div>
     </section>
 
@@ -110,8 +109,8 @@
     <!-- 7: company -->
     <section class="step" data-step="company" hidden>
       <p class="qnum mono"></p>
-      <h2>Company?</h2>
-      <input name="company" autocomplete="organization" placeholder="Business name (optional)">
+      <h2>Company or brand?</h2>
+      <input name="company" autocomplete="organization" placeholder="Optional">
       <div class="actions"><button type="button" class="btn next">Next</button><button type="button" class="link skip">Skip</button></div>
     </section>
 
@@ -138,8 +137,8 @@
     <!-- 10: book -->
     <section class="step" data-step="book" hidden>
       <p class="eyebrow">Last step</p>
-      <h2>Pick your slot.</h2>
-      <p class="hint">The $100 is collected on the calendar.</p>
+      <h2>Pick your time.</h2>
+      <p class="hint">$100 for 30 minutes, collected on the calendar.</p>
       <div id="calendly" class="calendly"></div>
       <p class="fine">Calendar not loading? <a id="cal-link" href="https://calendly.com/alex-axis/consultation" target="_blank" rel="noopener">Open it in a new tab</a>.</p>
       <p class="status" role="status" aria-live="polite"></p>
