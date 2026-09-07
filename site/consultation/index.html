@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book a consult with Alex - $100 for 30 minutes</title>
+<meta name="description" content="A 30-minute consult with Alex Poplawski on your Tampa Bay deal: pricing, terms, what the market will actually do. $100. A few quick questions first, then pick your slot.">
+<link rel="canonical" href="https://alexpoplawski.com/consultation">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://alexpoplawski.com/consultation">
+<meta property="og:title" content="Book a consult with Alex - $100 for 30 minutes">
+<meta property="og:description" content="Real answers on your deal. A few quick questions, then pick your slot.">
+<meta property="og:image" content="https://alexpoplawski.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/consult.css">
+</head>
+<body class="consult">
+<div class="wrap">
+  <header class="top">
+    <span>Alex Poplawski<span class="tag"> &middot; Tampa Bay industrial</span></span>
+    <span class="mono price">$100 &middot; 30 min</span>
+  </header>
+
+  <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
+
+  <main id="flow">
+    <!-- 0: intro -->
+    <section class="step" data-step="intro">
+      <p class="eyebrow">Consultation</p>
+      <h1>30 minutes with Alex. <span>Real answers.</span></h1>
+      <p class="lede">Pricing, terms, what the market will actually do on your deal. It's $100, paid when you pick your slot. A few quick questions first so the half hour goes to your situation, not the basics.</p>
+      <button type="button" class="btn next">Start</button>
+      <p class="fine mono">Takes about a minute &middot; press Enter to move along</p>
+    </section>
+
+    <!-- 1: need -->
+    <section class="step" data-step="need" hidden>
+      <p class="qnum mono"></p>
+      <h2>What's this about?</h2>
+      <div class="choices" data-name="need">
+        <button type="button" class="choice" data-value="buy">Buying a property</button>
+        <button type="button" class="choice" data-value="sell">Selling a property</button>
+        <button type="button" class="choice" data-value="lease">Leasing space or a lease I've been offered</button>
+        <button type="button" class="choice" data-value="invest">An investment or a deal I want a second opinion on</button>
+        <button type="button" class="choice" data-value="other">Something else</button>
+      </div>
+    </section>
+
+    <!-- 2: details -->
+    <section class="step" data-step="details" hidden>
+      <p class="qnum mono"></p>
+      <h2>Give me the situation.</h2>
+      <p class="hint">Address, size, the numbers you've been quoted, what's bugging you. Rough is fine.</p>
+      <textarea name="details" rows="5" placeholder="Landlord wants $14 psf NNN on 8,000 SF in Plant City, 5-year term, no TI. Is that fair, and what would you push on?"></textarea>
+      <div class="actions"><button type="button" class="btn next">Next</button><span class="mono kbd">Cmd/Ctrl + Enter</span></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 3: area -->
+    <section class="step" data-step="area" hidden>
+      <p class="qnum mono"></p>
+      <h2>Where is it?</h2>
+      <div class="choices" data-name="area">
+        <button type="button" class="choice" data-value="Tampa">Tampa</button>
+        <button type="button" class="choice" data-value="Plant City">Plant City</button>
+        <button type="button" class="choice" data-value="Lakeland / Polk">Lakeland / Polk</button>
+        <button type="button" class="choice" data-value="Pasco">Pasco</button>
+        <button type="button" class="choice" data-value="Pinellas">Clearwater / St. Pete</button>
+        <button type="button" class="choice" data-value="Sarasota / Bradenton">Sarasota / Bradenton</button>
+        <button type="button" class="choice" data-value="Elsewhere in Florida">Elsewhere in Florida</button>
+        <button type="button" class="choice" data-value="Outside Florida">Outside Florida</button>
+      </div>
+    </section>
+
+    <!-- 4: budget -->
+    <section class="step" data-step="budget" hidden>
+      <p class="qnum mono"></p>
+      <h2>Rough numbers?</h2>
+      <p class="hint">Price, rent, size - whatever you have. Skip it if you don't.</p>
+      <input name="budget" placeholder="$1.2M purchase, or 8,000 SF at $14 psf">
+      <div class="actions"><button type="button" class="btn next">Next</button><button type="button" class="link skip">Skip</button></div>
+    </section>
+
+    <!-- 5: timing -->
+    <section class="step" data-step="timing" hidden>
+      <p class="qnum mono"></p>
+      <h2>How soon do you need an answer?</h2>
+      <div class="choices" data-name="timing">
+        <button type="button" class="choice" data-value="this_week">This week</button>
+        <button type="button" class="choice" data-value="30_days">Next 30 days</button>
+        <button type="button" class="choice" data-value="few_months">Next few months</button>
+        <button type="button" class="choice" data-value="exploring">Just exploring</button>
+      </div>
+    </section>
+
+    <!-- 6: name -->
+    <section class="step" data-step="name" hidden>
+      <p class="qnum mono"></p>
+      <h2>Your name?</h2>
+      <input name="name" autocomplete="name" placeholder="First and last" required>
+      <div class="actions"><button type="button" class="btn next">Next</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 7: company -->
+    <section class="step" data-step="company" hidden>
+      <p class="qnum mono"></p>
+      <h2>Company?</h2>
+      <input name="company" autocomplete="organization" placeholder="Business name (optional)">
+      <div class="actions"><button type="button" class="btn next">Next</button><button type="button" class="link skip">Skip</button></div>
+    </section>
+
+    <!-- 8: email -->
+    <section class="step" data-step="email" hidden>
+      <p class="qnum mono"></p>
+      <h2>Email?</h2>
+      <p class="hint">Where the calendar invite and Meet link go.</p>
+      <input type="email" name="email" autocomplete="email" inputmode="email" placeholder="you@company.com" required>
+      <div class="actions"><button type="button" class="btn next">Next</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 9: phone -->
+    <section class="step" data-step="phone" hidden>
+      <p class="qnum mono"></p>
+      <h2>Best number?</h2>
+      <p class="hint">In case the Meet link doesn't work, Alex calls you.</p>
+      <input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(813) 555-0100" required>
+      <div class="actions"><button type="button" class="btn next">Pick a time</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 10: book -->
+    <section class="step" data-step="book" hidden>
+      <p class="eyebrow">Last step</p>
+      <h2>Pick your slot.</h2>
+      <p class="hint">Booking reserves 30 minutes with Alex. The $100 is collected on the calendar. Your answers are already on his desk.</p>
+      <div id="calendly" class="calendly"></div>
+      <p class="fine">Calendar not loading? <a id="cal-link" href="https://calendly.com/alex-axis/consultation" target="_blank" rel="noopener">Open it in a new tab</a>.</p>
+      <p class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- 11: booked -->
+    <section class="step" data-step="done" hidden>
+      <p class="eyebrow">Booked</p>
+      <h2>You're on the calendar.</h2>
+      <p class="lede">Frances will email you the details shortly. If anything changes, reply to that email.</p>
+    </section>
+  </main>
+
+  <p class="backrow"><button type="button" class="link" id="back" hidden>&larr; Back</button></p>
+</div>
+<script src="/consult.js" defer></script>
+</body>
+</html>

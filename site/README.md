@@ -51,3 +51,6 @@ Every later push to `main` that touches `site/` redeploys the site automatically
 ## Short links (Vercel redirects in vercel.json)
 `/insta` `/ig` -> Instagram, `/yt` -> YouTube, `/tiktok` `/tt` -> TikTok, `/linkedin` `/li` -> LinkedIn, `/fb` -> Facebook, `/x` -> X.
 Each 307s to `/?utm_source=<channel>`, so the lead is labeled by platform without asking.
+
+## /consultation (paid consult funnel)
+`consultation/index.html` + `consult.css` + `consult.js`: one question per screen (what / situation / where / numbers / timing / name / company / email / phone), Enter advances, chips auto-advance, progress bar. The last screen submits to the same webhook with `form=consultation` (lead lands on the Leads page as "Consultation request ($100)", GHL tag `consult-lead`) and then shows the paid Calendly event `https://calendly.com/alex-axis/consultation` inline, prefilled; a completed booking relays to `/webhook/alexpoplawski-booked` and shows the done screen. Frances's confirmation sequence applies to these bookings like any other.
