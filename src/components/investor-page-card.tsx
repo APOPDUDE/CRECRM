@@ -67,6 +67,32 @@ function useCreateDealRoom(propertyId: string, grossSf: number | null) {
         p_psf_min: 6,
         p_psf_max: 25,
       })
+      // Asking comps are a separate basis on the page, never blended with executed
+      // deals, so they are pulled as their own set with a tighter recency window.
+      await supabase.rpc('deal_room_fill_comps', {
+        p_deal_room_id: room.id,
+        p_radius_mi: 6,
+        p_sf_min: band ? Math.round(band * 0.55) : undefined,
+        p_sf_max: band ? Math.round(band * 1.8) : undefined,
+        p_since: '2025-01-01',
+        p_deal_type: 'sale',
+        p_limit: 12,
+        p_kinds: ['asking'],
+        p_psf_min: 45,
+        p_psf_max: 220,
+      })
+      await supabase.rpc('deal_room_fill_comps', {
+        p_deal_room_id: room.id,
+        p_radius_mi: 7,
+        p_sf_min: band ? Math.round(band * 0.4) : undefined,
+        p_sf_max: band ? Math.round(band * 2.2) : undefined,
+        p_since: '2025-01-01',
+        p_deal_type: 'lease',
+        p_limit: 14,
+        p_kinds: ['asking'],
+        p_psf_min: 6,
+        p_psf_max: 25,
+      })
       return room
     },
     onSuccess: (room) => {

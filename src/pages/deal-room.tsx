@@ -2,19 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import {
-  Building2,
-  ChevronRight,
-  ExternalLink,
-  List,
-  Mail,
-  MapIcon,
-  MapPin,
-  Phone,
-  Ruler,
-  X,
-} from 'lucide-react'
-import { formatPhone } from '@/lib/format'
+import { Building2, ChevronRight, ExternalLink, List, MapIcon, MapPin, X } from 'lucide-react'
 import {
   compHeadline,
   compMonth,
@@ -36,9 +24,30 @@ const BASEMAPS = {
 
 const num = (n: number | null | undefined) => (n == null ? null : n.toLocaleString('en-US'))
 
-/** Everything an investor taps is at least 44px tall — this is read on a phone. */
-const BTN =
-  'inline-flex h-12 items-center justify-center gap-2 rounded-lg px-5 text-[15px] font-medium transition-colors'
+/** Asking rates and executed deals are different evidence — never blend them. */
+type Basis = 'executed' | 'asking'
+const basisOf = (c: DealRoomComp): Basis => (c.kind === 'asking' ? 'asking' : 'executed')
+
+/** The comparable number for a comp: $/SF sold for a sale, $/SF/yr for a lease. */
+function psfOf(c: DealRoomComp): number | null {
+  return c.deal_type === 'sale' ? c.price_psf : (c.rate_psf ?? c.asking_psf)
+}
+
+function median(values: number[]): number | null {
+  const v = values.filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
+  if (v.length === 0) return null
+  const mid = Math.floor(v.length / 2)
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2
+}
+
+function medianOf(comps: DealRoomComp[], deal: 'sale' | 'lease', basis: Basis): number | null {
+  return median(
+    comps
+      .filter((c) => c.deal_type === deal && basisOf(c) === basis)
+      .map((c) => psfOf(c))
+      .filter((n): n is number => n != null),
+  )
+}
 
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap()
@@ -49,37 +58,50 @@ function FitBounds({ points }: { points: [number, number][] }) {
     if (points.length === 1) {
       map.setView(points[0], 15)
     } else {
-      map.fitBounds(points, { padding: [56, 56], maxZoom: 15 })
+      map.fitBounds(points, { padding: [64, 64], maxZoom: 15 })
     }
   }, [map, points])
   return null
 }
 
-function Stat({ label, value }: { label: string; value: string | null }) {
+function Stat({ label, value, hint }: { label: string; value: string | null; hint?: string | null }) {
   if (!value) return null
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-0.5 text-lg font-semibold text-slate-900">{value}</div>
+    <div className="rounded-lg border border-slate-200 bg-white px-5 py-4">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</div>
+      {hint && <div className="mt-0.5 text-xs text-slate-500">{hint}</div>}
     </div>
   )
 }
 
 function CompBadge({ c }: { c: DealRoomComp }) {
   const sale = c.deal_type === 'sale'
+  const asking = basisOf(c) === 'asking'
   return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-semibold',
-        sale ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
-      )}
-    >
-      {sale ? 'Sale' : 'Lease'}
+    <span className="flex shrink-0 gap-1">
+      <span
+        className={cn(
+          'inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold',
+          sale ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
+        )}
+      >
+        {sale ? 'Sale' : 'Lease'}
+      </span>
+      <span
+        className={cn(
+          'inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold',
+          asking ? 'bg-slate-100 text-slate-600' : 'bg-blue-50 text-blue-700',
+        )}
+      >
+        {asking ? 'Asking' : 'Executed'}
+      </span>
     </span>
   )
 }
 
-function CompCard({
+/** One dense row — an investor scans twenty of these, so it reads like a rent roll. */
+function CompRow({
   c,
   active,
   onClick,
@@ -93,34 +115,33 @@ function CompCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full rounded-xl border bg-white p-4 text-left transition-shadow hover:shadow-md',
-        active ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-200',
+        'grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors',
+        active ? 'border-blue-500 bg-blue-50/40' : 'border-slate-200 bg-white hover:bg-slate-50',
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="truncate text-[15px] font-semibold text-slate-900">{c.address}</div>
-          <div className="mt-0.5 truncate text-sm text-slate-500">
-            {[c.city, c.miles != null ? `${c.miles} mi away` : null].filter(Boolean).join(' · ')}
-          </div>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-medium text-slate-900">{c.address}</span>
+          <CompBadge c={c} />
         </div>
-        <CompBadge c={c} />
+        <div className="mt-1 flex flex-wrap gap-x-3 text-sm text-slate-500">
+          {c.sf != null && <span className="tabular-nums">{num(c.sf)} SF</span>}
+          {c.year_built ? <span>Built {c.year_built}</span> : null}
+          {c.miles != null && <span className="tabular-nums">{c.miles} mi</span>}
+          {compMonth(c.executed_at) && <span>{compMonth(c.executed_at)}</span>}
+          {c.tenant_name && <span className="truncate">{c.tenant_name}</span>}
+        </div>
       </div>
-
-      <div className="mt-3 text-lg font-bold text-slate-900">{compHeadline(c)}</div>
-
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
-        {c.sf != null && <span>{num(c.sf)} SF</span>}
-        {c.year_built ? <span>Built {c.year_built}</span> : null}
-        {compMonth(c.executed_at) && <span>{compMonth(c.executed_at)}</span>}
-        {c.tenant_name && <span className="truncate">{c.tenant_name}</span>}
+      <div className="text-right">
+        <div className="text-lg font-semibold tabular-nums text-slate-900">
+          {psfOf(c) != null ? `$${psfOf(c)!.toFixed(2)}` : '—'}
+        </div>
+        <div className="text-xs text-slate-500">{c.deal_type === 'sale' ? '/SF' : '/SF/yr'}</div>
       </div>
-      {c.note && <div className="mt-2 text-sm italic text-slate-500">{c.note}</div>}
     </button>
   )
 }
 
-/** The slide-in detail for one comp — same panel on both map and list. */
 function CompDetail({ c, onClose }: { c: DealRoomComp; onClose: () => void }) {
   const rows: [string, string | null][] = [
     ['Address', [c.address, c.city, c.state].filter(Boolean).join(', ')],
@@ -130,7 +151,7 @@ function CompDetail({ c, onClose }: { c: DealRoomComp; onClose: () => void }) {
     ['Land', c.land_acres != null ? `${c.land_acres} acres` : null],
     c.deal_type === 'sale'
       ? ['Price', c.sale_price != null ? `$${num(c.sale_price)}` : null]
-      : ['Base rent', c.rate_psf != null ? `$${c.rate_psf.toFixed(2)}/SF` : null],
+      : ['Rate', psfOf(c) != null ? `$${psfOf(c)!.toFixed(2)}/SF` : null],
     c.deal_type === 'sale'
       ? ['Price per SF', c.price_psf != null ? `$${c.price_psf.toFixed(2)}` : null]
       : ['Structure', c.lease_structure],
@@ -140,7 +161,14 @@ function CompDetail({ c, onClose }: { c: DealRoomComp; onClose: () => void }) {
     ['Cap rate', c.cap_rate_pct != null ? `${c.cap_rate_pct}%` : null],
     ['Date', compMonth(c.executed_at)],
     ['Tenant', c.tenant_name],
-    ['Source', c.kind === 'transfer' ? 'County deed record' : 'Executed transaction'],
+    [
+      'Basis',
+      c.kind === 'asking'
+        ? 'Asking — currently on the market'
+        : c.kind === 'transfer'
+          ? 'Executed — county deed record'
+          : 'Executed — recorded transaction',
+    ],
   ]
 
   return (
@@ -148,21 +176,21 @@ function CompDetail({ c, onClose }: { c: DealRoomComp; onClose: () => void }) {
       <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
         <div className="min-w-0">
           <CompBadge c={c} />
-          <h3 className="mt-2 text-xl font-bold text-slate-900">{c.address}</h3>
+          <h3 className="mt-2 text-xl font-semibold text-slate-900">{c.address}</h3>
           <p className="text-sm text-slate-500">{[c.city, c.state, c.zip].filter(Boolean).join(', ')}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
         >
           <X className="h-5 w-5" />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5">
-        <div className="rounded-xl bg-slate-50 p-4 text-2xl font-bold text-slate-900">
+        <div className="rounded-lg bg-slate-50 p-4 text-2xl font-semibold tabular-nums text-slate-900">
           {compHeadline(c)}
         </div>
         <dl className="mt-4 divide-y divide-slate-100">
@@ -180,7 +208,7 @@ function CompDetail({ c, onClose }: { c: DealRoomComp; onClose: () => void }) {
           href={directionsUrl(c.lat, c.lng, c.address)}
           target="_blank"
           rel="noreferrer"
-          className={cn(BTN, 'mt-5 w-full border border-slate-300 text-slate-700 hover:bg-slate-50')}
+          className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50"
         >
           <MapPin className="h-4 w-4" /> Open in Google Maps
         </a>
@@ -192,9 +220,11 @@ function CompDetail({ c, onClose }: { c: DealRoomComp; onClose: () => void }) {
 function PropertyFacts({ p }: { p: DealRoomPayload['property'] }) {
   const facts: [string, string | null][] = [
     ['Building size', p.gross_sf != null ? `${num(p.gross_sf)} SF` : null],
+    ['Heated area', p.heated_sf != null ? `${num(p.heated_sf)} SF` : null],
     ['Land', p.land_acres != null ? `${p.land_acres} acres` : null],
     ['Year built', p.year_built ? String(p.year_built) : null],
     ['Renovated', p.year_renovated ? String(p.year_renovated) : null],
+    ['Building class', p.building_class],
     ['Clear height', p.clear_height_ft != null ? `${p.clear_height_ft} ft` : null],
     ['Dock-high doors', p.dock_high_doors != null ? String(p.dock_high_doors) : null],
     ['Grade-level doors', p.grade_level_doors != null ? String(p.grade_level_doors) : null],
@@ -204,23 +234,53 @@ function PropertyFacts({ p }: { p: DealRoomPayload['property'] }) {
     ['Zoning', [p.zoning_district, p.zoning_description].filter(Boolean).join(' — ') || null],
     ['County', p.county],
     ['Parcel', p.parcel_number],
-    ['Property type', p.property_type],
+    ['County just value', p.just_value != null ? `$${num(p.just_value)}` : null],
   ]
   const shown = facts.filter(([, v]) => v)
   if (shown.length === 0) return null
 
   return (
-    <section className="mt-8">
-      <h2 className="text-lg font-bold text-slate-900">Property details</h2>
-      <dl className="mt-3 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+    <section className="mt-10">
+      <h2 className="text-base font-semibold text-slate-900">Property details</h2>
+      <dl className="mt-3 grid grid-cols-1 gap-x-10 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {shown.map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-4 border-b border-slate-100 py-3">
+          <div key={k} className="flex justify-between gap-4 border-b border-slate-100 py-2.5">
             <dt className="text-sm text-slate-500">{k}</dt>
-            <dd className="text-right text-sm font-semibold text-slate-900">{v}</dd>
+            <dd className="text-right text-sm font-medium tabular-nums text-slate-900">{v}</dd>
           </div>
         ))}
       </dl>
     </section>
+  )
+}
+
+/** Segmented control — one visual language for both toggles. */
+function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T
+  onChange: (v: T) => void
+  options: { value: T; label: string; icon?: React.ReactNode }[]
+}) {
+  return (
+    <div className="flex rounded-lg border border-slate-300 bg-white p-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={cn(
+            'inline-flex h-9 items-center gap-1.5 rounded-md px-4 text-sm font-medium transition-colors',
+            value === o.value ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50',
+          )}
+        >
+          {o.icon}
+          {o.label}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -229,12 +289,35 @@ export function DealRoomPage() {
   const { data, isLoading, isError } = useDealRoom(slug)
   const [view, setView] = useState<'map' | 'list'>('map')
   const [basemap, setBasemap] = useState<keyof typeof BASEMAPS>('street')
-  const [filter, setFilter] = useState<'all' | 'lease' | 'sale'>('all')
+  const [basis, setBasis] = useState<Basis>('executed')
+  const [deal, setDeal] = useState<'all' | 'sale' | 'lease'>('all')
   const [selected, setSelected] = useState<DealRoomComp | null>(null)
 
+  const all = useMemo(() => data?.comps ?? [], [data?.comps])
+
   const comps = useMemo(
-    () => (data?.comps ?? []).filter((c) => filter === 'all' || c.deal_type === filter),
-    [data?.comps, filter],
+    () => all.filter((c) => basisOf(c) === basis && (deal === 'all' || c.deal_type === deal)),
+    [all, basis, deal],
+  )
+
+  const counts = useMemo(
+    () => ({
+      sale: all.filter((c) => basisOf(c) === basis && c.deal_type === 'sale').length,
+      lease: all.filter((c) => basisOf(c) === basis && c.deal_type === 'lease').length,
+      executed: all.filter((c) => basisOf(c) === 'executed').length,
+      asking: all.filter((c) => basisOf(c) === 'asking').length,
+    }),
+    [all, basis],
+  )
+
+  const medians = useMemo(
+    () => ({
+      saleExecuted: medianOf(all, 'sale', 'executed'),
+      saleAsking: medianOf(all, 'sale', 'asking'),
+      leaseExecuted: medianOf(all, 'lease', 'executed'),
+      leaseAsking: medianOf(all, 'lease', 'asking'),
+    }),
+    [all],
   )
 
   const subjectLat = data?.property.lat ?? null
@@ -259,7 +342,7 @@ export function DealRoomPage() {
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
         <div className="max-w-md text-center">
           <Building2 className="mx-auto h-10 w-10 text-slate-300" />
-          <h1 className="mt-4 text-xl font-bold text-slate-900">This link isn’t available</h1>
+          <h1 className="mt-4 text-xl font-semibold text-slate-900">This link isn’t available</h1>
           <p className="mt-2 text-slate-600">
             It may have expired or been unpublished. Ask whoever shared it for a fresh link.
           </p>
@@ -268,146 +351,158 @@ export function DealRoomPage() {
     )
   }
 
-  const { room, property, stats } = data
+  const { room, property } = data
   const subjectPsf = room.headline_price_psf
   const vsMarket =
-    subjectPsf != null && stats.sale_median_psf != null
-      ? Math.round(((subjectPsf - stats.sale_median_psf) / stats.sale_median_psf) * 100)
+    subjectPsf != null && medians.saleExecuted != null
+      ? Math.round(((subjectPsf - medians.saleExecuted) / medians.saleExecuted) * 100)
       : null
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header — the address, the number, and the two things an investor does next. */}
-      <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold text-slate-900 sm:text-2xl">{room.title}</h1>
-            {room.subtitle && <p className="truncate text-sm text-slate-500">{room.subtitle}</p>}
-          </div>
-          <div className="flex items-center gap-2">
-            {room.broker_phone && (
-              <a href={`tel:${room.broker_phone}`} className={cn(BTN, 'bg-slate-900 text-white hover:bg-slate-800')}>
-                <Phone className="h-4 w-4" /> Call
-              </a>
-            )}
-            {room.broker_email && (
-              <a
-                href={`mailto:${room.broker_email}?subject=${encodeURIComponent(room.title)}`}
-                className={cn(BTN, 'bg-blue-600 text-white hover:bg-blue-700')}
-              >
-                <Mail className="h-4 w-4" /> Request info
-              </a>
-            )}
-          </div>
+      <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-[1800px] flex-wrap items-baseline gap-x-4 gap-y-1 px-6 py-4 xl:px-10">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{room.title}</h1>
+          {room.subtitle && <p className="text-sm text-slate-500">{room.subtitle}</p>}
+          <a
+            href={directionsUrl(property.lat, property.lng, property.address)}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            <MapPin className="h-4 w-4" /> Directions <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-5 pb-24 pt-6">
-        {/* Headline numbers */}
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <main className="mx-auto max-w-[1800px] px-6 pb-20 pt-6 xl:px-10">
+        {/* Headline numbers, with the market read sitting next to the ask. */}
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <Stat label="Price" value={room.headline_price != null ? `$${num(room.headline_price)}` : null} />
+          <Stat label="Price / SF" value={subjectPsf != null ? `$${subjectPsf.toFixed(2)}` : null} />
           <Stat
-            label="Price"
-            value={room.headline_price != null ? `$${num(room.headline_price)}` : null}
+            label="Lease ask"
+            value={room.headline_rate_psf != null ? `$${room.headline_rate_psf.toFixed(2)}` : null}
+            hint="per SF / yr"
           />
-          <Stat label="Per SF" value={subjectPsf != null ? `$${subjectPsf.toFixed(2)}` : null} />
           <Stat label="Building" value={property.gross_sf != null ? `${num(property.gross_sf)} SF` : null} />
           <Stat
-            label="Lease rate"
-            value={room.headline_rate_psf != null ? `$${room.headline_rate_psf.toFixed(2)}/SF` : null}
+            label="Sale comps"
+            value={medians.saleExecuted != null ? `$${medians.saleExecuted.toFixed(2)}` : null}
+            hint={`executed median · ${counts.executed ? all.filter((c) => c.deal_type === 'sale' && basisOf(c) === 'executed').length : 0} comps`}
+          />
+          <Stat
+            label="Lease comps"
+            value={medians.leaseExecuted != null ? `$${medians.leaseExecuted.toFixed(2)}` : null}
+            hint={`executed median · ${all.filter((c) => c.deal_type === 'lease' && basisOf(c) === 'executed').length} comps`}
           />
         </section>
 
         {vsMarket != null && (
-          <p className="mt-3 text-sm text-slate-600">
-            Asking{' '}
-            <span className="font-semibold text-slate-900">${subjectPsf!.toFixed(2)}/SF</span> against a
-            comparable sale median of{' '}
-            <span className="font-semibold text-slate-900">${stats.sale_median_psf!.toFixed(2)}/SF</span> —{' '}
+          <p className="mt-4 text-[15px] text-slate-700">
+            Asking <span className="font-semibold tabular-nums">${subjectPsf!.toFixed(2)}/SF</span> against an
+            executed sale median of{' '}
+            <span className="font-semibold tabular-nums">${medians.saleExecuted!.toFixed(2)}/SF</span> —{' '}
             <span className={vsMarket <= 0 ? 'font-semibold text-emerald-700' : 'font-semibold text-amber-700'}>
               {vsMarket <= 0 ? `${Math.abs(vsMarket)}% below market` : `${vsMarket}% above market`}
             </span>
+            {medians.saleAsking != null && (
+              <>
+                {' '}
+                · other sellers are asking a median of{' '}
+                <span className="font-semibold tabular-nums">${medians.saleAsking.toFixed(2)}/SF</span>
+              </>
+            )}
             .
           </p>
         )}
 
-        {room.summary && <p className="mt-5 text-[15px] leading-relaxed text-slate-700">{room.summary}</p>}
+        {/* Narrative and highlights sit side by side once there's width for it. */}
+        <div className="mt-6 grid gap-8 xl:grid-cols-2">
+          {room.summary && (
+            <p className="text-[15px] leading-relaxed text-slate-700">{room.summary}</p>
+          )}
+          {room.highlights.length > 0 && (
+            <ul className="grid grid-cols-1 gap-y-1.5 sm:grid-cols-2 sm:gap-x-8 xl:grid-cols-1 2xl:grid-cols-2">
+              {room.highlights.map((h) => (
+                <li key={h} className="flex gap-2 text-[15px] text-slate-700">
+                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-blue-600" />
+                  <span>{h}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-        {room.highlights.length > 0 && (
-          <ul className="mt-5 grid grid-cols-1 gap-y-2 sm:grid-cols-2 sm:gap-x-8">
-            {room.highlights.map((h) => (
-              <li key={h} className="flex gap-2 text-[15px] text-slate-700">
-                <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-                <span>{h}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <a
-          href={directionsUrl(property.lat, property.lng, property.address)}
-          target="_blank"
-          rel="noreferrer"
-          className={cn(BTN, 'mt-6 border border-slate-300 bg-white text-slate-700 hover:bg-slate-50')}
-        >
-          <MapPin className="h-4 w-4" /> Directions <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-
-        {/* Comps */}
         <section className="mt-10">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Comparables</h2>
-              <p className="text-sm text-slate-500">
-                {stats.sale_count} sales · {stats.lease_count} leases
-                {stats.sale_median_psf != null && ` · sale median $${stats.sale_median_psf.toFixed(2)}/SF`}
-                {stats.lease_median_psf != null && ` · lease median $${stats.lease_median_psf.toFixed(2)}/SF`}
+              <h2 className="text-base font-semibold text-slate-900">Comparables</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Showing <span className="font-medium text-slate-700">{comps.length}</span>{' '}
+                {basis === 'asking' ? 'asking' : 'executed'} comps
+                {deal !== 'all' && ` · ${deal === 'sale' ? 'sales' : 'leases'}`}
+                {(() => {
+                  const m =
+                    deal === 'lease'
+                      ? basis === 'asking'
+                        ? medians.leaseAsking
+                        : medians.leaseExecuted
+                      : deal === 'sale'
+                        ? basis === 'asking'
+                          ? medians.saleAsking
+                          : medians.saleExecuted
+                        : null
+                  return m != null ? ` · median $${m.toFixed(2)}/SF` : ''
+                })()}
               </p>
             </div>
-            <div className="flex rounded-lg border border-slate-300 bg-white p-1">
-              {(['map', 'list'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setView(v)}
-                  className={cn(
-                    'inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium capitalize',
-                    view === v ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50',
-                  )}
-                >
-                  {v === 'map' ? <MapIcon className="h-4 w-4" /> : <List className="h-4 w-4" />}
-                  {v}
-                </button>
-              ))}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Segmented
+                value={basis}
+                onChange={(v) => {
+                  setBasis(v)
+                  setSelected(null)
+                }}
+                options={[
+                  { value: 'executed', label: `Executed ${counts.executed}` },
+                  { value: 'asking', label: `Asking ${counts.asking}` },
+                ]}
+              />
+              <Segmented
+                value={deal}
+                onChange={(v) => {
+                  setDeal(v)
+                  setSelected(null)
+                }}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'sale', label: `Sales ${counts.sale}` },
+                  { value: 'lease', label: `Leases ${counts.lease}` },
+                ]}
+              />
+              <Segmented
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: 'map', label: 'Map', icon: <MapIcon className="h-4 w-4" /> },
+                  { value: 'list', label: 'List', icon: <List className="h-4 w-4" /> },
+                ]}
+              />
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            {(
-              [
-                ['all', `All ${data.comps.length}`],
-                ['sale', `Sales ${stats.sale_count}`],
-                ['lease', `Leases ${stats.lease_count}`],
-              ] as const
-            ).map(([k, label]) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setFilter(k)}
-                className={cn(
-                  'h-11 rounded-full border px-5 text-sm font-medium',
-                  filter === k
-                    ? 'border-slate-900 bg-slate-900 text-white'
-                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {basis === 'asking' && (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+              Asking rates are what owners are currently marketing — not what deals traded at. Compare
+              them against the executed set, never blended with it.
+            </p>
+          )}
 
           {view === 'map' ? (
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_380px]">
-              <div className="relative h-[560px] overflow-hidden rounded-xl border border-slate-200">
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_520px]">
+              <div className="relative h-[600px] overflow-hidden rounded-xl border border-slate-200 xl:h-[calc(100vh-260px)] xl:min-h-[640px]">
                 {points.length > 0 ? (
                   <MapContainer
                     center={points[0]}
@@ -441,7 +536,7 @@ export function DealRoomPage() {
                             color: '#fff',
                             weight: 2,
                             fillColor: c.deal_type === 'sale' ? SALE : LEASE,
-                            fillOpacity: 1,
+                            fillOpacity: basisOf(c) === 'asking' ? 0.55 : 1,
                           }}
                           eventHandlers={{ click: () => setSelected(c) }}
                         >
@@ -462,7 +557,7 @@ export function DealRoomPage() {
                   </MapContainer>
                 ) : (
                   <div className="flex h-full items-center justify-center text-slate-400">
-                    No mapped comparables
+                    No mapped comparables in this view
                   </div>
                 )}
 
@@ -473,7 +568,7 @@ export function DealRoomPage() {
                       type="button"
                       onClick={() => setBasemap(b)}
                       className={cn(
-                        'h-10 rounded-md px-4 text-xs font-medium capitalize',
+                        'h-8 rounded-md px-3 text-xs font-medium capitalize',
                         basemap === b ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50',
                       )}
                     >
@@ -481,19 +576,35 @@ export function DealRoomPage() {
                     </button>
                   ))}
                 </div>
+
+                <div className="absolute bottom-4 right-4 z-[1000] flex flex-col gap-1 rounded-lg border border-slate-300 bg-white/95 p-3 text-xs shadow-sm">
+                  {[
+                    ['Subject', SUBJECT],
+                    ['Sale', SALE],
+                    ['Lease', LEASE],
+                  ].map(([label, color]) => (
+                    <span key={label} className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: color as string }}
+                      />
+                      {label}
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              <div className="h-[560px] overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="h-[600px] overflow-hidden rounded-xl border border-slate-200 bg-white xl:h-[calc(100vh-260px)] xl:min-h-[640px]">
                 {selected ? (
                   <CompDetail c={selected} onClose={() => setSelected(null)} />
                 ) : (
                   <div className="h-full overflow-y-auto p-3">
                     <div className="px-2 pb-2 pt-1 text-sm text-slate-500">
-                      Tap any point on the map, or a card below.
+                      Select a point on the map, or a row here.
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {comps.map((c) => (
-                        <CompCard key={c.id} c={c} onClick={() => setSelected(c)} />
+                        <CompRow key={c.id} c={c} onClick={() => setSelected(c)} />
                       ))}
                     </div>
                   </div>
@@ -501,9 +612,9 @@ export function DealRoomPage() {
               </div>
             </div>
           ) : (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid gap-2 xl:grid-cols-2">
               {comps.map((c) => (
-                <CompCard
+                <CompRow
                   key={c.id}
                   c={c}
                   active={selected?.id === c.id}
@@ -513,10 +624,15 @@ export function DealRoomPage() {
             </div>
           )}
 
-          {/* On phones the detail opens as a sheet rather than a side panel. */}
           {view === 'list' && selected && (
-            <div className="fixed inset-0 z-[1200] flex items-end bg-black/40 sm:items-center sm:justify-center">
-              <div className="max-h-[85vh] w-full overflow-hidden rounded-t-2xl sm:max-w-md sm:rounded-2xl">
+            <div
+              className="fixed inset-0 z-[1200] flex items-end bg-black/40 sm:items-center sm:justify-center"
+              onClick={() => setSelected(null)}
+            >
+              <div
+                className="max-h-[85vh] w-full overflow-hidden rounded-t-2xl sm:max-w-lg sm:rounded-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <CompDetail c={selected} onClose={() => setSelected(null)} />
               </div>
             </div>
@@ -525,30 +641,7 @@ export function DealRoomPage() {
 
         <PropertyFacts p={property} />
 
-        {(room.broker_name || room.broker_email || room.broker_phone) && (
-          <section className="mt-10 rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="text-lg font-bold text-slate-900">Questions?</h2>
-            {room.broker_name && <p className="mt-1 text-slate-700">{room.broker_name}</p>}
-            <div className="mt-4 flex flex-wrap gap-3">
-              {room.broker_phone && (
-                <a href={`tel:${room.broker_phone}`} className={cn(BTN, 'bg-slate-900 text-white hover:bg-slate-800')}>
-                  <Phone className="h-4 w-4" /> {formatPhone(room.broker_phone)}
-                </a>
-              )}
-              {room.broker_email && (
-                <a
-                  href={`mailto:${room.broker_email}?subject=${encodeURIComponent(room.title)}`}
-                  className={cn(BTN, 'bg-blue-600 text-white hover:bg-blue-700')}
-                >
-                  <Mail className="h-4 w-4" /> {room.broker_email}
-                </a>
-              )}
-            </div>
-          </section>
-        )}
-
-        <p className="mt-8 flex items-start gap-2 text-xs leading-relaxed text-slate-400">
-          <Ruler className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p className="mt-10 border-t border-slate-200 pt-5 text-xs leading-relaxed text-slate-400">
           Comparable data is drawn from county records and market sources and is believed accurate but
           not guaranteed. Figures are approximate and subject to verification. This is not an offer.
         </p>
