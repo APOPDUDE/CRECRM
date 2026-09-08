@@ -36,3 +36,7 @@ body.consult .calendly { height: 720px; margin-top: 8px; }
   .actions { flex-wrap: wrap; }
   body.consult .calendly { height: 960px; }
 }
+
+/* intro: headline, price line, then the honest small print */
+body.consult .step[data-step="intro"] .lede { margin-bottom: 16px; }
+body.consult .step[data-step="intro"] .lede.fine { font-size: 14px; margin: 0 0 44px; }
