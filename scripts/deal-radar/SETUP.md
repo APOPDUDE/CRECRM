@@ -166,6 +166,27 @@ Knobs live in `config.json` (`keywords_per_session`, `groups_per_session`,
 `active_hours`, `pace_min_ms` / `pace_max_ms`). Turning the volume back up is what
 got the account flagged the first time.
 
+### Markets (one per session, rotated)
+
+Facebook searches outward from a single city hub, so each market is a hub plus its
+own keyword set. **A session searches ONE market** — searches per day is
+`keywords_per_session x sessions`, *not* markets x keywords. That is deliberate:
+adding a market must never multiply daily volume.
+
+| Market | Hub | Keywords | Share |
+|---|---|---|---|
+| Central Florida | `tampa` | `cre` (industrial/land) | 2 of every 3 sessions |
+| Lake Glenville / WNC | `asheville` | `lake` | the 3rd session, rotating |
+| Charlotte / Lake Norman | `charlotte` | `lake` | " |
+| Raleigh / Jordan-Falls | `raleigh` | `lake` | " |
+
+Asheville is the nearest Marketplace hub to Lake Glenville, Cashiers, Highlands,
+Sapphire and Lake Toxaway. Order is set by `market_rotation`; each market keeps its
+own keyword cursor, so a market that comes up rarely still walks its whole list.
+
+Lake results are stored as the `lake_house` type (filterable on the Deal Radar page,
+separate from the industrial/land CRE feed).
+
 ---
 
 ## Updating later

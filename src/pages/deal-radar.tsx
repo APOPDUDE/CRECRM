@@ -24,7 +24,7 @@ import {
   type DealRadarIntent,
   type DealRadarType,
 } from '@/hooks/use-deal-radar'
-import { INTENT_ORDER, intentLabels, isRunStale, typeLabels } from '@/lib/deal-radar'
+import { INTENT_ORDER, intentLabels, isRunStale, TYPE_ORDER, typeLabels } from '@/lib/deal-radar'
 import { numOrNull } from '@/lib/format'
 
 type RadarView = 'all' | 'fbm' | 'groups' | 'approved' | 'declined'
@@ -138,8 +138,11 @@ export function DealRadarPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All types</SelectItem>
-            <SelectItem value="industrial">{typeLabels.industrial}</SelectItem>
-            <SelectItem value="land">{typeLabels.land}</SelectItem>
+            {TYPE_ORDER.map((t) => (
+              <SelectItem key={t} value={t}>
+                {typeLabels[t]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

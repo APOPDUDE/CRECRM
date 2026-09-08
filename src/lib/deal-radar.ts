@@ -38,12 +38,17 @@ export function renderMessage(row: DealRadarRow, template = DEFAULT_MESSAGE_TEMP
 export const typeLabels: Record<DealRadarType, string> = {
   industrial: 'Industrial',
   land: 'Land',
+  lake_house: 'Lake house',
 }
 
 export const typeBadgeClass: Record<DealRadarType, string> = {
   industrial: 'bg-orange-50 text-orange-700 border-orange-200',
   land: 'bg-lime-50 text-lime-700 border-lime-200',
+  lake_house: 'bg-sky-50 text-sky-700 border-sky-200',
 }
+
+/** The order the type filter offers. */
+export const TYPE_ORDER: DealRadarType[] = ['industrial', 'land', 'lake_house']
 
 // The human triages each listing to one of two buckets — approved (pursuing it) or
 // declined (passed). 'converted' marks an approved listing turned into a real CRM

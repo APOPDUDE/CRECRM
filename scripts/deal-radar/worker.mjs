@@ -102,13 +102,20 @@ async function upsertRows(rows) {
   return data ?? []
 }
 
-// The metros to ping Slack about — Hillsborough (Tampa), Pinellas, Pasco, Sarasota,
-// Manatee. Tested against the listing's title + location + inferred market.
-const IN_MARKET =
+// Places worth a Slack ping. Two regions:
+//   FL — the CRE business: Hillsborough (Tampa), Pinellas, Pasco, Sarasota, Manatee.
+//   NC — the lake-house search: Lake Glenville and the western NC lakes first, plus
+//        the Lake Norman (Charlotte) and Triangle lakes.
+// Tested against the listing's title + location + inferred market.
+const IN_MARKET_FL =
   /\btampa\b|ybor|\bbrandon\b|riverview|\bruskin\b|apollo beach|plant city|\blutz\b|seffner|valrico|\bpinellas\b|st\.?\s*pete|petersburg|clearwater|\blargo\b|dunedin|palm harbor|pinellas park|\bpasco\b|new port richey|port richey|land o.?lakes|wesley chapel|zephyrhills|dade city|\bhudson\b|\bsarasota\b|\bvenice\b|north port|nokomis|\bosprey\b|\bmanatee\b|bradenton|\bpalmetto\b|ellenton|lakewood ranch|\bparrish\b/i
 
+const IN_MARKET_NC =
+  /\bglenville\b|lake glenville|\bcashiers\b|\bhighlands\b|\bsapphire\b|lake toxaway|\btoxaway\b|\bsylva\b|cullowhee|\bfranklin,?\s*nc\b|nantahala|\bfontana\b|lake lure|lake james|\bmorganton\b|\bhendersonville\b|\basheville\b|lake norman|\bmooresville\b|\bcornelius\b|\bdavidson,?\s*nc\b|huntersville|\bdenver,?\s*nc\b|\bsherrills ford\b|lake wylie|mountain island|badin lake|high rock lake|\bcharlotte\b|jordan lake|falls lake|harris lake|\braleigh\b|\bapex\b|\bcary,?\s*nc\b|\bnc\b/i
+
 function isInMarket(row) {
-  return IN_MARKET.test(`${row.title || ''} ${row.location_text || ''} ${row.market || ''}`)
+  const hay = `${row.title || ''} ${row.location_text || ''} ${row.market || ''}`
+  return IN_MARKET_FL.test(hay) || IN_MARKET_NC.test(hay)
 }
 
 /**
@@ -169,25 +176,48 @@ async function main() {
   let aborted = false
   const newInMarket = [] // brand-new listings in the target metros — one Slack ping at the end
 
-  // Rotate a SUBSET of keywords this session, then shuffle so the order varies too.
+  // ONE market per session, taken from market_rotation. Searches stay at
+  // keywords_per_session regardless of how many markets exist — adding a market
+  // must never multiply the daily volume that got the account flagged.
+  const allMarkets = config.markets ?? []
+  const rotationNames = config.market_rotation?.length
+    ? config.market_rotation
+    : allMarkets.map((m) => m.name)
+  const marketName = rotationNames[(state.marketCursor ?? 0) % rotationNames.length]
+  state.marketCursor = ((state.marketCursor ?? 0) + 1) % rotationNames.length
+  const market = allMarkets.find((m) => m.name === marketName) ?? allMarkets[0]
+  if (!market) {
+    log('no markets configured — nothing to do')
+    return
+  }
+
+  // Each market has its own keyword set and its own rotation cursor, so a market
+  // that comes up rarely still walks through all of its keywords in order.
+  const setName = market.keyword_set
+  const marketKeywords = (setName && config.keyword_sets?.[setName]) || config.keywords || []
+
   // Weekends get 60-70% of the weekday load: a weekend:weekday ratio near 1.0 is
   // itself a bot signal, because humans have weekends.
   const volume = dayVolumeFactor()
   const kwCount = Math.max(1, Math.round(KEYWORDS_PER_SESSION * volume))
   if (volume < 1) log(`weekend — trimming this session to ${kwCount} keywords`)
+
+  state.keywordCursors = state.keywordCursors ?? {}
   const { picked: kwPicked, nextCursor: kwNext } = rotate(
-    config.keywords ?? [],
+    marketKeywords,
     kwCount,
-    state.keywordCursor ?? 0,
+    state.keywordCursors[market.name] ?? 0,
   )
   const sessionKeywords = shuffle(kwPicked)
-  state.keywordCursor = kwNext
-  log(`session keywords (${sessionKeywords.length}/${config.keywords?.length ?? 0}): ${sessionKeywords.join(', ')}`)
+  state.keywordCursors[market.name] = kwNext
+  log(
+    `session market: ${market.name} (${setName ?? 'default'}) — keywords ${sessionKeywords.length}/${marketKeywords.length}: ${sessionKeywords.join(', ')}`,
+  )
 
   // Marketplace pass — browser scrape of the rendered search results page.
   try {
-    const totalSearches = (config.markets?.length ?? 0) * sessionKeywords.length
-    const { errors, checkpoint } = await watchMarket(config.markets, sessionKeywords, {
+    const totalSearches = sessionKeywords.length
+    const { errors, checkpoint } = await watchMarket([market], sessionKeywords, {
       scrollsMin: config.market_scrolls_min ?? 3,
       scrollsMax: config.market_scrolls_max ?? 7,
       paceMinMs: PACE_MIN_MS,

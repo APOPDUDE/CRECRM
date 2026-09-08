@@ -89,6 +89,25 @@ const INDUSTRIAL_STRONG = [
   /loading\s+dock|roll[- ]?up\s+door|grade[- ]?level/i,
 ]
 
+// Lake / waterfront residential — the North Carolina search (Lake Glenville,
+// Cashiers/Highlands, plus Charlotte and Raleigh hubs).
+const LAKE = [
+  /lake\s*front|lakefront|water\s*front|waterfront/i,
+  /lake\s*(?:house|home|cabin|cottage|property|living)/i,
+  /\bon\s+lake\s+[a-z]/i,
+  /lake\s+access|deep\s*water|dockable|canal\s*front/i,
+  /boat\s*(?:slip|dock|house)/i,
+]
+
+// A waterfront word alone is not a listing — "lakefront art print", "lake house
+// decor" are merch. Require something that says DWELLING or REAL ESTATE.
+const RESIDENTIAL_SIGNAL =
+  /\b\d+\s*(?:bd|br|beds?|bedrooms?)\b|\b\d+(?:\.\d+)?\s*(?:ba|baths?|bathrooms?)\b|\b(?:house|home|cabin|cottage|condo|townhome|townhouse|chalet|lot)\b|\bacres?\b|\bfor\s+sale\b|\bmls\b|\b\d[\d,]{4,}\b/i
+
+// Lake-themed merchandise that would otherwise ride the waterfront terms.
+const LAKE_JUNK =
+  /\bdecor\b|\bsign\b|\bart\b|\bprints?\b|\bcanvas\b|blanket|pillow|\bmug\b|\bshirt\b|sticker|kayak|paddle\s*board|life\s*jacket|inner\s*tube|\bfloat(?:ie|y)?\b|\bcooler\b/i
+
 // "industrial" as a real-estate adjective needs company: a CRE noun beside it (this
 // list), or a lease/size signal somewhere in the listing (CRE_SIGNAL, checked in
 // classify). Bare /industrial/ alone matched "industrial barstool" — these don't.
@@ -103,19 +122,25 @@ const CRE_SIGNAL =
   /\bfor\s+(?:lease|rent)\b|\b\d[\d,.]*\s*(?:sf|sq\.?\s*ft|sqft|square\s*f(?:ee|oo)t(?:age)?|acres?)\b|\bsquare\s*f(?:ee|oo)tage\b/i
 
 /**
- * industrial | land | null (null = don't persist). Precedence:
+ * industrial | land | lake_house | null (null = don't persist). Precedence:
  * 1. a building/yard noun + a real-estate signal (size or for-lease) -> industrial,
  *    winning even over a junk word ("Industrial warehouse 26,000 SF ... furniture").
- * 2. a junk term -> drop.
- * 3. a building/yard noun -> industrial (beats a land read).
- * 4. a land signal -> land ("vacant industrial land" lands here).
- * 5. bare "industrial" only with a CRE noun beside it or a size/lease signal.
+ * 2. a waterfront term + a dwelling/real-estate signal -> lake_house. Checked BEFORE
+ *    the junk list on purpose: "boat slip" and "boat dock" are selling points of a
+ *    lake house, but /\bboat\b/ sits in JUNK for the Florida CRE searches.
+ * 3. a junk term -> drop.
+ * 4. a building/yard noun -> industrial (beats a land read).
+ * 5. a land signal -> land ("vacant industrial land" lands here).
+ * 6. bare "industrial" only with a CRE noun beside it or a size/lease signal.
  */
 export function classify(text) {
   const t = String(text || '')
   const strong = INDUSTRIAL_STRONG.some((re) => re.test(t))
   const creSignal = CRE_SIGNAL.test(t)
   if (strong && creSignal) return 'industrial'
+  if (LAKE.some((re) => re.test(t)) && RESIDENTIAL_SIGNAL.test(t) && !LAKE_JUNK.test(t)) {
+    return 'lake_house'
+  }
   if (JUNK.some((re) => re.test(t))) return null
   if (strong) return 'industrial'
   if (LAND.some((re) => re.test(t))) return 'land'

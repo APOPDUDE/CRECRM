@@ -2,26 +2,68 @@
   "markets": [
     {
       "name": "Central Florida",
+      "fb_slug": "tampa",
+      "keyword_set": "cre",
       "lat": 27.9506,
       "lng": -82.4572,
       "radius_miles": 150
+    },
+    {
+      "name": "Lake Glenville / WNC",
+      "fb_slug": "asheville",
+      "keyword_set": "lake",
+      "note": "Nearest Marketplace hub to Lake Glenville, Cashiers, Highlands, Sapphire, Lake Toxaway."
+    },
+    {
+      "name": "Charlotte / Lake Norman",
+      "fb_slug": "charlotte",
+      "keyword_set": "lake"
+    },
+    {
+      "name": "Raleigh / Jordan-Falls",
+      "fb_slug": "raleigh",
+      "keyword_set": "lake"
     }
   ],
-  "keywords": [
-    "warehouse",
-    "industrial building",
-    "industrial warehouse",
-    "flex space",
-    "flex warehouse",
-    "commercial building",
-    "building for sale",
-    "commercial property",
-    "commercial lot",
-    "land for sale",
-    "acreage",
-    "truck yard",
-    "outdoor storage"
+  "_comment_rotation": "ONE market per session, in this order. Searches = keywords_per_session, NOT markets x keywords — adding markets must never raise the daily volume that got the account flagged. Florida (the business) gets 2 of every 3 sessions; the NC lake hubs share the third.",
+  "market_rotation": [
+    "Central Florida",
+    "Central Florida",
+    "Lake Glenville / WNC",
+    "Central Florida",
+    "Central Florida",
+    "Charlotte / Lake Norman",
+    "Central Florida",
+    "Central Florida",
+    "Raleigh / Jordan-Falls"
   ],
+  "keyword_sets": {
+    "cre": [
+      "warehouse",
+      "industrial building",
+      "industrial warehouse",
+      "flex space",
+      "flex warehouse",
+      "commercial building",
+      "building for sale",
+      "commercial property",
+      "commercial lot",
+      "land for sale",
+      "acreage",
+      "truck yard",
+      "outdoor storage"
+    ],
+    "lake": [
+      "lake house",
+      "lakefront",
+      "lakefront home",
+      "waterfront home",
+      "lake home for sale",
+      "lake lot",
+      "waterfront property",
+      "boat slip"
+    ]
+  },
   "days_since_listed": 7,
   "min_price": 5000,
   "limit_per_search": 20,

@@ -5772,7 +5772,7 @@ export type Database = {
         | "converted"
         | "approved"
         | "declined"
-      deal_radar_type: "industrial" | "land"
+      deal_radar_type: "industrial" | "land" | "lake_house"
       deal_type: "lease" | "sale" | "both"
       email_campaign_purpose:
         | "off_market_seller"
@@ -6080,7 +6080,7 @@ export const Constants = {
         "approved",
         "declined",
       ],
-      deal_radar_type: ["industrial", "land"],
+      deal_radar_type: ["industrial", "land", "lake_house"],
       deal_type: ["lease", "sale", "both"],
       email_campaign_purpose: [
         "off_market_seller",
