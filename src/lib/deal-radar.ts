@@ -38,11 +38,13 @@ export function renderMessage(row: DealRadarRow, template = DEFAULT_MESSAGE_TEMP
 export const typeLabels: Record<DealRadarType, string> = {
   industrial: 'Industrial',
   land: 'Land',
+  lake_house: 'Lake house',
 }
 
 export const typeBadgeClass: Record<DealRadarType, string> = {
   industrial: 'bg-orange-50 text-orange-700 border-orange-200',
   land: 'bg-lime-50 text-lime-700 border-lime-200',
+  lake_house: 'bg-sky-50 text-sky-700 border-sky-200',
 }
 
 // Status is the human's to move — the worker only ever writes 'new'.
@@ -53,6 +55,8 @@ export const statusLabels: Record<DealRadarStatus, string> = {
   negotiating: 'Negotiating',
   dead: 'Dead',
   converted: 'Converted',
+  approved: 'Approved',
+  declined: 'Declined',
 }
 
 export const statusBadgeClass: Record<DealRadarStatus, string> = {
@@ -62,6 +66,8 @@ export const statusBadgeClass: Record<DealRadarStatus, string> = {
   negotiating: 'bg-teal-50 text-teal-700 border-teal-200',
   dead: 'bg-gray-100 text-gray-500 border-gray-200',
   converted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  approved: 'bg-green-50 text-green-700 border-green-200',
+  declined: 'bg-rose-50 text-rose-700 border-rose-200',
 }
 
 /** The order the status dropdown offers moves in. */

@@ -17,6 +17,7 @@ import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
 import { PropertyTasks } from '@/components/property-tasks'
 import { PropertyComps } from '@/components/property-comps'
+import { InvestorPageCard } from '@/components/investor-page-card'
 import { SiteIntelligence } from '@/components/site-intelligence'
 import { PropertyTourNotes } from '@/components/property-tour-notes'
 import { PropertyHistory } from '@/components/property-history'
@@ -348,6 +349,8 @@ export function PropertyDetailPage() {
       <SiteIntelligence propertyId={property.id} />
 
       <PropertyComps propertyId={property.id} />
+
+      <InvestorPageCard propertyId={property.id} grossSf={property.gross_sf} />
 
       <PropertyOwnerCard property={property} />
 

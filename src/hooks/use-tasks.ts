@@ -24,6 +24,7 @@ export const taskKindLabels: Record<Enums<'task_kind'>, string> = {
   follow_up: 'Follow-up',
   general: 'Task',
   tour: 'Tour',
+  meeting: 'Meeting',
 }
 
 /** Anything a task can be routed to, so a task row never dead-ends. */
