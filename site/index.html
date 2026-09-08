@@ -128,6 +128,45 @@
     </form>
   </main>
 </div>
+
+<!-- entry gate: full screen, two buckets, equal weight -->
+<div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title" hidden>
+  <div class="gate-inner">
+    <p class="eyebrow">Alex Poplawski CRE</p>
+    <h2 id="gate-title">What are you<br><span>here for?</span></h2>
+    <div class="gate-choices">
+      <button type="button" class="gate-btn" id="gate-space">
+        <em>01</em>
+        <strong>I'm looking for space</strong>
+        <span>Warehouse, outdoor storage, flex and land across <strong class="hl">Tampa Bay</strong>.</span>
+        <b aria-hidden="true">&rarr;</b>
+      </button>
+      <a class="gate-btn" href="/consultation">
+        <em>02</em>
+        <strong>I want an advisory call</strong>
+        <span>Automations, AI and real estate for your business.</span>
+        <b aria-hidden="true">&rarr;</b>
+      </a>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var g = document.getElementById('gate');
+  var seen = false;
+  try { seen = sessionStorage.getItem('gate') === '1'; } catch (e) {}
+  if (seen || location.hash === '#form') return;
+  g.hidden = false;
+  document.body.classList.add('gated');
+  function close() {
+    g.hidden = true;
+    document.body.classList.remove('gated');
+    try { sessionStorage.setItem('gate', '1'); } catch (e) {}
+  }
+  document.getElementById('gate-space').addEventListener('click', close);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+})();
+</script>
 <script src="/form.js" defer></script>
 </body>
 </html>
