@@ -37,7 +37,7 @@ import {
 import { usePropertySearch } from '@/hooks/use-listing-parcels'
 import { useCreateTask, useTasks, useToggleTask } from '@/hooks/use-tasks'
 import { formatDate, formatTimeOfDay, isOverdue } from '@/lib/dates'
-import { activityOf, calendlyBookingOf, calledOf, leadSourceOf } from '@/lib/lead-source'
+import { activityOf, calendlyBookingOf, calledOf, leadKindOf, leadSourceOf } from '@/lib/lead-source'
 import type { Enums } from '@/lib/database.types'
 import { cn } from '@/lib/utils'
 
@@ -72,6 +72,7 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
 
   const who = p.contact ? contactNameOf(p.contact) : (p.company?.name ?? 'Prospect')
   const tasks = allTasks.filter((t) => t.prospect_id === p.id && t.status === 'open')
+  const kind = leadKindOf(p)
   const src = leadSourceOf(p)
   const booking = calendlyBookingOf(p)
   const called = calledOf(p)
@@ -174,8 +175,13 @@ export function ProspectSlideOver({ prospect, open, onOpenChange }: ProspectSlid
             {p.company?.name && p.contact ? `${p.company.name} · ` : ''}
             Lead since {formatDate(p.created_at)}
           </SheetDescription>
-          {(src || booking || called || activity.length > 0) && (
+          {(kind || src || booking || called || activity.length > 0) && (
             <div className="flex flex-wrap gap-1.5 pt-1">
+              {kind && (
+                <Badge variant="outline" className={cn('font-medium', kind.className)}>
+                  {kind.label}
+                </Badge>
+              )}
               {src && (
                 <Badge variant="outline" className={cn('font-normal', src.className)}>
                   {src.label}

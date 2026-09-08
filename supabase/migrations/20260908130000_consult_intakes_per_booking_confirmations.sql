@@ -1,0 +1,12 @@
+-- Applied live 2026-09-08 via Supabase MCP (name: consult_intakes_and_per_booking_confirmations).
+--   * consult_intakes: the /consultation answers are HELD here (no lead, no Slack) until the paid
+--     Calendly booking arrives; store_consult_intake(p) (service_role) writes them.
+--   * intake_calendly_booking v4: a booking whose event name contains "consult" adopts the newest
+--     unconsumed intake for that email/phone -> lead description "[Consultation ($100) - ...]" with
+--     summary / Business / Question, details.form = 'consultation' (+ the payload), intake consumed;
+--     appends to an existing open lead instead of duplicating; returns consult/intake_found/need_label/
+--     business/question/stage_label/found for the Slack card.
+--   * due_confirmations(): confirmation keys are per BOOKING ("<task_id>:email1|text1|dayof"), plus
+--     consult + question columns for the consultation wording; existing per-lead stamps were copied onto
+--     each lead's earliest open future meeting.
+-- Full bodies: Supabase migration history.

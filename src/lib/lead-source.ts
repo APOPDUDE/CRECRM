@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import type { Tables } from '@/lib/database.types'
 
-type ProspectLike = Pick<Tables<'prospects'>, 'sourced_by' | 'description' | 'details'>
+type ProspectLike = Pick<Tables<'prospects'>, 'sourced_by' | 'description' | 'details'> & { lead_type?: string | null }
 
 const CHANNEL_LABEL: Record<string, string> = {
   ig: 'Instagram',
@@ -41,6 +41,15 @@ export function leadSourceOf(p: ProspectLike): { label: string; className: strin
   if (/^\[GHL lead/i.test(first)) return { label: 'GHL', className: 'border-violet-200 bg-violet-50 text-violet-700' }
   if (/facebook|deal radar/i.test(first)) return { label: 'Facebook', className: 'border-sky-200 bg-sky-50 text-sky-700' }
   if (p.sourced_by === 'va') return { label: 'VA', className: 'border-amber-200 bg-amber-50 text-amber-700' }
+  return null
+}
+
+/** Consultation ($100, paid) vs User (free space inquiry) vs Seller - the badge Alex reads first. */
+export function leadKindOf(p: ProspectLike & { lead_type?: string | null }): { label: string; className: string } | null {
+  const d = detailsOf(p)
+  if (d.form === 'consultation' || d.consult === true) return { label: 'Consultation', className: 'border-amber-300 bg-amber-50 text-amber-800' }
+  if (p.lead_type === 'seller') return { label: 'Seller', className: 'border-rose-200 bg-rose-50 text-rose-700' }
+  if (p.sourced_by === 'website' || d.website === true || p.lead_type === 'user') return { label: 'User', className: 'border-slate-300 bg-white text-slate-700' }
   return null
 }
 
