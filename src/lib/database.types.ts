@@ -840,6 +840,50 @@ export type Database = {
           },
         ]
       }
+      consult_intakes: {
+        Row: {
+          company: string | null
+          consumed_at: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          payload: Json
+          phone: string | null
+          prospect_id: string | null
+        }
+        Insert: {
+          company?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          payload?: Json
+          phone?: string | null
+          prospect_id?: string | null
+        }
+        Update: {
+          company?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          payload?: Json
+          phone?: string | null
+          prospect_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consult_intakes_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           archived: boolean
@@ -1429,6 +1473,179 @@ export type Database = {
           started_at?: string
         }
         Relationships: []
+      }
+      deal_room_comps: {
+        Row: {
+          comp_id: string
+          created_at: string
+          deal_room_id: string
+          featured: boolean
+          id: string
+          note: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          comp_id: string
+          created_at?: string
+          deal_room_id: string
+          featured?: boolean
+          id?: string
+          note?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          comp_id?: string
+          created_at?: string
+          deal_room_id?: string
+          featured?: boolean
+          id?: string
+          note?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_room_comps_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "comps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_room_comps_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "v_lease_comps"
+            referencedColumns: ["comp_id"]
+          },
+          {
+            foreignKeyName: "deal_room_comps_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_current_asking"
+            referencedColumns: ["comp_id"]
+          },
+          {
+            foreignKeyName: "deal_room_comps_deal_room_id_fkey"
+            columns: ["deal_room_id"]
+            isOneToOne: false
+            referencedRelation: "deal_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_rooms: {
+        Row: {
+          broker_email: string | null
+          broker_name: string | null
+          broker_phone: string | null
+          created_at: string
+          expires_at: string | null
+          headline_price: number | null
+          headline_price_psf: number | null
+          headline_rate_psf: number | null
+          highlights: string[]
+          id: string
+          last_viewed_at: string | null
+          lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          owner_id: string
+          property_id: string
+          published_at: string | null
+          show_comp_detail: boolean
+          show_tenant_names: boolean
+          slug: string
+          status: Database["public"]["Enums"]["deal_room_status"]
+          subtitle: string | null
+          summary: string | null
+          title: string
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
+          created_at?: string
+          expires_at?: string | null
+          headline_price?: number | null
+          headline_price_psf?: number | null
+          headline_rate_psf?: number | null
+          highlights?: string[]
+          id?: string
+          last_viewed_at?: string | null
+          lease_structure?:
+            | Database["public"]["Enums"]["lease_structure"]
+            | null
+          owner_id?: string
+          property_id: string
+          published_at?: string | null
+          show_comp_detail?: boolean
+          show_tenant_names?: boolean
+          slug: string
+          status?: Database["public"]["Enums"]["deal_room_status"]
+          subtitle?: string | null
+          summary?: string | null
+          title: string
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
+          created_at?: string
+          expires_at?: string | null
+          headline_price?: number | null
+          headline_price_psf?: number | null
+          headline_rate_psf?: number | null
+          highlights?: string[]
+          id?: string
+          last_viewed_at?: string | null
+          lease_structure?:
+            | Database["public"]["Enums"]["lease_structure"]
+            | null
+          owner_id?: string
+          property_id?: string
+          published_at?: string | null
+          show_comp_detail?: boolean
+          show_tenant_names?: boolean
+          slug?: string
+          status?: Database["public"]["Enums"]["deal_room_status"]
+          subtitle?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_rooms_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_rooms_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_rooms_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_rooms_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
       }
       dor_codes: {
         Row: {
@@ -5155,6 +5372,7 @@ export type Database = {
         Args: { p_property_id: string; p_tag: string }
         Returns: Json
       }
+      canonical_parcel: { Args: { p: string }; Returns: string }
       claim_text_sends: { Args: { p_limit?: number }; Returns: Json[] }
       client_area_match: {
         Args: { p_areas: Json; p_lat: number; p_lng: number }
@@ -5168,11 +5386,71 @@ export type Database = {
         }
         Returns: Json
       }
+      create_deal_room: {
+        Args: {
+          p_headline_price?: number
+          p_headline_rate_psf?: number
+          p_highlights?: string[]
+          p_property_id: string
+          p_publish?: boolean
+          p_subtitle?: string
+          p_summary?: string
+          p_title?: string
+        }
+        Returns: {
+          broker_email: string | null
+          broker_name: string | null
+          broker_phone: string | null
+          created_at: string
+          expires_at: string | null
+          headline_price: number | null
+          headline_price_psf: number | null
+          headline_rate_psf: number | null
+          highlights: string[]
+          id: string
+          last_viewed_at: string | null
+          lease_structure: Database["public"]["Enums"]["lease_structure"] | null
+          owner_id: string
+          property_id: string
+          published_at: string | null
+          show_comp_detail: boolean
+          show_tenant_names: boolean
+          slug: string
+          status: Database["public"]["Enums"]["deal_room_status"]
+          subtitle: string | null
+          summary: string | null
+          title: string
+          updated_at: string
+          view_count: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "deal_rooms"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       cross_reference: { Args: { p_property_ids: string[] }; Returns: Json }
       deal_radar_intent_of: {
         Args: { p_text: string }
         Returns: Database["public"]["Enums"]["deal_radar_intent"]
       }
+      deal_room_fill_comps: {
+        Args: {
+          p_deal_room_id: string
+          p_deal_type?: string
+          p_kinds?: string[]
+          p_limit?: number
+          p_psf_max?: number
+          p_psf_min?: number
+          p_radius_mi?: number
+          p_sf_max?: number
+          p_sf_min?: number
+          p_since?: string
+        }
+        Returns: number
+      }
+      deal_room_slug: { Args: { p_address: string }; Returns: string }
       derive_pursuit_deal_type: {
         Args: { p_client_id: string; p_property_id: string }
         Returns: Database["public"]["Enums"]["deal_type"]
@@ -5182,6 +5460,32 @@ export type Database = {
         Returns: Json
       }
       dor_class: { Args: { p_code: string }; Returns: number }
+      due_confirmations: {
+        Args: never
+        Returns: {
+          consult: boolean
+          contact_id: string
+          due_at: string
+          email: string
+          email1_skipped: boolean
+          event_name: string
+          first_name: string
+          full_name: string
+          ghl_contact_id: string
+          join_url: string
+          local_hour: number
+          phone: string
+          prospect_id: string
+          question: string
+          reschedule_url: string
+          start_long: string
+          start_short: string
+          step: string
+          summary: string
+          task_id: string
+          time_only: string
+        }[]
+      }
       email_audience_build: { Args: { p: Json }; Returns: Json }
       email_audience_property_merge: {
         Args: {
@@ -5294,6 +5598,10 @@ export type Database = {
         Returns: string
       }
       fs_safe_name: { Args: { p: string }; Returns: string }
+      geo_miles: {
+        Args: { lat1: number; lat2: number; lng1: number; lng2: number }
+        Returns: number
+      }
       ghl_history_note_payload: {
         Args: never
         Returns: {
@@ -5374,6 +5682,7 @@ export type Database = {
           url: string
         }[]
       }
+      log_inbound_email: { Args: { p: Json }; Returns: Json }
       mailing_street_key: {
         Args: { p_addr: string; p_city: string }
         Returns: string
@@ -5417,6 +5726,7 @@ export type Database = {
         Args: { p_property_ids: string[] }
         Returns: Json
       }
+      mark_reply_announced: { Args: { p_comm_id: string }; Returns: undefined }
       market_event_alerts: {
         Args: { p_limit?: number }
         Returns: {
@@ -5435,6 +5745,10 @@ export type Database = {
         }[]
       }
       market_monitor_health: { Args: never; Returns: Json }
+      merge_parcel_twins: {
+        Args: { p_county?: string; p_dry_run?: boolean }
+        Returns: Json
+      }
       merge_properties: {
         Args: { p_duplicates: string[]; p_survivor: string }
         Returns: Json
@@ -5524,6 +5838,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["property_kind"]
       }
       property_last_sales: { Args: never; Returns: Json }
+      public_deal_room: { Args: { p_slug: string }; Returns: Json }
       recent_touches: { Args: { p_phone: string }; Returns: number }
       record_market_listings_for_known: {
         Args: { p_rows: Json }
@@ -5589,6 +5904,11 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      stamp_lead_confirmation: {
+        Args: { p_meta?: Json; p_prospect_id: string; p_step: string }
+        Returns: Json
+      }
+      store_consult_intake: { Args: { p: Json }; Returns: Json }
       strip_html: { Args: { p: string }; Returns: string }
       suggest_properties: {
         Args: { p_limit?: number; p_query: string }
@@ -5658,6 +5978,22 @@ export type Database = {
       texting_send_allowed: {
         Args: { p_is_reply: boolean; p_phone: string }
         Returns: Json
+      }
+      unannounced_lead_replies: {
+        Args: never
+        Returns: {
+          body: string
+          channel: string
+          comm_id: string
+          contact_id: string
+          email: string
+          full_name: string
+          ghl_contact_id: string
+          occurred_at: string
+          phone: string
+          prospect_id: string
+          subject: string
+        }[]
       }
       unlink_owner_portfolio: {
         Args: { p_company: string }
@@ -5745,6 +6081,7 @@ export type Database = {
         | "ghl"
         | "manual"
         | "smartlead"
+        | "automation"
       comp_kind: "asking" | "executed" | "transfer"
       company_type:
         | "landlord"
@@ -5773,6 +6110,7 @@ export type Database = {
         | "approved"
         | "declined"
       deal_radar_type: "industrial" | "land" | "lake_house"
+      deal_room_status: "draft" | "published" | "archived"
       deal_type: "lease" | "sale" | "both"
       email_campaign_purpose:
         | "off_market_seller"
@@ -6049,6 +6387,7 @@ export const Constants = {
         "ghl",
         "manual",
         "smartlead",
+        "automation",
       ],
       comp_kind: ["asking", "executed", "transfer"],
       company_type: [
@@ -6081,6 +6420,7 @@ export const Constants = {
         "declined",
       ],
       deal_radar_type: ["industrial", "land", "lake_house"],
+      deal_room_status: ["draft", "published", "archived"],
       deal_type: ["lease", "sale", "both"],
       email_campaign_purpose: [
         "off_market_seller",

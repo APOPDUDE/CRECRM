@@ -10,6 +10,7 @@ import { AuthProvider } from '@/components/auth-provider'
 import { BreadcrumbProvider } from '@/components/breadcrumb-provider'
 import { useIsVa } from '@/hooks/use-is-va'
 import { LoginPage } from '@/pages/login'
+import { DealRoomPage } from '@/pages/deal-room'
 import { DashboardPage } from '@/pages/dashboard'
 import { ReppingPage, ReppingRedirect } from '@/pages/repping'
 import { BuyersPage } from '@/pages/buyers'
@@ -79,6 +80,10 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            {/* Public investor page. Deliberately OUTSIDE ProtectedRoute: it reads
+                through one anon-callable RPC that whitelists its fields, so a
+                shared link opens with no login and reaches nothing else. */}
+            <Route path="/deal/:slug" element={<DealRoomPage />} />
             <Route element={<ProtectedRoute />}>
               {/* The texting console renders in whichever shell fits the login. */}
               <Route element={<TextingShell />}>
