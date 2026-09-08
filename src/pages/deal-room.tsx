@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Building2, ChevronRight, ExternalLink, List, MapIcon, MapPin, X } from 'lucide-react'
+import { Building2, ChevronRight, ExternalLink, FileText, List, MapIcon, MapPin, X } from 'lucide-react'
 import {
   compHeadline,
   compMonth,
@@ -11,6 +11,7 @@ import {
   type DealRoomComp,
   type DealRoomPayload,
 } from '@/lib/deal-room'
+import { listingUrlFromSourceKey } from '@/lib/listing-url'
 import { cn } from '@/lib/utils'
 
 const SUBJECT = '#1d4ed8'
@@ -288,7 +289,7 @@ export function DealRoomPage() {
   const { slug } = useParams<{ slug: string }>()
   const { data, isLoading, isError } = useDealRoom(slug)
   const [view, setView] = useState<'map' | 'list'>('map')
-  const [basemap, setBasemap] = useState<keyof typeof BASEMAPS>('street')
+  const [basemap, setBasemap] = useState<keyof typeof BASEMAPS>('satellite')
   const [basis, setBasis] = useState<Basis>('executed')
   const [deal, setDeal] = useState<'all' | 'sale' | 'lease'>('all')
   const [selected, setSelected] = useState<DealRoomComp | null>(null)
@@ -352,6 +353,9 @@ export function DealRoomPage() {
   }
 
   const { room, property } = data
+  // Built from the property's OWN source_key, never a scraped url field — those
+  // have been seen carrying a neighbouring listing's id.
+  const listingUrl = listingUrlFromSourceKey(property.source_key, property.address, property.city)
   const subjectPsf = room.headline_price_psf
   const vsMarket =
     subjectPsf != null && medians.saleExecuted != null
@@ -364,14 +368,26 @@ export function DealRoomPage() {
         <div className="mx-auto flex max-w-[1800px] flex-wrap items-baseline gap-x-4 gap-y-1 px-6 py-4 xl:px-10">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{room.title}</h1>
           {room.subtitle && <p className="text-sm text-slate-500">{room.subtitle}</p>}
-          <a
-            href={directionsUrl(property.lat, property.lng, property.address)}
-            target="_blank"
-            rel="noreferrer"
-            className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <MapPin className="h-4 w-4" /> Directions <ExternalLink className="h-3 w-3" />
-          </a>
+          <div className="ml-auto flex items-center gap-2">
+            <a
+              href={directionsUrl(property.lat, property.lng, property.address)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <MapPin className="h-4 w-4" /> Directions <ExternalLink className="h-3 w-3" />
+            </a>
+            {listingUrl && (
+              <a
+                href={listingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <FileText className="h-4 w-4" /> Listing <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
         </div>
       </header>
 
@@ -492,13 +508,6 @@ export function DealRoomPage() {
               />
             </div>
           </div>
-
-          {basis === 'asking' && (
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-              Asking rates are what owners are currently marketing — not what deals traded at. Compare
-              them against the executed set, never blended with it.
-            </p>
-          )}
 
           {view === 'map' ? (
             <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_520px]">

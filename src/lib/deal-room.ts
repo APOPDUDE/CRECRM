@@ -89,6 +89,7 @@ export interface DealRoomPayload {
     just_value: number | null
     specs: string | null
     description: string | null
+    source_key: string | null
     photo_urls: string[] | null
   }
   comps: DealRoomComp[]
