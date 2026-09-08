@@ -38,5 +38,10 @@ body.consult .calendly { height: 720px; margin-top: 8px; }
 }
 
 /* intro: headline, price line, then the honest small print */
+body.consult .step[data-step="intro"] h1 { margin-top: 72px; }
 body.consult .step[data-step="intro"] .lede { margin-bottom: 16px; }
 body.consult .step[data-step="intro"] .lede.fine { font-size: 14px; margin: 0 0 44px; }
+
+/* header: just the price, centered and bold */
+body.consult header.top { justify-content: center; }
+body.consult header.top .price { font-size: 15px; font-weight: 600; letter-spacing: 0.12em; color: var(--navy); }
