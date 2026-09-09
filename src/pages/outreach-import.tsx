@@ -1,7 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, FileUp, Loader2, Send, Upload } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { format } from 'date-fns'
+import { CheckCircle2, FileUp, Loader2, PhoneCall, Send, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { GhlPhoneLink } from '@/components/ghl-phone-link'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -166,6 +170,21 @@ type ImportReport = {
 
 type OutreachExport = { id: string; name: string; row_count: number; created_at: string }
 
+/** One verified person on a property this list touches — from outreach_list_verified(). */
+type VerifiedOnList = {
+  contact_id: string
+  name: string
+  company: string | null
+  phone: string | null
+  ghl_contact_id: string | null
+  verified_at: string
+  property_id: string
+  address: string
+  city: string | null
+  skipped_people: string[]
+  skipped_phones: number
+}
+
 export function OutreachImportPage() {
   const [listName, setListName] = useState('')
   const [fileName, setFileName] = useState('')
@@ -199,6 +218,32 @@ export function OutreachImportPage() {
     if (!raw) return ''
     return raw.startsWith('list-') ? raw : `list-${raw}`
   }, [listName])
+
+  // Verified people on this list's properties. The GHL push skips every number on those
+  // parcels (you already have the person), so they must be visible HERE, with a GHL deep link,
+  // or they silently vanish between the CSV and the dialer. Keyed on the list name, not the
+  // import, so naming an existing list shows its verified people without re-importing.
+  const queryClient = useQueryClient()
+  const settledList = useDebouncedValue(listSlug, 400)
+  const { data: verified } = useQuery({
+    queryKey: ['outreach-list-verified', settledList],
+    enabled: settledList.length > 'list-'.length,
+    staleTime: 30_000,
+    queryFn: async (): Promise<VerifiedOnList[]> => {
+      const { data, error } = await supabase.rpc('outreach_list_verified', { p_list: settledList })
+      if (error) throw error
+      return (data ?? []) as unknown as VerifiedOnList[]
+    },
+  })
+  const verifiedPeople = useMemo(
+    () => new Set((verified ?? []).map((v) => v.contact_id)).size,
+    [verified],
+  )
+  const skippedPhones = useMemo(() => {
+    const perProperty = new Map<string, number>()
+    for (const v of verified ?? []) perProperty.set(v.property_id, v.skipped_phones)
+    return [...perProperty.values()].reduce((a, b) => a + b, 0)
+  }, [verified])
 
   const onFile = async (f: File) => {
     const text = await f.text()
@@ -296,6 +341,7 @@ export function OutreachImportPage() {
         prior_adopted_phones: last?.prior_adopted_phones ?? 0,
       })
       toast.success(`Imported ${listSlug}: ${totals.new ?? 0} new, ${totals.existing ?? 0} existing.`)
+      void queryClient.invalidateQueries({ queryKey: ['outreach-list-verified'] })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'The import failed.')
     } finally {
@@ -443,8 +489,9 @@ export function OutreachImportPage() {
               {' · '}
               <span>{report.existing} existing</span>
               {' · '}
-              <span className={report.already_verified ? 'font-medium text-amber-700' : ''}>
-                {report.already_verified} already verified in the book
+              <span className={verifiedPeople ? 'font-medium text-amber-700' : ''}>
+                {verifiedPeople} already verified in the book
+                {verifiedPeople ? ' — call them first, below' : ''}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
@@ -617,6 +664,77 @@ export function OutreachImportPage() {
         </Card>
       ) : null}
 
+      {/* ------------------------------------------------------------------ 2b. Call these first */}
+      {verified?.length ? (
+        <Card className="border-amber-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <PhoneCall className="size-4 text-amber-700" /> Call these first —{' '}
+              {verifiedPeople} verified {verifiedPeople === 1 ? 'contact' : 'contacts'} on this
+              list
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              You have already spoken with these people. The GHL push skips every number on their
+              properties ({skippedPhones} {skippedPhones === 1 ? 'number' : 'numbers'} from the
+              skiptrace), so dial them from GHL instead of cold-calling the list.
+            </p>
+            <div className="overflow-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Who</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Property</TableHead>
+                    <TableHead>Verified</TableHead>
+                    <TableHead>Skipped in the push</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {verified.map((v) => (
+                    <TableRow key={`${v.contact_id}:${v.property_id}`}>
+                      <TableCell className="text-sm">
+                        <Link to={`/contacts/${v.contact_id}`} className="font-medium hover:underline">
+                          {v.name}
+                        </Link>
+                        {v.company ? (
+                          <div className="text-xs text-muted-foreground">{v.company}</div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {v.phone ? (
+                          <GhlPhoneLink phone={v.phone} ghlContactId={v.ghl_contact_id} />
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <Link to={`/properties/${v.property_id}`} className="hover:underline">
+                          {v.address}
+                        </Link>
+                        {v.city ? (
+                          <span className="text-muted-foreground">, {v.city}</span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground tabular-nums">
+                        {format(new Date(v.verified_at), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {v.skipped_people.join(', ')}
+                        {v.skipped_phones
+                          ? ` · ${v.skipped_phones} ${v.skipped_phones === 1 ? 'number' : 'numbers'}`
+                          : ''}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* ------------------------------------------------------------------ 3. GHL push */}
       {report && automationEnabled() ? (
         <Card>
@@ -630,6 +748,9 @@ export function OutreachImportPage() {
               Upserts one GHL contact per phone number (exact-phone match, email into the{' '}
               <code>Owner Email</code> custom field) and tags them all <code>{report.list}</code>{' '}
               so the dialer can pick the list up. GHL is a mirror — the list itself lives here.
+              {verified?.length
+                ? ' Numbers on a property with a verified contact are not pushed — those people are in the call-first list above.'
+                : ''}
             </p>
             <Button onClick={pushToGhl} disabled={pushing || pushed}>
               {pushing ? (

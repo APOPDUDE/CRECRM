@@ -4264,6 +4264,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tasks_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+          {
             foreignKeyName: "tasks_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: false
@@ -5783,6 +5804,7 @@ export type Database = {
       outreach_ghl_mark: { Args: { p: Json }; Returns: Json }
       outreach_ghl_push_rows: { Args: { p_list: string }; Returns: Json }
       outreach_list_suppressed: { Args: { p_list: string }; Returns: Json }
+      outreach_list_verified: { Args: { p_list: string }; Returns: Json }
       outreach_mail_audience: { Args: { p: Json }; Returns: Json }
       outreach_mark_wrong_number: { Args: { p: Json }; Returns: Json }
       parcel_at_point: { Args: { p_lat: number; p_lng: number }; Returns: Json }
