@@ -1159,8 +1159,16 @@ export function PropertiesPage() {
       // out of a 93,666 SF building answers a 30k requirement — but the building
       // itself is far too big, so filtering on gross_sf alone excludes the very
       // property the search is for.
+      //
+      // The reverse also holds on a for-lease search: when the listing advertises
+      // LESS than the whole building, the shell is not what is for lease, so it must
+      // not answer either. A 13,500 SF building offering one 2,880 SF bay is a 2,880
+      // SF answer, not a 10,000+ one. Hand-entered units alone never demote the
+      // shell — Alex recording a 30k carve-out does not mean the 93k is off the table.
       if (sfLo != null || sfHi != null) {
-        const sizes = [p.gross_sf, ...(unitSizes?.get(p.id) ?? [])].filter(
+        const space = unitSizes?.get(p.id)
+        const shellCounts = !(marketSubsApply && dealType === 'lease' && space?.advertised)
+        const sizes = [...(shellCounts ? [p.gross_sf] : []), ...(space?.sizes ?? [])].filter(
           (v): v is number => v != null,
         )
         const fits = sizes.some(
