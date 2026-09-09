@@ -3,6 +3,8 @@ import { addDays, format, isAfter, parseISO } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
 import { formatDate } from '@/lib/dates'
+import { useAuth } from '@/hooks/use-auth'
+import { parentColumnOf, useCreateNote, type ParentType } from '@/hooks/use-notes'
 
 export type TaskWithContact = Tables<'tasks'> & {
   contact: Pick<
@@ -11,12 +13,15 @@ export type TaskWithContact = Tables<'tasks'> & {
   > | null
   /** When a task hangs off a pursuit (e.g. payment checks), its client for routing. */
   pursuit: { client_id: string } | null
+  /** The building a task is about, when it was raised from the property page. */
+  property: Pick<Tables<'properties'>, 'id' | 'address' | 'city'> | null
 }
 
 const TASK_SELECT = `
   *,
   contact:contacts!tasks_contact_id_fkey(id, first_name, last_name, phone, ghl_contact_id),
-  pursuit:pursuits!tasks_pursuit_id_fkey(client_id)
+  pursuit:pursuits!tasks_pursuit_id_fkey(client_id),
+  property:properties!tasks_property_id_fkey(id, address, city)
 `
 
 export const taskKindLabels: Record<Enums<'task_kind'>, string> = {
@@ -30,7 +35,10 @@ export const taskKindLabels: Record<Enums<'task_kind'>, string> = {
 /** Anything a task can be routed to, so a task row never dead-ends. */
 export type TaskTarget = { href: string; label: string }
 
-type RoutableTask = Pick<Tables<'tasks'>, 'client_id' | 'listing_id' | 'pursuit_id' | 'contact_id' | 'prospect_id'> & {
+type RoutableTask = Pick<
+  Tables<'tasks'>,
+  'client_id' | 'listing_id' | 'pursuit_id' | 'contact_id' | 'prospect_id' | 'property_id'
+> & {
   pursuit?: { client_id: string } | null
 }
 
@@ -47,6 +55,8 @@ export function taskTarget(task: RoutableTask): TaskTarget | null {
     return { href: `/tenant-rep/${task.pursuit.client_id}`, label: 'Open deal' }
   // A lead's task (a Calendly booking, a follow-up) opens that lead on the Leads page.
   if (task.prospect_id) return { href: `/prospecting?prospect=${task.prospect_id}`, label: 'Open lead' }
+  // A task raised from a property page goes back to that building.
+  if (task.property_id) return { href: `/properties/${task.property_id}`, label: 'Open property' }
   if (task.contact_id) return { href: `/contacts/${task.contact_id}`, label: 'Open contact' }
   return null
 }
@@ -147,23 +157,40 @@ export type PropertyTask = Tables<'tasks'> & {
     | null
 }
 
-/** Open tasks attached to any pursuit on this property (tours, follow-ups, etc.). */
+const PROPERTY_TASK_CLIENT =
+  'client_id, property_id, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name))'
+
+const byDue = (a: PropertyTask, b: PropertyTask) =>
+  (a.due_at ?? a.due_date ?? '9999') < (b.due_at ?? b.due_date ?? '9999') ? -1 : 1
+
+/**
+ * Open tasks on this property: the ones raised from its page (tasks.property_id) plus
+ * the tours and follow-ups hanging off any deal that touches it. Two queries, because
+ * PostgREST cannot OR a top-level column against an embedded one; merged by id so a
+ * tour that carries both ids shows once.
+ */
 export function usePropertyTasks(propertyId: string | undefined) {
   return useQuery({
     queryKey: ['tasks', 'property', propertyId],
     enabled: !!propertyId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select(
-          `*, pursuit:pursuits!tasks_pursuit_id_fkey!inner(client_id, property_id, client:clients!pursuits_client_id_fkey(company:companies!clients_company_id_fkey(name), contact:contacts!clients_contact_id_fkey(first_name, last_name)))`,
-        )
-        .eq('pursuit.property_id', propertyId!)
-        .eq('status', 'open')
-        .order('due_at', { ascending: true, nullsFirst: false })
-        .order('due_date', { ascending: true, nullsFirst: false })
-      if (error) throw error
-      return data as unknown as PropertyTask[]
+      const [direct, viaPursuit] = await Promise.all([
+        supabase
+          .from('tasks')
+          .select(`*, pursuit:pursuits!tasks_pursuit_id_fkey(${PROPERTY_TASK_CLIENT})`)
+          .eq('property_id', propertyId!)
+          .eq('status', 'open'),
+        supabase
+          .from('tasks')
+          .select(`*, pursuit:pursuits!tasks_pursuit_id_fkey!inner(${PROPERTY_TASK_CLIENT})`)
+          .eq('pursuit.property_id', propertyId!)
+          .eq('status', 'open'),
+      ])
+      if (direct.error) throw direct.error
+      if (viaPursuit.error) throw viaPursuit.error
+      const seen = new Map<string, PropertyTask>()
+      for (const t of [...direct.data, ...viaPursuit.data] as unknown as PropertyTask[]) seen.set(t.id, t)
+      return [...seen.values()].sort(byDue)
     },
   })
 }
@@ -604,4 +631,48 @@ export function useDeleteTask() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   })
+}
+
+/**
+ * A note and/or a task saved together — the one way every "Add note" / "Add task"
+ * control writes them (board panels, the notes log, the property page). The note goes
+ * in first so the task can point at it (tasks.note_id); both hang off the same parent;
+ * the task is a plain open task so it lands on the task list like any other.
+ */
+export function useCreateNoteAndTask() {
+  const { session } = useAuth()
+  const createNote = useCreateNote()
+  const createTask = useCreateTask()
+  const mutateAsync = async ({
+    parentType,
+    parentId,
+    note,
+    task,
+  }: {
+    parentType: ParentType
+    parentId: string
+    note?: string | null
+    task?: { title: string; due_date?: string | null; kind?: Enums<'task_kind'> } | null
+  }) => {
+    const body = note?.trim() ?? ''
+    const title = task?.title.trim() ?? ''
+    if (!body && !title) return { note: null, task: null }
+    const savedNote = body ? await createNote.mutateAsync({ parentType, parentId, body }) : null
+    let savedTask: Tables<'tasks'> | null = null
+    if (title) {
+      if (!session?.user.id) throw new Error('Not signed in')
+      savedTask = await createTask.mutateAsync({
+        owner_id: session.user.id,
+        title,
+        kind: task?.kind ?? 'general',
+        due_date: task?.due_date || null,
+        note_id: savedNote?.id ?? null,
+        [parentColumnOf(parentType)]: parentId,
+        status: 'open',
+        auto_generated: false,
+      })
+    }
+    return { note: savedNote, task: savedTask }
+  }
+  return { mutateAsync, isPending: createNote.isPending || createTask.isPending }
 }

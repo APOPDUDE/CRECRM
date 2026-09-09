@@ -35,6 +35,7 @@ interface TaskFormDialogProps {
     client_id?: string | null
     listing_id?: string | null
     pursuit_id?: string | null
+    property_id?: string | null
   }
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, Pencil, Trash2, Plus } from 'lucide-react'
+import { ArrowLeft, CheckSquare, ExternalLink, Pencil, Trash2, Plus, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,8 @@ import { AddToClientDialog } from '@/components/add-to-client-dialog'
 import { InlineEditField } from '@/components/inline-edit-field'
 import { FileSection } from '@/components/files/file-section'
 import { PropertyTasks } from '@/components/property-tasks'
+import { NoteTaskDialog } from '@/components/note-task-dialog'
+import { TaskFocusBanner } from '@/components/task-focus-banner'
 import { PropertyComps } from '@/components/property-comps'
 import { InvestorPageCard } from '@/components/investor-page-card'
 import { SiteIntelligence } from '@/components/site-intelligence'
@@ -151,6 +153,8 @@ export function PropertyDetailPage() {
   const [enrichAskOpen, setEnrichAskOpen] = useState(false)
   const [enrichChanges, setEnrichChanges] = useState<EnrichChanges | null>(null)
   const [addToDealOpen, setAddToDealOpen] = useState(false)
+  /** Which header button opened the note/task dialog, if any. */
+  const [quickAdd, setQuickAdd] = useState<'note' | 'task' | null>(null)
 
   const goBack = useBackTo('/properties')
 
@@ -280,6 +284,14 @@ export function PropertyDetailPage() {
               </a>
             </Button>
           )}
+          <Button variant="outline" onClick={() => setQuickAdd('note')}>
+            <StickyNote className="size-4" />
+            Add note
+          </Button>
+          <Button variant="outline" onClick={() => setQuickAdd('task')}>
+            <CheckSquare className="size-4" />
+            Add task
+          </Button>
           <Button onClick={() => setAddToDealOpen(true)}>
             <Plus className="size-4" />
             Add to deal
@@ -287,6 +299,9 @@ export function PropertyDetailPage() {
         </div>
       </div>
       </div>
+
+      {/* The task you clicked on the task list, pinned here so it can be closed in place. */}
+      <TaskFocusBanner />
 
       {photos.length > 0 && (
         <div className="flex gap-2 overflow-x-auto">
@@ -363,6 +378,13 @@ export function PropertyDetailPage() {
         open={addToDealOpen}
         onOpenChange={setAddToDealOpen}
       />
+      <NoteTaskDialog
+        open={quickAdd !== null}
+        onOpenChange={(o) => !o && setQuickAdd(null)}
+        mode={quickAdd ?? 'note'}
+        parentType="property"
+        parentId={property.id}
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="space-y-2">
@@ -376,7 +398,7 @@ export function PropertyDetailPage() {
       </div>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Tenant feedback</h2>
+        <h2 className="text-sm font-medium text-muted-foreground">Notes &amp; tenant feedback</h2>
         <PropertyTourNotes propertyId={property.id} />
       </section>
 

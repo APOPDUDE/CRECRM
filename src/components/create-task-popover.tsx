@@ -8,13 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
-import { useAuth } from '@/hooks/use-auth'
-import { useCreateTask } from '@/hooks/use-tasks'
-import { useCreateNote } from '@/hooks/use-notes'
+import { useCreateNoteAndTask } from '@/hooks/use-tasks'
 import type { ParentType } from '@/hooks/use-notes'
-
-const parentColumn = (t: ParentType) =>
-  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
 
 interface CreateTaskPopoverProps {
   parentType: ParentType
@@ -26,9 +21,7 @@ interface CreateTaskPopoverProps {
  * tick "Add note?" to log a note saved alongside (and linked to) the task.
  */
 export function CreateTaskPopover({ parentType, parentId }: CreateTaskPopoverProps) {
-  const { session } = useAuth()
-  const createTask = useCreateTask()
-  const createNote = useCreateNote()
+  const save = useCreateNoteAndTask()
 
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
@@ -43,29 +36,19 @@ export function CreateTaskPopover({ parentType, parentId }: CreateTaskPopoverPro
     setNote('')
   }
 
-  const pending = createTask.isPending || createNote.isPending
+  const pending = save.isPending
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!session?.user.id || !title.trim()) return
+    if (!title.trim()) return
     try {
-      // create the note first so the task can link to it
-      let noteId: string | null = null
-      if (withNote && note.trim()) {
-        const n = await createNote.mutateAsync({ parentType, parentId, body: note.trim() })
-        noteId = n.id
-      }
-      await createTask.mutateAsync({
-        owner_id: session.user.id,
-        title: title.trim(),
-        kind: 'general',
-        due_date: dueDate || null,
-        note_id: noteId,
-        [parentColumn(parentType)]: parentId,
-        status: 'open',
-        auto_generated: false,
+      const saved = await save.mutateAsync({
+        parentType,
+        parentId,
+        note: withNote ? note : null,
+        task: { title, due_date: dueDate },
       })
-      toast.success(noteId ? 'Task + note added' : 'Task added')
+      toast.success(saved.note ? 'Task + note added' : 'Task added')
       reset()
       setOpen(false)
     } catch {

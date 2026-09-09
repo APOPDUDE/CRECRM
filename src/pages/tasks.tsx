@@ -129,7 +129,8 @@ export function TasksPage() {
       if (kindFilter !== 'all' && t.kind !== kindFilter) return false
       if (!q) return true
       const who = t.contact ? contactNameOf(t.contact) : ''
-      return `${t.title} ${who} ${t.details ?? ''}`.toLowerCase().includes(q)
+      const where = t.property?.address ?? ''
+      return `${t.title} ${who} ${where} ${t.details ?? ''}`.toLowerCase().includes(q)
     })
   }, [tasks, search, kindFilter])
 
@@ -279,6 +280,7 @@ export function TasksPage() {
               </span>
             )}
             {task.contact && <span className="truncate">· {contactNameOf(task.contact)}</span>}
+            {task.property && <span className="truncate">· {task.property.address}</span>}
             {task.contact?.phone && (
               <GhlPhoneLink phone={task.contact.phone} ghlContactId={task.contact.ghl_contact_id} />
             )}

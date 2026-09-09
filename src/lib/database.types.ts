@@ -4171,6 +4171,7 @@ export type Database = {
           listing_id: string | null
           note_id: string | null
           owner_id: string
+          property_id: string | null
           prospect_id: string | null
           pursuit_id: string | null
           source: string | null
@@ -4194,6 +4195,7 @@ export type Database = {
           listing_id?: string | null
           note_id?: string | null
           owner_id: string
+          property_id?: string | null
           prospect_id?: string | null
           pursuit_id?: string | null
           source?: string | null
@@ -4217,6 +4219,7 @@ export type Database = {
           listing_id?: string | null
           note_id?: string | null
           owner_id?: string
+          property_id?: string | null
           prospect_id?: string | null
           pursuit_id?: string | null
           source?: string | null
@@ -4251,6 +4254,13 @@ export type Database = {
             columns: ["note_id"]
             isOneToOne: false
             referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
           {

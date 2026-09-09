@@ -7,7 +7,8 @@ export type Note = Tables<'notes'>
 export type ParentType = 'client' | 'listing' | 'pursuit' | 'property'
 type NoteKind = Enums<'note_kind'>
 
-const parentColumn = (t: ParentType) =>
+/** The FK column a note / task / file uses for this parent. One place, so every writer agrees. */
+export const parentColumnOf = (t: ParentType) =>
   t === 'client'
     ? 'client_id'
     : t === 'listing'
@@ -26,7 +27,7 @@ export function useNotes(parentType: ParentType, parentId: string | undefined) {
       const { data, error } = await supabase
         .from('notes')
         .select('*')
-        .eq(parentColumn(parentType), parentId!)
+        .eq(parentColumnOf(parentType), parentId!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
@@ -50,7 +51,7 @@ export function useCreateNote() {
     }) => {
       const { data, error } = await supabase
         .from('notes')
-        .insert({ [parentColumn(parentType)]: parentId, body, kind } as TablesInsert<'notes'>)
+        .insert({ [parentColumnOf(parentType)]: parentId, body, kind } as TablesInsert<'notes'>)
         .select()
         .single()
       if (error) throw error

@@ -19,8 +19,8 @@ export function PropertyTourNotes({ propertyId }: { propertyId: string }) {
   if (notes.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No tenant feedback yet. Marking a deal Interested or Passed on this building files
-        the reason here.
+        No notes yet. Add note above, or mark a deal Interested or Passed on this building
+        to file the tenant's reason here.
       </p>
     )
   }

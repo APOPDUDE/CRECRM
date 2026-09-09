@@ -6,14 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { useCreateNote, useDeleteNote, useNotes, useUpdateNote } from '@/hooks/use-notes'
+import { useDeleteNote, useNotes, useUpdateNote } from '@/hooks/use-notes'
 import type { ParentType } from '@/hooks/use-notes'
-import { useCreateTask } from '@/hooks/use-tasks'
-import { useAuth } from '@/hooks/use-auth'
+import { useCreateNoteAndTask } from '@/hooks/use-tasks'
 import { formatDate } from '@/lib/dates'
-
-const parentColumn = (t: ParentType) =>
-  t === 'client' ? 'client_id' : t === 'listing' ? 'listing_id' : 'pursuit_id'
 
 interface NotesLogProps {
   parentType: ParentType
@@ -24,12 +20,10 @@ interface NotesLogProps {
 
 /** A simple dated notes log — one timestamped note per entry, with inline edit + delete. */
 export function NotesLog({ parentType, parentId, showComposer = true }: NotesLogProps) {
-  const { session } = useAuth()
   const { data: notes = [], isLoading } = useNotes(parentType, parentId)
-  const createNote = useCreateNote()
+  const save = useCreateNoteAndTask()
   const updateNote = useUpdateNote()
   const deleteNote = useDeleteNote()
-  const createTask = useCreateTask()
 
   const [body, setBody] = useState('')
   const [withTask, setWithTask] = useState(false)
@@ -50,20 +44,12 @@ export function NotesLog({ parentType, parentId, showComposer = true }: NotesLog
     const text = body.trim()
     if (!text) return
     try {
-      // note first so the task can link to it
-      const n = await createNote.mutateAsync({ parentType, parentId, body: text })
-      if (withTask && taskTitle.trim() && session?.user.id) {
-        await createTask.mutateAsync({
-          owner_id: session.user.id,
-          title: taskTitle.trim(),
-          kind: 'general',
-          due_date: taskDate || null,
-          note_id: n.id,
-          [parentColumn(parentType)]: parentId,
-          status: 'open',
-          auto_generated: false,
-        })
-      }
+      await save.mutateAsync({
+        parentType,
+        parentId,
+        note: text,
+        task: withTask ? { title: taskTitle, due_date: taskDate } : null,
+      })
       resetComposer()
     } catch {
       toast.error('Could not save note')
@@ -126,9 +112,9 @@ export function NotesLog({ parentType, parentId, showComposer = true }: NotesLog
             type="submit"
             size="sm"
             className="w-full"
-            disabled={!body.trim() || createNote.isPending || createTask.isPending}
+            disabled={!body.trim() || save.isPending}
           >
-            {createNote.isPending || createTask.isPending ? 'Saving…' : 'Log note'}
+            {save.isPending ? 'Saving…' : 'Log note'}
           </Button>
         </form>
       )}
