@@ -67,13 +67,25 @@ function MinMax({
   onMin,
   onMax,
   currency,
+  year,
 }: {
   min: string
   max: string
   onMin: (v: string) => void
   onMax: (v: string) => void
   currency?: boolean
+  /** Whole years: integer keypad, From/To wording, no decimals. */
+  year?: boolean
 }) {
+  if (year) {
+    return (
+      <div className="flex items-center gap-2">
+        <Input type="number" inputMode="numeric" placeholder="From" value={min} onChange={(e) => onMin(e.target.value)} className="h-8" />
+        <span className="text-muted-foreground">–</span>
+        <Input type="number" inputMode="numeric" placeholder="To" value={max} onChange={(e) => onMax(e.target.value)} className="h-8" />
+      </div>
+    )
+  }
   if (currency) {
     return (
       <div className="flex items-center gap-2">
@@ -133,6 +145,11 @@ export type MapFilterRailProps = {
   acMax: string
   onAcMin: (v: string) => void
   onAcMax: (v: string) => void
+  // Year built (county-sourced) — a vintage range right under acres.
+  ybMin: string
+  ybMax: string
+  onYbMin: (v: string) => void
+  onYbMax: (v: string) => void
   /** Land book only: minimum developer suitability score from the enrichment pass. */
   scoreMin: string
   onScoreMin: (v: string) => void
@@ -325,6 +342,10 @@ export function MapFilterRail(props: MapFilterRailProps) {
       <div className="space-y-1.5">
         <Label>Acres</Label>
         <MinMax min={p.acMin} max={p.acMax} onMin={p.onAcMin} onMax={p.onAcMax} />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Year built</Label>
+        <MinMax year min={p.ybMin} max={p.ybMax} onMin={p.onYbMin} onMax={p.onYbMax} />
       </div>
 
       {/* Site score — the enrichment pipeline's 0-100 developer suitability. Land

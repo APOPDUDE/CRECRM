@@ -480,6 +480,10 @@ export function PropertiesPage() {
   // Land-book only: the enrichment pipeline's 0-100 developer suitability score.
   const [scoreMin, setScoreMin] = usePersistentState('properties:scoreMin', '')
   const [acMax, setAcMax] = usePersistentState('properties:acMax', '')
+  // Year built is county-sourced (never edited in the UI), so a range here is a clean
+  // vintage question: pre-1980 tilt-wall vs new-build, etc.
+  const [ybMin, setYbMin] = usePersistentState('properties:ybMin', '')
+  const [ybMax, setYbMax] = usePersistentState('properties:ybMax', '')
   const [priceMin, setPriceMin] = usePersistentState('properties:priceMin', '')
   const [priceMax, setPriceMax] = usePersistentState('properties:priceMax', '')
   // Lease pricing is $/SF/yr, sale pricing is a total — the rail SWITCHES between them
@@ -643,6 +647,7 @@ export function PropertiesPage() {
     (countyApplies && county !== 'all' ? 1 : 0) +
     (sfMin || sfMax ? 1 : 0) +
     (acMin || acMax ? 1 : 0) +
+    (ybMin || ybMax ? 1 : 0) +
     (scoreMin ? 1 : 0) +
     (marketSubsApply && dealType === 'sale' && (priceMin || priceMax) ? 1 : 0) +
     (marketSubsApply && dealType === 'lease' && (psfMin || psfMax) ? 1 : 0) +
@@ -1060,6 +1065,7 @@ export function PropertiesPage() {
     }
     const sfLo = n(sfMin), sfHi = n(sfMax)
     const acLo = n(acMin), acHi = n(acMax)
+    const ybLo = n(ybMin), ybHi = n(ybMax)
     const scoreLo = n(scoreMin)
     const prLo = n(priceMin), prHi = n(priceMax)
     const psfLo = n(psfMin), psfHi = n(psfMax)
@@ -1178,6 +1184,9 @@ export function PropertiesPage() {
       }
       if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) continue
       if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) continue
+      // No year on file drops out of a vintage range, same as acres: unknown is not a match.
+      if (ybLo != null && (p.year_built == null || p.year_built < ybLo)) continue
+      if (ybHi != null && (p.year_built == null || p.year_built > ybHi)) continue
       // No published score means "not measured enough to rank", not "scores zero",
       // so a minimum drops those rows rather than sorting them to the bottom.
       if (scoreLo != null && (p.suitability_score == null || p.suitability_score < scoreLo)) continue
@@ -1221,7 +1230,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
-  }, [book, portfolioAll, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, nowMs, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon, radius])
+  }, [book, portfolioAll, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, nowMs, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, ybMin, ybMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon, radius])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1303,7 +1312,7 @@ export function PropertiesPage() {
   }, [viewportOnly, mapView.data.ownerContext, ownerCtx])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
-  useResetOn([search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, radius, leaseMatchIds], () => {
+  useResetOn([search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, ybMin, ybMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, radius, leaseMatchIds], () => {
     setPage(0)
   })
 
@@ -1499,7 +1508,7 @@ export function PropertiesPage() {
     setDraft(null)
     setRadius(null)
     setPlacingRadius(false)
-    setSfMin(''); setSfMax(''); setAcMin(''); setAcMax(''); setScoreMin('')
+    setSfMin(''); setSfMax(''); setAcMin(''); setAcMax(''); setYbMin(''); setYbMax(''); setScoreMin('')
     setStatus('all'); setDealType('all')
     setPsfMin(''); setPsfMax(''); setPriceMin(''); setPriceMax('')
     setIncludeUnpriced(true)
@@ -1534,7 +1543,7 @@ export function PropertiesPage() {
   const filtersDirty = Object.keys(pendingFilters).length > 0
   const FILTER_SETTERS: Record<string, (v: never) => void> = {
     tagFilter: setTagFilter, sfMin: setSfMin, sfMax: setSfMax, acMin: setAcMin,
-    acMax: setAcMax, scoreMin: setScoreMin, status: setStatus, dealType: setDealType,
+    acMax: setAcMax, ybMin: setYbMin, ybMax: setYbMax, scoreMin: setScoreMin, status: setStatus, dealType: setDealType,
     psfMin: setPsfMin, psfMax: setPsfMax, priceMin: setPriceMin, priceMax: setPriceMax,
     includeUnpriced: setIncludeUnpriced, ownerFilter: setOwnerFilter,
     channels: setChannels, activity: setActivity,
@@ -1583,6 +1592,7 @@ export function PropertiesPage() {
       tagsLoading={tagsLoading}
       sfMin={staged('sfMin', sfMin)} sfMax={staged('sfMax', sfMax)} onSfMin={stage('sfMin')} onSfMax={stage('sfMax')}
       acMin={staged('acMin', acMin)} acMax={staged('acMax', acMax)} onAcMin={stage('acMin')} onAcMax={stage('acMax')}
+      ybMin={staged('ybMin', ybMin)} ybMax={staged('ybMax', ybMax)} onYbMin={stage('ybMin')} onYbMax={stage('ybMax')}
       scoreMin={staged('scoreMin', scoreMin)} onScoreMin={stage('scoreMin')}
       status={staged('status', status)} onStatus={stage('status')}
       dealType={staged('dealType', dealType)} onDealType={stage('dealType')}
@@ -2118,6 +2128,16 @@ export function PropertiesPage() {
                   <Input type="number" inputMode="decimal" placeholder="Min" value={acMin} onChange={(e) => setAcMin(e.target.value)} />
                   <span className="text-muted-foreground">–</span>
                   <Input type="number" inputMode="decimal" placeholder="Max" value={acMax} onChange={(e) => setAcMax(e.target.value)} />
+                </div>
+              </div>
+              )}
+              {view === 'table' && (
+              <div className="space-y-1.5">
+                <Label>Year built</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" inputMode="numeric" placeholder="From" value={ybMin} onChange={(e) => setYbMin(e.target.value)} />
+                  <span className="text-muted-foreground">–</span>
+                  <Input type="number" inputMode="numeric" placeholder="To" value={ybMax} onChange={(e) => setYbMax(e.target.value)} />
                 </div>
               </div>
               )}
