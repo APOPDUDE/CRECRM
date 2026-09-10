@@ -69,33 +69,54 @@ export function useUnitSpecs(propertyIds: string[]) {
  * have already changed their advertised size between scrapes, so a copy would be
  * right the day it was written and wrong after the next sweep.
  *
- * `.limit()` is explicit because a missing one truncates at 1000 silently, and
- * here that would read as "no space matches" rather than as an error.
+ * Paged in 1,000s: PostgREST caps EVERY response at 1,000 rows no matter what
+ * `.limit()` asks for, and the view passed that in 2026-09 (2,068 rows) — the tail
+ * silently fell off and read as "no space matches" rather than as an error.
+ *
+ * `advertised` is true when at least one row came from the market (`listing` /
+ * `listing_space`) — i.e. the current listing offers LESS than the whole building.
+ * The size filter uses it to stop the county shell from answering a for-lease size
+ * search: 11881 N 44th St is a 13,500 SF building advertising one 2,880 SF space, and
+ * it must not come back for "10,000+ SF for lease" (Alex, 2026-09-07).
  */
-const AVAILABLE_SPACE_CAP = 5000
+const AVAILABLE_SPACE_PAGE = 1000
+const AVAILABLE_SPACE_CAP = 20_000
+
+export type AvailableSpace = { sizes: number[]; advertised: boolean }
 
 export function useAvailableUnitSizes() {
   return useQuery({
     queryKey: ['available-space'],
     staleTime: 5 * 60_000,
-    queryFn: async (): Promise<Map<string, number[]>> => {
-      const { data, error } = await supabase
-        .from('v_property_available_space')
-        .select('property_id, size_sf')
-        .not('size_sf', 'is', null)
-        .limit(AVAILABLE_SPACE_CAP)
-      if (error) throw error
-      const rows = data ?? []
+    queryFn: async (): Promise<Map<string, AvailableSpace>> => {
+      type Row = { property_id: string | null; size_sf: number | null; space_source: string | null }
+      const rows: Row[] = []
+      for (let from = 0; from < AVAILABLE_SPACE_CAP; from += AVAILABLE_SPACE_PAGE) {
+        // A total order, or a row can straddle two pages and go missing.
+        const { data, error } = await supabase
+          .from('v_property_available_space')
+          .select('property_id, size_sf, space_source')
+          .not('size_sf', 'is', null)
+          .order('property_id')
+          .order('size_sf')
+          .order('space_source')
+          .order('label')
+          .range(from, from + AVAILABLE_SPACE_PAGE - 1)
+        if (error) throw error
+        rows.push(...((data ?? []) as Row[]))
+        if ((data?.length ?? 0) < AVAILABLE_SPACE_PAGE) break
+      }
       if (rows.length >= AVAILABLE_SPACE_CAP) {
         console.warn(
           `available space truncated at ${AVAILABLE_SPACE_CAP} rows — the size filter is now incomplete`,
         )
       }
-      const map = new Map<string, number[]>()
+      const map = new Map<string, AvailableSpace>()
       for (const r of rows) {
         if (r.size_sf == null || r.property_id == null) continue
-        const cur = map.get(r.property_id) ?? []
-        cur.push(r.size_sf)
+        const cur = map.get(r.property_id) ?? { sizes: [], advertised: false }
+        cur.sizes.push(r.size_sf)
+        if (r.space_source === 'listing' || r.space_source === 'listing_space') cur.advertised = true
         map.set(r.property_id, cur)
       }
       return map
