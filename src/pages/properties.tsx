@@ -58,7 +58,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties, usePagedBook,
 } from '@/hooks/use-properties'
 import {
-  MAP_SEARCH_LIMIT,
   useMapProperties,
   useMapSearch,
   type MapViewport,
@@ -688,7 +687,22 @@ export function PropertiesPage() {
    */
   // Under the Signals lens the set is small and already in hand, so typed text narrows
   // it in the browser instead of asking Postgres for whole-book matches.
-  const searchOnly = hasText && portfolioOwnerId == null && !signalsOn
+  const searchWanted = hasText && portfolioOwnerId == null && !signalsOn
+  // Trails the box so a query fires on pauses, not on every letter.
+  const debouncedSearch = useDebouncedValue(search.trim(), 250)
+  const mapSearch = useMapSearch(debouncedSearch, searchWanted, bookMode)
+  /**
+   * A CAPPED search is a broad term — a city or county name — and the first thousand
+   * rows are not an answer to it: every filter and overlay union then ran over a
+   * sample. "sarasota" is 6,692 rows against the 1,000 cap, and 6008 Cattleridge
+   * (industrial zoning, commercial DOR code) was missing from "DOR industrial + include
+   * industrial zoning" only because it sat past the cap (Alex 2026-09-10). A term that
+   * broad is exactly what the browser's haystack (address, city, county, zip, parcel
+   * ids, owner) answers, so the book takes over and the text narrows it here. Precise
+   * searches — a person, a parcel — never cap and keep the Postgres path, which knows
+   * names the haystack does not.
+   */
+  const searchOnly = searchWanted && !mapSearch.searchCapped
 
   /**
    * Which of the lease questions are being asked, in one place.
@@ -721,7 +735,7 @@ export function PropertiesPage() {
    * include-in-search overlay) flips wantsBook and the full fetch takes over.
    */
   const tableFastPath =
-    view === 'table' && !searchOnly && !signalsOn &&
+    view === 'table' && !hasText && !signalsOn &&
     activeFilterCount === 0 && !polygon && !radius && !wantsBook && overlayIncludes.length === 0
   // The Signals lens never needs the book: its rows come by id from the RPC.
   const needsBook = !signalsOn && (((!viewportOnly && !searchOnly) && !tableFastPath) || wantsBook || overlayIncludes.length > 0)
@@ -751,9 +765,6 @@ export function PropertiesPage() {
    */
   const parcelsVisible = (viewport?.zoom ?? 0) >= PARCEL_ZOOM
   const mapView = useMapProperties(viewport, view === 'map' && (viewportOnly || parcelsVisible), bookMode)
-  // Trails the box so a query fires on pauses, not on every letter.
-  const debouncedSearch = useDebouncedValue(search.trim(), 250)
-  const mapSearch = useMapSearch(debouncedSearch, searchOnly, bookMode)
   /**
    * Between the keystroke and the query there is a quarter-second where nothing has been
    * asked yet and nothing has come back — and `isFetching` is false throughout it, because
@@ -923,6 +934,8 @@ export function PropertiesPage() {
           p.zip,
           p.specs,
           p.county,
+          // the deed name, so a capped (book-answered) search still finds an owner
+          p.owner_name,
           // both county parcel ids, so a folio or PIN pasted from GHL finds the property
           p.parcel_number,
           p.folio,
@@ -1486,10 +1499,6 @@ export function PropertiesPage() {
               // tell. Broad searches DO occasionally 500 on the owner-context join.
               mapSearch.isError
               ? 'Search failed — try again'
-              : mapSearch.searchCapped
-              ? filtered.length < MAP_SEARCH_LIMIT
-                ? `${filtered.length.toLocaleString()} of the first ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
-                : `First ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
               : `${filtered.length.toLocaleString()} matching${condoSuffix}`
           : hasQuery
             ? isLoading
@@ -2286,7 +2295,7 @@ export function PropertiesPage() {
       {/* "of the book" only means something when the book is loaded. On the map the
           top bar's count answers this, and under a search the book was never fetched —
           there is no denominator to quote. */}
-      {view === 'table' && !isLoading && !isError && !viewportOnly && !searchOnly && !signalsOn && (properties ?? []).length > 0 && (
+      {view === 'table' && !isLoading && !isError && !viewportOnly && !searchWanted && !signalsOn && (properties ?? []).length > 0 && (
         <p className="text-xs text-muted-foreground">
           Showing {tableFastPath ? paged.length : filtered.length} of {(tableFastPath ? tableTotal : (properties ?? []).length).toLocaleString()} properties
           {condoSuffix}
@@ -2294,10 +2303,9 @@ export function PropertiesPage() {
       )}
       {/* mapSearch.isError too: the list below renders its own error state, and a
           "0 matching" line above it would contradict that. */}
-      {!isError && !mapSearch.isError && searchOnly && view === 'table' && !searching && (
+      {!isError && !mapSearch.isError && searchWanted && view === 'table' && !searching && !(!searchOnly && isLoading) && (
         <p className="text-xs text-muted-foreground">
           {filtered.length.toLocaleString()} matching “{search.trim()}”{condoSuffix}
-          {mapSearch.searchCapped && ` — first ${MAP_SEARCH_LIMIT.toLocaleString()}, narrow the search`}
         </p>
       )}
 
