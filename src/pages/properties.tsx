@@ -1190,6 +1190,11 @@ export function PropertiesPage() {
         const sizes = [...(shellCounts ? [p.gross_sf] : []), ...(space?.sizes ?? [])].filter(
           (v): v is number => v != null,
         )
+        // No building on the roll = 0 SF, not "no size". A parcel with nothing on it
+        // used to fail EVERY Sq ft range, so "max 0" — Alex's own move to capture land
+        // (2026-09-10, 6008 Cattleridge: vacant, zoned ILW) — captured nothing. Now
+        // max 0 is land only, and min 1 keeps land out of a building search.
+        if (sizes.length === 0 && p.gross_sf == null) sizes.push(0)
         const fits = sizes.some(
           (v) => (sfLo == null || v >= sfLo) && (sfHi == null || v <= sfHi),
         )
@@ -2122,7 +2127,7 @@ export function PropertiesPage() {
               )}
               {view === 'table' && (
                 <div className="space-y-1.5">
-                  <Label>Gross SF</Label>
+                  <Label>Gross SF <span className="ml-1 font-normal text-muted-foreground">(no building = 0)</span></Label>
                   <div className="flex items-center gap-2">
                     <CurrencyInput placeholder="Min"  value={sfMin} onValueChange={setSfMin} />
                     <span className="text-muted-foreground">–</span>

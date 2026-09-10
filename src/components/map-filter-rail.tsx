@@ -336,7 +336,7 @@ export function MapFilterRail(props: MapFilterRailProps) {
       </div>
 
       <div className="space-y-1.5">
-        <Label>Sq ft</Label>
+        <Label>Sq ft <span className="ml-1 font-normal text-muted-foreground">(no building = 0)</span></Label>
         <MinMax currency min={p.sfMin} max={p.sfMax} onMin={p.onSfMin} onMax={p.onSfMax} />
       </div>
       <div className="space-y-1.5">
