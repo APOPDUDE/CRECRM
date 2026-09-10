@@ -1311,6 +1311,12 @@ export function PropertiesPage() {
    * anonymous county polygon that opens a popup instead of the property — 31 of them
    * around 1602 Combee Rd.
    */
+  // Which held parcels outline red at street level: the search's members, but only
+  // while there IS a search — on the plain map every outline keeps its owner colour.
+  const inSearchIds = useMemo(
+    () => (hasQuery ? new Set(filtered.map((p) => p.id)) : undefined),
+    [hasQuery, filtered],
+  )
   const parcelSource = useMemo(() => {
     if (viewportOnly) return filtered
     const seen = new Set(filtered.map((p) => p.id))
@@ -2355,6 +2361,7 @@ export function PropertiesPage() {
       <PropertiesMap
             properties={filtered}
             parcelProperties={parcelSource}
+            inSearchIds={inSearchIds}
             // Portfolio View: zoom to the owner's pins even when a saved viewport
             // would normally suppress the mount-time fit.
             fitKey={portfolioOwnerId ?? undefined}

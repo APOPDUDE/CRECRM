@@ -653,6 +653,7 @@ export function PropertiesMap({
   goodDealIds,
   executedIds,
   highlightIds,
+  inSearchIds,
   ownerContext,
   leaseInfo,
   signalInfo,
@@ -684,6 +685,13 @@ export function PropertiesMap({
   executedIds?: Set<string>
   /** The searched property/properties — these pins (and their parcel outlines) wear red. */
   highlightIds?: Set<string>
+  /**
+   * The current search's members (Alex 2026-09-10). While filters, a shape or typed text
+   * narrow the map, a held parcel in this set outlines RED and every other held parcel
+   * drops to the plain county outline — so at street level "is this one in my search?"
+   * is answered by the colour, not by hunting for a dot the outline replaced.
+   */
+  inSearchIds?: Set<string>
   ownerContext?: Map<string, OwnerContext>
   /**
    * Property id -> its representative lease, for the hover card. The parent passes it
@@ -782,9 +790,17 @@ export function PropertiesMap({
   // inherit it at street level.
   const pinColorById = useMemo(() => {
     const m = new Map<string, string>()
-    for (const p of parcelSource) m.set(p.id, colorOf(p.id, p))
+    for (const p of parcelSource) {
+      if (inSearchIds) {
+        // a search is on: members red, everything else we hold stays an anonymous
+        // county outline (still clickable — the click keys off __crm, not the colour)
+        if (inSearchIds.has(p.id)) m.set(p.id, PIN.searched)
+        continue
+      }
+      m.set(p.id, colorOf(p.id, p))
+    }
     return m
-  }, [parcelSource, colorOf])
+  }, [parcelSource, colorOf, inSearchIds])
 
   // Everything the outline's hover card needs, by property id — the outlines show the
   // SAME card the circles do.
@@ -923,7 +939,11 @@ export function PropertiesMap({
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           {/* the red chip only exists while a search is painting something red */}
           {[
-            ...((highlightIds?.size ?? 0) > 0 ? [{ c: PIN.searched, label: 'Searched' }] : []),
+            ...(inSearchIds
+              ? [{ c: PIN.searched, label: 'In search' }]
+              : (highlightIds?.size ?? 0) > 0
+                ? [{ c: PIN.searched, label: 'Searched' }]
+                : []),
             ...(signalLegend ?? LEGEND),
           ].map(({ c, label }) => (
             <span key={label} className="inline-flex items-center gap-1.5">
