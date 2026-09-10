@@ -58,7 +58,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { dealCount, useDeleteProperty, useGeocodeMissing, useProperties, usePagedBook,
 } from '@/hooks/use-properties'
 import {
-  MAP_SEARCH_LIMIT,
   useMapProperties,
   useMapSearch,
   type MapViewport,
@@ -480,6 +479,10 @@ export function PropertiesPage() {
   // Land-book only: the enrichment pipeline's 0-100 developer suitability score.
   const [scoreMin, setScoreMin] = usePersistentState('properties:scoreMin', '')
   const [acMax, setAcMax] = usePersistentState('properties:acMax', '')
+  // Year built is county-sourced (never edited in the UI), so a range here is a clean
+  // vintage question: pre-1980 tilt-wall vs new-build, etc.
+  const [ybMin, setYbMin] = usePersistentState('properties:ybMin', '')
+  const [ybMax, setYbMax] = usePersistentState('properties:ybMax', '')
   const [priceMin, setPriceMin] = usePersistentState('properties:priceMin', '')
   const [priceMax, setPriceMax] = usePersistentState('properties:priceMax', '')
   // Lease pricing is $/SF/yr, sale pricing is a total — the rail SWITCHES between them
@@ -643,6 +646,7 @@ export function PropertiesPage() {
     (countyApplies && county !== 'all' ? 1 : 0) +
     (sfMin || sfMax ? 1 : 0) +
     (acMin || acMax ? 1 : 0) +
+    (ybMin || ybMax ? 1 : 0) +
     (scoreMin ? 1 : 0) +
     (marketSubsApply && dealType === 'sale' && (priceMin || priceMax) ? 1 : 0) +
     (marketSubsApply && dealType === 'lease' && (psfMin || psfMax) ? 1 : 0) +
@@ -683,7 +687,22 @@ export function PropertiesPage() {
    */
   // Under the Signals lens the set is small and already in hand, so typed text narrows
   // it in the browser instead of asking Postgres for whole-book matches.
-  const searchOnly = hasText && portfolioOwnerId == null && !signalsOn
+  const searchWanted = hasText && portfolioOwnerId == null && !signalsOn
+  // Trails the box so a query fires on pauses, not on every letter.
+  const debouncedSearch = useDebouncedValue(search.trim(), 250)
+  const mapSearch = useMapSearch(debouncedSearch, searchWanted, bookMode)
+  /**
+   * A CAPPED search is a broad term — a city or county name — and the first thousand
+   * rows are not an answer to it: every filter and overlay union then ran over a
+   * sample. "sarasota" is 6,692 rows against the 1,000 cap, and 6008 Cattleridge
+   * (industrial zoning, commercial DOR code) was missing from "DOR industrial + include
+   * industrial zoning" only because it sat past the cap (Alex 2026-09-10). A term that
+   * broad is exactly what the browser's haystack (address, city, county, zip, parcel
+   * ids, owner) answers, so the book takes over and the text narrows it here. Precise
+   * searches — a person, a parcel — never cap and keep the Postgres path, which knows
+   * names the haystack does not.
+   */
+  const searchOnly = searchWanted && !mapSearch.searchCapped
 
   /**
    * Which of the lease questions are being asked, in one place.
@@ -716,7 +735,7 @@ export function PropertiesPage() {
    * include-in-search overlay) flips wantsBook and the full fetch takes over.
    */
   const tableFastPath =
-    view === 'table' && !searchOnly && !signalsOn &&
+    view === 'table' && !hasText && !signalsOn &&
     activeFilterCount === 0 && !polygon && !radius && !wantsBook && overlayIncludes.length === 0
   // The Signals lens never needs the book: its rows come by id from the RPC.
   const needsBook = !signalsOn && (((!viewportOnly && !searchOnly) && !tableFastPath) || wantsBook || overlayIncludes.length > 0)
@@ -746,9 +765,6 @@ export function PropertiesPage() {
    */
   const parcelsVisible = (viewport?.zoom ?? 0) >= PARCEL_ZOOM
   const mapView = useMapProperties(viewport, view === 'map' && (viewportOnly || parcelsVisible), bookMode)
-  // Trails the box so a query fires on pauses, not on every letter.
-  const debouncedSearch = useDebouncedValue(search.trim(), 250)
-  const mapSearch = useMapSearch(debouncedSearch, searchOnly, bookMode)
   /**
    * Between the keystroke and the query there is a quarter-second where nothing has been
    * asked yet and nothing has come back — and `isFetching` is false throughout it, because
@@ -918,6 +934,8 @@ export function PropertiesPage() {
           p.zip,
           p.specs,
           p.county,
+          // the deed name, so a capped (book-answered) search still finds an owner
+          p.owner_name,
           // both county parcel ids, so a folio or PIN pasted from GHL finds the property
           p.parcel_number,
           p.folio,
@@ -1060,6 +1078,7 @@ export function PropertiesPage() {
     }
     const sfLo = n(sfMin), sfHi = n(sfMax)
     const acLo = n(acMin), acHi = n(acMax)
+    const ybLo = n(ybMin), ybHi = n(ybMax)
     const scoreLo = n(scoreMin)
     const prLo = n(priceMin), prHi = n(priceMax)
     const psfLo = n(psfMin), psfHi = n(psfMax)
@@ -1178,6 +1197,9 @@ export function PropertiesPage() {
       }
       if (acLo != null && (p.land_acres == null || p.land_acres < acLo)) continue
       if (acHi != null && (p.land_acres == null || p.land_acres > acHi)) continue
+      // No year on file drops out of a vintage range, same as acres: unknown is not a match.
+      if (ybLo != null && (p.year_built == null || p.year_built < ybLo)) continue
+      if (ybHi != null && (p.year_built == null || p.year_built > ybHi)) continue
       // No published score means "not measured enough to rank", not "scores zero",
       // so a minimum drops those rows rather than sorting them to the bottom.
       if (scoreLo != null && (p.suitability_score == null || p.suitability_score < scoreLo)) continue
@@ -1221,7 +1243,7 @@ export function PropertiesPage() {
       else candidates.push(p)
     }
     return { baseFiltered: base, includeCandidates: candidates, condoHidden: condosDropped }
-  }, [book, portfolioAll, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, nowMs, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon, radius])
+  }, [book, portfolioAll, portfolioOwnerId, searchOnly, haystacks, askingMap, ownerCtx, ownerFilter, channels, activity, activityCutoff, nowMs, executedIds, leaseMatchIds, tagFilter, tagIds, ownerOccMode, ownerOccIds, soldFilterOn, soldYearsNum, includeNoSale, lastSales, marketSubsApply, activitySubApplies, countyApplies, zonedApplies, includeUnpriced, includeCondos, search, unitSizes, status, dealType, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, crossovers, county, sfMin, sfMax, acMin, acMax, ybMin, ybMax, scoreMin, priceMin, priceMax, psfMin, psfMax, polygon, radius])
 
   /**
    * "Include in search": union each toggled overlay layer's properties into the set,
@@ -1303,7 +1325,7 @@ export function PropertiesPage() {
   }, [viewportOnly, mapView.data.ownerContext, ownerCtx])
 
   // Reset to the first page whenever a filter/search edit changes the result set.
-  useResetOn([search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, radius, leaseMatchIds], () => {
+  useResetOn([search, status, dealType, ownerFilter, channels, activity, ptype, zoningFilter, useFilter, dorActive, dorSel, dorCategoryByCode, dorLandCodes, county, sfMin, sfMax, acMin, acMax, ybMin, ybMax, scoreMin, priceMin, priceMax, psfMin, psfMax, includeUnpriced, includeCondos, ownerOccMode, soldYears, includeNoSale, polygon, radius, leaseMatchIds], () => {
     setPage(0)
   })
 
@@ -1477,10 +1499,6 @@ export function PropertiesPage() {
               // tell. Broad searches DO occasionally 500 on the owner-context join.
               mapSearch.isError
               ? 'Search failed — try again'
-              : mapSearch.searchCapped
-              ? filtered.length < MAP_SEARCH_LIMIT
-                ? `${filtered.length.toLocaleString()} of the first ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
-                : `First ${MAP_SEARCH_LIMIT.toLocaleString()} matches — narrow the search`
               : `${filtered.length.toLocaleString()} matching${condoSuffix}`
           : hasQuery
             ? isLoading
@@ -1499,7 +1517,7 @@ export function PropertiesPage() {
     setDraft(null)
     setRadius(null)
     setPlacingRadius(false)
-    setSfMin(''); setSfMax(''); setAcMin(''); setAcMax(''); setScoreMin('')
+    setSfMin(''); setSfMax(''); setAcMin(''); setAcMax(''); setYbMin(''); setYbMax(''); setScoreMin('')
     setStatus('all'); setDealType('all')
     setPsfMin(''); setPsfMax(''); setPriceMin(''); setPriceMax('')
     setIncludeUnpriced(true)
@@ -1534,7 +1552,7 @@ export function PropertiesPage() {
   const filtersDirty = Object.keys(pendingFilters).length > 0
   const FILTER_SETTERS: Record<string, (v: never) => void> = {
     tagFilter: setTagFilter, sfMin: setSfMin, sfMax: setSfMax, acMin: setAcMin,
-    acMax: setAcMax, scoreMin: setScoreMin, status: setStatus, dealType: setDealType,
+    acMax: setAcMax, ybMin: setYbMin, ybMax: setYbMax, scoreMin: setScoreMin, status: setStatus, dealType: setDealType,
     psfMin: setPsfMin, psfMax: setPsfMax, priceMin: setPriceMin, priceMax: setPriceMax,
     includeUnpriced: setIncludeUnpriced, ownerFilter: setOwnerFilter,
     channels: setChannels, activity: setActivity,
@@ -1583,6 +1601,7 @@ export function PropertiesPage() {
       tagsLoading={tagsLoading}
       sfMin={staged('sfMin', sfMin)} sfMax={staged('sfMax', sfMax)} onSfMin={stage('sfMin')} onSfMax={stage('sfMax')}
       acMin={staged('acMin', acMin)} acMax={staged('acMax', acMax)} onAcMin={stage('acMin')} onAcMax={stage('acMax')}
+      ybMin={staged('ybMin', ybMin)} ybMax={staged('ybMax', ybMax)} onYbMin={stage('ybMin')} onYbMax={stage('ybMax')}
       scoreMin={staged('scoreMin', scoreMin)} onScoreMin={stage('scoreMin')}
       status={staged('status', status)} onStatus={stage('status')}
       dealType={staged('dealType', dealType)} onDealType={stage('dealType')}
@@ -2121,6 +2140,16 @@ export function PropertiesPage() {
                 </div>
               </div>
               )}
+              {view === 'table' && (
+              <div className="space-y-1.5">
+                <Label>Year built</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" inputMode="numeric" placeholder="From" value={ybMin} onChange={(e) => setYbMin(e.target.value)} />
+                  <span className="text-muted-foreground">–</span>
+                  <Input type="number" inputMode="numeric" placeholder="To" value={ybMax} onChange={(e) => setYbMax(e.target.value)} />
+                </div>
+              </div>
+              )}
               <>
               <div className="space-y-1.5 border-t pt-3">
                 <Label>Lease expires (months)</Label>
@@ -2266,7 +2295,7 @@ export function PropertiesPage() {
       {/* "of the book" only means something when the book is loaded. On the map the
           top bar's count answers this, and under a search the book was never fetched —
           there is no denominator to quote. */}
-      {view === 'table' && !isLoading && !isError && !viewportOnly && !searchOnly && !signalsOn && (properties ?? []).length > 0 && (
+      {view === 'table' && !isLoading && !isError && !viewportOnly && !searchWanted && !signalsOn && (properties ?? []).length > 0 && (
         <p className="text-xs text-muted-foreground">
           Showing {tableFastPath ? paged.length : filtered.length} of {(tableFastPath ? tableTotal : (properties ?? []).length).toLocaleString()} properties
           {condoSuffix}
@@ -2274,10 +2303,9 @@ export function PropertiesPage() {
       )}
       {/* mapSearch.isError too: the list below renders its own error state, and a
           "0 matching" line above it would contradict that. */}
-      {!isError && !mapSearch.isError && searchOnly && view === 'table' && !searching && (
+      {!isError && !mapSearch.isError && searchWanted && view === 'table' && !searching && !(!searchOnly && isLoading) && (
         <p className="text-xs text-muted-foreground">
           {filtered.length.toLocaleString()} matching “{search.trim()}”{condoSuffix}
-          {mapSearch.searchCapped && ` — first ${MAP_SEARCH_LIMIT.toLocaleString()}, narrow the search`}
         </p>
       )}
 
