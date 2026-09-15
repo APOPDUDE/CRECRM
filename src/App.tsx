@@ -15,6 +15,7 @@ import { DashboardPage } from '@/pages/dashboard'
 import { ReppingPage, ReppingRedirect } from '@/pages/repping'
 import { BuyersPage } from '@/pages/buyers'
 import { ProspectingPage } from '@/pages/prospecting'
+import { ListingQueuePage } from '@/pages/listing-queue'
 import { DealRadarPage } from '@/pages/deal-radar'
 import { MarketEventsPage } from '@/pages/market-events'
 import { PropertyBoardPage } from '@/pages/property-board'
@@ -124,6 +125,7 @@ export default function App() {
                 {/* Legacy entry points: /repping restores whichever side you were last on. */}
                 <Route path="/repping" element={<ReppingRedirect />} />
                 <Route path="/prospecting" element={<ProspectingPage />} />
+                <Route path="/listings" element={<ListingQueuePage />} />
                 <Route path="/deal-radar" element={<DealRadarPage />} />
                 <Route path="/market-monitor" element={<MarketEventsPage />} />
                 <Route path="/landlord-rep" element={<Navigate to="/pipelines/landlord" replace />} />
