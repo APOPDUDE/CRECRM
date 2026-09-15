@@ -19,6 +19,7 @@ import {
   MoreHorizontal,
   Radar,
   RadioTower,
+  Sparkles,
   Target,
   Upload,
   Users,
@@ -59,6 +60,7 @@ const pipelinePrefixes = ['/pipelines', '/prospecting', '/landlord-rep', '/tenan
 // All three channels now sit on the outreach spine (outreach_calls / outreach_email /
 // outreach_mail), so each page shows the same people through its own channel's reach.
 const prospectingItems = [
+  { to: '/listings', label: 'New listings', icon: Sparkles },
   { to: '/deal-radar', label: 'Deal Radar', icon: Radar },
   { to: '/market-monitor', label: 'Market Monitor', icon: RadioTower },
   { to: '/outreach/import', label: 'Import list', icon: Upload },
@@ -67,7 +69,7 @@ const prospectingItems = [
   { to: '/email', label: 'Email', icon: Mail },
   { to: '/outreach/postcards', label: 'Postcards', icon: Mailbox },
 ]
-const prospectingPrefixes = ['/deal-radar', '/market-monitor', '/outreach', '/email', '/texting']
+const prospectingPrefixes = ['/listings', '/deal-radar', '/market-monitor', '/outreach', '/email', '/texting']
 
 const moreItems = [
   { to: '/tasks', label: 'Tasks', icon: ListTodo },

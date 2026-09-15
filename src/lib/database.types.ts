@@ -104,6 +104,30 @@ export type Database = {
         }
         Relationships: []
       }
+      _rollback_asking_comp_dedup_20260909: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          row: Json
+          survivor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          reason: string
+          row: Json
+          survivor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          row?: Json
+          survivor_id?: string | null
+        }
+        Relationships: []
+      }
       _rollback_company_portfolio_pre_20260903: {
         Row: {
           captured_at: string | null
@@ -525,6 +549,13 @@ export type Database = {
             foreignKeyName: "communications_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "communications_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -802,6 +833,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "comps_property_id_fkey"
@@ -1213,6 +1251,13 @@ export type Database = {
             foreignKeyName: "deal_flag_evals_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: true
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "deal_flag_evals_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -1270,6 +1315,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_flags_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "deal_flags_property_id_fkey"
@@ -1414,6 +1466,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_radar_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "deal_radar_property_id_fkey"
@@ -1628,6 +1687,13 @@ export type Database = {
             foreignKeyName: "deal_rooms_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "deal_rooms_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -1813,6 +1879,13 @@ export type Database = {
             foreignKeyName: "files_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "files_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -1877,6 +1950,13 @@ export type Database = {
             foreignKeyName: "listing_parcels_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "listing_parcels_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -1891,6 +1971,110 @@ export type Database = {
             foreignKeyName: "listing_parcels_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+        ]
+      }
+      listing_reviews: {
+        Row: {
+          attached_property_id: string | null
+          created_at: string
+          note: string | null
+          property_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["listing_review_status"]
+          updated_at: string
+        }
+        Insert: {
+          attached_property_id?: string | null
+          created_at?: string
+          note?: string | null
+          property_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["listing_review_status"]
+          updated_at?: string
+        }
+        Update: {
+          attached_property_id?: string | null
+          created_at?: string
+          note?: string | null
+          property_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["listing_review_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
             referencedRelation: "v_property_owner_context"
             referencedColumns: ["property_id"]
           },
@@ -2110,6 +2294,13 @@ export type Database = {
             foreignKeyName: "listings_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -2197,6 +2388,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "market_events_property_id_fkey"
@@ -2301,6 +2499,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "market_listings_property_id_fkey"
@@ -2456,6 +2661,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "notes_property_id_fkey"
@@ -2784,6 +2996,13 @@ export type Database = {
             foreignKeyName: "outreach_targets_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "outreach_targets_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -3017,6 +3236,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_enrichment_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "parcel_enrichment_property_id_fkey"
@@ -3423,6 +3649,13 @@ export type Database = {
             foreignKeyName: "property_brokers_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "property_brokers_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -3513,6 +3746,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_market_position_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "property_market_position_id_fkey"
@@ -3640,6 +3880,13 @@ export type Database = {
             foreignKeyName: "property_owner_rollup_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: true
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "property_owner_rollup_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -3682,6 +3929,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_properties_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "prospect_properties_property_id_fkey"
@@ -3950,6 +4204,13 @@ export type Database = {
             foreignKeyName: "pursuits_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "pursuits_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -4052,6 +4313,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggestions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "suggestions_property_id_fkey"
@@ -4262,6 +4530,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "tasks_property_id_fkey"
@@ -4571,6 +4846,13 @@ export type Database = {
             foreignKeyName: "units_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -4655,6 +4937,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "valuation_comp_exclusions_property_id_fkey"
@@ -4876,6 +5165,13 @@ export type Database = {
             foreignKeyName: "comps_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -4899,6 +5195,79 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_listing_queue: {
+        Row: {
+          address: string | null
+          asking_deal_type: string | null
+          asking_lease_rate_psf: number | null
+          attached_address: string | null
+          attached_property_id: string | null
+          broker_company: string | null
+          broker_name: string | null
+          cap_rate_pct: number | null
+          city: string | null
+          county: string | null
+          first_seen: string | null
+          gross_sf: number | null
+          land_acres: number | null
+          lat: number | null
+          listing_description: string | null
+          listing_title: string | null
+          listing_url: string | null
+          lng: number | null
+          match_state: string | null
+          note: string | null
+          parcel_number: string | null
+          property_id: string | null
+          property_type: Database["public"]["Enums"]["property_kind"] | null
+          review_status:
+            | Database["public"]["Enums"]["listing_review_status"]
+            | null
+          reviewed_at: string | null
+          sale_price: number | null
+          source_key: string | null
+          state: string | null
+          title: string | null
+          zip: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_map_property"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_market_position"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_reviews_attached_property_id_fkey"
+            columns: ["attached_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_property_owner_context"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -4992,6 +5361,13 @@ export type Database = {
             foreignKeyName: "market_events_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "market_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "v_map_property"
             referencedColumns: ["id"]
           },
@@ -5076,6 +5452,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comps_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "comps_property_id_fkey"
@@ -5260,6 +5643,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_listing_queue"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "units_property_id_fkey"
@@ -5682,6 +6072,10 @@ export type Database = {
       ingest_blooio_event: { Args: { p: Json }; Returns: Json }
       ingest_scrub_result: { Args: { p: Json }; Returns: Json }
       intake_broker: { Args: { p: Json; p_owner: string }; Returns: Json }
+      intake_broker_tenant: {
+        Args: { p: Json; p_owner: string }
+        Returns: Json
+      }
       intake_buyer_tag: { Args: { p: Json }; Returns: Json }
       intake_calendly_booking: {
         Args: { p: Json; p_owner: string }
@@ -5704,6 +6098,21 @@ export type Database = {
       link_owner_portfolio: {
         Args: { p_company_a: string; p_company_b: string }
         Returns: string
+      }
+      listing_match_state: {
+        Args: { p_lat: number; p_parcel: string }
+        Returns: string
+      }
+      listing_queue: {
+        Args: {
+          p_limit?: number
+          p_match?: string
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_types?: string[]
+        }
+        Returns: Json
       }
       listing_space_targets: {
         Args: { p_limit?: number }
@@ -5886,6 +6295,30 @@ export type Database = {
       refresh_property_owner_rollup: { Args: never; Returns: number }
       refresh_suggestions: { Args: { p_days?: number }; Returns: Json }
       resolve_named_areas: { Args: { p_names: string[] }; Returns: Json }
+      review_listing: {
+        Args: {
+          p_attach_to?: string
+          p_note?: string
+          p_property_id: string
+          p_status: string
+        }
+        Returns: {
+          attached_property_id: string | null
+          created_at: string
+          note: string | null
+          property_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["listing_review_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "listing_reviews"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       run_deal_flag_evals: { Args: { p_limit?: number }; Returns: Json }
       score_parcels: {
         Args: { p_county?: string; p_limit?: number; p_min_coverage?: number }
@@ -6193,6 +6626,7 @@ export type Database = {
         | "sign_call"
         | "cold_call"
         | "in_person"
+        | "facebook"
         | "email"
         | "text"
         | "website"
@@ -6200,6 +6634,7 @@ export type Database = {
         | "broker"
       lease_structure: "NNN" | "NN" | "MG" | "FS" | "IG"
       listing_market_status: "on_market" | "off_market"
+      listing_review_status: "new" | "attached" | "dismissed"
       listing_stage: "proposal" | "listed" | "closed"
       market_event_status: "new" | "seen" | "dismissed"
       market_event_type:
@@ -6508,6 +6943,7 @@ export const Constants = {
         "sign_call",
         "cold_call",
         "in_person",
+        "facebook",
         "email",
         "text",
         "website",
@@ -6516,6 +6952,7 @@ export const Constants = {
       ],
       lease_structure: ["NNN", "NN", "MG", "FS", "IG"],
       listing_market_status: ["on_market", "off_market"],
+      listing_review_status: ["new", "attached", "dismissed"],
       listing_stage: ["proposal", "listed", "closed"],
       market_event_status: ["new", "seen", "dismissed"],
       market_event_type: [

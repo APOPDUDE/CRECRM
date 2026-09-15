@@ -41,6 +41,7 @@ export const leadSourceConfig: Record<LeadSource, { label: string; className: st
   website: { label: 'Website', className: 'bg-green-50 text-green-700 border-green-200' },
   referral: { label: 'Referral', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   broker: { label: 'Broker', className: 'bg-orange-50 text-orange-700 border-orange-200' },
+  facebook: { label: 'Facebook', className: 'bg-sky-50 text-sky-700 border-sky-200' },
 }
 
 export const leadSourceLabels = Object.fromEntries(
