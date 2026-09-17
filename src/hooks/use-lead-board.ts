@@ -11,7 +11,15 @@ import type { Enums, Tables } from '@/lib/database.types'
  */
 export type LeadBoardRow = Tables<'v_lead_board'>
 
-export type LeadStage = 'new' | 'booked' | 'prep' | 'met' | 'reschedule' | 'client' | 'unqualified'
+export type LeadStage =
+  | 'dead'
+  | 'new'
+  | 'booked'
+  | 'prep'
+  | 'met'
+  | 'reschedule'
+  | 'client'
+  | 'unqualified'
 
 /** The columns that are a decision, so dropping into them writes. The rest are time-driven. */
 export const MANUAL_STAGES = ['reschedule', 'client', 'unqualified'] as const
@@ -37,13 +45,31 @@ export function useLeadBoard() {
 /**
  * Move a lead. Dropping it back into a time-driven column clears the manual stage, which
  * hands it back to the meeting date rather than pinning it somewhere wrong.
+ *
+ * Dead is the lifecycle flag on `prospects.status`, not a manual stage, so it is written
+ * separately — and only touched when the lead is actually entering or leaving Dead, so
+ * dragging a converted lead around never quietly reopens it.
  */
 export function useSetLeadStage() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, stage }: { id: string; stage: LeadStage }) => {
-      const manual_stage = isManualStage(stage) ? stage : null
-      const { error } = await supabase.from('prospects').update({ manual_stage }).eq('id', id)
+    mutationFn: async ({
+      id,
+      stage,
+      fromDead,
+    }: {
+      id: string
+      stage: LeadStage
+      fromDead?: boolean
+    }) => {
+      const patch: { manual_stage?: Enums<'lead_manual_stage'> | null; status?: 'open' | 'dead' } = {}
+      if (stage === 'dead') {
+        patch.status = 'dead'
+      } else {
+        patch.manual_stage = isManualStage(stage) ? stage : null
+        if (fromDead) patch.status = 'open'
+      }
+      const { error } = await supabase.from('prospects').update(patch).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {

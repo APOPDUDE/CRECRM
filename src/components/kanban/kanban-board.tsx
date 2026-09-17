@@ -27,6 +27,12 @@ interface KanbanBoardProps<TItem, TStage extends string> {
    */
   onReorder?: (item: TItem, before: TItem | null) => void
   renderCard: (item: TItem) => ReactNode
+  /**
+   * Stages parked outside the flow (dead, unqualified). They render as a narrow strip with
+   * a count until clicked open, so they stay out of the way without being invisible — and
+   * they remain drop targets while collapsed, so a card can be filed away with one drag.
+   */
+  collapsibleStages?: TStage[]
 }
 
 function SortableCard({ id, children }: { id: string; children: ReactNode }) {
@@ -62,13 +68,38 @@ function DroppableColumn<TStage extends string>({
   count,
   accent,
   children,
+  collapsed,
+  onToggle,
 }: {
   column: StageDef<TStage>
   count: number
   accent: string
   children: ReactNode
+  collapsed?: boolean
+  onToggle?: () => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.value })
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        ref={setNodeRef}
+        onClick={onToggle}
+        title={`${column.label} (${count}) — click to open`}
+        className={cn(
+          'flex w-11 shrink-0 cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed bg-muted/30 py-3 transition-colors hover:bg-muted/60',
+          isOver && 'border-primary/50 bg-primary/5',
+        )}
+      >
+        <span className="rounded-full bg-background px-1.5 py-0.5 text-[11px] tabular-nums shadow-sm">
+          {count}
+        </span>
+        <span className="text-xs tracking-wide text-muted-foreground [writing-mode:vertical-rl]">
+          {column.label}
+        </span>
+      </button>
+    )
+  }
   return (
     <div
       className={cn(
@@ -79,7 +110,18 @@ function DroppableColumn<TStage extends string>({
       {/* progression accent — deepens toward the final stage */}
       <div className="h-1" style={{ backgroundColor: accent }} />
       <div className="flex items-center justify-between gap-2 border-b bg-background/60 px-3 py-2">
-        <span className="text-sm font-medium">{column.label}</span>
+        {onToggle ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+            title="Collapse"
+          >
+            {column.label} ×
+          </button>
+        ) : (
+          <span className="text-sm font-medium">{column.label}</span>
+        )}
         <span className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground tabular-nums shadow-sm">
           {count}
         </span>
@@ -99,8 +141,11 @@ export function KanbanBoard<TItem, TStage extends string>({
   onMove,
   onReorder,
   renderCard,
+  collapsibleStages,
 }: KanbanBoardProps<TItem, TStage>) {
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [opened, setOpened] = useState<TStage[]>([])
+  const isCollapsible = (s: TStage) => (collapsibleStages ?? []).includes(s)
   // Mouse: a 6px threshold means a plain click still opens the card, but a drag moves it.
   // Touch: a 200ms press-delay (with an 8px tolerance) means a swipe scrolls the board and a
   // long-press starts a drag — otherwise every card touch would hijack vertical scrolling.
@@ -151,12 +196,25 @@ export function KanbanBoard<TItem, TStage extends string>({
       <div className="flex gap-3 overflow-x-auto pb-2">
         {columns.map((column, index) => {
           const columnItems = items.filter((i) => getStage(i) === column.value)
+          const collapsible = isCollapsible(column.value)
+          const collapsed = collapsible && !opened.includes(column.value)
           return (
             <DroppableColumn
               key={column.value}
               column={column}
               count={columnItems.length}
-              accent={stageAccent(index, columns.length)}
+              accent={collapsible ? 'var(--muted-foreground)' : stageAccent(index, columns.length)}
+              collapsed={collapsed}
+              onToggle={
+                collapsible
+                  ? () =>
+                      setOpened((o) =>
+                        o.includes(column.value)
+                          ? o.filter((s) => s !== column.value)
+                          : [...o, column.value],
+                      )
+                  : undefined
+              }
             >
               <SortableContext
                 items={columnItems.map(getId)}

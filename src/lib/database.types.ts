@@ -5341,6 +5341,7 @@ export type Database = {
           qualified: boolean | null
           score: number | null
           stage: string | null
+          status: Database["public"]["Enums"]["prospect_status"] | null
           temperature: Database["public"]["Enums"]["lead_temperature"] | null
         }
         Insert: {
@@ -5356,6 +5357,7 @@ export type Database = {
           qualified?: never
           score?: never
           stage?: never
+          status?: Database["public"]["Enums"]["prospect_status"] | null
           temperature?: Database["public"]["Enums"]["lead_temperature"] | null
         }
         Update: {
@@ -5371,6 +5373,7 @@ export type Database = {
           qualified?: never
           score?: never
           stage?: never
+          status?: Database["public"]["Enums"]["prospect_status"] | null
           temperature?: Database["public"]["Enums"]["lead_temperature"] | null
         }
         Relationships: []

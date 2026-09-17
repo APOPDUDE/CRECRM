@@ -58,19 +58,24 @@ import { cn } from '@/lib/utils'
  * Leads — every inquiry from the website, the VA and GHL, before it is a deal.
  * Deep link: `/prospecting?prospect=<id>` opens that lead (task rows and Slack posts use it).
  *
- * The first four columns are derived in Postgres from the meeting date, so they keep
+ * New / Booked / Prep / Met are derived in Postgres from the meeting date, so they keep
  * themselves honest and are never dragged. Reschedule / Client / Unqualified are the only
- * decisions, and Unqualified is parked out of sight until you ask for it.
+ * decisions. Dead and Unqualified sit at the two ends as narrow strips you click open.
  */
 
 const BOARD_STAGES: StageDef<LeadStage>[] = [
+  { value: 'dead', label: 'Dead' },
   { value: 'new', label: 'New' },
   { value: 'booked', label: 'Booked' },
   { value: 'prep', label: 'Prep' },
   { value: 'met', label: 'Met' },
   { value: 'reschedule', label: 'Reschedule' },
   { value: 'client', label: 'Client' },
+  { value: 'unqualified', label: 'Unqualified' },
 ]
+
+/** Parked outside the flow: a narrow strip until you click it open. */
+const PARKED: LeadStage[] = ['dead', 'unqualified']
 
 /** Columns where a temperature is worth having: you have spoken to them. */
 const RATEABLE: LeadStage[] = ['met', 'reschedule', 'client']
@@ -376,7 +381,6 @@ export function ProspectingPage() {
   const setTemperature = useSetLeadTemperature()
   const [addOpen, setAddOpen] = useState(false)
   const [view, setView] = useState<ViewMode>('board')
-  const [showUnqualified, setShowUnqualified] = useState(false)
   const [params] = useSearchParams()
   const [selectedId, setSelectedId] = useState<string | null>(params.get('prospect'))
 
@@ -411,8 +415,6 @@ export function ProspectingPage() {
       })
   }, [prospects, board])
 
-  const onBoard = useMemo(() => leads.filter((l) => l.board.stage !== 'unqualified'), [leads])
-  const unqualified = useMemo(() => leads.filter((l) => l.board.stage === 'unqualified'), [leads])
   const withMeetings = useMemo(() => leads.filter((l) => l.board.meeting_at), [leads])
 
   const renderCard = (lead: Lead) => (
@@ -492,38 +494,22 @@ export function ProspectingPage() {
           ))}
         </div>
       ) : (
-        <>
-          <KanbanBoard
-            columns={BOARD_STAGES}
-            items={onBoard}
-            getId={(l) => l.id}
-            getStage={(l) => l.board.stage as LeadStage}
-            onMove={(l, toStage) => setStage.mutate({ id: l.id, stage: toStage })}
-            renderCard={renderCard}
-          />
+        <KanbanBoard
+          columns={BOARD_STAGES}
+          items={leads}
+          getId={(l) => l.id}
+          getStage={(l) => l.board.stage as LeadStage}
+          onMove={(l, toStage) =>
+            setStage.mutate({
+              id: l.id,
+              stage: toStage,
+              fromDead: l.board.stage === 'dead',
+            })
+          }
+          renderCard={renderCard}
+          collapsibleStages={PARKED}
+        />
 
-          {unqualified.length > 0 && (
-            <div className="rounded-lg border border-dashed">
-              <button
-                type="button"
-                onClick={() => setShowUnqualified((v) => !v)}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-muted-foreground hover:text-foreground"
-              >
-                <span>Unqualified</span>
-                <Badge variant="secondary" className="font-normal">
-                  {unqualified.length}
-                </Badge>
-              </button>
-              {showUnqualified && (
-                <div className="grid grid-cols-1 gap-3 border-t p-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {unqualified.map((lead) => (
-                    <div key={lead.id}>{renderCard(lead)}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </>
       )}
 
       <AddProspectDialog open={addOpen} onOpenChange={setAddOpen} />
