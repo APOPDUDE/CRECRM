@@ -104,3 +104,43 @@ export function calendlyBookingOf(
     taskId: typeof cal.task_id === 'string' ? cal.task_id : null,
   }
 }
+
+/**
+ * The three things a meeting can be, coloured the same way everywhere: on the board card
+ * and as the block in calendar view. The type comes off the Calendly event name in
+ * `v_lead_board`, so it is never typed by hand.
+ */
+export const MEETING_TYPE_META: Record<string, { label: string; className: string; dot: string }> = {
+  space: {
+    label: 'Space',
+    className: 'border-slate-300 bg-slate-50 text-slate-700',
+    dot: 'bg-slate-400',
+  },
+  software: {
+    label: 'Software',
+    className: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+    dot: 'bg-indigo-500',
+  },
+  consultation: {
+    label: 'Consultation',
+    className: 'border-amber-300 bg-amber-50 text-amber-800',
+    dot: 'bg-amber-500',
+  },
+}
+
+export function meetingTypeMeta(type: string | null | undefined) {
+  return type ? (MEETING_TYPE_META[type] ?? null) : null
+}
+
+/** Cold / warm / hot, shown as the card's left edge so the Met column reads as three bands. */
+export const TEMPERATURE_META = {
+  hot: { label: 'Hot', edge: 'border-l-red-500', chip: 'bg-red-500', rank: 0 },
+  warm: { label: 'Warm', edge: 'border-l-amber-400', chip: 'bg-amber-400', rank: 1 },
+  cold: { label: 'Cold', edge: 'border-l-sky-300', chip: 'bg-sky-300', rank: 2 },
+} as const
+
+export type Temperature = keyof typeof TEMPERATURE_META
+
+export function temperatureRank(t: string | null | undefined): number {
+  return t && t in TEMPERATURE_META ? TEMPERATURE_META[t as Temperature].rank : 3
+}
