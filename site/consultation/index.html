@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Discovery call with Alex - 30 minutes, $100, a game plan</title>
-<meta name="description" content="30 minutes with Alex Poplawski on your business or brand. $100. Nine quick questions, then pick your time.">
+<title>Advisory call with Alex - one hour, $250, a game plan</title>
+<meta name="description" content="One hour with Alex Poplawski on your business. $250. A few questions first, then pick your time.">
 <link rel="canonical" href="https://alexpoplawski.com/consultation">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://alexpoplawski.com/consultation">
-<meta property="og:title" content="Book a consultation with Alex - $100 for 30 minutes">
-<meta property="og:description" content="30 minutes on your business or brand. $100. Nine quick questions, then pick your time.">
+<meta property="og:title" content="Book an advisory call with Alex - $250 for one hour">
+<meta property="og:description" content="One hour on your business. $250. A few questions first, then pick your time.">
 <meta property="og:image" content="https://alexpoplawski.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -23,7 +23,7 @@
 <body class="consult">
 <div class="wrap">
   <header class="top">
-    <span class="mono price">$100 &middot; 30 min</span>
+    <span class="mono price">$250 &middot; 1 hour</span>
   </header>
 
   <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
@@ -32,8 +32,8 @@
     <!-- 0: intro -->
     <section class="step" data-step="intro">
       <h1>Book an <span>advisory call.</span></h1>
-      <p class="lede">In this call I distill hundreds of hours working in automations, AI and real estate into your business. We examine your pain points and blind spots, and you leave with a game plan for getting to the next level.</p>
-      <p class="lede fine">This is not an integration call. I can't build your system in 30 minutes, but I can cut your time to get set up and running.</p>
+      <p class="lede">You answer a few questions. I go through your business before we sit down, and I come in with a game plan for using better data, automations and AI to get you to the next level.</p>
+      <p class="lede fine">This is not an integration call. I won't build your system in an hour. I will show you exactly what to build, in what order, and cut months off how long it takes you to get there.</p>
       <button type="button" class="btn next">Start</button>
     </section>
 
@@ -82,6 +82,130 @@
       <p class="err" role="alert"></p>
     </section>
 
+
+    <!-- where do you operate -->
+    <section class="step" data-step="where" hidden>
+      <p class="qnum mono"></p>
+      <h2>Where do you operate?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="us">United States</button>
+        <button type="button" class="choice" data-value="intl">Outside the US</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <section class="step" data-step="usstate" hidden>
+      <p class="qnum mono"></p>
+      <h2>Which market?</h2>
+      <p class="hint">Where you actually work, not where you are licensed.</p>
+      <select name="usstate" data-required data-msg="Pick a market.">
+        <option value="">Choose one</option>
+        <option value="Multi-state / regional">Multi-state / regional</option>
+        <option value="Nationwide">Nationwide</option>
+        <option value="" disabled>&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</option>
+        <option value="Alabama">Alabama</option>
+        <option value="Alaska">Alaska</option>
+        <option value="Arizona">Arizona</option>
+        <option value="Arkansas">Arkansas</option>
+        <option value="California">California</option>
+        <option value="Colorado">Colorado</option>
+        <option value="Connecticut">Connecticut</option>
+        <option value="Delaware">Delaware</option>
+        <option value="Florida">Florida</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Hawaii">Hawaii</option>
+        <option value="Idaho">Idaho</option>
+        <option value="Illinois">Illinois</option>
+        <option value="Indiana">Indiana</option>
+        <option value="Iowa">Iowa</option>
+        <option value="Kansas">Kansas</option>
+        <option value="Kentucky">Kentucky</option>
+        <option value="Louisiana">Louisiana</option>
+        <option value="Maine">Maine</option>
+        <option value="Maryland">Maryland</option>
+        <option value="Massachusetts">Massachusetts</option>
+        <option value="Michigan">Michigan</option>
+        <option value="Minnesota">Minnesota</option>
+        <option value="Mississippi">Mississippi</option>
+        <option value="Missouri">Missouri</option>
+        <option value="Montana">Montana</option>
+        <option value="Nebraska">Nebraska</option>
+        <option value="Nevada">Nevada</option>
+        <option value="New Hampshire">New Hampshire</option>
+        <option value="New Jersey">New Jersey</option>
+        <option value="New Mexico">New Mexico</option>
+        <option value="New York">New York</option>
+        <option value="North Carolina">North Carolina</option>
+        <option value="North Dakota">North Dakota</option>
+        <option value="Ohio">Ohio</option>
+        <option value="Oklahoma">Oklahoma</option>
+        <option value="Oregon">Oregon</option>
+        <option value="Pennsylvania">Pennsylvania</option>
+        <option value="Rhode Island">Rhode Island</option>
+        <option value="South Carolina">South Carolina</option>
+        <option value="South Dakota">South Dakota</option>
+        <option value="Tennessee">Tennessee</option>
+        <option value="Texas">Texas</option>
+        <option value="Utah">Utah</option>
+        <option value="Vermont">Vermont</option>
+        <option value="Virginia">Virginia</option>
+        <option value="Washington">Washington</option>
+        <option value="West Virginia">West Virginia</option>
+        <option value="Wisconsin">Wisconsin</option>
+        <option value="Wyoming">Wyoming</option>
+        <option value="District of Columbia">District of Columbia</option>
+      </select>
+      <div class="actions"><button type="button" class="btn next">Continue</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <section class="step" data-step="country" hidden>
+      <p class="qnum mono"></p>
+      <h2>Where in the world?</h2>
+      <p class="hint">Country or region is enough.</p>
+      <input type="text" name="country" placeholder="United Kingdom" data-required data-msg="Where do you operate?">
+      <div class="actions"><button type="button" class="btn next">Continue</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- how big -->
+    <section class="step" data-step="team" hidden>
+      <p class="qnum mono"></p>
+      <h2>How big is it today?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="solo">Just me</button>
+        <button type="button" class="choice" data-value="2_5">2 to 5</button>
+        <button type="button" class="choice" data-value="6_20">6 to 20</button>
+        <button type="button" class="choice" data-value="20_plus">20+</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <section class="step" data-step="revenue" hidden>
+      <p class="qnum mono"></p>
+      <h2>Roughly where is revenue?</h2>
+      <p class="hint">Ballpark. It changes what I suggest you spend on.</p>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="under_250k">Under $250k</button>
+        <button type="button" class="choice" data-value="250k_1m">$250k to $1M</button>
+        <button type="button" class="choice" data-value="1m_5m">$1M to $5M</button>
+        <button type="button" class="choice" data-value="5m_plus">$5M+</button>
+        <button type="button" class="choice" data-value="private">Rather not say</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <section class="step" data-step="tried" hidden>
+      <p class="qnum mono"></p>
+      <h2>What have you already tried?</h2>
+      <p class="hint">Tools you bought, things that did not stick. Saves us twenty minutes.</p>
+      <textarea name="tried" rows="4" placeholder="Bought a CRM last year, nobody used it. Tried Zapier for follow-ups and it broke."></textarea>
+      <div class="actions">
+        <button type="button" class="btn next">Continue</button>
+        <button type="button" class="link skip">Skip</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
     <!-- 5: found -->
     <section class="step" data-step="found" hidden>
       <p class="qnum mono"></p>
@@ -137,7 +261,7 @@
     <section class="step" data-step="book" hidden>
       <p class="eyebrow">Last step</p>
       <h2>Pick your time.</h2>
-      <p class="hint">$100 for 30 minutes, collected on the calendar.</p>
+      <p class="hint">$250 for the hour, collected on the calendar. I read your answers before we meet.</p>
       <div id="calendly" class="calendly"></div>
       <p class="fine">Calendar not loading? <a id="cal-link" href="https://calendly.com/alex-axis/consultation" target="_blank" rel="noopener">Open it in a new tab</a>.</p>
       <p class="status" role="status" aria-live="polite"></p>
@@ -153,6 +277,26 @@
 
   <p class="backrow"><button type="button" class="link" id="back" hidden>&larr; Back</button></p>
 </div>
-<script src="/consult.js" defer></script>
+
+<script src="/funnel.js" defer></script>
+<script defer>
+window.addEventListener('DOMContentLoaded', function () {
+  window.initFunnel({
+    form: 'consultation',
+    webhook: 'https://n8n.ayxco.com/webhook/alexpoplawski-lead',
+    booked: 'https://n8n.ayxco.com/webhook/alexpoplawski-booked',
+    calendly: 'https://calendly.com/alex-axis/consultation',
+    phone: '(941) 806-8432',
+    order: ['intro', 'need', 'details', 'stage', 'question',
+            'where', 'usstate', 'country', 'team', 'revenue', 'tried',
+            'found', 'name', 'company', 'email', 'phone', 'book', 'done'],
+    branch: {
+      where: function (s) { return s.where === 'us' ? 'usstate' : 'country'; },
+      usstate: function () { return 'team'; },
+      country: function () { return 'team'; }
+    }
+  });
+});
+</script>
 </body>
 </html>

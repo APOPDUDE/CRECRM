@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Software — Alex Poplawski</title>
+<meta name="description" content="A few questions to see whether the software is a fit for your business.">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:title" content="Software — Alex Poplawski">
+<meta property="og:description" content="A few questions to see whether the software is a fit for your business.">
+<meta property="og:image" content="/og.png">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/consult.css">
+</head>
+<body class="consult">
+<div class="wrap">
+  <header class="top">
+    <span class="mono price">Built for commercial real estate</span>
+  </header>
+
+  <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
+
+  <main id="flow">
+    <!-- intro -->
+    <section class="step" data-step="intro">
+      <h1>Run your book on <span>one system.</span></h1>
+      <p class="lede">Properties, owners, comps, outreach and deals in one place, fed by county data that updates itself. A few questions first so I know whether it actually fits how you work.</p>
+      <p class="lede fine">Under two minutes. If it is not a fit I will tell you, and I will still hand you the free stack I started with.</p>
+      <button type="button" class="btn next">Start</button>
+    </section>
+
+    <!-- 1 who -->
+    <section class="step" data-step="who" hidden>
+      <p class="qnum mono"></p>
+      <h2>Who are you?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="investor">Investor or property owner</button>
+        <button type="button" class="choice" data-value="broker">Broker or agent</button>
+        <button type="button" class="choice" data-value="brokerage">I run a brokerage or a team</button>
+        <button type="button" class="choice" data-value="other">Something else</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 2 where -->
+    <section class="step" data-step="where" hidden>
+      <p class="qnum mono"></p>
+      <h2>Where do you operate?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="us">United States</button>
+        <button type="button" class="choice" data-value="intl">Outside the US</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 2a state -->
+    <section class="step" data-step="usstate" hidden>
+      <p class="qnum mono"></p>
+      <h2>Which market?</h2>
+      <p class="hint">Where you actually work, not where you are licensed.</p>
+      <select name="usstate" data-required data-msg="Pick a market.">
+        <option value="">Choose one</option>
+        <option value="Multi-state / regional">Multi-state / regional</option>
+        <option value="Nationwide">Nationwide</option>
+        <option value="" disabled>──────────</option>
+        <option value="Alabama">Alabama</option>
+        <option value="Alaska">Alaska</option>
+        <option value="Arizona">Arizona</option>
+        <option value="Arkansas">Arkansas</option>
+        <option value="California">California</option>
+        <option value="Colorado">Colorado</option>
+        <option value="Connecticut">Connecticut</option>
+        <option value="Delaware">Delaware</option>
+        <option value="Florida">Florida</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Hawaii">Hawaii</option>
+        <option value="Idaho">Idaho</option>
+        <option value="Illinois">Illinois</option>
+        <option value="Indiana">Indiana</option>
+        <option value="Iowa">Iowa</option>
+        <option value="Kansas">Kansas</option>
+        <option value="Kentucky">Kentucky</option>
+        <option value="Louisiana">Louisiana</option>
+        <option value="Maine">Maine</option>
+        <option value="Maryland">Maryland</option>
+        <option value="Massachusetts">Massachusetts</option>
+        <option value="Michigan">Michigan</option>
+        <option value="Minnesota">Minnesota</option>
+        <option value="Mississippi">Mississippi</option>
+        <option value="Missouri">Missouri</option>
+        <option value="Montana">Montana</option>
+        <option value="Nebraska">Nebraska</option>
+        <option value="Nevada">Nevada</option>
+        <option value="New Hampshire">New Hampshire</option>
+        <option value="New Jersey">New Jersey</option>
+        <option value="New Mexico">New Mexico</option>
+        <option value="New York">New York</option>
+        <option value="North Carolina">North Carolina</option>
+        <option value="North Dakota">North Dakota</option>
+        <option value="Ohio">Ohio</option>
+        <option value="Oklahoma">Oklahoma</option>
+        <option value="Oregon">Oregon</option>
+        <option value="Pennsylvania">Pennsylvania</option>
+        <option value="Rhode Island">Rhode Island</option>
+        <option value="South Carolina">South Carolina</option>
+        <option value="South Dakota">South Dakota</option>
+        <option value="Tennessee">Tennessee</option>
+        <option value="Texas">Texas</option>
+        <option value="Utah">Utah</option>
+        <option value="Vermont">Vermont</option>
+        <option value="Virginia">Virginia</option>
+        <option value="Washington">Washington</option>
+        <option value="West Virginia">West Virginia</option>
+        <option value="Wisconsin">Wisconsin</option>
+        <option value="Wyoming">Wyoming</option>
+        <option value="District of Columbia">District of Columbia</option>
+      </select>
+      <div class="actions"><button type="button" class="btn next">Continue</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 2b country -->
+    <section class="step" data-step="country" hidden>
+      <p class="qnum mono"></p>
+      <h2>Where in the world?</h2>
+      <p class="hint">Country or region is enough.</p>
+      <input type="text" name="country" placeholder="United Kingdom" data-required data-msg="Where do you operate?">
+      <div class="actions"><button type="button" class="btn next">Continue</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 3 contact -->
+    <section class="step" data-step="contact" hidden data-fields>
+      <p class="qnum mono"></p>
+      <h2>How do I reach you?</h2>
+      <p class="hint">So I can send you something useful either way.</p>
+      <label class="lbl" for="f-name">Name</label>
+      <input id="f-name" type="text" name="name" placeholder="Jordan Ellis" data-required data-msg="Your name, please.">
+      <label class="lbl" for="f-email">Email</label>
+      <input id="f-email" type="email" name="email" placeholder="jordan@company.com" data-required data-type="email" data-msg="Email, please.">
+      <label class="lbl" for="f-phone">Phone</label>
+      <input id="f-phone" type="tel" name="phone" placeholder="(813) 555-0100" data-required data-type="phone" data-msg="A 10-digit number, please.">
+      <div class="actions"><button type="button" class="btn next">Continue</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 4 tracking -->
+    <section class="step" data-step="tracking" hidden>
+      <p class="qnum mono"></p>
+      <h2>How do you track your data today?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="crm" data-score="2">I have a CRM</button>
+        <button type="button" class="choice" data-value="sheets" data-score="2">Spreadsheets</button>
+        <button type="button" class="choice" data-value="paper" data-score="1">Notes, paper, memory</button>
+        <button type="button" class="choice" data-value="starting" data-dq>I am just getting started</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 5 tools -->
+    <section class="step" data-step="tools" hidden>
+      <p class="qnum mono"></p>
+      <h2>What do you pay for today?</h2>
+      <p class="hint">Pick everything you currently subscribe to.</p>
+      <div class="choices" data-multi data-required>
+        <button type="button" class="choice" data-value="CoStar" data-score="3">CoStar</button>
+        <button type="button" class="choice" data-value="Reonomy" data-score="3">Reonomy</button>
+        <button type="button" class="choice" data-value="Crexi" data-score="1">Crexi</button>
+        <button type="button" class="choice" data-value="LoopNet" data-score="1">LoopNet</button>
+        <button type="button" class="choice" data-value="Placer.ai" data-score="1">Placer.ai</button>
+        <button type="button" class="choice" data-value="None" data-solo>None of these</button>
+      </div>
+      <div class="actions"><button type="button" class="btn next">Continue</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 6 team -->
+    <section class="step" data-step="team" hidden>
+      <p class="qnum mono"></p>
+      <h2>How big is the team?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="solo">Just me</button>
+        <button type="button" class="choice" data-value="2_5" data-score="2">2 to 5</button>
+        <button type="button" class="choice" data-value="6_20" data-score="3">6 to 20</button>
+        <button type="button" class="choice" data-value="20_plus" data-score="3">20+</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 7 volume, branched per persona -->
+    <section class="step" data-step="volume_investor" hidden>
+      <p class="qnum mono"></p>
+      <h2>How much do you own?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="0">Nothing yet</button>
+        <button type="button" class="choice" data-value="1_10" data-score="1">1 to 10 properties</button>
+        <button type="button" class="choice" data-value="11_50" data-score="2">11 to 50</button>
+        <button type="button" class="choice" data-value="50_plus" data-score="3">50+</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <section class="step" data-step="volume_broker" hidden>
+      <p class="qnum mono"></p>
+      <h2>How many deals did you close last year?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="0">None yet</button>
+        <button type="button" class="choice" data-value="1_5" data-score="1">1 to 5</button>
+        <button type="button" class="choice" data-value="6_20" data-score="2">6 to 20</button>
+        <button type="button" class="choice" data-value="20_plus" data-score="3">20+</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <section class="step" data-step="volume_brokerage" hidden>
+      <p class="qnum mono"></p>
+      <h2>How many agents are on the team?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="1">Just me so far</button>
+        <button type="button" class="choice" data-value="2_5" data-score="1">2 to 5</button>
+        <button type="button" class="choice" data-value="6_20" data-score="2">6 to 20</button>
+        <button type="button" class="choice" data-value="20_plus" data-score="3">20+</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <section class="step" data-step="volume_other" hidden>
+      <p class="qnum mono"></p>
+      <h2>Roughly where is revenue?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="under_250k">Under $250k</button>
+        <button type="button" class="choice" data-value="250k_1m" data-score="1">$250k to $1M</button>
+        <button type="button" class="choice" data-value="1m_5m" data-score="2">$1M to $5M</button>
+        <button type="button" class="choice" data-value="5m_plus" data-score="3">$5M+</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- 8 pain -->
+    <section class="step" data-step="pain" hidden>
+      <p class="qnum mono"></p>
+      <h2>What is actually broken?</h2>
+      <p class="hint">Where does your day go that it should not?</p>
+      <textarea name="pain" rows="4" placeholder="Chasing down owner info, rebuilding the same comp set every week, nobody knows who called who." data-required data-min="10" data-msg="A sentence is enough."></textarea>
+      <div class="actions"><button type="button" class="btn next">Continue</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- book -->
+    <section class="step" data-step="book" hidden>
+      <h2>Pick your time.</h2>
+      <p class="hint">Thirty minutes, free, and I will show you the real thing rather than slides. So the call is useful: implementation runs about $10k, then $500 to $2,000 a month depending on size.</p>
+      <div id="calendly" class="calendly"></div>
+      <p class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- not yet -->
+    <section class="step" data-step="notyet" hidden>
+      <h2>Not yet, and that is the right answer.</h2>
+      <p class="lede">The software runs about $10k to implement and $500 to $2,000 a month after that. At your stage that money is better spent finding the first few deals. So here is the free stack I actually used to do exactly that.</p>
+      <ul class="tools">
+        <li><a href="https://regrid.com" target="_blank" rel="noopener">Regrid</a><span>Parcel boundaries, owner names, acreage.</span></li>
+        <li><a href="https://www.google.com/earth/versions/" target="_blank" rel="noopener">Google Earth Pro</a><span>Free. Measures distances and shows historical imagery.</span></li>
+        <li><span class="nolink">County property appraiser sites</span><span>Ownership, values, sale history, building size. The single best free source there is.</span></li>
+        <li><span class="nolink">Clerk of court</span><span>Lis pendens, evictions, probate. Distress months before anyone else sees it.</span></li>
+        <li><a href="https://sunbiz.org" target="_blank" rel="noopener">Sunbiz</a><span>Turns a Florida LLC into a real person&rsquo;s name.</span></li>
+        <li><a href="https://www.truepeoplesearch.com" target="_blank" rel="noopener">TruePeopleSearch</a><span>Turns that name into a phone number.</span></li>
+        <li><a href="https://terrakotta.ai" target="_blank" rel="noopener">Terrakotta</a><span>Cold calling, so you can actually work the list you just built.</span></li>
+        <li><span class="nolink">LoopNet and Crexi free tiers</span><span>Asking rates. Enough to build your own comp set by hand.</span></li>
+      </ul>
+      <p class="lede">That stack costs nothing and it is genuinely how this started. Build the list, then start calling.</p>
+      <p class="lede"><strong>If you find a deal you cannot get over the line, send it to me.</strong> Happy to work it with you: <a href="mailto:alex@axis.deals">alex@axis.deals</a>.</p>
+      <p class="lede fine">I have your details. When there is a room for people doing exactly this, you get the invite.</p>
+    </section>
+
+    <!-- done -->
+    <section class="step" data-step="done" hidden>
+      <h2>You are on the calendar.</h2>
+      <p class="lede">Frances will email the details. Come with the thing that is broken and we will look at it together.</p>
+    </section>
+  </main>
+
+  <p class="backrow"><button type="button" class="link" id="back" hidden>Back</button></p>
+</div>
+
+<script src="/funnel.js" defer></script>
+<script defer>
+window.addEventListener('DOMContentLoaded', function () {
+  var VOLUME = {
+    investor: 'volume_investor',
+    broker: 'volume_broker',
+    brokerage: 'volume_brokerage',
+    other: 'volume_other'
+  };
+  window.initFunnel({
+    form: 'crm',
+    webhook: 'https://n8n.ayxco.com/webhook/alexpoplawski-lead',
+    booked: 'https://n8n.ayxco.com/webhook/alexpoplawski-booked',
+    calendly: 'https://calendly.com/alex-axis/software-walkthrough',
+    phone: '(941) 806-8432',
+    order: ['intro', 'who', 'where', 'usstate', 'country', 'contact', 'tracking', 'tools', 'team',
+            'volume_investor', 'volume_broker', 'volume_brokerage', 'volume_other',
+            'pain', 'book', 'notyet', 'done'],
+    branch: {
+      where: function (s) { return s.where === 'us' ? 'usstate' : 'country'; },
+      usstate: function () { return 'contact'; },
+      country: function () { return 'contact'; },
+      team: function (s) { return VOLUME[s.who] || 'volume_other'; },
+      volume_investor: function () { return 'pain'; },
+      volume_broker: function () { return 'pain'; },
+      volume_brokerage: function () { return 'pain'; },
+      volume_other: function () { return 'pain'; }
+    },
+    gate: function (state, score, dq) { return !dq && score >= 6; }
+  });
+});
+</script>
+</body>
+</html>

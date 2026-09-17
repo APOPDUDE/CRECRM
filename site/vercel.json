@@ -94,6 +94,21 @@
       "source": "/consult",
       "destination": "/consultation",
       "permanent": false
+    },
+    {
+      "source": "/software",
+      "destination": "/crm",
+      "permanent": false
+    },
+    {
+      "source": "/ayxco",
+      "destination": "/crm",
+      "permanent": false
+    },
+    {
+      "source": "/demo",
+      "destination": "/crm",
+      "permanent": false
     }
   ]
 }

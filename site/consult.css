@@ -45,3 +45,30 @@ body.consult .step[data-step="intro"] .lede.fine { font-size: 14px; margin: 0 0 
 /* header: just the price, centered and bold */
 body.consult header.top { justify-content: center; }
 body.consult header.top .price { font-size: 15px; font-weight: 600; letter-spacing: 0.12em; color: var(--navy); }
+
+/* select + labelled multi-field screens */
+body.consult select {
+  max-width: 560px; width: 100%; font: inherit; font-size: 19px; padding: 14px 16px;
+  border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--ink);
+  appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'><path d='M1 1l6 6 6-6' fill='none' stroke='%230f2a5f' stroke-width='2'/></svg>");
+  background-repeat: no-repeat; background-position: right 16px center;
+}
+body.consult select:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 4px var(--focus); }
+.step[data-fields] .lbl { display: block; margin: 18px 0 6px; font-size: 14px; font-weight: 600; color: var(--navy); }
+.step[data-fields] .lbl:first-of-type { margin-top: 4px; }
+.step[data-fields] input { margin: 0; }
+
+/* multi-select: picked chips stay lit, nothing auto-advances */
+.choices[data-multi] .choice { position: relative; padding-right: 46px; }
+.choices[data-multi] .choice.picked::after {
+  content: "\2713"; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font-size: 16px;
+}
+
+/* the not-yet stack */
+.tools { list-style: none; padding: 0; margin: 0 0 32px; max-width: 620px; }
+.tools li { display: block; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.tools li a, .tools li .nolink { font-weight: 600; color: var(--navy); text-decoration: none; }
+.tools li a { text-decoration: underline; text-underline-offset: 3px; }
+.tools li a:hover { color: var(--accent); }
+.tools li span { display: block; margin-top: 3px; font-size: 15px; color: var(--muted); }
+.step[data-step="notyet"] h2 { max-width: 16ch; }
