@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Book your free consultation - Alex Poplawski</title>
-<meta name="description" content="Warehouse, outdoor storage, flex, or land in Tampa Bay. Tell me what you're working with and I'll take it from there. Reply within one business day.">
+<title>Alex Poplawski - Tampa Bay industrial</title>
+<meta name="description" content="Warehouse, outdoor storage, flex and land across Tampa Bay - or an hour on your business.">
 <link rel="canonical" href="https://alexpoplawski.com/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://alexpoplawski.com/">
-<meta property="og:title" content="Book your free consultation - Alex Poplawski">
-<meta property="og:description" content="Warehouse, outdoor storage, flex, or land in Tampa Bay. Tell me what you're working with and I'll take it from there.">
+<meta property="og:title" content="Alex Poplawski - Tampa Bay industrial">
+<meta property="og:description" content="Warehouse, outdoor storage, flex and land across Tampa Bay - or an hour on your business.">
 <meta property="og:image" content="https://alexpoplawski.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -19,160 +19,26 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-<div class="wrap">
-  <main>
-    <p class="eyebrow">Alex Poplawski CRE</p>
-    <h1>Book your free<br><span>consultation.</span></h1>
-    <p class="lede">Warehouse, outdoor storage, flex, and land across Tampa Bay. Tell me what you're working with and I'll take it from there.</p>
-
-    <form id="lead" action="https://n8n.ayxco.com/webhook/alexpoplawski-lead" method="post" novalidate>
-      <input type="hidden" name="t" value="">
-      <div class="hp" aria-hidden="true">
-        <label>Company website<input name="company_website" tabindex="-1" autocomplete="off"></label>
-      </div>
-
-      <fieldset>
-        <legend>01 / Who you are</legend>
-        <div class="row">
-          <label class="f"><span class="lbl">Name <em>*</em></span><input name="name" required autocomplete="name" placeholder="First and last"></label>
-          <label class="f"><span class="lbl">Company</span><input name="company" autocomplete="organization" placeholder="Business name"></label>
-        </div>
-        <div class="row">
-          <label class="f"><span class="lbl">Email <em>*</em></span><input type="email" name="email" required autocomplete="email" placeholder="you@company.com"></label>
-          <label class="f"><span class="lbl">Phone <em>*</em></span><input type="tel" name="phone" required autocomplete="tel" inputmode="tel" placeholder="(813) 555-0100"></label>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>02 / What you need</legend>
-        <div class="f">
-          <span class="lbl">What do you need help with? <em>*</em></span>
-          <div class="pills" role="radiogroup" aria-label="What do you need help with">
-            <label><input type="radio" name="need" value="lease" required><span>Lease a space</span></label>
-            <label><input type="radio" name="need" value="buy"><span>Buy a property</span></label>
-            <label><input type="radio" name="need" value="sell"><span>Sell a property</span></label>
-            <label><input type="radio" name="need" value="advice"><span>Market advice</span></label>
-          </div>
-        </div>
-        <div class="row" data-when="space">
-          <label class="f"><span class="lbl">Size</span>
-            <select name="size">
-              <option value="">Select a range</option>
-              <option value="under_2500">Under 2,500 SF</option>
-              <option value="2500_5000">2,500 to 5,000 SF</option>
-              <option value="5000_10000">5,000 to 10,000 SF</option>
-              <option value="10000_25000">10,000 to 25,000 SF</option>
-              <option value="25000_50000">25,000 to 50,000 SF</option>
-              <option value="50000_plus">50,000+ SF</option>
-              <option value="no_building">Outdoor storage or land only</option>
-              <option value="not_sure">Not sure yet</option>
-            </select>
-          </label>
-          <label class="f"><span class="lbl">Where</span>
-            <select name="area">
-              <option value="">Select an area</option>
-              <option>Tampa</option>
-              <option>Plant City</option>
-              <option>Lakeland / Polk</option>
-              <option>Pasco</option>
-              <option value="Pinellas">Clearwater / St. Pete</option>
-              <option>Sarasota / Bradenton</option>
-              <option>Anywhere in Tampa Bay</option>
-              <option>Not sure yet</option>
-            </select>
-          </label>
-        </div>
-        <div data-when="sell" hidden>
-          <label class="f"><span class="lbl">Property address <em>*</em></span><input name="sell_address" placeholder="1234 N 50th St, Tampa"></label>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>03 / Timeline</legend>
-        <div class="row">
-          <label class="f" data-when="space"><span class="lbl">When does your current lease expire?</span>
-            <select name="lease_ends">
-              <option value="">Select one</option>
-              <option value="expired_mtm">Already expired / month-to-month</option>
-              <option value="under_6">Less than 6 months</option>
-              <option value="6_12">6 to 12 months</option>
-              <option value="12_18">12 to 18 months</option>
-              <option value="18_plus">18+ months</option>
-              <option value="none">No existing lease</option>
-              <option value="na">Not applicable</option>
-            </select>
-          </label>
-          <label class="f"><span class="lbl">How urgent is this? <em>*</em></span>
-            <select name="timing" required>
-              <option value="">Select one</option>
-              <option value="now">Need to move now</option>
-              <option value="3_months">Next 3 months</option>
-              <option value="6_months">3 to 6 months</option>
-              <option value="exploring">Just exploring</option>
-            </select>
-          </label>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>04 / Context</legend>
-        <label class="f"><span class="lbl">Tell me what's going on</span><textarea name="details" rows="4" placeholder="My landlord just sent a renewal at $14 psf. I'm not sure if that's fair for Tampa right now..."></textarea></label>
-      </fieldset>
-
-      <div class="submit">
-        <button type="submit" class="btn">Book free consultation</button>
-        <p class="fine">Alex or a team member will reach out within one business day.</p>
-        <p class="status" role="status" aria-live="polite"></p>
-      </div>
-    </form>
-  </main>
-</div>
-
-<!-- entry gate: full screen, two buckets, equal weight -->
-<div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title" hidden>
+<body class="gate-page">
+<div class="gate">
   <div class="gate-inner">
     <p class="eyebrow">Alex Poplawski CRE</p>
-    <h2 id="gate-title">What are you<br><span>here for?</span></h2>
+    <h2>What are you<br><span>here for?</span></h2>
     <div class="gate-choices">
-      <button type="button" class="gate-btn" id="gate-space">
+      <a class="gate-btn" href="/space">
         <em>01</em>
         <strong>I'm looking for space</strong>
         <span>Warehouse, outdoor storage, flex and land across <strong class="hl">Tampa Bay</strong>.</span>
         <b aria-hidden="true">&rarr;</b>
-      </button>
-      <a class="gate-btn" href="/crm">
-        <em>02</em>
-        <strong>I want to use the software</strong>
-        <span>One system for properties, owners, comps and deals.</span>
-        <b aria-hidden="true">&rarr;</b>
       </a>
       <a class="gate-btn" href="/consultation">
-        <em>03</em>
-        <strong>I want an advisory call</strong>
-        <span>Automations, AI and real estate for your business.</span>
+        <em>02</em>
+        <strong>I want to talk to Alex</strong>
+        <span>An hour on your business, or the software I run mine on.</span>
         <b aria-hidden="true">&rarr;</b>
       </a>
     </div>
   </div>
 </div>
-<script>
-(function () {
-  var g = document.getElementById('gate');
-  var seen = false;
-  try { seen = sessionStorage.getItem('gate') === '1'; } catch (e) {}
-  if (seen || location.hash === '#form') return;
-  g.hidden = false;
-  document.body.classList.add('gated');
-  function close() {
-    g.hidden = true;
-    document.body.classList.remove('gated');
-    try { sessionStorage.setItem('gate', '1'); } catch (e) {}
-  }
-  document.getElementById('gate-space').addEventListener('click', close);
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
-})();
-</script>
-<script src="/form.js" defer></script>
 </body>
 </html>

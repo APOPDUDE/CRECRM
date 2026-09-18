@@ -7,6 +7,7 @@ import { FacebookListingsWidget } from '@/components/facebook-listings-widget'
 import { OffMarketWidget } from '@/components/off-market-widget'
 import { LeaseExpirationsWidget } from '@/components/lease-expirations-widget'
 import { CountyAverages } from '@/components/county-averages'
+import { FunnelDropoffWidget } from '@/components/funnel-dropoff-widget'
 
 export function DashboardPage() {
   const { data: dashMatches = [] } = useDashboardMatches()
@@ -14,6 +15,8 @@ export function DashboardPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Dashboard</h1>
+
+      <FunnelDropoffWidget />
 
       <MarketMonitorWidget />
 

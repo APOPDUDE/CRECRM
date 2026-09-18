@@ -1968,6 +1968,51 @@ export type Database = {
           },
         ]
       }
+      funnel_events: {
+        Row: {
+          channel: string | null
+          event: string
+          form: string
+          id: number
+          occurred_at: string
+          page: string | null
+          referrer: string | null
+          session_id: string
+          step: string
+          step_index: number | null
+          track: string | null
+          value: string | null
+        }
+        Insert: {
+          channel?: string | null
+          event: string
+          form: string
+          id?: never
+          occurred_at?: string
+          page?: string | null
+          referrer?: string | null
+          session_id: string
+          step: string
+          step_index?: number | null
+          track?: string | null
+          value?: string | null
+        }
+        Update: {
+          channel?: string | null
+          event?: string
+          form?: string
+          id?: never
+          occurred_at?: string
+          page?: string | null
+          referrer?: string | null
+          session_id?: string
+          step?: string
+          step_index?: number | null
+          track?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
       listing_parcels: {
         Row: {
           created_at: string
@@ -5327,6 +5372,19 @@ export type Database = {
         }
         Relationships: []
       }
+      v_funnel_dropoff: {
+        Row: {
+          drop_pct: number | null
+          dropped_here: number | null
+          form: string | null
+          last_seen: string | null
+          sessions: number | null
+          step: string | null
+          step_index: number | null
+          track: string | null
+        }
+        Relationships: []
+      }
       v_lead_board: {
         Row: {
           form: string | null
@@ -6653,6 +6711,7 @@ export type Database = {
       property_last_sales: { Args: never; Returns: Json }
       public_deal_room: { Args: { p_slug: string }; Returns: Json }
       recent_touches: { Args: { p_phone: string }; Returns: number }
+      record_funnel_events: { Args: { p: Json }; Returns: number }
       record_market_listings_for_known: {
         Args: { p_rows: Json }
         Returns: Json

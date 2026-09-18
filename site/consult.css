@@ -72,3 +72,10 @@ body.consult select:focus { outline: none; border-color: var(--navy); box-shadow
 .tools li a:hover { color: var(--accent); }
 .tools li span { display: block; margin-top: 3px; font-size: 15px; color: var(--muted); }
 .step[data-step="notyet"] h2 { max-width: 16ch; }
+
+/* a choice that carries a one-line explanation under it */
+.choice em {
+  display: block; margin-top: 5px; font-style: normal; font-size: 14px; line-height: 1.4;
+  color: var(--muted);
+}
+.choice.picked em { color: rgba(255, 255, 255, 0.82); }

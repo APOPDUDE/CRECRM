@@ -1,14 +1,18 @@
 /* Shared one-question-at-a-time funnel engine.
-   Drives /consultation and /crm from the same code.
 
    HTML contract:
      <section class="step" data-step="key">            one screen
        .qnum        -> gets "3 of 9" (presence marks it as a numbered question)
        .choices     -> pick-one; add data-multi for pick-many (needs a .next button)
          .choice[data-value][data-score][data-dq][data-next]
-       input/textarea[name][data-required][data-type=email|phone][data-min=10]
-       [data-fields] -> screen holds several named inputs, all validated together
-     Config: order, branch (key -> fn(state) returning a step key), gate (fn -> bool). */
+       input/textarea/select[name][data-required][data-type=email|phone][data-min=10]
+       [data-fields] -> screen holds several named inputs, validated together
+
+   Config: order, branch (key -> fn(state) returning a step key), gate (fn -> bool),
+   calendly / form / track (value or fn(state)).
+
+   Everything a visitor does is reported to the funnel-events webhook, including the step
+   they quit on — the people who DON'T finish are the ones worth learning from. */
 (function (window, document) {
   'use strict';
 
@@ -20,12 +24,90 @@
     });
     var bar = document.getElementById('bar');
     var back = document.getElementById('back');
-    var state = { t: String(Date.now()), form: cfg.form };
+    var state = { t: String(Date.now()) };
     var trail = [];
     var cur = order[0];
     var submitted = false;
+    var finished = false;
     var score = 0;
     var dq = false;
+    var seen = 0;
+
+    var resolve = function (v) { return typeof v === 'function' ? v(state) : v; };
+    var formOf = function () { return resolve(cfg.form) || 'lead'; };
+    var trackOf = function () { return resolve(cfg.track) || null; };
+
+    /* ---- analytics ---- */
+
+    var SID_KEY = 'funnel_sid';
+    var sid;
+    try {
+      sid = sessionStorage.getItem(SID_KEY);
+      if (!sid) {
+        sid = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        sessionStorage.setItem(SID_KEY, sid);
+      }
+    } catch (e) {
+      sid = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    }
+
+    var queue = [];
+    var flushTimer = null;
+
+    function channelOf() {
+      var m = location.href.match(/[?&]utm_source=([^&#]+)/);
+      if (m) { try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; } }
+      var r = document.referrer || '';
+      var h = (r.match(/^https?:\/\/([^/?#]+)/) || [])[1] || '';
+      return /instagram/.test(h) ? 'instagram' : /youtu/.test(h) ? 'youtube' : /tiktok/.test(h) ? 'tiktok'
+        : /linkedin|lnkd/.test(h) ? 'linkedin' : /facebook|fb\./.test(h) ? 'facebook'
+        : /x\.com|twitter/.test(h) ? 'x' : /google/.test(h) ? 'google' : '';
+    }
+
+    function record(step, event, value) {
+      if (!cfg.events) return;
+      queue.push({
+        // The client's own clock: events are sent in batches, so insert time would give a
+        // whole batch one timestamp and we could no longer tell which screen came last.
+        at: new Date().toISOString(),
+        session_id: sid, form: formOf(), track: trackOf(), step: step, event: event,
+        value: value == null ? '' : String(value).slice(0, 280),
+        // How many screens in, not where the step sits in the config array — the array is
+        // grouped by track, so its order says nothing about the path a person actually took.
+        step_index: seen,
+        page: location.href, referrer: document.referrer || '', channel: channelOf(),
+      });
+      if (queue.length >= 12) return flush();
+      if (!flushTimer) flushTimer = setTimeout(flush, 4000);
+    }
+
+    function flush(useBeacon) {
+      if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+      if (!queue.length || !cfg.events) return;
+      var batch = queue.splice(0, queue.length);
+      // Form-encoded on purpose: sendBeacon can only make simple requests, so this never
+      // triggers a CORS preflight and still lands during page unload.
+      var body = new URLSearchParams({ events: JSON.stringify(batch) });
+      try {
+        if (useBeacon && navigator.sendBeacon) {
+          navigator.sendBeacon(cfg.events, new Blob([body.toString()], {
+            type: 'application/x-www-form-urlencoded',
+          }));
+          return;
+        }
+      } catch (e) { /* fall through to fetch */ }
+      try {
+        fetch(cfg.events, { method: 'POST', body: body, keepalive: true, mode: 'no-cors' });
+      } catch (e) { /* analytics must never break the funnel */ }
+    }
+
+    window.addEventListener('pagehide', function () {
+      if (!finished) record(cur, 'abandon');
+      flush(true);
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') flush(true);
+    });
 
     /* ---- flow ---- */
 
@@ -56,24 +138,35 @@
       });
     }
 
+    /**
+     * Fast at the start, slow at the end. Answering question one should feel like real
+     * progress; the last stretch is where people are already committed.
+     */
+    function eased(p) {
+      return Math.round(Math.pow(Math.max(0, Math.min(1, p)), 0.55) * 100);
+    }
+
     function show(key) {
       cur = key;
+      seen += 1;
       order.forEach(function (k) { if (steps[k]) steps[k].hidden = k !== key; });
       var qs = questionPath();
       var at = qs.indexOf(key);
       var num = steps[key].querySelector('.qnum');
       if (num && at >= 0) num.textContent = (at + 1) + ' of ' + qs.length;
       if (bar) {
-        var pct = key === order[0] ? 0
-          : (key === 'book' || key === 'done' || key === 'notyet') ? 100
-          : Math.round(((at + 1) / (qs.length + 1)) * 100);
+        var pct = (key === 'book' || key === 'done' || key === 'notyet') ? 100
+          : at < 0 ? 0
+          : eased((at + 1) / (qs.length + 1));
         bar.style.width = pct + '%';
       }
       if (back) back.hidden = !trail.length || key === 'done' || key === 'notyet';
-      var field = steps[key].querySelector('input, textarea');
+      if (cfg.onStep) cfg.onStep(key, state);
+      var field = steps[key].querySelector('input, textarea, select');
       if (field) setTimeout(function () { field.focus(); }, 60);
+      record(key, 'view');
       if (key === 'book') book();
-      if (key === 'notyet') submit().catch(function () {});
+      if (key === 'notyet') { finished = true; submit().catch(function () {}); }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -88,8 +181,7 @@
       var s = steps[key];
       var group = s.querySelector('.choices');
       if (group) {
-        var picked = group.querySelectorAll('.choice.picked');
-        return Array.prototype.map.call(picked, function (b) {
+        return Array.prototype.map.call(group.querySelectorAll('.choice.picked'), function (b) {
           return b.getAttribute('data-value');
         }).join(',');
       }
@@ -103,6 +195,7 @@
         fieldsOf(key).forEach(function (f) { state[f.name] = String(f.value).trim(); });
         return;
       }
+      if (!s.querySelector('.choices, input, textarea, select')) return;
       state[key] = value(key);
     }
 
@@ -145,50 +238,48 @@
       score = 0;
       dq = false;
       order.forEach(function (k) {
-        if (!steps[k] || steps[k].hidden === undefined) return;
-        var picked = steps[k].querySelectorAll('.choice.picked');
-        Array.prototype.forEach.call(picked, function (b) {
+        if (!steps[k]) return;
+        Array.prototype.forEach.call(steps[k].querySelectorAll('.choice.picked'), function (b) {
           score += parseInt(b.getAttribute('data-score') || '0', 10);
           if (b.hasAttribute('data-dq')) dq = true;
         });
       });
-      if (cfg.adjust) score = cfg.adjust(state, score);
     }
 
     /* ---- moving ---- */
 
     function next() {
-      if (cur !== order[0] && !validate(cur)) return;
-      if (cur !== order[0]) capture(cur);
+      if (!validate(cur)) return;
+      capture(cur);
       rescore();
       var k = nextKeyOf(cur);
       if (!k) return;
+      record(cur, 'next', steps[cur].querySelector('.choices') ? state[cur] : '(answered)');
       trail.push(cur);
       show(k);
-    }
-
-    function goBack() {
-      var k = trail.pop();
-      if (k) show(k);
     }
 
     document.querySelectorAll('.choices').forEach(function (group) {
       var many = group.hasAttribute('data-multi');
       group.querySelectorAll('.choice').forEach(function (btn) {
         btn.addEventListener('click', function () {
+          var v = btn.getAttribute('data-value');
+          var stepKey = btn.closest('.step').getAttribute('data-step');
           if (many) {
-            var solo = btn.hasAttribute('data-solo');
-            if (solo) {
+            if (btn.hasAttribute('data-solo')) {
               group.querySelectorAll('.choice').forEach(function (b) { b.classList.remove('picked'); });
             } else {
               group.querySelectorAll('.choice[data-solo]').forEach(function (b) { b.classList.remove('picked'); });
             }
             btn.classList.toggle('picked');
             rescore();
+            record(stepKey, 'choice', v);
             return;
           }
           group.querySelectorAll('.choice').forEach(function (b) { b.classList.remove('picked'); });
           btn.classList.add('picked');
+          record(stepKey, 'choice', v);
+          if (cfg.onChoice) cfg.onChoice(stepKey, v, state);
           setTimeout(next, 140);
         });
       });
@@ -199,10 +290,15 @@
       b.addEventListener('click', function () {
         state[cur] = '';
         var k = nextKeyOf(cur);
-        if (k) { trail.push(cur); show(k); }
+        if (k) { record(cur, 'next', '(skipped)'); trail.push(cur); show(k); }
       });
     });
-    if (back) back.addEventListener('click', goBack);
+    if (back) {
+      back.addEventListener('click', function () {
+        var k = trail.pop();
+        if (k) { record(cur, 'back'); show(k); }
+      });
+    }
 
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter') return;
@@ -221,14 +317,18 @@
       Object.keys(state).forEach(function (k) {
         data.append(k, state[k] == null ? '' : state[k]);
       });
-      if (cfg.gate) {
+      data.append('form', formOf());
+      if (cfg.gate && (!cfg.scoreWhen || cfg.scoreWhen(state))) {
         data.append('qualified', cfg.gate(state, score, dq) ? '1' : '0');
         data.append('score', String(score));
       }
+      data.append('session_id', sid);
       data.append('page', location.href);
       data.append('ref', document.referrer || '');
       data.append('ua', navigator.userAgent);
       data.append('company_website', '');
+      record(cur, 'submit');
+      flush();
       return fetch(cfg.webhook, { method: 'POST', headers: { Accept: 'application/json' }, body: data })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json().catch(function () { return { ok: true }; }); })
         .then(function (j) { if (j && j.ok === false) throw new Error(j.message || 'rejected'); submitted = true; });
@@ -243,9 +343,12 @@
       });
       try {
         sessionStorage.setItem('lead', JSON.stringify({
-          name: state.name || '', email: state.email || '', phone: state.phone || ''
+          name: state.name || '', email: state.email || '', phone: state.phone || '',
         }));
       } catch (e) {}
+      var url = resolve(cfg.calendly);
+      var link = document.getElementById('cal-link');
+      if (link) link.href = url;
       if (window.Calendly) return init();
       var s = document.createElement('script');
       s.src = 'https://assets.calendly.com/assets/external/widget.js';
@@ -256,9 +359,9 @@
         if (steps.book.getAttribute('data-inited')) return;
         steps.book.setAttribute('data-inited', '1');
         window.Calendly.initInlineWidget({
-          url: cfg.calendly + '?hide_gdpr_banner=1',
+          url: url + '?hide_gdpr_banner=1',
           parentElement: document.getElementById('calendly'),
-          prefill: { name: state.name || '', email: state.email || '' }
+          prefill: { name: state.name || '', email: state.email || '' },
         });
       }
     }
@@ -272,9 +375,12 @@
         invitee_uri: (p.invitee && p.invitee.uri) || '',
         event_uri: (p.event && p.event.uri) || '',
         name: state.name || '', email: state.email || '', phone: state.phone || '',
-        form: cfg.form
+        form: formOf(),
       });
       try { fetch(cfg.booked, { method: 'POST', body: body, keepalive: true }); } catch (err) {}
+      finished = true;
+      record('book', 'book');
+      flush();
       show('done');
     });
 

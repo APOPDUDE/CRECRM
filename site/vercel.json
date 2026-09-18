@@ -91,23 +91,33 @@
       "permanent": false
     },
     {
-      "source": "/consult",
+      "source": "/crm",
       "destination": "/consultation",
       "permanent": false
     },
     {
       "source": "/software",
-      "destination": "/crm",
+      "destination": "/consultation",
       "permanent": false
     },
     {
       "source": "/ayxco",
-      "destination": "/crm",
+      "destination": "/consultation",
       "permanent": false
     },
     {
       "source": "/demo",
-      "destination": "/crm",
+      "destination": "/consultation",
+      "permanent": false
+    },
+    {
+      "source": "/consult",
+      "destination": "/consultation",
+      "permanent": false
+    },
+    {
+      "source": "/lease",
+      "destination": "/space",
       "permanent": false
     }
   ]
