@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Talk to Alex Poplawski</title>
-<meta name="description" content="An hour on your business, or a walkthrough of the software. A few questions, then pick your time.">
+<meta name="description" content="A few questions about your business, then pick a time - a walkthrough of the real estate CRM, or an hour on AI, automations, workflows and data.">
 <link rel="canonical" href="https://alexpoplawski.com/consultation">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://alexpoplawski.com/consultation">
 <meta property="og:title" content="Talk to Alex Poplawski">
-<meta property="og:description" content="An hour on your business, or a walkthrough of the software. A few questions, then pick your time.">
+<meta property="og:description" content="A few questions about your business, then pick a time - a walkthrough of the real estate CRM, or an hour on AI, automations, workflows and data.">
 <meta property="og:image" content="https://alexpoplawski.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -30,24 +30,6 @@
 
   <main id="flow">
 
-    <!-- 1: the fork. No splash screen, no Start button - the first thing you see is the first question. -->
-    <section class="step" data-step="qualify">
-      <p class="qnum mono"></p>
-      <h2>Which one are you after?</h2>
-      <div class="choices" data-required>
-        <button type="button" class="choice" data-value="advisory">
-          A game plan for my business
-          <em>An hour on what to build, and in what order.</em>
-        </button>
-        <button type="button" class="choice" data-value="software">
-          Software to run my business on
-          <em>Properties, owners, comps and outreach in one system.</em>
-        </button>
-      </div>
-      <p class="err" role="alert"></p>
-    </section>
-
-    <!-- ===== software track ===== -->
 
     <section class="step" data-step="who" hidden>
       <p class="qnum mono"></p>
@@ -139,61 +121,16 @@
 
     <section class="step" data-step="pain" hidden>
       <p class="qnum mono"></p>
-      <h2>What is actually broken?</h2>
-      <p class="hint">Where does your day go that it should not?</p>
+      <h2>What do you most want fixed?</h2>
+      <p class="hint">The one thing. Where does your day go that it should not?</p>
       <textarea name="pain" rows="4" placeholder="Chasing owner info, rebuilding the same comp set every week, nobody knows who called who." data-required data-min="10" data-msg="A sentence is enough."></textarea>
       <div class="actions"><button type="button" class="btn next">Continue</button></div>
       <p class="err" role="alert"></p>
     </section>
 
-    <!-- ===== advisory track ===== -->
 
-    <section class="step" data-step="need" hidden>
-      <p class="qnum mono"></p>
-      <h2>What do you want help with?</h2>
-      <div class="choices" data-required>
-        <button type="button" class="choice" data-value="systems">Systems and automation</button>
-        <button type="button" class="choice" data-value="brand">Brand and content</button>
-        <button type="button" class="choice" data-value="growth">Growing the business</button>
-        <button type="button" class="choice" data-value="career">Getting into commercial real estate</button>
-        <button type="button" class="choice" data-value="other">Something else</button>
-      </div>
-      <p class="err" role="alert"></p>
-    </section>
 
-    <section class="step" data-step="details" hidden>
-      <p class="qnum mono"></p>
-      <h2>Tell me about your business.</h2>
-      <p class="hint">Two lines is plenty. This is what I read before we meet.</p>
-      <textarea name="details" rows="4" placeholder="Industrial brokerage in Tampa, five agents, most of our leads come from cold calling." data-required data-min="10" data-msg="A sentence is enough."></textarea>
-      <div class="actions"><button type="button" class="btn next">Continue</button></div>
-      <p class="err" role="alert"></p>
-    </section>
 
-    <section class="step" data-step="revenue" hidden>
-      <p class="qnum mono"></p>
-      <h2>Roughly where is revenue?</h2>
-      <p class="hint">Ballpark. It changes what I tell you to spend on.</p>
-      <div class="choices" data-required>
-        <button type="button" class="choice" data-value="under_250k">Under $250k</button>
-        <button type="button" class="choice" data-value="250k_1m">$250k to $1M</button>
-        <button type="button" class="choice" data-value="1m_5m">$1M to $5M</button>
-        <button type="button" class="choice" data-value="5m_plus">$5M+</button>
-        <button type="button" class="choice" data-value="private">Rather not say</button>
-      </div>
-      <p class="err" role="alert"></p>
-    </section>
-
-    <section class="step" data-step="question" hidden>
-      <p class="qnum mono"></p>
-      <h2>The one question you want answered.</h2>
-      <p class="hint">If we only get to one thing, make it this.</p>
-      <textarea name="question" rows="3" placeholder="How do I stop rebuilding the same prospect list every week?" data-required data-min="5" data-msg="What do you want answered?"></textarea>
-      <div class="actions"><button type="button" class="btn next">Continue</button></div>
-      <p class="err" role="alert"></p>
-    </section>
-
-    <!-- ===== shared ===== -->
 
     <section class="step" data-step="where" hidden>
       <p class="qnum mono"></p>
@@ -310,6 +247,7 @@
     <!-- ===== ends ===== -->
 
     <section class="step" data-step="book" hidden>
+      <p class="eyebrow" id="book-what"></p>
       <h2>Pick your time.</h2>
       <p class="hint" id="book-hint"></p>
       <div id="calendly" class="calendly"></div>
@@ -348,59 +286,70 @@
 <script defer>
 window.addEventListener('DOMContentLoaded', function () {
   var VOLUME = { investor: 'volume_investor', broker: 'volume_broker', brokerage: 'volume_brokerage', other: 'volume_other' };
-  var PRICE = {
-    advisory: { tag: '$250 &middot; 1 hour', hint: '$250 for the hour, collected on the calendar. I read your answers before we meet.' },
-    software: { tag: 'Free &middot; 30 min', hint: 'Thirty minutes, free, and I show you the real thing rather than slides. So the call is useful: implementation runs about $10k, then $500 to $2,000 a month depending on size.' }
+
+  /**
+   * Nobody is asked to pick a product. They answer the same questions either way and the
+   * answers decide, because a visitor cannot know yet whether they need the CRM, the hour,
+   * or neither - asking them to choose just makes them feel they need both.
+   */
+  function route(score, dq) {
+    if (dq || score < 3) return 'not_yet';
+    return score >= 6 ? 'crm' : 'advisory';
+  }
+
+  var OUTCOME = {
+    crm: {
+      tag: 'Free &middot; 30 min',
+      what: 'Real estate CRM walkthrough',
+      hint: 'Thirty minutes, free, and I show you the real thing rather than slides. So the call is useful: implementation runs about $10k, then $500 to $2,000 a month depending on size.',
+      calendly: 'https://calendly.com/alex-axis/software-walkthrough'
+    },
+    advisory: {
+      tag: '$250 &middot; 1 hour',
+      what: 'One hour on AI, automations, workflows and data',
+      hint: 'From your answers, an hour on how to use AI, automations and your own data will move you further than a full CRM build would right now. $250, collected on the calendar. I read your answers before we meet.',
+      calendly: 'https://calendly.com/alex-axis/consultation'
+    }
   };
-  var isSoftware = function (s) { return s.qualify === 'software'; };
 
   window.initFunnel({
-    form: function (s) { return isSoftware(s) ? 'crm' : 'consultation'; },
-    track: function (s) { return s.qualify || null; },
+    // The CRM is sold as a lead; the paid hour is held as a consult intake until it is paid for.
+    form: function (s, score, dq) { return route(score, dq) === 'advisory' ? 'consultation' : 'crm'; },
+    // Only stamp a track once the answers are all in, so early events are not filed under
+    // whatever the score happened to be on question one.
+    track: function (s, score, dq) { return s.pain ? route(score, dq) : null; },
     webhook: 'https://n8n.ayxco.com/webhook/alexpoplawski-lead',
     booked: 'https://n8n.ayxco.com/webhook/alexpoplawski-booked',
     events: 'https://n8n.ayxco.com/webhook/alexpoplawski-funnel',
-    calendly: function (s) {
-      return isSoftware(s)
-        ? 'https://calendly.com/alex-axis/software-walkthrough'
-        : 'https://calendly.com/alex-axis/consultation';
-    },
+    calendly: function (s, score, dq) { return (OUTCOME[route(score, dq)] || OUTCOME.advisory).calendly; },
     phone: '(941) 806-8432',
-    order: ['qualify',
-            'who', 'tracking', 'tools', 'volume_investor', 'volume_broker', 'volume_brokerage', 'volume_other', 'pain',
-            'need', 'details', 'revenue', 'question',
-            'where', 'usstate', 'country', 'team', 'contact',
-            'book', 'notyet', 'done'],
+    order: ['who', 'where', 'usstate', 'country', 'contact',
+            'tracking', 'tools', 'team',
+            'volume_investor', 'volume_broker', 'volume_brokerage', 'volume_other',
+            'pain', 'book', 'notyet', 'done'],
     branch: {
-      qualify: function (s) { return s.qualify === 'software' ? 'who' : 'need'; },
       who: function () { return 'where'; },
-      need: function () { return 'details'; },
-      details: function () { return 'where'; },
       where: function (s) { return s.where === 'us' ? 'usstate' : 'country'; },
       usstate: function () { return 'contact'; },
       country: function () { return 'contact'; },
-      contact: function (s) { return isSoftware(s) ? 'tracking' : 'team'; },
+      contact: function () { return 'tracking'; },
       tracking: function () { return 'tools'; },
       tools: function () { return 'team'; },
-      team: function (s) { return isSoftware(s) ? (VOLUME[s.who] || 'volume_other') : 'revenue'; },
+      team: function (s) { return VOLUME[s.who] || 'volume_other'; },
       volume_investor: function () { return 'pain'; },
       volume_broker: function () { return 'pain'; },
       volume_brokerage: function () { return 'pain'; },
-      volume_other: function () { return 'pain'; },
-      pain: function () { return 'book'; },
-      revenue: function () { return 'question'; },
-      question: function () { return 'book'; }
+      volume_other: function () { return 'pain'; }
     },
-    // Only the software track is gated; an advisory hour is for anyone willing to pay for it.
-    gate: function (s, score, dq) { return !isSoftware(s) || (!dq && score >= 6); },
-    // Only the software track is scored, so only it reports a verdict to the CRM.
-    scoreWhen: isSoftware,
-    onChoice: function (step, value) {
-      if (step !== 'qualify') return;
-      var p = PRICE[value];
-      if (!p) return;
-      document.getElementById('price').innerHTML = p.tag;
-      document.getElementById('book-hint').textContent = p.hint;
+    // False sends them to the free-stack screen instead of a calendar.
+    gate: function (s, score, dq) { return route(score, dq) !== 'not_yet'; },
+    scoreWhen: function (s, score, dq) { return route(score, dq) !== 'advisory'; },
+    onStep: function (key, s, score, dq) {
+      if (key !== 'book') return;
+      var o = OUTCOME[route(score, dq)] || OUTCOME.advisory;
+      document.getElementById('price').innerHTML = o.tag;
+      document.getElementById('book-what').textContent = o.what;
+      document.getElementById('book-hint').textContent = o.hint;
     }
   });
 });

@@ -33,7 +33,7 @@
     var dq = false;
     var seen = 0;
 
-    var resolve = function (v) { return typeof v === 'function' ? v(state) : v; };
+    var resolve = function (v) { return typeof v === 'function' ? v(state, score, dq) : v; };
     var formOf = function () { return resolve(cfg.form) || 'lead'; };
     var trackOf = function () { return resolve(cfg.track) || null; };
 
@@ -149,6 +149,7 @@
     function show(key) {
       cur = key;
       seen += 1;
+      rescore();
       order.forEach(function (k) { if (steps[k]) steps[k].hidden = k !== key; });
       var qs = questionPath();
       var at = qs.indexOf(key);
@@ -161,7 +162,7 @@
         bar.style.width = pct + '%';
       }
       if (back) back.hidden = !trail.length || key === 'done' || key === 'notyet';
-      if (cfg.onStep) cfg.onStep(key, state);
+      if (cfg.onStep) cfg.onStep(key, state, score, dq);
       var field = steps[key].querySelector('input, textarea, select');
       if (field) setTimeout(function () { field.focus(); }, 60);
       record(key, 'view');
@@ -318,7 +319,7 @@
         data.append(k, state[k] == null ? '' : state[k]);
       });
       data.append('form', formOf());
-      if (cfg.gate && (!cfg.scoreWhen || cfg.scoreWhen(state))) {
+      if (cfg.gate && (!cfg.scoreWhen || cfg.scoreWhen(state, score, dq))) {
         data.append('qualified', cfg.gate(state, score, dq) ? '1' : '0');
         data.append('score', String(score));
       }
