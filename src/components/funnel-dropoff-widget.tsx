@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 const TRACK_LABEL: Record<string, string> = {
   crm: 'Routed to the discovery call',
   advisory: 'Routed to the advisory hour',
-  not_yet: 'Routed to the free stack',
+  not_yet: 'Routed to not-yet',
   undecided: 'Left before finishing',
   advisory_old: 'Advisory call',
 }
@@ -27,6 +27,7 @@ const FORM_LABEL: Record<string, string> = {
 
 /** Readable names for the step keys the site reports. */
 const STEP_LABEL: Record<string, string> = {
+  intent: 'What are you looking for',
   who: 'What do you do',
   broker_role: 'On a team or running one',
   who_other: 'So what do you do (other)',
@@ -40,7 +41,7 @@ const STEP_LABEL: Record<string, string> = {
   pain: 'What to fix',
   contact: 'Name, email, phone',
   book: 'Pick your time',
-  notyet: 'Free stack',
+  notyet: 'Not the right fit yet',
   done: 'Booked',
   // retired screens, kept so older sessions still read properly
   qualify: 'Which one are you after (retired)',

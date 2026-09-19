@@ -79,3 +79,18 @@ body.consult select:focus { outline: none; border-color: var(--navy); box-shadow
   color: var(--muted);
 }
 .choice.picked em { color: rgba(255, 255, 255, 0.82); }
+
+/* the not-yet screen's paid option, set apart from the free list under it */
+.offer {
+  border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px 24px;
+  margin: 0 0 40px; max-width: 620px; background: #fff;
+  box-shadow: 0 1px 2px rgba(14, 19, 32, 0.04), 0 10px 26px rgba(14, 19, 32, 0.05);
+}
+.offer-tag { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; }
+.step[data-step="notyet"] h3 {
+  font-family: "IBM Plex Sans Condensed", "Arial Narrow", Impact, sans-serif; font-weight: 700;
+  text-transform: uppercase; font-size: 24px; line-height: 1.05; margin: 0 0 10px; color: var(--navy);
+}
+.offer p { color: var(--muted); margin: 0 0 18px; }
+.offer .btn { width: auto; }
+.step[data-step="notyet"] > .offer-tag { margin-top: 8px; }

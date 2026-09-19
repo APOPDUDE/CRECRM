@@ -386,5 +386,13 @@
     });
 
     show(order[0]);
+
+    // A small handle so a screen can steer the flow itself — the not-yet screen uses it to
+    // let someone buy the advisory hour instead of being turned away with a link list.
+    return {
+      go: show,
+      set: function (k, v) { state[k] = v; },
+      state: state,
+    };
   };
 })(window, document);

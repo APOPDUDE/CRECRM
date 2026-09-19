@@ -30,7 +30,33 @@
 
   <main id="flow">
 
-    <section class="step" data-step="who">
+    <!-- What they came for. Kept separate from "what do you do" because the two answer
+         different things, and it lets someone who wants advice skip the CRM pitch. -->
+    <section class="step" data-step="intent">
+      <p class="qnum mono"></p>
+      <h2>What are you looking for?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="crm">
+          I want to see the CRM
+          <em>The system Alex runs his own brokerage on.</em>
+        </button>
+        <button type="button" class="choice" data-value="business">
+          I want my business running better
+          <em>Systems and workflows, the stuff that eats the day.</em>
+        </button>
+        <button type="button" class="choice" data-value="ai">
+          I want to put AI to work
+          <em>Where it actually helps, and where it does not.</em>
+        </button>
+        <button type="button" class="choice" data-value="unsure">
+          I&rsquo;m not sure yet
+          <em>We can work it out on the call.</em>
+        </button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <section class="step" data-step="who" hidden>
       <p class="qnum mono"></p>
       <h2>What do you do?</h2>
       <div class="choices" data-required>
@@ -256,8 +282,23 @@
     </section>
 
     <section class="step" data-step="notyet" hidden>
-      <h2>Not yet, and that is the right answer.</h2>
-      <p class="lede">At your stage, money is better spent finding the first few deals than on a system to manage them. So here is the free stack I actually used to do exactly that.</p>
+      <h2>The CRM is not the right fit yet.</h2>
+      <p class="lede">Straight answer: it runs $10,000 to $20,000 to integrate and $500 a month after
+        that. At your stage that money does more finding the first few deals than managing them.</p>
+      <p class="lede">Two things I can do instead.</p>
+
+      <div class="offer">
+        <p class="offer-tag mono">Option one &middot; $250</p>
+        <h3>Sit down with me for an hour</h3>
+        <p>We go through your business and map out how to get to the next level — what to build,
+          in what order, and what to leave alone for now. You do not need the CRM to get value
+          out of that hour.</p>
+        <button type="button" class="btn" id="want-advisory">Book the consultation</button>
+      </div>
+
+      <p class="offer-tag mono">Option two &middot; free</p>
+      <h3>Or start with the stack I actually used</h3>
+      <p class="lede">All of this costs nothing and it is genuinely how this started.</p>
       <ul class="tools">
         <li><a href="https://regrid.com" target="_blank" rel="noopener">Regrid</a><span>Parcel boundaries, owner names, acreage.</span></li>
         <li><a href="https://www.google.com/earth/versions/" target="_blank" rel="noopener">Google Earth Pro</a><span>Free. Measures distances and shows historical imagery.</span></li>
@@ -268,9 +309,11 @@
         <li><a href="https://terrakotta.ai" target="_blank" rel="noopener">Terrakotta</a><span>Cold calling, so you can actually work the list you just built.</span></li>
         <li><span class="nolink">LoopNet and Crexi free tiers</span><span>Asking rates. Enough to build your own comp set by hand.</span></li>
       </ul>
-      <p class="lede">That stack costs nothing and it is genuinely how this started. Build the list, then start calling.</p>
-      <p class="lede"><strong>If you find a deal you cannot get over the line, send it to me.</strong> Happy to work it with you: <a href="mailto:alex@axis.deals">alex@axis.deals</a>.</p>
-      <p class="lede fine">I have your details. When there is a room for people doing exactly this, you get the invite.</p>
+      <p class="lede">Build the list, then start calling. <strong>If you find a deal you cannot get
+        over the line, send it to me</strong> — happy to work it with you:
+        <a href="mailto:alex@axis.deals">alex@axis.deals</a>.</p>
+      <p class="lede fine">I have your details either way. When there is a room for people doing
+        exactly this, you get the invite.</p>
     </section>
 
     <section class="step" data-step="done" hidden>
@@ -289,8 +332,12 @@ window.addEventListener('DOMContentLoaded', function () {
    * Nobody picks a product. Everyone answers the same questions and the answers decide,
    * because a visitor cannot know yet whether they need the CRM, the hour, or neither.
    */
-  function route(score, dq) {
+  function route(score, dq, s) {
+    // Someone who pressed "book the consultation" on the not-yet screen has told us plainly.
+    if (s && s.want_advisory === '1') return 'advisory';
     if (dq || score < 3) return 'not_yet';
+    // They said what they came for; a CRM demo is not an answer to "help me use AI".
+    if (s && s.intent && s.intent !== 'crm') return 'advisory';
     return score >= 6 ? 'crm' : 'advisory';
   }
 
@@ -309,18 +356,19 @@ window.addEventListener('DOMContentLoaded', function () {
     }
   };
 
-  window.initFunnel({
-    form: function (s, score, dq) { return route(score, dq) === 'advisory' ? 'consultation' : 'crm'; },
-    track: function (s, score, dq) { return s.name ? route(score, dq) : null; },
+  var funnel = window.initFunnel({
+    form: function (s, score, dq) { return route(score, dq, s) === 'advisory' ? 'consultation' : 'crm'; },
+    track: function (s, score, dq) { return s.name ? route(score, dq, s) : null; },
     webhook: 'https://n8n.ayxco.com/webhook/alexpoplawski-lead',
     booked: 'https://n8n.ayxco.com/webhook/alexpoplawski-booked',
     events: 'https://n8n.ayxco.com/webhook/alexpoplawski-funnel',
-    calendly: function (s, score, dq) { return (OUTCOME[route(score, dq)] || OUTCOME.advisory).calendly; },
+    calendly: function (s, score, dq) { return (OUTCOME[route(score, dq, s)] || OUTCOME.advisory).calendly; },
     phone: '(941) 806-8432',
-    order: ['who', 'broker_role', 'who_other', 'asset', 'where', 'country',
+    order: ['intent', 'who', 'broker_role', 'who_other', 'asset', 'where', 'country',
             'tracking', 'tools', 'team', 'volume', 'pain', 'contact',
             'book', 'notyet', 'done'],
     branch: {
+      intent: function () { return 'who'; },
       who: function (s) {
         return s.who === 'broker' ? 'broker_role' : s.who === 'other' ? 'who_other' : 'asset';
       },
@@ -329,16 +377,22 @@ window.addEventListener('DOMContentLoaded', function () {
       where: function (s) { return s.where === '__intl' ? 'country' : 'tracking'; },
       country: function () { return 'tracking'; }
     },
-    gate: function (s, score, dq) { return route(score, dq) !== 'not_yet'; },
-    scoreWhen: function (s, score, dq) { return route(score, dq) !== 'advisory'; },
+    gate: function (s, score, dq) { return route(score, dq, s) !== 'not_yet'; },
+    scoreWhen: function (s, score, dq) { return route(score, dq, s) !== 'advisory'; },
     onStep: function (key, s, score, dq) {
       if (key !== 'book') return;
-      var o = OUTCOME[route(score, dq)] || OUTCOME.advisory;
+      var o = OUTCOME[route(score, dq, s)] || OUTCOME.advisory;
       document.getElementById('price').innerHTML = o.tag;
       document.getElementById('book-what').textContent = o.what;
       document.getElementById('book-hint').textContent = o.hint;
       document.getElementById('cal-link').href = o.calendly;
     }
+  });
+
+  // The not-yet screen's paid option: record the choice, then hand them the calendar.
+  document.getElementById('want-advisory').addEventListener('click', function () {
+    funnel.set('want_advisory', '1');
+    funnel.go('book');
   });
 });
 </script>
