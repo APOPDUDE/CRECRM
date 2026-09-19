@@ -35,9 +35,6 @@
       <h2>What do you do?</h2>
       <div class="choices" data-required>
         <button type="button" class="choice" data-value="broker">Broker or agent</button>
-        <button type="button" class="choice" data-value="brokerage">
-          I lead a brokerage or team
-        </button>
         <button type="button" class="choice" data-value="acquisitions">
           Acquisitions
           <em>REIT, fund, private equity, family office, buy side.</em>
@@ -47,6 +44,31 @@
           <em>I own or manage the property.</em>
         </button>
         <button type="button" class="choice" data-value="other">Something else</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- Asked only of brokers, so the top screen stays four plain options instead of
+         making everyone parse "agent" against "I lead a brokerage or team". -->
+    <section class="step" data-step="broker_role" hidden>
+      <p class="qnum mono"></p>
+      <h2>On a team, or running one?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="solo">I work on my own</button>
+        <button type="button" class="choice" data-value="team">I&rsquo;m on a team</button>
+        <button type="button" class="choice" data-value="lead" data-score="1">I lead the team or brokerage</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <section class="step" data-step="who_other" hidden>
+      <p class="qnum mono"></p>
+      <h2>So what do you do?</h2>
+      <p class="hint">A few words is plenty.</p>
+      <input type="text" name="who_other" placeholder="Lender, appraiser, developer, proptech&hellip;">
+      <div class="actions">
+        <button type="button" class="btn next">Continue</button>
+        <button type="button" class="link skip">Skip</button>
       </div>
       <p class="err" role="alert"></p>
     </section>
@@ -295,9 +317,15 @@ window.addEventListener('DOMContentLoaded', function () {
     events: 'https://n8n.ayxco.com/webhook/alexpoplawski-funnel',
     calendly: function (s, score, dq) { return (OUTCOME[route(score, dq)] || OUTCOME.advisory).calendly; },
     phone: '(941) 806-8432',
-    order: ['who', 'asset', 'where', 'country', 'tracking', 'tools', 'team', 'volume',
-            'pain', 'contact', 'book', 'notyet', 'done'],
+    order: ['who', 'broker_role', 'who_other', 'asset', 'where', 'country',
+            'tracking', 'tools', 'team', 'volume', 'pain', 'contact',
+            'book', 'notyet', 'done'],
     branch: {
+      who: function (s) {
+        return s.who === 'broker' ? 'broker_role' : s.who === 'other' ? 'who_other' : 'asset';
+      },
+      broker_role: function () { return 'asset'; },
+      who_other: function () { return 'asset'; },
       where: function (s) { return s.where === '__intl' ? 'country' : 'tracking'; },
       country: function () { return 'tracking'; }
     },

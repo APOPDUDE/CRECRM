@@ -28,6 +28,8 @@ const FORM_LABEL: Record<string, string> = {
 /** Readable names for the step keys the site reports. */
 const STEP_LABEL: Record<string, string> = {
   who: 'What do you do',
+  broker_role: 'On a team or running one',
+  who_other: 'So what do you do (other)',
   asset: 'What do you focus on',
   where: 'Where do you operate',
   country: 'Where in the world',
