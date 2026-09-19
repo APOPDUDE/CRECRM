@@ -288,12 +288,14 @@
       <p class="lede">Two things I can do instead.</p>
 
       <div class="offer">
-        <p class="offer-tag mono">Option one &middot; free</p>
+        <p class="offer-tag mono">Option one &middot; $250</p>
         <h3>Sit down with me for an hour</h3>
         <p>We go through your business and map out how to get to the next level &mdash; what to
           build, in what order, and what to leave alone for now. You do not need the CRM to get
           something out of that hour.</p>
-        <button type="button" class="btn" id="want-advisory">Book the call</button>
+        <p class="fine">The $250 is a non-refundable deposit. It is a commitment to the call, not a
+          fee for advice, and it comes off your first bill if you ever move forward on anything.</p>
+        <button type="button" class="btn" id="want-advisory">Book the hour</button>
       </div>
 
       <p class="offer-tag mono">Option two</p>
@@ -332,13 +334,17 @@ window.addEventListener('DOMContentLoaded', function () {
    * Nobody picks a product. Everyone answers the same questions and the answers decide,
    * because a visitor cannot know yet whether they need the CRM, the hour, or neither.
    */
+  /**
+   * Two endings from the questions, and one door out of the third.
+   *
+   * Anyone we can work with gets the free half hour — the point right now is volume of
+   * conversations. The paid hour is reachable ONLY from the not-yet screen, where it is the
+   * alternative offered to someone we have just told the CRM is wrong for.
+   */
   function route(score, dq, s) {
-    // Someone who pressed "book the consultation" on the not-yet screen has told us plainly.
     if (s && s.want_advisory === '1') return 'advisory';
     if (dq || score < 3) return 'not_yet';
-    // They said what they came for; a CRM demo is not an answer to "help me use AI".
-    if (s && s.intent && s.intent !== 'crm') return 'advisory';
-    return score >= 6 ? 'crm' : 'advisory';
+    return 'crm';
   }
 
   var OUTCOME = {
@@ -349,9 +355,9 @@ window.addEventListener('DOMContentLoaded', function () {
       calendly: 'https://calendly.com/alex-axis/software-walkthrough'
     },
     advisory: {
-      tag: 'Free &middot; 1 hour',
+      tag: '$250 &middot; 1 hour',
       what: 'Advisory call',
-      hint: 'An hour on how to put AI, automations and your own data to work. I read your answers before we meet, so come with the thing that is actually in the way.',
+      hint: 'An hour on how to put AI, automations and your own data to work. The $250 is a non-refundable deposit — a commitment to the call, not a fee for advice — and it comes off your first bill if you ever move forward on anything. I read your answers before we meet.',
       calendly: 'https://calendly.com/alex-axis/consultation'
     }
   };
