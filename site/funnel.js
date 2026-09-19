@@ -139,11 +139,11 @@
     }
 
     /**
-     * Fast at the start, slow at the end. Answering question one should feel like real
-     * progress; the last stretch is where people are already committed.
+     * Slightly front-loaded: answering question one should feel like real progress without
+     * the bar obviously lying to you.
      */
     function eased(p) {
-      return Math.round(Math.pow(Math.max(0, Math.min(1, p)), 0.55) * 100);
+      return Math.round(Math.pow(Math.max(0, Math.min(1, p)), 0.8) * 100);
     }
 
     function show(key) {

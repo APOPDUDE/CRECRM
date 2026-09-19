@@ -12,9 +12,11 @@ import { cn } from '@/lib/utils'
  */
 
 const TRACK_LABEL: Record<string, string> = {
-  advisory: 'Advisory call',
-  software: 'Software',
-  undecided: 'Left before choosing',
+  crm: 'Routed to the discovery call',
+  advisory: 'Routed to the advisory hour',
+  not_yet: 'Routed to the free stack',
+  undecided: 'Left before finishing',
+  advisory_old: 'Advisory call',
 }
 
 const FORM_LABEL: Record<string, string> = {
@@ -25,27 +27,30 @@ const FORM_LABEL: Record<string, string> = {
 
 /** Readable names for the step keys the site reports. */
 const STEP_LABEL: Record<string, string> = {
-  qualify: 'Which one are you after',
-  who: 'Who are you',
+  who: 'What do you do',
+  asset: 'What do you focus on',
   where: 'Where do you operate',
-  usstate: 'Which market',
   country: 'Where in the world',
-  contact: 'Name, email, phone',
   tracking: 'How do you track data',
   tools: 'What do you pay for',
   team: 'Team size',
-  volume_investor: 'How much do you own',
-  volume_broker: 'Deals last year',
-  volume_brokerage: 'Agents on the team',
-  volume_other: 'Revenue',
-  pain: "What's broken",
-  need: 'What do you want help with',
-  details: 'Tell me about your business',
-  revenue: 'Revenue',
-  question: 'The one question',
+  volume: 'Volume last year',
+  pain: 'What to fix',
+  contact: 'Name, email, phone',
   book: 'Pick your time',
-  notyet: 'Not yet (free stack)',
+  notyet: 'Free stack',
   done: 'Booked',
+  // retired screens, kept so older sessions still read properly
+  qualify: 'Which one are you after (retired)',
+  usstate: 'Which market (retired)',
+  need: 'What do you want help with (retired)',
+  details: 'Tell me about your business (retired)',
+  revenue: 'Revenue (retired)',
+  question: 'The one question (retired)',
+  volume_investor: 'How much do you own (retired)',
+  volume_broker: 'Deals last year (retired)',
+  volume_brokerage: 'Agents on the team (retired)',
+  volume_other: 'Revenue (retired)',
 }
 
 function stepName(step: string) {
