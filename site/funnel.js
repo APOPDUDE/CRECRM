@@ -163,12 +163,76 @@
       }
       if (back) back.hidden = !trail.length || key === 'done' || key === 'notyet';
       if (cfg.onStep) cfg.onStep(key, state, score, dq);
+      startTyping(steps[key]);
       var field = steps[key].querySelector('input, textarea, select');
       if (field) setTimeout(function () { field.focus(); }, 60);
       record(key, 'view');
       if (key === 'book') book();
       if (key === 'notyet') { finished = true; submit().catch(function () {}); }
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+
+    /* ---- typed placeholders ---- */
+
+    // A field can carry data-typed="one|two|three" and the examples get typed into its
+    // placeholder, held long enough to read, deleted, and replaced. Stops the moment the
+    // visitor touches the field, and never runs for anyone who asked for less motion.
+    var typing = null;
+
+    function stopTyping() {
+      if (!typing) return;
+      clearTimeout(typing.timer);
+      if (typing.el) typing.el.placeholder = typing.rest || '';
+      typing = null;
+    }
+
+    function startTyping(stepEl) {
+      stopTyping();
+      var el = stepEl.querySelector('[data-typed]');
+      if (!el) return;
+      var rest = el.getAttribute('data-placeholder-idle') || '';
+      try {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          el.placeholder = (el.getAttribute('data-typed') || '').split('|')[0] || rest;
+          return;
+        }
+      } catch (e) {}
+      var lines = (el.getAttribute('data-typed') || '').split('|').filter(Boolean);
+      if (!lines.length) return;
+
+      typing = { el: el, rest: rest, timer: null };
+      var i = 0, pos = 0, erasing = false;
+
+      function tick() {
+        if (!typing || typing.el !== el) return;
+        var line = lines[i];
+        if (!erasing) {
+          pos += 1;
+          el.placeholder = line.slice(0, pos);
+          if (pos >= line.length) {
+            erasing = true;
+            typing.timer = setTimeout(tick, 2600); // long enough to actually read it
+            return;
+          }
+          typing.timer = setTimeout(tick, 34);
+          return;
+        }
+        pos -= 1;
+        el.placeholder = line.slice(0, pos);
+        if (pos <= 0) {
+          erasing = false;
+          i = (i + 1) % lines.length;
+          typing.timer = setTimeout(tick, 420);
+          return;
+        }
+        typing.timer = setTimeout(tick, 16);
+      }
+
+      ['focus', 'input', 'keydown'].forEach(function (ev) {
+        el.addEventListener(ev, stopTyping, { once: true });
+      });
+      typing.timer = setTimeout(tick, 500);
     }
 
     /* ---- values ---- */

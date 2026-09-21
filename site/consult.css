@@ -94,3 +94,15 @@ body.consult select:focus { outline: none; border-color: var(--navy); box-shadow
 .offer p { color: var(--muted); margin: 0 0 18px; }
 .offer .btn { width: auto; }
 .step[data-step="notyet"] > .offer-tag { margin-top: 8px; }
+
+/* the price and length, said plainly and large */
+.bigprice {
+  font-size: 30px; font-weight: 500; letter-spacing: 0.02em; color: var(--navy);
+  margin: 26px 0 16px;
+}
+.btn-wide { width: auto; }
+.step[data-step="notyet"] .fine { margin: 12px 0 0; }
+@media (max-width: 600px) {
+  .bigprice { font-size: 25px; }
+  body.consult .btn.btn-wide { width: 100%; }
+}

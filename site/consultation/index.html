@@ -267,10 +267,9 @@
     <section class="step" data-step="pain" hidden>
       <p class="qnum mono"></p>
       <h2>What are your pain points?</h2>
-      <p class="hint">Things I hear a lot: chasing down owner info, rebuilding the same list every
-        week, leads going cold because nobody followed up, half the day lost in spreadsheets, no
-        idea which deals to work first.</p>
-      <textarea name="pain" rows="4" placeholder="Whatever eats your day." data-required data-min="10" data-msg="A sentence is enough."></textarea>
+      <textarea name="pain" rows="4" data-required data-min="10" data-msg="A sentence is enough."
+        data-placeholder-idle="Whatever eats your day."
+        data-typed="I run my whole business off unsynced Excels.|My onboarding is way too manual.|Leads go cold because nobody follows up.|I rebuild the same list every week.|I never know which deals to work first."></textarea>
       <div class="actions"><button type="button" class="btn next">Continue</button></div>
       <p class="err" role="alert"></p>
     </section>
@@ -303,21 +302,15 @@
     </section>
 
     <section class="step" data-step="notyet" hidden>
-      <h2>Let&rsquo;s start somewhere useful.</h2>
-      <p class="lede">Two ways to go from here, and the second one costs nothing.</p>
+      <h2>Book a call with me.</h2>
+      <p class="lede">An hour on your business. We go through your pain points and I come back with
+        a game plan for the next steps &mdash; or a custom build&#8209;out, if that is what it needs.</p>
 
-      <div class="offer">
-        <p class="offer-tag mono">Option one</p>
-        <h3>Book a call with me</h3>
-        <p>An hour on your business. We go through your pain points and I come back with a game
-          plan for the next steps &mdash; or a custom build&#8209;out, if that is what it needs.</p>
-        <button type="button" class="btn" id="want-advisory">Book the call</button>
-        <p class="fine">$250 to hold the time. If we end up working together it goes toward your
-          first payment.</p>
-      </div>
+      <p class="bigprice mono">$250 &middot; 1 hour</p>
+      <button type="button" class="btn btn-wide" id="want-advisory">Book the call</button>
+      <p class="fine">If we end up working together it goes toward your first payment.</p>
 
-      <p class="offer-tag mono">Option two</p>
-      <h3>Or start with the stack I used</h3>
+      <p class="offer-tag mono" style="margin-top:44px">Or start with the stack I used</p>
       <p class="lede">Free or close to it, and genuinely how this started.</p>
       <ul class="tools">
         <li><a href="https://regrid.com" target="_blank" rel="noopener">Regrid</a><span>Parcel boundaries, owner names, acreage.</span></li>
