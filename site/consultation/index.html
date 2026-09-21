@@ -249,11 +249,28 @@
       <p class="err" role="alert"></p>
     </section>
 
+
+    <!-- Asked instead of transaction volume when they are not in real estate. -->
+    <section class="step" data-step="revenue" hidden>
+      <p class="qnum mono"></p>
+      <h2>How much revenue are you doing?</h2>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="starting" data-dq>Just getting started</button>
+        <button type="button" class="choice" data-value="under_1m">Under $1M</button>
+        <button type="button" class="choice" data-value="1m_5m" data-score="1">$1M to $5M</button>
+        <button type="button" class="choice" data-value="5m_25m" data-score="2">$5M to $25M</button>
+        <button type="button" class="choice" data-value="25m_plus" data-score="3">$25M+</button>
+      </div>
+      <p class="err" role="alert"></p>
+    </section>
+
     <section class="step" data-step="pain" hidden>
       <p class="qnum mono"></p>
-      <h2>What do you most want fixed?</h2>
-      <p class="hint">The one thing. Where does your day go that it should not?</p>
-      <textarea name="pain" rows="4" placeholder="Chasing owner info, rebuilding the same comp set every week, nobody knows who called who." data-required data-min="10" data-msg="A sentence is enough."></textarea>
+      <h2>What are your pain points?</h2>
+      <p class="hint">Things I hear a lot: chasing down owner info, rebuilding the same list every
+        week, leads going cold because nobody followed up, half the day lost in spreadsheets, no
+        idea which deals to work first.</p>
+      <textarea name="pain" rows="4" placeholder="Whatever eats your day." data-required data-min="10" data-msg="A sentence is enough."></textarea>
       <div class="actions"><button type="button" class="btn next">Continue</button></div>
       <p class="err" role="alert"></p>
     </section>
@@ -286,25 +303,22 @@
     </section>
 
     <section class="step" data-step="notyet" hidden>
-      <h2>The CRM is not the right fit yet.</h2>
-      <p class="lede">Straight answer: at your stage, money and time do more finding the first few
-        deals than managing them. A system to run a book you do not have yet is the wrong order.</p>
-      <p class="lede">Two things I can do instead.</p>
+      <h2>Let&rsquo;s start somewhere useful.</h2>
+      <p class="lede">Two ways to go from here, and the second one costs nothing.</p>
 
       <div class="offer">
-        <p class="offer-tag mono">Option one &middot; $250</p>
-        <h3>Sit down with me for an hour</h3>
-        <p>We go through your business and map out how to get to the next level &mdash; what to
-          build, in what order, and what to leave alone for now. You do not need the CRM to get
-          something out of that hour.</p>
-        <p class="fine">The $250 is a non-refundable deposit. It is a commitment to the call, not a
-          fee for advice, and it comes off your first bill if you ever move forward on anything.</p>
-        <button type="button" class="btn" id="want-advisory">Book the hour</button>
+        <p class="offer-tag mono">Option one</p>
+        <h3>Book a call with me</h3>
+        <p>An hour on your business. We go through your pain points and I come back with a game
+          plan for the next steps &mdash; or a custom build&#8209;out, if that is what it needs.</p>
+        <button type="button" class="btn" id="want-advisory">Book the call</button>
+        <p class="fine">$250 to hold the time. If we end up working together it goes toward your
+          first payment.</p>
       </div>
 
       <p class="offer-tag mono">Option two</p>
-      <h3>Or start with the stack I actually used</h3>
-      <p class="lede">All of this costs nothing and it is genuinely how this started.</p>
+      <h3>Or start with the stack I used</h3>
+      <p class="lede">Free or close to it, and genuinely how this started.</p>
       <ul class="tools">
         <li><a href="https://regrid.com" target="_blank" rel="noopener">Regrid</a><span>Parcel boundaries, owner names, acreage.</span></li>
         <li><a href="https://www.google.com/earth/versions/" target="_blank" rel="noopener">Google Earth Pro</a><span>Free. Measures distances and shows historical imagery.</span></li>
@@ -347,6 +361,9 @@ window.addEventListener('DOMContentLoaded', function () {
    */
   function route(score, dq, s) {
     if (s && s.want_advisory === '1') return 'advisory';
+    // Outside real estate, the CRM is not the product for them however big they are — but a
+    // conversation still is. Only someone genuinely at the very beginning goes to the tools.
+    if (s && s.who === 'other') return dq ? 'not_yet' : 'advisory';
     if (dq || score < 3) return 'not_yet';
     return 'crm';
   }
@@ -360,8 +377,8 @@ window.addEventListener('DOMContentLoaded', function () {
     },
     advisory: {
       tag: '$250 &middot; 1 hour',
-      what: 'Advisory call',
-      hint: 'An hour on how to put AI, automations and your own data to work. The $250 is a non-refundable deposit — a commitment to the call, not a fee for advice — and it comes off your first bill if you ever move forward on anything. I read your answers before we meet.',
+      what: 'Discovery and consultation call',
+      hint: 'An hour on your business. I read your answers before we meet, we go through your pain points, and I come back with a game plan for the next steps — or a custom build-out if that is what it needs. $250 holds the time; if we end up working together it goes toward your first payment.',
       calendly: 'https://calendly.com/alex-axis/consultation'
     }
   };
@@ -375,7 +392,7 @@ window.addEventListener('DOMContentLoaded', function () {
     calendly: function (s, score, dq) { return (OUTCOME[route(score, dq, s)] || OUTCOME.advisory).calendly; },
     phone: '(941) 806-8432',
     order: ['intent', 'who', 'broker_role', 'who_other', 'asset', 'where', 'country',
-            'tracking', 'tools', 'team', 'volume', 'pain', 'contact',
+            'tracking', 'tools', 'team', 'volume', 'revenue', 'pain', 'contact',
             'book', 'notyet', 'done'],
     branch: {
       intent: function () { return 'who'; },
@@ -383,9 +400,18 @@ window.addEventListener('DOMContentLoaded', function () {
         return s.who === 'broker' ? 'broker_role' : s.who === 'other' ? 'who_other' : 'asset';
       },
       broker_role: function () { return 'asset'; },
-      who_other: function () { return 'asset'; },
+      // Not in real estate: skip asset class and the CRE subscriptions, neither of which mean
+      // anything to them, and ask about revenue rather than transaction volume.
+      who_other: function () { return 'where'; },
+      asset: function () { return 'where'; },
       where: function (s) { return s.where === '__intl' ? 'country' : 'tracking'; },
-      country: function () { return 'tracking'; }
+      country: function () { return 'tracking'; },
+      tracking: function (s) { return s.who === 'other' ? 'team' : 'tools'; },
+      tools: function () { return 'team'; },
+      team: function (s) { return s.who === 'other' ? 'revenue' : 'volume'; },
+      volume: function () { return 'pain'; },
+      revenue: function () { return 'pain'; },
+      pain: function () { return 'contact'; }
     },
     gate: function (s, score, dq) { return route(score, dq, s) !== 'not_yet'; },
     scoreWhen: function (s, score, dq) { return route(score, dq, s) !== 'advisory'; },
