@@ -12,11 +12,14 @@ import { cn } from '@/lib/utils'
  */
 
 const TRACK_LABEL: Record<string, string> = {
-  crm: 'Routed to the discovery call',
-  advisory: 'Routed to the advisory hour',
-  not_yet: 'Routed to not-yet',
+  thirty: 'Priced at $100 / 30 min',
+  sixty: 'Priced at $250 / 60 min',
   undecided: 'Left before finishing',
-  advisory_old: 'Advisory call',
+  // retired tracks, kept so older sessions still read properly
+  crm: 'Routed to the discovery call (retired)',
+  advisory: 'Routed to the advisory hour (retired)',
+  not_yet: 'Routed to not-yet (retired)',
+  advisory_old: 'Advisory call (retired)',
 }
 
 const FORM_LABEL: Record<string, string> = {
@@ -40,11 +43,11 @@ const STEP_LABEL: Record<string, string> = {
   volume: 'Volume last year',
   revenue: 'Revenue (non-CRE)',
   pain: 'Pain points',
-  contact: 'Name, email, phone',
   book: 'Pick your time',
-  notyet: 'Two ways in (tools + call)',
   done: 'Booked',
   // retired screens, kept so older sessions still read properly
+  contact: 'Name, email, phone (retired)',
+  notyet: 'Two ways in (retired)',
   qualify: 'Which one are you after (retired)',
   usstate: 'Which market (retired)',
   need: 'What do you want help with (retired)',

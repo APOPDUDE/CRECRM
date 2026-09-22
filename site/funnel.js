@@ -385,8 +385,15 @@
       data.append('form', formOf());
       if (cfg.gate && (!cfg.scoreWhen || cfg.scoreWhen(state, score, dq))) {
         data.append('qualified', cfg.gate(state, score, dq) ? '1' : '0');
-        data.append('score', String(score));
       }
+      data.append('score', String(score));
+      // Whatever the page derived from the answers (the price tier, say) rather than asked for.
+      var ex = resolve(cfg.extra) || {};
+      Object.keys(ex).forEach(function (k) {
+        data.append(k, ex[k] == null ? '' : String(ex[k]));
+      });
+      // The only thing tying these answers to the booking that follows: there is no contact
+      // screen any more, so the Calendly invitee carries this id back in utm_content.
       data.append('session_id', sid);
       data.append('page', location.href);
       data.append('ref', document.referrer || '');
@@ -413,7 +420,7 @@
       } catch (e) {}
       var url = resolve(cfg.calendly);
       var link = document.getElementById('cal-link');
-      if (link) link.href = url;
+      if (link) link.href = url + '?utm_content=' + encodeURIComponent(sid);
       if (window.Calendly) return init();
       var s = document.createElement('script');
       s.src = 'https://assets.calendly.com/assets/external/widget.js';
@@ -424,7 +431,8 @@
         if (steps.book.getAttribute('data-inited')) return;
         steps.book.setAttribute('data-inited', '1');
         window.Calendly.initInlineWidget({
-          url: url + '?hide_gdpr_banner=1',
+          // utm_content is how the paid booking finds the answers this person just gave.
+          url: url + '?hide_gdpr_banner=1&utm_content=' + encodeURIComponent(sid),
           parentElement: document.getElementById('calendly'),
           prefill: { name: state.name || '', email: state.email || '' },
         });
@@ -440,7 +448,7 @@
         invitee_uri: (p.invitee && p.invitee.uri) || '',
         event_uri: (p.event && p.event.uri) || '',
         name: state.name || '', email: state.email || '', phone: state.phone || '',
-        form: formOf(),
+        session_id: sid, form: formOf(),
       });
       try { fetch(cfg.booked, { method: 'POST', body: body, keepalive: true }); } catch (err) {}
       finished = true;

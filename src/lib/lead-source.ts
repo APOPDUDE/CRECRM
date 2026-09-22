@@ -121,6 +121,19 @@ export const MEETING_TYPE_META: Record<string, { label: string; className: strin
     className: 'border-indigo-200 bg-indigo-50 text-indigo-700',
     dot: 'bg-indigo-500',
   },
+  // Both paid calls are named "Consultation" in Calendly, so the board splits them by
+  // duration: 30 minutes is the $100, an hour is the $250.
+  consult_100: {
+    label: '$100 · 30m',
+    className: 'border-amber-300 bg-amber-50 text-amber-800',
+    dot: 'bg-amber-500',
+  },
+  consult_250: {
+    label: '$250 · 1h',
+    className: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+    dot: 'bg-emerald-500',
+  },
+  // Retired chip, kept so rows booked before 2026-09-21 still render.
   consultation: {
     label: 'Consultation',
     className: 'border-amber-300 bg-amber-50 text-amber-800',

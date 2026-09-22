@@ -274,59 +274,16 @@
       <p class="err" role="alert"></p>
     </section>
 
-    <!-- Last, on purpose: the drop-off data showed contact was the third biggest leak
-         when it sat in the middle, and by here they have already invested the answers. -->
-    <section class="step" data-step="contact" hidden data-fields>
-      <p class="qnum mono"></p>
-      <h2>Last thing, how do I reach you?</h2>
-      <p class="hint">So I can send you something useful either way.</p>
-      <label class="lbl" for="f-name">Name</label>
-      <input id="f-name" type="text" name="name" placeholder="Jordan Ellis" data-required data-msg="Your name, please.">
-      <label class="lbl" for="f-company">Company or brand</label>
-      <input id="f-company" type="text" name="company" placeholder="Ellis Industrial">
-      <label class="lbl" for="f-email">Email</label>
-      <input id="f-email" type="email" name="email" placeholder="jordan@company.com" data-required data-type="email" data-msg="Email, please.">
-      <label class="lbl" for="f-phone">Phone</label>
-      <input id="f-phone" type="tel" name="phone" placeholder="(813) 555-0100" data-required data-type="phone" data-msg="A 10-digit number, please.">
-      <div class="actions"><button type="button" class="btn next">Continue</button></div>
-      <p class="err" role="alert"></p>
-    </section>
-
+    <!-- The only ending. Price, length and what the hour actually buys sit above the
+         calendar so the whole thing still reads on one phone screen. -->
     <section class="step" data-step="book" hidden>
       <p class="eyebrow" id="book-what"></p>
       <h2>Pick your time.</h2>
-      <p class="hint" id="book-hint"></p>
+      <p class="bigprice mono" id="book-price"></p>
+      <ul class="value" id="book-value"></ul>
       <div id="calendly" class="calendly"></div>
       <p class="fine">Calendar not loading? <a id="cal-link" href="https://calendly.com/alex-axis/software-walkthrough" target="_blank" rel="noopener">Open it in a new tab</a>.</p>
       <p class="status" role="status" aria-live="polite"></p>
-    </section>
-
-    <section class="step" data-step="notyet" hidden>
-      <h2>Book a call with me.</h2>
-      <p class="lede">An hour on your business. We go through your pain points and I come back with
-        a game plan for the next steps &mdash; or a custom build&#8209;out, if that is what it needs.</p>
-
-      <p class="bigprice mono">$250 &middot; 1 hour</p>
-      <button type="button" class="btn btn-wide" id="want-advisory">Book the call</button>
-      <p class="fine">If we end up working together it goes toward your first payment.</p>
-
-      <p class="offer-tag mono" style="margin-top:44px">Or start with the stack I used</p>
-      <p class="lede">Free or close to it, and genuinely how this started.</p>
-      <ul class="tools">
-        <li><a href="https://regrid.com" target="_blank" rel="noopener">Regrid</a><span>Parcel boundaries, owner names, acreage.</span></li>
-        <li><a href="https://www.google.com/earth/versions/" target="_blank" rel="noopener">Google Earth Pro</a><span>Free. Measures distances and shows historical imagery.</span></li>
-        <li><span class="nolink">County property appraiser sites</span><span>Ownership, values, sale history, building size. The single best free source there is.</span></li>
-        <li><span class="nolink">Clerk of court</span><span>Lis pendens, evictions, probate. Distress months before anyone else sees it.</span></li>
-        <li><a href="https://sunbiz.org" target="_blank" rel="noopener">Sunbiz</a><span>Turns a Florida LLC into a real person&rsquo;s name.</span></li>
-        <li><a href="https://www.truepeoplesearch.com" target="_blank" rel="noopener">TruePeopleSearch</a><span>Turns that name into a phone number.</span></li>
-        <li><a href="https://terrakotta.ai" target="_blank" rel="noopener">Terrakotta</a><span>Cold calling, so you can actually work the list you just built.</span></li>
-        <li><span class="nolink">LoopNet and Crexi free tiers</span><span>Asking rates. Enough to build your own comp set by hand.</span></li>
-      </ul>
-      <p class="lede">Build the list, then start calling. <strong>If you find a deal you cannot get
-        over the line, send it to me</strong> — happy to work it with you:
-        <a href="mailto:alex@axis.deals">alex@axis.deals</a>.</p>
-      <p class="lede fine">I have your details either way. When there is a room for people doing
-        exactly this, you get the invite.</p>
     </section>
 
     <section class="step" data-step="done" hidden>
@@ -342,51 +299,66 @@
 <script defer>
 window.addEventListener('DOMContentLoaded', function () {
   /**
-   * Nobody picks a product. Everyone answers the same questions and the answers decide,
-   * because a visitor cannot know yet whether they need the CRM, the hour, or neither.
-   */
-  /**
-   * Two endings from the questions, and one door out of the third.
+   * Nobody picks a product and nobody gets a free call. Everyone answers the same questions,
+   * and the answers only decide WHICH call they are buying (Alex, 2026-09-21) - a free call
+   * gets treated like a sales pitch, which is exactly the frame we do not want.
    *
-   * Anyone we can work with gets the free half hour — the point right now is volume of
-   * conversations. The paid hour is reachable ONLY from the not-yet screen, where it is the
-   * alternative offered to someone we have just told the CRM is wrong for.
+   * First match wins:
+   *   1. operating outside the US  -> $250 / 60 min  (time zones make a 30 pointless)
+   *   2. qualifier score >= 7      -> $250 / 60 min
+   *   3. everyone else             -> $100 / 30 min
    */
   function route(score, dq, s) {
-    if (s && s.want_advisory === '1') return 'advisory';
-    // Outside real estate, the CRM is not the product for them however big they are — but a
-    // conversation still is. Only someone genuinely at the very beginning goes to the tools.
-    if (s && s.who === 'other') return dq ? 'not_yet' : 'advisory';
-    if (dq || score < 3) return 'not_yet';
-    return 'crm';
+    if (s && s.where === '__intl') return 'sixty';
+    if (score >= 7) return 'sixty';
+    return 'thirty';
   }
 
+  // Said plainly and small, so the price, the length, what happens, and the calendar all
+  // still fit on one phone screen.
+  var CORE = [
+    'I read your answers and build a game plan before we meet.',
+    'We go through your pain points and the blind spots you cannot see.',
+    'Where AI and automation actually fix them.',
+    'Solutions, and a roadmap to get there.'
+  ];
+
   var OUTCOME = {
-    crm: {
-      tag: 'Discovery call &middot; 30 min',
-      what: 'Discovery call',
-      hint: 'Thirty minutes. Tell me what you are working with and I will show you what the system actually does.',
+    thirty: {
+      tag: '$100 &middot; 30 min',
+      what: 'Consultation',
+      price: '$100 &middot; 30 minutes',
+      bullets: CORE.concat(['And the possibility of working together.']),
       calendly: 'https://calendly.com/alex-axis/software-walkthrough'
     },
-    advisory: {
+    sixty: {
       tag: '$250 &middot; 1 hour',
-      what: 'Discovery and consultation call',
-      hint: 'An hour on your business. I read your answers before we meet, we go through your pain points, and I come back with a game plan for the next steps — or a custom build-out if that is what it needs. $250 holds the time; if we end up working together it goes toward your first payment.',
+      what: 'Consultation',
+      price: '$250 &middot; 60 minutes',
+      bullets: CORE.concat([
+        'Or a custom build-out, if that is what it needs.',
+        'And the possibility of working together.'
+      ]),
       calendly: 'https://calendly.com/alex-axis/consultation'
     }
   };
 
   var funnel = window.initFunnel({
-    form: function (s, score, dq) { return route(score, dq, s) === 'advisory' ? 'consultation' : 'crm'; },
-    track: function (s, score, dq) { return s.name ? route(score, dq, s) : null; },
+    form: 'consultation',
+    track: function (s, score, dq) { return route(score, dq, s); },
     webhook: 'https://n8n.ayxco.com/webhook/alexpoplawski-lead',
     booked: 'https://n8n.ayxco.com/webhook/alexpoplawski-booked',
     events: 'https://n8n.ayxco.com/webhook/alexpoplawski-funnel',
-    calendly: function (s, score, dq) { return (OUTCOME[route(score, dq, s)] || OUTCOME.advisory).calendly; },
+    calendly: function (s, score, dq) { return OUTCOME[route(score, dq, s)].calendly; },
+    // The answers are held against the session id and only become a lead when the paid
+    // booking lands, because there is no contact screen left to identify them by.
+    extra: function (s, score, dq) {
+      var t = route(score, dq, s);
+      return { tier: t, price: t === 'sixty' ? '250' : '100', minutes: t === 'sixty' ? '60' : '30' };
+    },
     phone: '(941) 806-8432',
     order: ['intent', 'who', 'broker_role', 'who_other', 'asset', 'where', 'country',
-            'tracking', 'tools', 'team', 'volume', 'revenue', 'pain', 'contact',
-            'book', 'notyet', 'done'],
+            'tracking', 'tools', 'team', 'volume', 'revenue', 'pain', 'book', 'done'],
     branch: {
       intent: function () { return 'who'; },
       who: function (s) {
@@ -404,24 +376,19 @@ window.addEventListener('DOMContentLoaded', function () {
       team: function (s) { return s.who === 'other' ? 'revenue' : 'volume'; },
       volume: function () { return 'pain'; },
       revenue: function () { return 'pain'; },
-      pain: function () { return 'contact'; }
+      pain: function () { return 'book'; }
     },
-    gate: function (s, score, dq) { return route(score, dq, s) !== 'not_yet'; },
-    scoreWhen: function (s, score, dq) { return route(score, dq, s) !== 'advisory'; },
     onStep: function (key, s, score, dq) {
       if (key !== 'book') return;
-      var o = OUTCOME[route(score, dq, s)] || OUTCOME.advisory;
+      var o = OUTCOME[route(score, dq, s)];
       document.getElementById('price').innerHTML = o.tag;
       document.getElementById('book-what').textContent = o.what;
-      document.getElementById('book-hint').textContent = o.hint;
+      document.getElementById('book-price').innerHTML = o.price;
+      document.getElementById('book-value').innerHTML = o.bullets.map(function (b) {
+        return '<li>' + b + '</li>';
+      }).join('');
       document.getElementById('cal-link').href = o.calendly;
     }
-  });
-
-  // The not-yet screen's paid option: record the choice, then hand them the calendar.
-  document.getElementById('want-advisory').addEventListener('click', function () {
-    funnel.set('want_advisory', '1');
-    funnel.go('book');
   });
 });
 </script>
