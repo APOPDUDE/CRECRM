@@ -127,3 +127,16 @@ body.consult select:focus { outline: none; border-color: var(--navy); box-shadow
   .value li { font-size: 14px; margin-bottom: 4px; }
   body.consult .step[data-step="book"] .calendly { height: 760px; }
 }
+
+/* Intro: the price is the point of the screen, so it sits large between the pitch and the
+   small print rather than waiting for the booking step. */
+body.consult .step[data-step="intro"] .bigprice { margin: 22px 0 10px; }
+body.consult .step[data-step="intro"] .actions { margin-top: 0; }
+
+/* Pain points: tick-boxes first, then one optional field for whatever they missed. */
+.step[data-step="pain"] .lbl { margin-top: 26px; }
+body.consult .step[data-step="pain"] textarea { font-size: 17px; }
+
+/* The build-cost line, shown only to someone who just said they are under it. */
+#book-note { font-size: 15px; margin: 0 0 14px; max-width: 560px; }
+#book-note[hidden] { display: none; }

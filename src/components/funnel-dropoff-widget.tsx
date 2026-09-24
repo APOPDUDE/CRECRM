@@ -11,11 +11,20 @@ import { cn } from '@/lib/utils'
  * tells you what to rewrite. Hidden until there is traffic to report.
  */
 
+/**
+ * The track is the budget band now — one price for everyone, so what separates sessions is
+ * what they said they would spend, not what they were quoted.
+ */
 const TRACK_LABEL: Record<string, string> = {
-  thirty: 'Priced at $100 / 30 min',
-  sixty: 'Priced at $250 / 60 min',
+  none: 'Not looking to invest',
+  under_5k: 'Under $5k',
+  '5k_15k': '$5k to $15k',
+  '15k_50k': '$15k to $50k',
+  '50k_plus': '$50k+',
   undecided: 'Left before finishing',
   // retired tracks, kept so older sessions still read properly
+  thirty: 'Priced at $100 / 30 min (retired)',
+  sixty: 'Priced at $250 / 60 min (retired)',
   crm: 'Routed to the discovery call (retired)',
   advisory: 'Routed to the advisory hour (retired)',
   not_yet: 'Routed to not-yet (retired)',
@@ -30,6 +39,7 @@ const FORM_LABEL: Record<string, string> = {
 
 /** Readable names for the step keys the site reports. */
 const STEP_LABEL: Record<string, string> = {
+  intro: 'The $100, said upfront',
   intent: 'What are you looking for',
   who: 'What do you do',
   broker_role: 'On a team or running one',
@@ -43,6 +53,7 @@ const STEP_LABEL: Record<string, string> = {
   volume: 'Volume last year',
   revenue: 'Revenue (non-CRE)',
   pain: 'Pain points',
+  invest: 'Budget to fix it',
   book: 'Pick your time',
   done: 'Booked',
   // retired screens, kept so older sessions still read properly

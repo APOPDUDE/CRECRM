@@ -258,6 +258,9 @@
       var s = steps[key];
       if (s.hasAttribute('data-fields')) {
         fieldsOf(key).forEach(function (f) { state[f.name] = String(f.value).trim(); });
+        // A screen can carry both: tick-boxes for the answers everyone gives, and a field for
+        // whatever the boxes missed.
+        if (s.querySelector('.choices')) state[key] = value(key);
         return;
       }
       if (!s.querySelector('.choices, input, textarea, select')) return;
@@ -388,6 +391,8 @@
       }
       data.append('score', String(score));
       // Whatever the page derived from the answers (the price tier, say) rather than asked for.
+      // These must not reuse a step key: the loop above already appended every answer, and a
+      // repeated name reaches the webhook joined to itself with a comma.
       var ex = resolve(cfg.extra) || {};
       Object.keys(ex).forEach(function (k) {
         data.append(k, ex[k] == null ? '' : String(ex[k]));

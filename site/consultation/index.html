@@ -30,9 +30,24 @@
 
   <main id="flow">
 
+    <!-- The price is the first thing said, not the last. Everyone who reaches the calendar
+         has already agreed to pay; the surprise at the card field was costing every booking. -->
+    <section class="step" data-step="intro">
+      <h2>Before we start.</h2>
+      <p class="lede">This isn&rsquo;t a sales call. It&rsquo;s a $100 consultation, 30 minutes.</p>
+      <p class="lede">I build custom CRMs &mdash; your data in one place, prospecting that runs
+        itself, and distress signals scraped straight from your county.</p>
+      <p class="bigprice mono">$100 &middot; 30 minutes</p>
+      <p class="lede fine">If we end up working together, the $100 comes off your first bill.</p>
+      <div class="actions">
+        <button type="button" class="btn next">I&rsquo;m in</button>
+        <a class="link" href="/space">Actually, I&rsquo;m looking for space</a>
+      </div>
+    </section>
+
     <!-- What they came for. Kept separate from "what do you do" because the two answer
          different things, and it lets someone who wants advice skip the CRM pitch. -->
-    <section class="step" data-step="intent">
+    <section class="step" data-step="intent" hidden>
       <p class="qnum mono"></p>
       <h2>What are you looking for?</h2>
       <div class="choices" data-required>
@@ -264,13 +279,45 @@
       <p class="err" role="alert"></p>
     </section>
 
-    <section class="step" data-step="pain" hidden>
+    <!-- Was a free-text box. Three of seventeen answers said "no pain points", one typed the
+         validation message back at us - people will tick a box they will not type a sentence.
+         The values are written out in full so they read as prose everywhere downstream. -->
+    <section class="step" data-step="pain" hidden data-fields>
       <p class="qnum mono"></p>
       <h2>What are your pain points?</h2>
-      <textarea name="pain" rows="4" data-required data-min="10" data-msg="A sentence is enough."
-        data-placeholder-idle="Whatever eats your day."
-        data-typed="I run my whole business off unsynced Excels.|My onboarding is way too manual.|Leads go cold because nobody follows up.|I rebuild the same list every week.|I never know which deals to work first."></textarea>
+      <p class="hint">Pick as many as apply.</p>
+      <div class="choices" data-multi data-required>
+        <button type="button" class="choice" data-value="Follow-up falls through">Follow-up falls through the cracks</button>
+        <button type="button" class="choice" data-value="Data lives in spreadsheets and email">My data lives in spreadsheets and email</button>
+        <button type="button" class="choice" data-value="Building and cleaning lists">Building and cleaning lists</button>
+        <button type="button" class="choice" data-value="Skip tracing and owner contacts">Skip tracing and finding owner contacts</button>
+        <button type="button" class="choice" data-value="Tracking properties and inventory">Keeping track of properties and inventory</button>
+        <button type="button" class="choice" data-value="Paying too much for data tools">I pay too much for CoStar and the rest</button>
+        <button type="button" class="choice" data-value="Doing everything myself">I&rsquo;m doing everything myself</button>
+        <button type="button" class="choice" data-value="Nothing broken, just looking" data-solo>Nothing&rsquo;s broken &mdash; I&rsquo;m just looking</button>
+      </div>
+      <label class="lbl" for="f-pain-other">Anything else?</label>
+      <textarea id="f-pain-other" name="pain_other" rows="2"
+        data-placeholder-idle="Optional."
+        data-typed="I rebuild the same list every week.|I never know which deals to work first.|My onboarding is way too manual."></textarea>
       <div class="actions"><button type="button" class="btn next">Continue</button></div>
+      <p class="err" role="alert"></p>
+    </section>
+
+    <!-- Asked with no number attached on purpose: naming a build price here would quote people
+         who never asked for one. The only screen that says what a build costs is the booking
+         screen of someone who just told us they are under $5k. -->
+    <section class="step" data-step="invest" hidden>
+      <p class="qnum mono"></p>
+      <h2>How much are you looking to invest in fixing this?</h2>
+      <p class="hint">Ballpark is fine.</p>
+      <div class="choices" data-required>
+        <button type="button" class="choice" data-value="none">I&rsquo;m building it myself &mdash; not looking to invest</button>
+        <button type="button" class="choice" data-value="under_5k">Under $5k</button>
+        <button type="button" class="choice" data-value="5k_15k">$5k to $15k</button>
+        <button type="button" class="choice" data-value="15k_50k">$15k to $50k</button>
+        <button type="button" class="choice" data-value="50k_plus">$50k+</button>
+      </div>
       <p class="err" role="alert"></p>
     </section>
 
@@ -279,6 +326,7 @@
     <section class="step" data-step="book" hidden>
       <p class="eyebrow" id="book-what"></p>
       <h2>Pick your time.</h2>
+      <p class="lede" id="book-note" hidden></p>
       <p class="bigprice mono" id="book-price"></p>
       <ul class="value" id="book-value"></ul>
       <div id="calendly" class="calendly"></div>
@@ -299,67 +347,50 @@
 <script defer>
 window.addEventListener('DOMContentLoaded', function () {
   /**
-   * Nobody picks a product and nobody gets a free call. Everyone answers the same questions,
-   * and the answers only decide WHICH call they are buying (Alex, 2026-09-21) - a free call
-   * gets treated like a sales pitch, which is exactly the frame we do not want.
-   *
-   * First match wins:
-   *   1. operating outside the US  -> $250 / 60 min  (time zones make a 30 pointless)
-   *   2. qualifier score >= 7      -> $250 / 60 min
-   *   3. everyone else             -> $100 / 30 min
+   * One price, said before the first question (Alex, 2026-09-24). The two-tier version put the
+   * number in front of people for the first time at the Stripe card field and booked nobody:
+   * 17 reached the calendar, 15 quit there, median twenty seconds. The $250 hour is gone from
+   * the funnel entirely - it was mostly being handed out for being outside the US.
    */
-  function route(score, dq, s) {
-    if (s && s.where === '__intl') return 'sixty';
-    if (score >= 7) return 'sixty';
-    return 'thirty';
-  }
-
-  // Said plainly and small, so the price, the length, what happens, and the calendar all
-  // still fit on one phone screen.
-  var CORE = [
-    'I read your answers and build a game plan before we meet.',
-    'We go through your pain points and the blind spots you cannot see.',
-    'Where AI and automation actually fix them.',
-    'Solutions, and a roadmap to get there.'
-  ];
-
-  var OUTCOME = {
-    thirty: {
-      tag: '$100 &middot; 30 min',
-      what: 'Consultation',
-      price: '$100 &middot; 30 minutes',
-      bullets: CORE.concat(['And the possibility of working together.']),
-      calendly: 'https://calendly.com/alex-axis/software-walkthrough'
-    },
-    sixty: {
-      tag: '$250 &middot; 1 hour',
-      what: 'Consultation',
-      price: '$250 &middot; 60 minutes',
-      bullets: CORE.concat([
-        'Or a custom build-out, if that is what it needs.',
-        'And the possibility of working together.'
-      ]),
-      calendly: 'https://calendly.com/alex-axis/consultation'
-    }
+  var CALL = {
+    tag: '$100 &middot; 30 min',
+    what: 'Consultation',
+    price: '$100 &middot; 30 minutes',
+    bullets: [
+      'I read your answers and build a game plan before we meet.',
+      'We go through your pain points and the blind spots you cannot see.',
+      'Where AI and automation actually fix them.',
+      'Solutions, and a roadmap to get there.',
+      'And the possibility of working together.'
+    ],
+    calendly: 'https://calendly.com/alex-axis/software-walkthrough'
   };
 
-  var funnel = window.initFunnel({
+  // The only place in the whole funnel that says what a build costs, and only to someone who
+  // has just told us they are under it. They still get the same call at the same price.
+  var LOW_BUDGET = ['none', 'under_5k'];
+  var LOW_NOTE = 'A custom build runs more than that \u2014 usually $15\u201325k \u2014 so that is '
+    + 'probably not where you start, and that is fine. I am still happy to do the call. We will go '
+    + 'through what you can fix yourself and what is actually worth paying for.';
+
+  window.initFunnel({
     form: 'consultation',
-    track: function (s, score, dq) { return route(score, dq, s); },
+    // The budget band is the interesting dimension now that price no longer branches.
+    track: function (s) { return s.invest || null; },
     webhook: 'https://n8n.ayxco.com/webhook/alexpoplawski-lead',
     booked: 'https://n8n.ayxco.com/webhook/alexpoplawski-booked',
     events: 'https://n8n.ayxco.com/webhook/alexpoplawski-funnel',
-    calendly: function (s, score, dq) { return OUTCOME[route(score, dq, s)].calendly; },
+    calendly: CALL.calendly,
     // The answers are held against the session id and only become a lead when the paid
-    // booking lands, because there is no contact screen left to identify them by.
-    extra: function (s, score, dq) {
-      var t = route(score, dq, s);
-      return { tier: t, price: t === 'sixty' ? '250' : '100', minutes: t === 'sixty' ? '60' : '30' };
-    },
+    // booking lands, because there is no contact screen to identify them by.
+    // Only things the page DERIVES. Never repeat a step key here - the submit body already
+    // carries every answer, and a duplicate arrives at n8n comma-joined with itself.
+    extra: { tier: 'thirty', price: '100', minutes: '30' },
     phone: '(941) 806-8432',
-    order: ['intent', 'who', 'broker_role', 'who_other', 'asset', 'where', 'country',
-            'tracking', 'tools', 'team', 'volume', 'revenue', 'pain', 'book', 'done'],
+    order: ['intro', 'intent', 'who', 'broker_role', 'who_other', 'asset', 'where', 'country',
+            'tracking', 'tools', 'team', 'volume', 'revenue', 'pain', 'invest', 'book', 'done'],
     branch: {
+      intro: function () { return 'intent'; },
       intent: function () { return 'who'; },
       who: function (s) {
         return s.who === 'broker' ? 'broker_role' : s.who === 'other' ? 'who_other' : 'asset';
@@ -369,6 +400,7 @@ window.addEventListener('DOMContentLoaded', function () {
       // anything to them, and ask about revenue rather than transaction volume.
       who_other: function () { return 'where'; },
       asset: function () { return 'where'; },
+      // Where they operate is intel only now - it used to force the $250 hour.
       where: function (s) { return s.where === '__intl' ? 'country' : 'tracking'; },
       country: function () { return 'tracking'; },
       tracking: function (s) { return s.who === 'other' ? 'team' : 'tools'; },
@@ -376,18 +408,21 @@ window.addEventListener('DOMContentLoaded', function () {
       team: function (s) { return s.who === 'other' ? 'revenue' : 'volume'; },
       volume: function () { return 'pain'; },
       revenue: function () { return 'pain'; },
-      pain: function () { return 'book'; }
+      pain: function () { return 'invest'; },
+      invest: function () { return 'book'; }
     },
-    onStep: function (key, s, score, dq) {
+    onStep: function (key, s) {
       if (key !== 'book') return;
-      var o = OUTCOME[route(score, dq, s)];
-      document.getElementById('price').innerHTML = o.tag;
-      document.getElementById('book-what').textContent = o.what;
-      document.getElementById('book-price').innerHTML = o.price;
-      document.getElementById('book-value').innerHTML = o.bullets.map(function (b) {
+      document.getElementById('price').innerHTML = CALL.tag;
+      document.getElementById('book-what').textContent = CALL.what;
+      document.getElementById('book-price').innerHTML = CALL.price;
+      document.getElementById('book-value').innerHTML = CALL.bullets.map(function (b) {
         return '<li>' + b + '</li>';
       }).join('');
-      document.getElementById('cal-link').href = o.calendly;
+      var note = document.getElementById('book-note');
+      note.hidden = LOW_BUDGET.indexOf(s.invest) === -1;
+      note.textContent = note.hidden ? '' : LOW_NOTE;
+      document.getElementById('cal-link').href = CALL.calendly;
     }
   });
 });
