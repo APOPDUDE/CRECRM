@@ -34,15 +34,18 @@
          has already agreed to pay; the surprise at the card field was costing every booking. -->
     <section class="step" data-step="intro">
       <h2>Before we start.</h2>
-      <p class="lede">This isn&rsquo;t a sales call. It&rsquo;s a $100 consultation, 30 minutes.</p>
-      <p class="lede">I build custom CRMs &mdash; your data in one place, prospecting that runs
-        itself, and distress signals scraped straight from your county.</p>
+      <p class="lede">We go through your pain points, the blind spots you can&rsquo;t see from
+        inside your own business, and where AI and automation actually fix them.</p>
       <p class="bigprice mono">$100 &middot; 30 minutes</p>
-      <p class="lede fine">If we end up working together, the $100 comes off your first bill.</p>
+      <p class="lede fine">This is a consultation call. I also set up a select few clients on the
+        system I run my own brokerage on, and if we end up working together the $100 comes off
+        your first bill.</p>
       <div class="actions">
         <button type="button" class="btn next">I&rsquo;m in</button>
         <a class="link" href="/space">Actually, I&rsquo;m looking for space</a>
       </div>
+      <p class="disclaimer">*For business inquiries, email me at
+        <a href="mailto:alex@ayxco.com">alex@ayxco.com</a>.</p>
     </section>
 
     <!-- What they came for. Kept separate from "what do you do" because the two answer
@@ -294,7 +297,7 @@
         <button type="button" class="choice" data-value="Tracking properties and inventory">Keeping track of properties and inventory</button>
         <button type="button" class="choice" data-value="Paying too much for data tools">I pay too much for CoStar and the rest</button>
         <button type="button" class="choice" data-value="Doing everything myself">I&rsquo;m doing everything myself</button>
-        <button type="button" class="choice" data-value="Nothing broken, just looking" data-solo>Nothing&rsquo;s broken &mdash; I&rsquo;m just looking</button>
+        <button type="button" class="choice" data-value="Nothing broken, just looking" data-solo>Nothing&rsquo;s broken, I&rsquo;m just looking</button>
       </div>
       <label class="lbl" for="f-pain-other">Anything else?</label>
       <textarea id="f-pain-other" name="pain_other" rows="2"
@@ -312,7 +315,7 @@
       <h2>How much are you looking to invest in fixing this?</h2>
       <p class="hint">Ballpark is fine.</p>
       <div class="choices" data-required>
-        <button type="button" class="choice" data-value="none">I&rsquo;m building it myself &mdash; not looking to invest</button>
+        <button type="button" class="choice" data-value="none">I&rsquo;m building it myself, not looking to invest</button>
         <button type="button" class="choice" data-value="under_5k">Under $5k</button>
         <button type="button" class="choice" data-value="5k_15k">$5k to $15k</button>
         <button type="button" class="choice" data-value="15k_50k">$15k to $50k</button>
@@ -369,9 +372,9 @@ window.addEventListener('DOMContentLoaded', function () {
   // The only place in the whole funnel that says what a build costs, and only to someone who
   // has just told us they are under it. They still get the same call at the same price.
   var LOW_BUDGET = ['none', 'under_5k'];
-  var LOW_NOTE = 'A custom build runs more than that \u2014 usually $15\u201325k \u2014 so that is '
-    + 'probably not where you start, and that is fine. I am still happy to do the call. We will go '
-    + 'through what you can fix yourself and what is actually worth paying for.';
+  var LOW_NOTE = 'A custom build runs more than that, usually $15\u201325k, so that is probably '
+    + 'not where you start, and that is fine. I am still happy to do the call. We will go through '
+    + 'what you can fix yourself and what is actually worth paying for.';
 
   window.initFunnel({
     form: 'consultation',

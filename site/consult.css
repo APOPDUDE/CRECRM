@@ -140,3 +140,9 @@ body.consult .step[data-step="pain"] textarea { font-size: 17px; }
 /* The build-cost line, shown only to someone who just said they are under it. */
 #book-note { font-size: 15px; margin: 0 0 14px; max-width: 560px; }
 #book-note[hidden] { display: none; }
+
+/* Sits under the button on purpose: the people who want to talk business rather than book a
+   call should find the address without it competing with the call to action. */
+.disclaimer { font-size: 13px; color: var(--muted); margin: 26px 0 0; }
+.disclaimer a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.disclaimer a:hover { color: var(--navy); }
